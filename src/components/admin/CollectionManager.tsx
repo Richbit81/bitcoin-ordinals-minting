@@ -1,0 +1,508 @@
+import React, { useState, useEffect } from 'react';
+import {
+  getAllCollectionsAdmin,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  getWalletInscriptions,
+  Collection,
+  CollectionItem,
+  WalletInscription,
+} from '../../services/collectionService';
+import { InscriptionPreview } from './InscriptionPreview';
+
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+
+interface CollectionManagerProps {
+  adminAddress: string;
+}
+
+export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddress }) => {
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [walletInscriptions, setWalletInscriptions] = useState<WalletInscription[]>([]);
+  const [loadingInscriptions, setLoadingInscriptions] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    thumbnail: '',
+    price: '',
+    items: [] as CollectionItem[],
+  });
+
+  useEffect(() => {
+    loadCollections();
+  }, [adminAddress]);
+
+  const loadWalletInscriptions = async () => {
+    if (!adminAddress) {
+      console.warn('[CollectionManager] No admin address provided, cannot load wallet inscriptions');
+      return;
+    }
+    console.log('[CollectionManager] Loading wallet inscriptions for:', adminAddress);
+    setLoadingInscriptions(true);
+    try {
+      const data = await getWalletInscriptions(adminAddress);
+      console.log('[CollectionManager] ✅ Loaded wallet inscriptions:', data.length);
+      console.log('[CollectionManager] First few inscriptions:', data.slice(0, 3));
+      
+      // Debug: Prüfe Delegate-Inskriptionen
+      const delegates = data.filter(ins => ins.isDelegate === true || ins.originalInscriptionId);
+      console.log(`[CollectionManager] 🔍 Found ${delegates.length} potential delegate inscriptions (isDelegate=true OR has originalInscriptionId)`);
+      if (delegates.length > 0) {
+        console.log(`[CollectionManager] 🔍 First 3 delegate inscriptions:`, delegates.slice(0, 3).map(d => ({
+          inscriptionId: d.inscriptionId,
+          isDelegate: d.isDelegate,
+          originalInscriptionId: d.originalInscriptionId,
+          contentType: d.contentType,
+          name: d.name
+        })));
+      } else {
+        console.warn(`[CollectionManager] ⚠️ No delegate inscriptions found! Checking all inscriptions for HTML content...`);
+        const htmlInscriptions = data.filter(ins => ins.contentType && (ins.contentType.includes('html') || ins.contentType.includes('text/html')));
+        console.log(`[CollectionManager] 🔍 Found ${htmlInscriptions.length} HTML inscriptions (but not marked as delegates):`, htmlInscriptions.slice(0, 3).map(d => ({
+          inscriptionId: d.inscriptionId,
+          contentType: d.contentType,
+          isDelegate: d.isDelegate,
+          originalInscriptionId: d.originalInscriptionId
+        })));
+      }
+      
+      setWalletInscriptions(data);
+      
+      if (data.length === 0) {
+        console.warn('[CollectionManager] ⚠️ No inscriptions found. This might be because:');
+        console.warn('[CollectionManager]   1. The wallet has no inscriptions');
+        console.warn('[CollectionManager]   2. The API endpoint returned an error');
+        console.warn('[CollectionManager]   3. The API key is invalid or missing');
+        console.warn('[CollectionManager]   4. The address format is incorrect');
+      }
+    } catch (error: any) {
+      console.error('[CollectionManager] ❌ Error loading wallet inscriptions:', error);
+      console.error('[CollectionManager] Error message:', error?.message);
+      console.error('[CollectionManager] Error stack:', error?.stack);
+      setWalletInscriptions([]);
+      
+      // Zeige Fehler auch in der UI
+      alert(`Error loading wallet inscriptions: ${error?.message || 'Unknown error'}. Check console for details.`);
+    } finally {
+      setLoadingInscriptions(false);
+    }
+  };
+
+  // Lade Wallet-Inskriptionen nur wenn Formular geöffnet ist
+  useEffect(() => {
+    if (showForm && adminAddress) {
+      console.log('[CollectionManager] Form opened, loading wallet inscriptions...');
+      loadWalletInscriptions();
+    } else if (!showForm) {
+      // Reset when form is closed
+      setWalletInscriptions([]);
+      setSearchTerm('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, adminAddress]);
+
+  const loadCollections = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllCollectionsAdmin(adminAddress);
+      setCollections(data);
+    } catch (error) {
+      console.error('Error loading collections:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, thumbnail: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const toggleItemSelection = (inscription: WalletInscription, type: 'delegate' | 'original') => {
+    const itemIndex = formData.items.findIndex(
+      item => item.inscriptionId === inscription.inscriptionId
+    );
+
+    if (itemIndex >= 0) {
+      // Entferne Item
+      setFormData({
+        ...formData,
+        items: formData.items.filter((_, i) => i !== itemIndex),
+      });
+    } else {
+      // Füge Item hinzu
+      // Direkt von ordinals.com laden - KEIN Backend-API-Call mehr!
+      const imageUrl = `https://ordinals.com/content/${inscription.inscriptionId}`;
+      setFormData({
+        ...formData,
+        items: [
+          ...formData.items,
+          {
+            inscriptionId: inscription.inscriptionId,
+            name: inscription.name,
+            type,
+            imageUrl,
+          },
+        ],
+      });
+    }
+  };
+
+  const isItemSelected = (inscriptionId: string) => {
+    return formData.items.some(item => item.inscriptionId === inscriptionId);
+  };
+
+  const getItemType = (inscriptionId: string): 'delegate' | 'original' => {
+    const item = formData.items.find(item => item.inscriptionId === inscriptionId);
+    return item?.type || 'delegate';
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.price || formData.items.length === 0) {
+      alert('Please fill in all required fields (Name, Price, and select at least one item)');
+      return;
+    }
+
+    try {
+      if (editingCollection) {
+        await updateCollection(editingCollection.id, adminAddress, formData);
+        alert('Collection updated successfully!');
+      } else {
+        await createCollection(adminAddress, formData);
+        alert('Collection created successfully!');
+      }
+      
+      resetForm();
+      loadCollections();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleEdit = (collection: Collection) => {
+    setEditingCollection(collection);
+    setFormData({
+      name: collection.name,
+      description: collection.description,
+      thumbnail: collection.thumbnail,
+      price: collection.price.toString(),
+      items: collection.items,
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (collectionId: string) => {
+    if (!confirm('Are you sure you want to deactivate this collection?')) {
+      return;
+    }
+
+    try {
+      await deleteCollection(collectionId, adminAddress);
+      alert('Collection deactivated successfully!');
+      loadCollections();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      thumbnail: '',
+      price: '',
+      items: [],
+    });
+    setEditingCollection(null);
+    setShowForm(false);
+  };
+
+  const filteredInscriptions = walletInscriptions.filter(ins =>
+    ins.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ins.inscriptionId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold text-white border-b border-red-600 pb-2">
+          Collection Management
+        </h3>
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded font-semibold text-sm"
+        >
+          + New Collection
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-gray-900 border border-red-600 rounded p-6 mb-6">
+          <h4 className="font-bold text-white mb-4">
+            {editingCollection ? 'Edit Collection' : 'Create New Collection'}
+          </h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                placeholder="Collection name"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                rows={3}
+                placeholder="Collection description"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Thumbnail</label>
+              <div className="flex gap-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailChange}
+                  className="text-white text-sm"
+                />
+                {formData.thumbnail && (
+                  <img
+                    src={formData.thumbnail}
+                    alt="Thumbnail preview"
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Or enter URL:</p>
+              <input
+                type="text"
+                value={formData.thumbnail}
+                onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm mt-1"
+                placeholder="https://example.com/image.png"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Price (BTC) *</label>
+              <input
+                type="number"
+                step="0.00000001"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                placeholder="0.0001"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">
+                Select Items from Wallet ({formData.items.length} selected) *
+              </label>
+              
+              <div className="mb-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                  placeholder="Search inscriptions..."
+                />
+              </div>
+
+              {!adminAddress ? (
+                <div className="text-gray-400 text-sm py-4">Please connect admin wallet to view inscriptions</div>
+              ) : loadingInscriptions ? (
+                <div className="text-gray-400 text-sm py-4">Loading wallet inscriptions...</div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto border border-gray-700 rounded p-4 bg-black">
+                  {filteredInscriptions.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400 text-sm mb-2">
+                        {walletInscriptions.length === 0 
+                          ? 'No inscriptions found in wallet' 
+                          : 'No inscriptions match your search'}
+                      </p>
+                      {walletInscriptions.length > 0 && (
+                        <p className="text-gray-500 text-xs">
+                          Showing {filteredInscriptions.length} of {walletInscriptions.length} inscriptions
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {filteredInscriptions.map((inscription) => {
+                        const selected = isItemSelected(inscription.inscriptionId);
+                        const itemType = getItemType(inscription.inscriptionId);
+                        // Content-Type: Falls "unknown" oder leer, prüfe ob es ein Delegate ist oder HTML enthält
+                        let contentType = inscription.contentType?.toLowerCase() || 'unknown';
+                        
+                        // Fallback: Wenn Content-Type "unknown" ist, aber isDelegate-Flag gesetzt ist, setze auf HTML
+                        if (contentType === 'unknown' && (inscription.isDelegate === true || inscription.isDelegate === 'true')) {
+                          contentType = 'text/html';
+                        }
+                        
+                        return (
+                          <div
+                            key={inscription.inscriptionId}
+                            className={`border rounded p-2 cursor-pointer transition ${
+                              selected
+                                ? 'border-red-600 bg-red-900/20'
+                                : 'border-gray-700 hover:border-gray-600'
+                            }`}
+                            onClick={() => toggleItemSelection(inscription, itemType)}
+                          >
+                            <div className="aspect-square bg-gray-800 rounded mb-2 flex items-center justify-center overflow-hidden">
+                              <InscriptionPreview inscription={inscription} />
+                            </div>
+                            <div className="text-xs text-white truncate mb-1">
+                              {inscription.name}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate mb-1">
+                              {contentType}
+                            </div>
+                            {selected && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <select
+                                  value={itemType}
+                                  onChange={(e) => {
+                                    const newItems = formData.items.map(item =>
+                                      item.inscriptionId === inscription.inscriptionId
+                                        ? { ...item, type: e.target.value as 'delegate' | 'original' }
+                                        : item
+                                    );
+                                    setFormData({ ...formData, items: newItems });
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-xs bg-gray-700 text-white rounded px-1 py-0.5"
+                                >
+                                  <option value="delegate">Delegate</option>
+                                  <option value="original">Original</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded font-semibold text-sm"
+              >
+                {editingCollection ? 'Update Collection' : 'Create Collection'}
+              </button>
+              <button
+                onClick={resetForm}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-semibold text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h4 className="font-bold text-white mb-3">
+          Collections ({collections.length})
+        </h4>
+        {collections.length === 0 ? (
+          <p className="text-gray-400 text-sm">No collections yet</p>
+        ) : (
+          <div className="space-y-4">
+            {collections.map((collection) => (
+              <div key={collection.id} className="bg-gray-900 border border-red-600 rounded p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {collection.thumbnail && (
+                        <div className="w-20 h-20 bg-gray-800 rounded flex items-center justify-center flex-shrink-0">
+                          <img
+                            src={collection.thumbnail}
+                            alt={collection.name}
+                            className="w-full h-full object-cover rounded"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="font-bold text-white text-lg">{collection.name}</h5>
+                          {!collection.active && (
+                            <span className="text-xs px-2 py-0.5 bg-gray-700 text-white rounded">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-400 text-sm mt-1">{collection.description}</p>
+                        <div className="mt-2 flex items-center gap-4">
+                          <span className="text-red-600 font-bold">
+                            {collection.price} BTC
+                          </span>
+                          <span className="text-gray-500 text-xs">
+                            {collection.items.length} items
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(collection)}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(collection.id)}
+                      className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold text-white"
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+

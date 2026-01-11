@@ -1,0 +1,181 @@
+/**
+ * Collection Service für Frontend
+ */
+
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+
+export interface CollectionItem {
+  inscriptionId: string;
+  name: string;
+  type: 'delegate' | 'original';
+  imageUrl?: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description: string;
+  thumbnail: string;
+  price: number; // BTC
+  items: CollectionItem[];
+  createdAt: string;
+  updatedAt: string;
+  active: boolean;
+}
+
+export interface WalletInscription {
+  inscriptionId: string;
+  name: string;
+  contentType: string;
+  contentLength: number;
+  timestamp: number;
+  isDelegate?: boolean; // Flag für Delegate-Inskriptionen (HTML-Inskriptionen)
+  originalInscriptionId?: string; // WICHTIG: Für Delegate-Inskriptionen - Original-Inskription-ID für Vorschau
+  inscriptionNumber?: number; // Optional: Inskriptionsnummer
+}
+
+/**
+ * Hole alle aktiven Kollektionen
+ */
+export const getAllCollections = async (): Promise<Collection[]> => {
+  const response = await fetch(`${API_URL}/api/collections`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch collections');
+  }
+  const data = await response.json();
+  return data.collections || [];
+};
+
+/**
+ * Hole eine einzelne Kollektion
+ */
+export const getCollection = async (id: string): Promise<Collection> => {
+  const response = await fetch(`${API_URL}/api/collections/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch collection');
+  }
+  const data = await response.json();
+  return data.collection;
+};
+
+/**
+ * Hole alle Kollektionen (auch inaktive) - für Admin
+ */
+export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Collection[]> => {
+  const response = await fetch(`${API_URL}/api/collections/admin/all?adminAddress=${encodeURIComponent(adminAddress)}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch collections');
+  }
+  const data = await response.json();
+  return data.collections || [];
+};
+
+/**
+ * Hole Inskriptionen aus Admin-Wallet
+ */
+export const getWalletInscriptions = async (adminAddress: string): Promise<WalletInscription[]> => {
+  const response = await fetch(`${API_URL}/api/collections/admin/wallet-inscriptions?address=${encodeURIComponent(adminAddress)}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    
+    // WICHTIG: Rate-Limit-Behandlung für Status 429 ODER wenn die Fehlermeldung "Rate limit" enthält
+    // Prüfe auch, ob der errorData.error "rate limit" enthält (case-insensitive)
+    const errorMsg = errorData.error || errorData.message || '';
+    const isRateLimit = response.status === 429 || 
+                       (errorMsg && (errorMsg.toLowerCase().includes('rate limit') || 
+                                    errorMsg.toLowerCase().includes('exceeds rate limit') ||
+                                    errorData.code === -2006));
+    
+    if (isRateLimit) {
+      const retryAfter = errorData.retryAfter || 300;
+      const displayMsg = errorMsg || 'Rate limit erreicht';
+      throw new Error(`Rate limit erreicht! ${displayMsg}. Bitte warten Sie ${retryAfter} Sekunden (ca. ${Math.ceil(retryAfter / 60)} Minuten) bevor Sie es erneut versuchen.`);
+    }
+    
+    // Bei 500 oder anderen Fehlern: Zeige die echte Fehlermeldung
+    // Entferne alte Fehlermeldungen wie "All UniSat API endpoints returned 404"
+    const errorMessage = errorData.error || errorData.message || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+  const data = await response.json();
+  // Backend gibt direkt ein Array zurück, nicht als data.inscriptions
+  return Array.isArray(data) ? data : (data.inscriptions || []);
+};
+
+/**
+ * Erstelle eine neue Kollektion
+ */
+export const createCollection = async (
+  adminAddress: string,
+  collectionData: {
+    name: string;
+    description?: string;
+    thumbnail: string;
+    price: number;
+    items: CollectionItem[];
+  }
+): Promise<Collection> => {
+  const response = await fetch(`${API_URL}/api/collections/admin/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...collectionData,
+      adminAddress,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || 'Failed to create collection');
+  }
+
+  const data = await response.json();
+  return data.collection;
+};
+
+/**
+ * Aktualisiere eine Kollektion
+ */
+export const updateCollection = async (
+  collectionId: string,
+  adminAddress: string,
+  updates: {
+    name?: string;
+    description?: string;
+    thumbnail?: string;
+    price?: number;
+    items?: CollectionItem[];
+  }
+): Promise<Collection> => {
+  const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...updates,
+      adminAddress,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || 'Failed to update collection');
+  }
+
+  const data = await response.json();
+  return data.collection;
+};
+
+/**
+ * Lösche/Deaktiviere eine Kollektion
+ */
+export const deleteCollection = async (collectionId: string, adminAddress: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}?adminAddress=${encodeURIComponent(adminAddress)}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || 'Failed to delete collection');
+  }
+};
+

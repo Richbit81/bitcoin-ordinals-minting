@@ -1,0 +1,490 @@
+/**
+ * Game Engine
+ * Deterministic, turn-based card game engine
+ * Strict phase system with automatic effect resolution
+ */
+
+import { GameCard, EffectDefinition, ALL_GAME_CARDS, getGameCardById, STATUS_CATEGORIES } from './gameCards';
+import { resolvePendingEffects } from './effectResolver';
+
+export type GamePhase = 'draw' | 'main' | 'attack' | 'end';
+export type GameMode = 'pvp' | 'pve';
+
+export interface BoardAnimal {
+  id: string;
+  cardId: string;
+  card: GameCard;
+  currentAtk: number;
+  currentHp: number;
+  maxHp: number;
+  statuses: string[]; // Status card IDs attached
+  canAttack: boolean;
+  attacksThisTurn: number;
+  maxAttacks: number; // For cards like Cat
+  owner: number; // Player index
+  playedThisTurn: boolean;
+}
+
+export interface PlayerState {
+  index: number;
+  life: number;
+  deck: GameCard[];
+  hand: GameCard[];
+  board: BoardAnimal[];
+  discard: GameCard[];
+  statuses: string[]; // Status cards attached to player
+  canDraw: boolean;
+  animalsPlayedThisTurn: number;
+}
+
+export interface GameState {
+  currentPlayer: number;
+  phase: GamePhase;
+  mode: GameMode;
+  players: PlayerState[];
+  turnNumber: number;
+  pendingEffects: Array<{
+    effect: EffectDefinition;
+    source: string; // Card ID
+    target?: string; // Target ID
+    player: number;
+  }>;
+  gameOver: boolean;
+  winner: number | null;
+}
+
+/**
+ * Erstellt einen neuen Game State
+ */
+export const createGameState = (
+  player1Deck: GameCard[],
+  player2Deck: GameCard[],
+  mode: GameMode = 'pvp'
+): GameState => {
+  // Mische Decks
+  const shuffle = <T>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  const shuffledDeck1 = shuffle(player1Deck);
+  const shuffledDeck2 = shuffle(player2Deck);
+
+  // Ziehe 5 Karten
+  const hand1 = shuffledDeck1.splice(0, 5);
+  const hand2 = shuffledDeck2.splice(0, 5);
+
+  // Zufälliger Startspieler
+  const startingPlayer = Math.random() < 0.5 ? 0 : 1;
+
+  return {
+    currentPlayer: startingPlayer,
+    phase: 'draw',
+    mode,
+    players: [
+      {
+        index: 0,
+        life: 20,
+        deck: shuffledDeck1,
+        hand: hand1,
+        board: [],
+        discard: [],
+        statuses: [],
+        canDraw: true,
+        animalsPlayedThisTurn: 0,
+      },
+      {
+        index: 1,
+        life: 20,
+        deck: shuffledDeck2,
+        hand: hand2,
+        board: [],
+        discard: [],
+        statuses: [],
+        canDraw: true,
+        animalsPlayedThisTurn: 0,
+      },
+    ],
+    turnNumber: 1,
+    pendingEffects: [],
+    gameOver: false,
+    winner: null,
+  };
+};
+
+/**
+ * Zieht eine Karte für einen Spieler
+ */
+export const drawCard = (state: GameState, playerIndex: number): GameState => {
+  const player = state.players[playerIndex];
+  
+  // Prüfe ob Spieler ziehen kann (z.B. PARANOIA Status)
+  if (!player.canDraw) {
+    return state;
+  }
+
+  if (player.deck.length > 0) {
+    const drawnCard = player.deck.shift()!;
+    player.hand.push(drawnCard);
+  } else {
+    // Deck leer: Verliere 1 Life
+    player.life -= 1;
+    if (player.life <= 0) {
+      return {
+        ...state,
+        gameOver: true,
+        winner: 1 - playerIndex,
+      };
+    }
+  }
+
+  return { ...state };
+};
+
+/**
+ * Prüft ob eine Karte gespielt werden kann
+ */
+export const canPlayCard = (
+  state: GameState,
+  playerIndex: number,
+  card: GameCard,
+  target?: string
+): boolean => {
+  const player = state.players[playerIndex];
+
+  // Nur aktiver Spieler kann spielen
+  if (playerIndex !== state.currentPlayer || state.phase !== 'main') {
+    return false;
+  }
+
+  // Prüfe Karten-Typ-spezifische Regeln
+  if (card.type === 'animal') {
+    // Max. 1 Tier pro Turn
+    if (player.animalsPlayedThisTurn >= 1) {
+      return false;
+    }
+    // Max. 5 Tiere auf dem Board
+    if (player.board.length >= 5) {
+      return false;
+    }
+  }
+
+  // Prüfe ob Ziel gültig ist (falls benötigt)
+  if (card.effects.some(e => e.target && e.target !== 'self')) {
+    // TODO: Prüfe ob Ziel gültig ist
+  }
+
+  return true;
+};
+
+/**
+ * Spielt eine Karte
+ */
+export const playCard = (
+  state: GameState,
+  playerIndex: number,
+  cardId: string,
+  target?: string
+): GameState => {
+  const player = state.players[playerIndex];
+  const card = getGameCardById(cardId);
+
+  if (!card || !canPlayCard(state, playerIndex, card, target)) {
+    return state;
+  }
+
+  // Entferne Karte aus Hand
+  const cardIndex = player.hand.findIndex(c => c.id === cardId);
+  if (cardIndex === -1) return state;
+
+  const playedCard = player.hand.splice(cardIndex, 1)[0];
+
+  // Verarbeite je nach Karten-Typ
+  if (card.type === 'animal') {
+    // Erstelle Board Animal
+    const boardAnimal: BoardAnimal = {
+      id: `animal-${Date.now()}-${Math.random()}`,
+      cardId: card.id,
+      card: card,
+      currentAtk: card.atk || 0,
+      currentHp: card.hp || 0,
+      maxHp: card.hp || 0,
+      statuses: [],
+      canAttack: true,
+      attacksThisTurn: 0,
+      maxAttacks: 1,
+      owner: playerIndex,
+      playedThisTurn: true,
+    };
+
+    // Prüfe auf doppelte Angriffe (z.B. Cat)
+    if (card.id === 'card-19') { // Cat
+      boardAnimal.maxAttacks = 2;
+    }
+
+    player.board.push(boardAnimal);
+    player.animalsPlayedThisTurn++;
+
+    // Trigger "onPlay" Effekte
+    const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
+    for (const effect of onPlayEffects) {
+      state.pendingEffects.push({
+        effect,
+        source: card.id,
+        target: boardAnimal.id,
+        player: playerIndex,
+      });
+    }
+    
+    // Löse pending Effects sofort auf
+    state = resolvePendingEffects(state);
+  } else if (card.type === 'action') {
+    // Trigger "onPlay" Effekte
+    const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
+    for (const effect of onPlayEffects) {
+      state.pendingEffects.push({
+        effect,
+        source: card.id,
+        target,
+        player: playerIndex,
+      });
+    }
+    
+    // Löse pending Effects sofort auf
+    state = resolvePendingEffects(state);
+
+    // Action-Karten gehen sofort in den Discard
+    player.discard.push(playedCard);
+  } else if (card.type === 'status') {
+    // Status-Karten müssen an ein Ziel angehängt werden
+    if (target) {
+      // Finde Ziel (Animal oder Player)
+      const targetAnimal = player.board.find(a => a.id === target) ||
+                           state.players[1 - playerIndex].board.find(a => a.id === target);
+      
+      if (targetAnimal) {
+        targetAnimal.statuses.push(card.id);
+      } else {
+        // An Spieler angehängt
+        const targetPlayer = state.players.find(p => p.index.toString() === target);
+        if (targetPlayer) {
+          targetPlayer.statuses.push(card.id);
+        }
+      }
+    }
+
+    // Status-Karten gehen in den Discard (aber bleiben als Attachment)
+    player.discard.push(playedCard);
+  }
+
+  return { ...state };
+};
+
+/**
+ * Wechselt zur nächsten Phase
+ */
+export const nextPhase = (state: GameState): GameState => {
+  let newState = { ...state };
+
+  switch (state.phase) {
+    case 'draw':
+      // Draw Phase: Automatisch 1 Karte ziehen
+      drawCard(newState, state.currentPlayer);
+      newState.phase = 'main';
+      break;
+
+    case 'main':
+      // Main Phase: Wechsel zu Attack Phase
+      newState.phase = 'attack';
+      break;
+
+    case 'attack':
+      // Attack Phase: Alle Tiere greifen automatisch an
+      const currentPlayer = newState.players[state.currentPlayer];
+      const opponent = newState.players[1 - state.currentPlayer];
+
+      for (const animal of currentPlayer.board) {
+        if (canAnimalAttack(newState, animal)) {
+          // Tier greift an
+          opponent.life -= animal.currentAtk;
+          animal.attacksThisTurn++;
+
+          // Trigger "onAttack" Effekte
+          const onAttackEffects = animal.card.effects.filter(e => e.trigger === 'onAttack');
+          for (const effect of onAttackEffects) {
+            newState.pendingEffects.push({
+              effect,
+              source: animal.card.id,
+              target: animal.id,
+              player: state.currentPlayer,
+            });
+          }
+          
+          // Löse pending Effects auf
+          newState = resolvePendingEffects(newState);
+
+          // Prüfe ob Spieler verloren hat
+          if (opponent.life <= 0) {
+            newState.gameOver = true;
+            newState.winner = state.currentPlayer;
+            return newState;
+          }
+        }
+      }
+
+      newState.phase = 'end';
+      break;
+
+    case 'end':
+      // End Phase: End-of-Turn-Effekte, Tod, Status entfernen
+      resolveEndPhase(newState);
+      
+      // Reset für nächsten Turn
+      const player = newState.players[state.currentPlayer];
+      player.animalsPlayedThisTurn = 0;
+      player.board.forEach(animal => {
+        animal.attacksThisTurn = 0;
+        animal.playedThisTurn = false;
+      });
+
+      // Wechsel Spieler
+      newState.currentPlayer = 1 - state.currentPlayer;
+      newState.phase = 'draw';
+      newState.turnNumber++;
+      break;
+  }
+
+  return newState;
+};
+
+/**
+ * Prüft ob ein Tier angreifen kann
+ */
+const canAnimalAttack = (state: GameState, animal: BoardAnimal): boolean => {
+  // Prüfe ob Tier bereits angegriffen hat (max. Attacks)
+  if (animal.attacksThisTurn >= animal.maxAttacks) {
+    return false;
+  }
+
+  // Prüfe Status-Effekte
+  for (const statusId of animal.statuses) {
+    const statusCard = getGameCardById(statusId);
+    if (statusCard && statusCard.name === 'STUCK') {
+      // Prüfe ob Tier immun gegen STUCK ist
+      const hasImmunity = animal.card.effects.some(e => 
+        e.action === 'status_immunity' && 
+        e.filter?.statusName === 'STUCK'
+      );
+      if (!hasImmunity) {
+        return false;
+      }
+    }
+  }
+
+  // Prüfe Tier-spezifische Regeln (z.B. Chicken)
+  if (animal.card.effects.some(e => e.action === 'prevent_attack' && e.target === 'self')) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Löst End-of-Turn-Effekte auf
+ */
+const resolveEndPhase = (state: GameState): void => {
+  const player = state.players[state.currentPlayer];
+
+  // End-of-Turn-Effekte (z.B. Butterfly zerstört sich selbst)
+  const endOfTurnEffects = player.board
+    .flatMap(animal => animal.card.effects.filter(e => e.trigger === 'onTurnEnd'))
+    .concat(player.statuses.map(statusId => {
+      const statusCard = getGameCardById(statusId);
+      return statusCard?.effects.filter(e => e.trigger === 'onTurnEnd') || [];
+    }).flat());
+
+  for (const effect of endOfTurnEffects) {
+    if (effect.action === 'destroy_self') {
+      // Finde Tier mit diesem Effekt
+      const animal = player.board.find(a => 
+        a.card.effects.some(e => e.trigger === 'onTurnEnd' && e.action === 'destroy_self')
+      );
+      if (animal) {
+        // Zerstöre Tier
+        const onDeathEffects = animal.card.effects.filter(e => e.trigger === 'onDeath');
+        for (const effect of onDeathEffects) {
+          state.pendingEffects.push({
+            effect,
+            source: animal.card.id,
+            target: animal.id,
+            player: state.currentPlayer,
+          });
+        }
+        
+        animal.statuses.forEach(statusId => {
+          player.discard.push(getGameCardById(statusId)!);
+        });
+        
+        const index = player.board.indexOf(animal);
+        player.board.splice(index, 1);
+        player.discard.push(animal.card);
+      }
+    }
+  }
+
+  // Zerstöre Tiere mit HP ≤ 0
+  const deadAnimals = player.board.filter(animal => animal.currentHp <= 0);
+  for (const animal of deadAnimals) {
+    // Trigger "onDeath" Effekte
+    const onDeathEffects = animal.card.effects.filter(e => e.trigger === 'onDeath');
+    for (const effect of onDeathEffects) {
+      state.pendingEffects.push({
+        effect,
+        source: animal.card.id,
+        target: animal.id,
+        player: state.currentPlayer,
+      });
+    }
+
+    // Entferne Status-Karten
+    animal.statuses.forEach(statusId => {
+      const statusCard = getGameCardById(statusId);
+      if (statusCard) {
+        player.discard.push(statusCard);
+      }
+    });
+
+    // Entferne Tier vom Board
+    const index = player.board.indexOf(animal);
+    if (index !== -1) {
+      player.board.splice(index, 1);
+      player.discard.push(animal.card);
+    }
+  }
+
+  // Löse pending Effects auf
+  const resolvedState = resolvePendingEffects(state);
+  // Kopiere resolved state zurück
+  Object.assign(state, resolvedState);
+
+  // Entferne abgelaufene Status-Karten (z.B. SHIELD nach Verwendung)
+  // TODO: Implementiere Status-Entfernung basierend auf Bedingungen
+};
+
+/**
+ * Erstellt ein Standard-Deck (24 Karten, min. 10 Animals)
+ */
+export const createStandardDeck = (): GameCard[] => {
+  // TODO: Implementiere Deck-Erstellung
+  // Für jetzt: Verwende alle verfügbaren Karten
+  const animals = ALL_GAME_CARDS.filter(c => c.type === 'animal').slice(0, 10);
+  const actions = ALL_GAME_CARDS.filter(c => c.type === 'action').slice(0, 7);
+  const statuses = ALL_GAME_CARDS.filter(c => c.type === 'status').slice(0, 7);
+  
+  return [...animals, ...actions, ...statuses];
+};
+
