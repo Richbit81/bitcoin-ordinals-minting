@@ -2,10 +2,6 @@ import { getApiUrl } from '../utils/apiUrl';
 
 const API_URL = getApiUrl();
 
-// Debug: Zeige welche URL verwendet wird
-console.log('[AdminService] API_URL:', API_URL);
-console.log('[AdminService] VITE_INSCRIPTION_API_URL env:', import.meta.env.VITE_INSCRIPTION_API_URL);
-
 export interface AdminStats {
   totalPacks: number;
   starterPacks: number;
