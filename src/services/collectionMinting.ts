@@ -5,8 +5,9 @@
 
 import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendMultipleBitcoinPayments } from '../utils/wallet';
+import { getApiUrl } from '../utils/apiUrl';
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = getApiUrl();
 
 /**
  * Erstellt eine einzelne Delegate-Inskription für ein Collection-Item

@@ -1,10 +1,6 @@
-// Hole URL und füge https:// hinzu, falls es fehlt
-let API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+import { getApiUrl } from '../utils/apiUrl';
 
-// Fix: Füge https:// hinzu, falls Protokoll fehlt (außer bei localhost)
-if (API_URL && !API_URL.startsWith('http://') && !API_URL.startsWith('https://')) {
-  API_URL = `https://${API_URL}`;
-}
+const API_URL = getApiUrl();
 
 // Debug: Zeige welche URL verwendet wird
 console.log('[AdminService] API_URL:', API_URL);

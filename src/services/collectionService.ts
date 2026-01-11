@@ -2,7 +2,9 @@
  * Collection Service für Frontend
  */
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+import { getApiUrl } from '../utils/apiUrl';
+
+const API_URL = getApiUrl();
 
 export interface CollectionItem {
   inscriptionId: string;

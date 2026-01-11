@@ -42,7 +42,9 @@ export interface CollectionStats {
   byWallet: Record<string, number>;
 }
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+import { getApiUrl } from '../utils/apiUrl';
+
+const INSCRIPTION_API_URL = getApiUrl();
 
 /**
  * Ruft die komplette Hashliste aller geminteten Inskriptionen ab
