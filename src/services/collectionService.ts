@@ -76,7 +76,12 @@ export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Coll
  * Hole Inskriptionen aus Admin-Wallet
  */
 export const getWalletInscriptions = async (adminAddress: string): Promise<WalletInscription[]> => {
-  const response = await fetch(`${API_URL}/api/collections/admin/wallet-inscriptions?address=${encodeURIComponent(adminAddress)}`);
+  const url = `${API_URL}/api/collections/admin/wallet-inscriptions?address=${encodeURIComponent(adminAddress)}`;
+  console.log('[CollectionService] Fetching wallet inscriptions from:', url);
+  
+  const response = await fetch(url);
+  console.log('[CollectionService] Response status:', response.status, response.statusText);
+  
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
     
@@ -100,8 +105,14 @@ export const getWalletInscriptions = async (adminAddress: string): Promise<Walle
     throw new Error(errorMessage);
   }
   const data = await response.json();
+  console.log('[CollectionService] Response data:', data);
+  console.log('[CollectionService] Response data type:', typeof data);
+  console.log('[CollectionService] Is array?', Array.isArray(data));
+  
   // Backend gibt direkt ein Array zurück, nicht als data.inscriptions
-  return Array.isArray(data) ? data : (data.inscriptions || []);
+  const inscriptions = Array.isArray(data) ? data : (data.inscriptions || []);
+  console.log('[CollectionService] Returning inscriptions:', inscriptions.length);
+  return inscriptions;
 };
 
 /**
