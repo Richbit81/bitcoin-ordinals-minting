@@ -249,12 +249,12 @@ export const createTransfer = async (
     }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.msg || errorData.error || 'Failed to create transfer');
-  }
-
+  // Parse response once
   const data: CreateTransferResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.msg || data.data?.toString() || 'Failed to create transfer');
+  }
 
   if (data.code !== 0) {
     throw new Error(data.msg || 'Failed to create transfer');

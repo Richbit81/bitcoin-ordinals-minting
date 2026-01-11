@@ -792,6 +792,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
     setPresignInscriptions(updated);
     
     try {
+      console.log('[AdminPanel] Calling createTransfer for inscription:', inscriptionId);
       // NEU: Verwende createTransfer (UniSat Marketplace Flow)
       const transferData = await createTransfer(
         inscriptionId,
@@ -801,20 +802,36 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
         presignItem.id
       );
       
-      updated[index] = {
-        ...updated[index],
-        status: 'ready',
+      console.log('[AdminPanel] createTransfer successful:', {
         transferId: transferData.data.transferId,
-        psbtBase64: transferData.data.psbt, // Base64 PSBT aus response
-      };
-      setPresignInscriptions(updated);
+        hasPsbt: !!transferData.data.psbt,
+        psbtLength: transferData.data.psbt?.length
+      });
+      
+      // Use functional update to ensure we have the latest state
+      setPresignInscriptions(prev => {
+        const newUpdated = [...prev];
+        newUpdated[index] = {
+          ...newUpdated[index],
+          status: 'ready',
+          transferId: transferData.data.transferId,
+          psbtBase64: transferData.data.psbt, // Base64 PSBT aus response
+        };
+        console.log('[AdminPanel] Status updated to ready for index:', index, 'new status:', newUpdated[index].status);
+        return newUpdated;
+      });
     } catch (error: any) {
-      updated[index] = {
-        ...updated[index],
-        status: 'error',
-        error: error.message || 'Failed to create transfer',
-      };
-      setPresignInscriptions(updated);
+      console.error('[AdminPanel] createTransfer error:', error);
+      // Use functional update to ensure we have the latest state
+      setPresignInscriptions(prev => {
+        const newUpdated = [...prev];
+        newUpdated[index] = {
+          ...newUpdated[index],
+          status: 'error',
+          error: error.message || 'Failed to create transfer',
+        };
+        return newUpdated;
+      });
     }
   };
 
