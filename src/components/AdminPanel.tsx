@@ -838,17 +838,22 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
   const signPresignPSBT = async (inscriptionId: string, index: number) => {
     if (!presignItem || !walletState.connected || !walletState.walletType) return;
     
+    // Get current inscription state BEFORE update
     const inscription = presignInscriptions[index];
     if (!inscription.psbtBase64 || !inscription.transferId) {
       alert('PSBT not prepared yet or transferId missing');
       return;
     }
     
-    const updated = [...presignInscriptions];
-    updated[index] = { ...updated[index], status: 'signing' };
-    setPresignInscriptions(updated);
+    // Use functional update to set status to 'signing'
+    setPresignInscriptions(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], status: 'signing' };
+      return updated;
+    });
     
     try {
+      console.log('[AdminPanel] Signing PSBT for inscription:', inscriptionId, 'index:', index);
       // Signiere PSBT mit Wallet (gibt signierte PSBT zurück)
       const signedPsbt = await signPSBT(
         inscription.psbtBase64,
@@ -856,6 +861,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
         false // autoFinalized = false (finalize in confirmTransfer)
       );
       
+      console.log('[AdminPanel] PSBT signed, confirming transfer:', inscription.transferId);
       // NEU: Verwende confirmTransfer (UniSat Marketplace Flow)
       // Dies finalisiert automatisch und speichert die Transaktion
       const confirmData = await confirmTransfer(
@@ -866,22 +872,31 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
         presignItem.id
       );
       
-      // confirmTransfer gibt signedTxHex zurück und speichert automatisch
-      updated[index] = {
-        ...updated[index],
-        status: 'signed',
-      };
-      setPresignInscriptions(updated);
+      console.log('[AdminPanel] Transfer confirmed for index:', index);
+      // Use functional update to set status to 'signed'
+      setPresignInscriptions(prev => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          status: 'signed',
+        };
+        return updated;
+      });
       
       // Lade Items neu
       await loadItems();
     } catch (error: any) {
-      updated[index] = {
-        ...updated[index],
-        status: 'error',
-        error: error.message || 'Failed to sign or confirm transfer',
-      };
-      setPresignInscriptions(updated);
+      console.error('[AdminPanel] Error signing PSBT for index:', index, error);
+      // Use functional update to set status to 'error'
+      setPresignInscriptions(prev => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          status: 'error',
+          error: error.message || 'Failed to sign or confirm transfer',
+        };
+        return updated;
+      });
     }
   };
 
@@ -1512,7 +1527,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
                   <button
                     onClick={handleSignAll}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold"
-                    disabled={presignInscriptions.some(i => i.status === 'signing' || i.status !== 'ready')}
+                    disabled={presignInscriptions.some(i => i.status === 'signing' || i.status === 'preparing') || !presignInscriptions.some(i => i.status === 'ready' && i.psbtBase64 && i.transferId)}
                   >
                     Sign All
                   </button>
