@@ -1,5 +1,9 @@
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
+// Debug: Zeige welche URL verwendet wird
+console.log('[AdminService] API_URL:', API_URL);
+console.log('[AdminService] VITE_INSCRIPTION_API_URL env:', import.meta.env.VITE_INSCRIPTION_API_URL);
+
 export interface AdminStats {
   totalPacks: number;
   starterPacks: number;
