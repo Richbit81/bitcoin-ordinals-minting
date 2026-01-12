@@ -171,6 +171,43 @@ export const mintPointShopItem = async (
 
       const transferData = await transferResponse.json();
 
+      // Wenn PSBT zurückgegeben wird (keine Pre-Signed TX), signiere im Frontend
+      if (transferData.requiresSigning && transferData.psbtBase64) {
+        const { signPSBT } = await import('../utils/wallet');
+        const currentWalletType = walletState?.walletType || (walletType as 'unisat' | 'xverse') || 'unisat';
+        
+        // Signiere PSBT mit Wallet (UniSat oder Xverse)
+        const signedPsbtHex = await signPSBT(transferData.psbtBase64, currentWalletType, false);
+        
+        // Broadcast signierte PSBT
+        const broadcastResponse = await fetch(`${API_URL}/api/point-shop/transfer/broadcast`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inscriptionId: transferData.inscriptionId,
+            signedPsbtHex: signedPsbtHex,
+          }),
+        });
+
+        if (!broadcastResponse.ok) {
+          const errorData = await broadcastResponse.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(errorData.error || 'Failed to broadcast transaction');
+        }
+
+        const broadcastData = await broadcastResponse.json();
+
+        return {
+          inscriptionId: broadcastData.inscriptionId,
+          txid: broadcastData.txid || '',
+          seriesInfo: {
+            currentNumber: seriesData.currentNumber,
+            totalCount: seriesData.totalCount,
+            remaining: seriesData.remaining,
+          },
+        };
+      }
+
+      // Pre-Signed TX Flow (Xverse - unverändert)
       return {
         inscriptionId: transferData.inscriptionId,
         txid: transferData.txid || '',
@@ -217,6 +254,38 @@ export const mintPointShopItem = async (
 
     const transferData = await transferResponse.json();
 
+    // Wenn PSBT zurückgegeben wird (keine Pre-Signed TX), signiere im Frontend
+    if (transferData.requiresSigning && transferData.psbtBase64) {
+      const { signPSBT } = await import('../utils/wallet');
+      const currentWalletType = walletState?.walletType || (walletType as 'unisat' | 'xverse') || 'unisat';
+      
+      // Signiere PSBT mit Wallet (UniSat oder Xverse)
+      const signedPsbtHex = await signPSBT(transferData.psbtBase64, currentWalletType, false);
+      
+      // Broadcast signierte PSBT
+      const broadcastResponse = await fetch(`${API_URL}/api/point-shop/transfer/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inscriptionId: transferData.inscriptionId,
+          signedPsbtHex: signedPsbtHex,
+        }),
+      });
+
+      if (!broadcastResponse.ok) {
+        const errorData = await broadcastResponse.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to broadcast transaction');
+      }
+
+      const broadcastData = await broadcastResponse.json();
+
+      return {
+        inscriptionId: broadcastData.inscriptionId,
+        txid: broadcastData.txid || '',
+      };
+    }
+
+    // Pre-Signed TX Flow (Xverse - unverändert)
     return {
       inscriptionId: transferData.inscriptionId,
       txid: transferData.txid || '',

@@ -86,7 +86,8 @@ export const PointShopPage: React.FC = () => {
         walletState.accounts[0].address,
         item.id,
         walletState.walletType || 'unisat',
-        inscriptionFeeRate
+        inscriptionFeeRate,
+        walletState // Übergebe walletState für PSBT-Signatur
       );
       
       let successMessage = `Minting successful! Inscription ID: ${result.inscriptionId}`;
