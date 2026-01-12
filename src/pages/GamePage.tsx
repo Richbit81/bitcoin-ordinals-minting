@@ -26,6 +26,9 @@ export const GamePage: React.FC = () => {
   const [showOpponentHand, setShowOpponentHand] = useState(false);
   const [opponentHandAction, setOpponentHandAction] = useState<((cardId: string) => void) | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [attackingAnimal, setAttackingAnimal] = useState<string | null>(null);
+  const [damageAnimations, setDamageAnimations] = useState<Array<{id: string; target: string; amount: number; type: 'life' | 'animal'}>>([]);
+  const [cardPlayAnimations, setCardPlayAnimations] = useState<Set<string>>(new Set());
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
@@ -249,6 +252,16 @@ export const GamePage: React.FC = () => {
     
     setSelectedCard(card.id);
     
+    // Karten-Spiel-Animation
+    setCardPlayAnimations(prev => new Set(prev).add(card.id));
+    setTimeout(() => {
+      setCardPlayAnimations(prev => {
+        const next = new Set(prev);
+        next.delete(card.id);
+        return next;
+      });
+    }, 1000);
+    
     // Wenn Action oder Status: Frage nach Ziel
     if (card.type === 'action' || card.type === 'status') {
       // Prüfe ob Ziel benötigt wird
@@ -329,9 +342,24 @@ export const GamePage: React.FC = () => {
       <div className="max-w-[1600px] mx-auto mb-4">
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-red-600">
           <div className="flex justify-between items-center mb-2">
-            <div>
+            <div className="relative">
               <span className="font-bold">Opponent</span>
-              <span className="ml-4">Life: {opponent.life}</span>
+              <span className="ml-4">Life: <span className="font-bold">{opponent.life}</span></span>
+              {damageAnimations.filter(d => d.target === 'opponent-life').map(damage => (
+                <div
+                  key={damage.id}
+                  className="absolute top-0 left-32 text-red-500 font-bold text-xl animate-bounce pointer-events-none"
+                  style={{
+                    animation: 'damageFloat 1s ease-out forwards',
+                  }}
+                  onAnimationEnd={() => {
+                    setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
+                  }}
+                >
+                  -{damage.amount}
+                </div>
+              ))}
+            </div>
               <span className="ml-4">Deck: {opponent.deck.length}</span>
               <span className="ml-4">Hand: {opponent.hand.length}</span>
               {opponent.statuses.length > 0 && (
@@ -414,9 +442,24 @@ export const GamePage: React.FC = () => {
       <div className="max-w-[1600px] mx-auto mb-4">
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-blue-600">
           <div className="flex justify-between items-center mb-2">
-            <div>
+            <div className="relative">
               <span className="font-bold">You</span>
-              <span className="ml-4">Life: {currentPlayer.life}</span>
+              <span className="ml-4">Life: <span className="font-bold">{currentPlayer.life}</span></span>
+              {damageAnimations.filter(d => d.target === 'player-life').map(damage => (
+                <div
+                  key={damage.id}
+                  className="absolute top-0 left-20 text-red-500 font-bold text-xl animate-bounce pointer-events-none"
+                  style={{
+                    animation: 'damageFloat 1s ease-out forwards',
+                  }}
+                  onAnimationEnd={() => {
+                    setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
+                  }}
+                >
+                  -{damage.amount}
+                </div>
+              ))}
+            </div>
               <span className="ml-4">Deck: {currentPlayer.deck.length}</span>
               <span className="ml-4">Hand: {currentPlayer.hand.length}</span>
               {currentPlayer.statuses.length > 0 && (
@@ -558,8 +601,14 @@ export const GamePage: React.FC = () => {
                           : 'border-gray-600 opacity-50 cursor-not-allowed'
                         }
                         ${selectedCard === card.id ? 'ring-2 ring-yellow-400' : ''}
+                        ${cardPlayAnimations.has(card.id) ? 'animate-pulse scale-110 border-yellow-400 shadow-xl shadow-yellow-400/70' : ''}
                       `}
                     >
+                      {cardPlayAnimations.has(card.id) && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                          <div className="text-4xl animate-spin">✨</div>
+                        </div>
+                      )}
                       {/* Kartenbild */}
                       {card.inscriptionId && !card.inscriptionId.includes('placeholder') && (
                         <img
