@@ -182,6 +182,31 @@ export const HomePage: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* RichArt Logo Footer */}
+      <div className="mt-16 mb-8 text-center">
+        <a
+          href="/link-gallery"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('/link-gallery');
+          }}
+          className="inline-block hover:opacity-80 transition-opacity"
+        >
+          <img
+            src="/images/RichArt.png"
+            alt="RichArt - Link Gallery"
+            className="h-12 mx-auto cursor-pointer"
+            onError={(e) => {
+              console.warn('[HomePage] Could not load RichArt logo');
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+          <p className="text-xs text-gray-500 mt-2 hover:text-gray-400">
+            Link Gallery
+          </p>
+        </a>
+      </div>
     </div>
   );
 };

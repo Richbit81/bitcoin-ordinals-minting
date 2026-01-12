@@ -10,6 +10,7 @@ import { GamePage } from './pages/GamePage';
 import { PointShopPage } from './pages/PointShopPage';
 import { TechGamesPage } from './pages/TechGamesPage';
 import { CollectionMintingPage } from './pages/CollectionMintingPage';
+import { LinkGalleryPage } from './pages/LinkGalleryPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { useState } from 'react';
@@ -39,6 +40,7 @@ function AppContent() {
         <Route path="/trade" element={<TradingPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/play" element={<GamePage />} />
+        <Route path="/link-gallery" element={<LinkGalleryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
