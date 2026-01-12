@@ -144,12 +144,48 @@ export const GamePage: React.FC = () => {
       return () => clearTimeout(timer);
     }
 
-    // Attack Phase: Automatisch
+    // Attack Phase: Mit Animationen
     if (gameState.phase === 'attack') {
-      const timer = setTimeout(() => {
-        setGameState(prev => prev ? nextPhase(prev) : null);
-      }, 2000);
-      return () => clearTimeout(timer);
+      const currentPlayer = gameState.players[gameState.currentPlayer];
+      const attackableAnimals = currentPlayer.board.filter(a => 
+        a.attacksThisTurn < a.maxAttacks && 
+        !gameState.players[gameState.currentPlayer].statuses.some(s => {
+          const statusCard = ALL_GAME_CARDS.find(c => c.id === s);
+          return statusCard?.effects.some(e => e.action === 'prevent_attack' && e.target === 'self');
+        })
+      );
+      
+      if (attackableAnimals.length > 0) {
+        // Erste Karte angreifen lassen mit Animation
+        const firstAnimal = attackableAnimals[0];
+        setAttackingAnimal(firstAnimal.id);
+        
+        // Schaden-Animation nach kurzer Verzögerung
+        setTimeout(() => {
+          const damage = firstAnimal.currentAtk;
+          if (damage > 0) {
+            setDamageAnimations(prev => [...prev, {
+              id: `damage-${Date.now()}`,
+              target: 'opponent-life',
+              amount: damage,
+              type: 'life'
+            }]);
+          }
+        }, 500);
+        
+        // Phase nach Animationen abschließen
+        const timer = setTimeout(() => {
+          setAttackingAnimal(null);
+          setGameState(prev => prev ? nextPhase(prev) : null);
+        }, 2000);
+        return () => clearTimeout(timer);
+      } else {
+        // Keine angreifbaren Tiere, direkt weiter
+        const timer = setTimeout(() => {
+          setGameState(prev => prev ? nextPhase(prev) : null);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
 
     // End Phase: Automatisch
@@ -514,10 +550,18 @@ export const GamePage: React.FC = () => {
 
           {/* Player Board */}
           <div className="flex gap-2 mt-4 mb-4">
-            {currentPlayer.board.map(animal => (
+            {currentPlayer.board.map(animal => {
+              const isAttacking = attackingAnimal === animal.id;
+              return (
               <div
                 key={animal.id}
-                className="bg-gray-800 rounded p-2 border border-blue-400 min-w-[100px] cursor-pointer hover:border-blue-300 relative overflow-hidden"
+                className={`bg-gray-800 rounded p-2 border border-blue-400 min-w-[100px] cursor-pointer hover:border-blue-300 relative overflow-hidden transition-all duration-300 ${
+                  isAttacking ? 'scale-110 border-yellow-400 shadow-lg shadow-yellow-400/50 z-50 animate-pulse' : ''
+                }`}
+                style={isAttacking ? {
+                  transform: 'translateY(-10px) scale(1.1)',
+                  zIndex: 50,
+                } : {}}
               >
                 {animal.card.inscriptionId && !animal.card.inscriptionId.includes('placeholder') && (
                   <img
