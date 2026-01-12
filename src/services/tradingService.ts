@@ -25,7 +25,7 @@ export interface CreateOfferRequest {
 export const createTradeOffer = async (
   request: CreateOfferRequest
 ): Promise<TradeOffer> => {
-  const response = await fetch(`${API_URL}/api/trades/offer`, {
+  const response = await fetch(`${API_URL}/api/trades/offers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -33,11 +33,11 @@ export const createTradeOffer = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to create trade offer');
+    throw new Error(error.error || error.msg || 'Failed to create trade offer');
   }
 
   const data = await response.json();
-  return data.data;
+  return data;
 };
 
 /**
@@ -51,7 +51,7 @@ export const getTradeOffers = async (): Promise<TradeOffer[]> => {
   }
 
   const data = await response.json();
-  return data.data || [];
+  return data.offers || [];
 };
 
 /**
@@ -65,7 +65,7 @@ export const getTradeOffer = async (offerId: string): Promise<TradeOffer> => {
   }
 
   const data = await response.json();
-  return data.data;
+  return data;
 };
 
 /**
@@ -73,31 +73,35 @@ export const getTradeOffer = async (offerId: string): Promise<TradeOffer> => {
  */
 export const acceptTradeOffer = async (
   offerId: string,
+  taker: string,
   walletType: 'unisat' | 'xverse'
-): Promise<void> => {
-  const response = await fetch(`${API_URL}/api/trades/accept/${offerId}`, {
+): Promise<TradeOffer> => {
+  const response = await fetch(`${API_URL}/api/trades/offers/${offerId}/accept`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ walletType }),
+    body: JSON.stringify({ taker, walletType }),
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to accept trade offer');
+    throw new Error(error.error || error.msg || 'Failed to accept trade offer');
   }
+
+  const data = await response.json();
+  return data.offer;
 };
 
 /**
  * Ziehe ein Trade Offer zurück
  */
 export const cancelTradeOffer = async (offerId: string): Promise<void> => {
-  const response = await fetch(`${API_URL}/api/trades/offer/${offerId}`, {
+  const response = await fetch(`${API_URL}/api/trades/offers/${offerId}`, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to cancel trade offer');
+    throw new Error(error.error || error.msg || 'Failed to cancel trade offer');
   }
 };
 

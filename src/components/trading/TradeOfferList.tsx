@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useWallet } from '../../contexts/WalletContext';
 import { WalletCard } from '../../services/gallery';
 import { getTradeOffers, TradeOffer } from '../../services/tradingService';
 import { TradeOfferCard } from './TradeOfferCard';
@@ -8,12 +9,16 @@ interface TradeOfferListProps {
 }
 
 export const TradeOfferList: React.FC<TradeOfferListProps> = ({ myCards }) => {
+  const { walletState } = useWallet();
   const [offers, setOffers] = useState<TradeOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'my' | 'available'>('all');
 
   useEffect(() => {
     loadOffers();
+    // Auto-refresh alle 30 Sekunden
+    const interval = setInterval(loadOffers, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadOffers = async () => {
@@ -30,8 +35,9 @@ export const TradeOfferList: React.FC<TradeOfferListProps> = ({ myCards }) => {
 
   const filteredOffers = offers.filter((offer) => {
     if (filter === 'my') {
-      // TODO: Filter by current wallet address
-      return true;
+      // Filter by current wallet address
+      if (!walletState.accounts[0]?.address) return false;
+      return offer.maker.toLowerCase() === walletState.accounts[0].address.toLowerCase();
     }
     if (filter === 'available') {
       return offer.status === 'active';

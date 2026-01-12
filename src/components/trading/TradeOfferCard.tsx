@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { WalletCard } from '../../services/gallery';
-import { TradeOffer, acceptTradeOffer } from '../../services/tradingService';
+import { TradeOffer, acceptTradeOffer, cancelTradeOffer } from '../../services/tradingService';
 import { useWallet } from '../../contexts/WalletContext';
+import { getCardImageUrl } from '../../game/cardImageService';
 
 interface TradeOfferCardProps {
   offer: TradeOffer;
@@ -27,13 +28,17 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
   );
 
   const handleAccept = async () => {
-    if (!canAccept || !hasRequestedCards) return;
+    if (!canAccept || !hasRequestedCards || !walletState.accounts[0]?.address) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      await acceptTradeOffer(offer.offerId, walletState.walletType || 'unisat');
+      await acceptTradeOffer(
+        offer.offerId,
+        walletState.accounts[0].address,
+        walletState.walletType || 'unisat'
+      );
       onOfferAccepted();
       alert('Trade offer accepted! Transaction pending...');
     } catch (err: any) {
@@ -72,29 +77,73 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
 
       {/* Offer Cards */}
       <div className="mb-4">
-        <p className="text-sm font-semibold text-gray-400 mb-2">Offers:</p>
-        <div className="space-y-1">
-          {offer.offerCards.map((id) => (
-            <p key={id} className="text-sm text-white">
-              • {id.slice(0, 12)}...
-            </p>
-          ))}
+        <p className="text-sm font-semibold text-gray-400 mb-2">Offers ({offer.offerCards.length}):</p>
+        <div className="grid grid-cols-3 gap-2">
+          {offer.offerCards.map((id) => {
+            const card = myCards.find((c) => c.inscriptionId === id);
+            const imageId = card?.originalInscriptionId || id;
+            return (
+              <div key={id} className="relative">
+                <img
+                  src={getCardImageUrl(imageId)}
+                  alt={card?.name || id.slice(0, 8)}
+                  className="w-full aspect-square object-contain bg-gray-800 rounded border border-gray-700"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+                <div className="hidden w-full aspect-square items-center justify-center bg-gray-800 rounded border border-gray-700 text-xs text-gray-500">
+                  {id.slice(0, 8)}...
+                </div>
+                {card?.name && (
+                  <p className="text-xs text-gray-400 mt-1 truncate" title={card.name}>
+                    {card.name}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Request Cards */}
       <div className="mb-4">
-        <p className="text-sm font-semibold text-gray-400 mb-2">Wants:</p>
-        <div className="space-y-1">
+        <p className="text-sm font-semibold text-gray-400 mb-2">Wants ({offer.requestCards.length}):</p>
+        <div className="grid grid-cols-3 gap-2">
           {offer.requestCards.map((id) => {
             const hasCard = myCards.some((card) => card.inscriptionId === id);
+            const card = myCards.find((c) => c.inscriptionId === id);
+            const imageId = card?.originalInscriptionId || id;
             return (
-              <p
-                key={id}
-                className={`text-sm ${hasCard ? 'text-green-400' : 'text-red-400'}`}
-              >
-                • {id.slice(0, 12)}... {hasCard ? '✓' : '✗'}
-              </p>
+              <div key={id} className="relative">
+                <div className={`relative ${hasCard ? 'ring-2 ring-green-500' : 'ring-2 ring-red-500'}`}>
+                  <img
+                    src={getCardImageUrl(imageId)}
+                    alt={card?.name || id.slice(0, 8)}
+                    className="w-full aspect-square object-contain bg-gray-800 rounded border border-gray-700"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                  <div className="hidden w-full aspect-square items-center justify-center bg-gray-800 rounded border border-gray-700 text-xs text-gray-500">
+                    {id.slice(0, 8)}...
+                  </div>
+                  {hasCard && (
+                    <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                      ✓
+                    </div>
+                  )}
+                </div>
+                {card?.name && (
+                  <p className={`text-xs mt-1 truncate ${hasCard ? 'text-green-400' : 'text-red-400'}`} title={card.name}>
+                    {card.name}
+                  </p>
+                )}
+              </div>
             );
           })}
         </div>
@@ -132,8 +181,24 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
       )}
 
       {isMyOffer && offer.status === 'active' && (
-        <button className="w-full py-2 px-4 rounded bg-gray-700 hover:bg-gray-600 text-white font-semibold">
-          Cancel Offer
+        <button 
+          onClick={async () => {
+            if (!confirm('Are you sure you want to cancel this trade offer?')) return;
+            setLoading(true);
+            try {
+              await cancelTradeOffer(offer.offerId);
+              onOfferAccepted(); // Reload offers
+              alert('Trade offer cancelled');
+            } catch (err: any) {
+              setError(err.message || 'Failed to cancel offer');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
+          className="w-full py-2 px-4 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-semibold transition"
+        >
+          {loading ? 'Cancelling...' : 'Cancel Offer'}
         </button>
       )}
     </div>
