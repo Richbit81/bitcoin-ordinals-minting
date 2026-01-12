@@ -52,6 +52,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '25 different Skull Goat ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/skullgoats',
     category: 'collection',
+    image: '/images/SKG.jpg',
   },
   {
     id: 'ordheadz',
@@ -91,6 +92,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Gamma',
     url: 'https://gamma.io/ordinals/collections/symmetry-by-richart-phoneutria-fera',
     category: 'collection',
+    image: '/images/symmetryy.png',
   },
   {
     id: 'sons-of-satoshi',
@@ -130,6 +132,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden & OKX',
     url: 'https://magiceden.io/ordinals/marketplace/ganja',
     category: 'collection',
+    image: '/images/vyxvx.png',
   },
   {
     id: 'qubiixx',
@@ -145,20 +148,6 @@ const LINK_ITEMS: LinkItem[] = [
     url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
     image: '/images/SmileaBittt.png',
-  },
-  
-  // Social
-  {
-    id: 'foundation',
-    title: 'Foundation',
-    url: 'https://foundation.app/@richart',
-    category: 'social',
-  },
-  {
-    id: 'tiktok',
-    title: 'TikTok',
-    url: 'https://www.tiktok.com/@richart',
-    category: 'social',
   },
 ];
 
