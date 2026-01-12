@@ -37,8 +37,8 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'sequencer',
     title: 'SEQUENCER',
-    description: 'Make Music with this Ordinal - Mint Live on Lunalauncher.io',
-    url: 'https://lunalauncher.io/#mint/richart-sequencer',
+    description: 'Make Music with this Ordinal - View on Magic Eden',
+    url: 'https://magiceden.io/ordinals/marketplace/sequencer',
     category: 'game',
   },
   
