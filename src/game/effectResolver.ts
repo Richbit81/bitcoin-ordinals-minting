@@ -28,11 +28,43 @@ export const resolveEffect = (
           const targetAnimal = player.board.find(a => a.id === targetId) ||
                               opponent.board.find(a => a.id === targetId);
           if (targetAnimal) {
-            targetAnimal.currentHp -= effect.value;
+            let damage = effect.value || 0;
+            
+            // TARGET Status: Doppelter Schaden
+            if (targetAnimal.statuses.some(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'TARGET';
+            })) {
+              damage *= 2;
+            }
+            
+            // SHIELD Status: Verhindert nächsten Schaden
+            const shieldIndex = targetAnimal.statuses.findIndex(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'SHIELD';
+            });
+            if (shieldIndex !== -1) {
+              // Entferne SHIELD
+              const shieldId = targetAnimal.statuses[shieldIndex];
+              targetAnimal.statuses.splice(shieldIndex, 1);
+              const shieldCard = getGameCardById(shieldId);
+              if (shieldCard) {
+                const owner = targetAnimal.owner === playerIndex ? player : opponent;
+                owner.discard.push(shieldCard);
+              }
+              damage = 0; // Schaden verhindert
+            }
+            
+            // Turtle: -1 Schaden von allen Quellen
+            if (targetAnimal.card.name === 'Turtle') {
+              damage = Math.max(0, damage - 1);
+            }
+            
+            targetAnimal.currentHp -= damage;
           } else if (targetId === `player-${playerIndex}`) {
-            player.life -= effect.value;
+            player.life -= effect.value || 0;
           } else if (targetId === `player-${1 - playerIndex}`) {
-            opponent.life -= effect.value;
+            opponent.life -= effect.value || 0;
           }
         } else if (effect.target === 'opponent') {
           opponent.life -= effect.value || 0;
@@ -44,7 +76,38 @@ export const resolveEffect = (
           opponent.life -= effect.value || 0;
         } else if (effect.target === 'all_animals') {
           [...player.board, ...opponent.board].forEach(animal => {
-            animal.currentHp -= effect.value || 0;
+            let damage = effect.value || 0;
+            
+            // TARGET Status: Doppelter Schaden
+            if (animal.statuses.some(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'TARGET';
+            })) {
+              damage *= 2;
+            }
+            
+            // SHIELD Status
+            const shieldIndex = animal.statuses.findIndex(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'SHIELD';
+            });
+            if (shieldIndex !== -1) {
+              const shieldId = animal.statuses[shieldIndex];
+              animal.statuses.splice(shieldIndex, 1);
+              const shieldCard = getGameCardById(shieldId);
+              if (shieldCard) {
+                const owner = animal.owner === playerIndex ? player : opponent;
+                owner.discard.push(shieldCard);
+              }
+              damage = 0;
+            }
+            
+            // Turtle: -1 Schaden
+            if (animal.card.name === 'Turtle') {
+              damage = Math.max(0, damage - 1);
+            }
+            
+            animal.currentHp -= damage;
           });
         }
       }
@@ -162,6 +225,26 @@ export const resolveEffect = (
       player.hand = [];
       opponent.discard.push(...opponent.hand);
       opponent.hand = [];
+      break;
+
+    case 'look_hand':
+      // Setze Flag für GamePage, um Modal zu öffnen
+      newState.pendingAction = {
+        type: 'look_hand',
+        playerIndex: 1 - playerIndex, // Gegner-Hand
+      };
+      break;
+
+    case 'discard_card':
+      // Wird durch pendingAction aufgerufen
+      if (targetId) {
+        const targetPlayer = effect.target === 'opponent_hand' ? opponent : player;
+        const cardIndex = targetPlayer.hand.findIndex(c => c.id === targetId);
+        if (cardIndex !== -1) {
+          const discardedCard = targetPlayer.hand.splice(cardIndex, 1)[0];
+          targetPlayer.discard.push(discardedCard);
+        }
+      }
       break;
 
     // Weitere Effekte...

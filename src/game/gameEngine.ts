@@ -58,6 +58,11 @@ export interface GameState {
     player: number;
   }>;
   effectLog: EffectLogEntry[];
+  pendingAction?: {
+    type: 'look_hand' | 'discard_card';
+    playerIndex: number;
+    cardId?: string;
+  };
   gameOver: boolean;
   winner: number | null;
 }
@@ -244,11 +249,16 @@ export const playCard = (
   // Verarbeite je nach Karten-Typ
   if (card.type === 'animal') {
     // Erstelle Board Animal
+    let baseAtk = card.atk || 0;
+    
+    // Wende Status-Effekte an (RAGE: +2 ATK, TINT: -1 ATK)
+    // Diese werden später dynamisch angewendet, aber hier setzen wir die Basis
+    
     const boardAnimal: BoardAnimal = {
       id: `animal-${Date.now()}-${Math.random()}`,
       cardId: card.id,
       card: card,
-      currentAtk: card.atk || 0,
+      currentAtk: baseAtk,
       currentHp: card.hp || 0,
       maxHp: card.hp || 0,
       statuses: [],
@@ -266,6 +276,9 @@ export const playCard = (
 
     player.board.push(boardAnimal);
     player.animalsPlayedThisTurn++;
+    
+    // Wende Status-Effekte an (falls bereits vorhanden)
+    applyStatusEffectsToAnimal(boardAnimal);
 
     // Log: Karte gespielt
     state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play');
@@ -460,6 +473,23 @@ const canAnimalAttack = (state: GameState, animal: BoardAnimal): boolean => {
 const resolveEndPhase = (state: GameState): void => {
   const player = state.players[state.currentPlayer];
 
+  // Status-Effekte: onTurnStart (wird am Anfang des Turns ausgelöst)
+  // BLEEDING: 1 HP pro Turn
+  player.board.forEach(animal => {
+    animal.statuses.forEach(statusId => {
+      const statusCard = getGameCardById(statusId);
+      if (statusCard?.name === 'BLEEDING') {
+        animal.currentHp -= 1;
+        state.effectLog.push({
+          id: `log-${Date.now()}-${Math.random()}`,
+          message: `${animal.card.name} verliert 1 HP durch BLEEDING`,
+          timestamp: Date.now(),
+          type: 'status',
+        });
+      }
+    });
+  });
+
   // End-of-Turn-Effekte (z.B. Butterfly zerstört sich selbst)
   const endOfTurnEffects = player.board
     .flatMap(animal => animal.card.effects.filter(e => e.trigger === 'onTurnEnd'))
@@ -496,6 +526,11 @@ const resolveEndPhase = (state: GameState): void => {
       }
     }
   }
+
+  // Wende Status-Effekte auf alle Tiere an (ATK-Modifikationen)
+  player.board.forEach(animal => {
+    applyStatusEffectsToAnimal(animal);
+  });
 
   // Zerstöre Tiere mit HP ≤ 0
   const deadAnimals = player.board.filter(animal => animal.currentHp <= 0);

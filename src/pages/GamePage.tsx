@@ -82,6 +82,37 @@ export const GamePage: React.FC = () => {
   };
   
 
+  // Prüfe pendingAction (z.B. look_hand)
+  useEffect(() => {
+    if (!gameState || !gameState.pendingAction) return;
+
+    if (gameState.pendingAction.type === 'look_hand') {
+      setShowOpponentHand(true);
+      setOpponentHandAction((cardId: string) => {
+        // Erstelle neuen State mit discard_card Effekt
+        const newState = { ...gameState };
+        const targetPlayer = newState.players[gameState.pendingAction!.playerIndex];
+        const cardIndex = targetPlayer.hand.findIndex(c => c.id === cardId);
+        
+        if (cardIndex !== -1) {
+          const discardedCard = targetPlayer.hand.splice(cardIndex, 1)[0];
+          targetPlayer.discard.push(discardedCard);
+          // Log
+          newState.effectLog.push({
+            id: `log-${Date.now()}-${Math.random()}`,
+            message: `Karte ${discardedCard.name} wird verworfen`,
+            timestamp: Date.now(),
+            type: 'effect',
+          });
+        }
+        
+        // Entferne pendingAction
+        newState.pendingAction = undefined;
+        setGameState(newState);
+      });
+    }
+  }, [gameState?.pendingAction]);
+
   // Automatische Phasen-Wechsel und AI-Züge
   useEffect(() => {
     if (!gameState || gameState.gameOver) return;
