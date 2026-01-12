@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards, canPlayCard } from '../game/gameEngine';
+import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards, canPlayCard, walletCardToGameCard } from '../game/gameEngine';
 import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS, STATUS_CATEGORIES } from '../game/gameCards';
 import { getCardImageUrl } from '../game/cardImageService';
 import { makeAIMove } from '../game/aiLogic';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 import { DeckBuilderModal } from '../components/DeckBuilderModal';
+import { WalletDeckBuilderModal } from '../components/WalletDeckBuilderModal';
 import { TargetSelectionModal } from '../components/TargetSelectionModal';
 import { EffectLog } from '../components/EffectLog';
 import { OpponentHandModal } from '../components/OpponentHandModal';
@@ -21,6 +22,7 @@ export const GamePage: React.FC = () => {
   const [adminDeck, setAdminDeck] = useState<GameCard[]>([]);
   const [walletCards, setWalletCards] = useState<WalletCard[]>([]);
   const [loadingWalletCards, setLoadingWalletCards] = useState(false);
+  const [userSelectedDeck, setUserSelectedDeck] = useState<GameCard[]>([]); // Deck vom Benutzer ausgewählt
   const [pendingCard, setPendingCard] = useState<GameCard | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [showOpponentHand, setShowOpponentHand] = useState(false);
@@ -65,11 +67,13 @@ export const GamePage: React.FC = () => {
   const startGame = (customDeck1?: GameCard[], customDeck2?: GameCard[]) => {
     let deck1: GameCard[];
     
-    // Verwende Admin-Deck wenn vorhanden, sonst Wallet-Karten, sonst Standard-Deck
+    // Verwende Admin-Deck wenn vorhanden, sonst Benutzer-ausgewähltes Deck, sonst automatisch aus Wallet-Karten, sonst Standard-Deck
     if (customDeck1) {
       deck1 = customDeck1;
     } else if (isAdmin && adminDeck.length === 24) {
       deck1 = adminDeck;
+    } else if (userSelectedDeck.length === 24) {
+      deck1 = userSelectedDeck;
     } else if (walletCards.length > 0) {
       console.log('[GamePage] 🎴 Erstelle Deck aus Wallet-Karten...');
       deck1 = createDeckFromWalletCards(walletCards);
@@ -264,16 +268,31 @@ export const GamePage: React.FC = () => {
           </div>
         </div>
         
-        {/* Admin Deck Builder Modal */}
-        {isAdmin && showDeckBuilder && (
-          <DeckBuilderModal
-            onClose={() => setShowDeckBuilder(false)}
-            onDeckCreated={(deck) => {
-              setAdminDeck(deck);
-              setShowDeckBuilder(false);
-            }}
-            currentDeck={adminDeck}
-          />
+        {/* Deck Builder Modal */}
+        {showDeckBuilder && (
+          <>
+            {isAdmin ? (
+              <DeckBuilderModal
+                onClose={() => setShowDeckBuilder(false)}
+                onDeckCreated={(deck) => {
+                  setAdminDeck(deck);
+                  setShowDeckBuilder(false);
+                }}
+                currentDeck={adminDeck}
+              />
+            ) : (
+              <WalletDeckBuilderModal
+                onClose={() => setShowDeckBuilder(false)}
+                onDeckCreated={(deck) => {
+                  setUserSelectedDeck(deck);
+                  setShowDeckBuilder(false);
+                }}
+                currentDeck={userSelectedDeck}
+                walletCards={walletCards}
+                isAdmin={false}
+              />
+            )}
+          </>
         )}
       </div>
     );
