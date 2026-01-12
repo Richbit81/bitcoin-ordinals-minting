@@ -495,9 +495,9 @@ export const GamePage: React.FC = () => {
                   -{damage.amount}
                 </div>
               ))}
-            </div>
               <span className="ml-4">Deck: {currentPlayer.deck.length}</span>
               <span className="ml-4">Hand: {currentPlayer.hand.length}</span>
+            </div>
               {currentPlayer.statuses.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {currentPlayer.statuses.map((statusId, idx) => {
