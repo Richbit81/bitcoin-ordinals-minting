@@ -300,8 +300,8 @@ export const TechGamesPage: React.FC = () => {
 
             {/* Price Info */}
             <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-1">Item Value: {formatPrice(item.price)}</p>
-              <p className="text-sm text-gray-400">You only pay inscription fees</p>
+              <p className="text-xs text-gray-500 mb-1">Price: {formatPrice(item.price)}</p>
+              <p className="text-sm text-gray-400">+ inscription fees</p>
             </div>
 
             {/* Mint Button */}
@@ -457,7 +457,7 @@ export const TechGamesPage: React.FC = () => {
                   <p className="text-sm text-gray-300 line-clamp-2">{selectedItem.description.split('\n\n')[0]}</p>
                 </div>
                 <div className="ml-4 text-right">
-                  <p className="text-sm text-gray-400">Item Value</p>
+                  <p className="text-sm text-gray-400">Price</p>
                   <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
                   <p className="text-xs text-gray-500">+ inscription fees</p>
                 </div>
