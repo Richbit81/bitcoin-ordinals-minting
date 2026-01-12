@@ -1384,6 +1384,84 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
         </div>
       </div>
 
+      {/* Restore Items Section */}
+      <div className="bg-gray-900 border border-red-600 rounded p-4 mb-6">
+        <h4 className="font-bold text-white mb-3">Restore Items</h4>
+        <p className="text-xs text-gray-400 mb-3">
+          Suche nach Items mit einem bestimmten Titel und reaktiviere sie, falls sie deaktiviert wurden.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={restoreTitle}
+            onChange={(e) => setRestoreTitle(e.target.value)}
+            placeholder="z.B. RaBIT 01-05 5mal 1"
+            className="flex-1 px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+          />
+          <button
+            onClick={async () => {
+              if (!restoreTitle.trim()) {
+                alert('Bitte gib einen Titel ein');
+                return;
+              }
+              setRestoring(true);
+              setRestoreResult(null);
+              try {
+                const response = await fetch(`${API_URL}/api/point-shop/admin/reactivate-by-title`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Address': adminAddress || '',
+                  },
+                  body: JSON.stringify({ title: restoreTitle }),
+                });
+                const data = await response.json();
+                setRestoreResult(data);
+                if (data.success && data.reactivated > 0) {
+                  // Lade Items neu
+                  await loadItems();
+                }
+              } catch (error: any) {
+                setRestoreResult({
+                  success: false,
+                  message: error.message || 'Fehler beim Wiederherstellen',
+                });
+              } finally {
+                setRestoring(false);
+              }
+            }}
+            disabled={restoring || !restoreTitle.trim()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm font-semibold"
+          >
+            {restoring ? 'Suche...' : 'Suchen & Reaktivieren'}
+          </button>
+        </div>
+        {restoreResult && (
+          <div className={`mt-3 p-3 rounded text-sm ${
+            restoreResult.success 
+              ? 'bg-green-900/30 border border-green-600 text-green-300' 
+              : 'bg-red-900/30 border border-red-600 text-red-300'
+          }`}>
+            <p>{restoreResult.message}</p>
+            {restoreResult.found !== undefined && (
+              <p className="mt-1">Gefunden: {restoreResult.found} Items</p>
+            )}
+            {restoreResult.reactivated !== undefined && (
+              <p className="mt-1">Reaktiviert: {restoreResult.reactivated} Items</p>
+            )}
+            {restoreResult.items && restoreResult.items.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {restoreResult.items.map((item: any) => (
+                  <div key={item.id} className="text-xs">
+                    - {item.title} ({item.itemType}) - {item.active ? '✅ Aktiv' : '❌ Inaktiv'} - {item.pointsCost} Points
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Items List */}
       <div>
         <h4 className="font-bold text-white mb-3">Active Items ({items.length})</h4>
