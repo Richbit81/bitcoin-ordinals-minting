@@ -50,12 +50,12 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
 
   return (
     <>
-      {/* Home Button - oben links (nur wenn nicht auf HomePage) */}
+      {/* Home Button - oben links (nur wenn nicht auf HomePage) - auf Mobile versteckt wenn Bottom Nav da ist */}
       {showFullMenu && (
-        <div className="fixed top-4 left-4 z-50">
+        <div className="fixed top-2 md:top-4 left-2 md:left-4 z-50">
           <button
             onClick={() => navigate('/')}
-            className="bg-black border border-red-600 rounded shadow-lg px-3 py-2 flex items-center gap-2 hover:bg-red-600 transition text-sm"
+            className="bg-black border border-red-600 rounded shadow-lg px-2 md:px-3 py-2 flex items-center gap-2 hover:bg-red-600 active:scale-95 transition-all duration-300 text-sm touch-manipulation"
             title="To Home Page"
           >
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +66,7 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
         </div>
       )}
 
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-2 md:top-4 right-2 md:right-4 z-50">
         <div className="relative">
           {/* Menu Button */}
           <button

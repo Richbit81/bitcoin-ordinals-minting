@@ -47,8 +47,8 @@ export const TradingPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-black text-white pb-24 md:pb-8">
+      <div className="container mx-auto px-4 py-4 md:py-8 max-w-7xl">
         <div className="mb-6">
           <button
             onClick={() => navigate('/black-wild')}

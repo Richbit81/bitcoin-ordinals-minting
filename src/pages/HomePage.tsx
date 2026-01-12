@@ -5,6 +5,7 @@ import { getPoints, PointsData } from '../services/pointsService';
 import { getAllCollections, Collection } from '../services/collectionService';
 import { CollectionCard } from '../components/CollectionCard';
 import { NewsBanner } from '../components/NewsBanner';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -85,9 +86,9 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center p-8 pt-16 relative">
+    <div className="min-h-screen bg-black flex flex-col items-center p-4 md:p-8 pt-16 md:pt-20 pb-24 md:pb-8 relative">
       {/* Oben links: Link Gallery + Punkte-Anzeige */}
-      <div className="fixed top-4 left-4 z-40 flex items-center gap-4">
+      <div className="fixed top-2 md:top-4 left-2 md:left-4 z-40 flex items-center gap-2 md:gap-4">
         {/* Link Gallery */}
         <a
           href="/link-gallery"
@@ -136,17 +137,17 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* Projekte und Kollektionen */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl w-full items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 max-w-5xl w-full items-stretch">
         {projects.map((project, index) => (
           <div
             key={project.id}
             onClick={() => navigate(`/${project.id}`)}
-            className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative ${
+            className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'point-shop' ? 'md:order-3' : 
               project.id === 'tech-games' ? 'md:order-2' : 
               project.id === 'smile-a-bit' ? 'md:order-4' :
               'md:order-1'
-            } hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
+            } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
@@ -158,26 +159,21 @@ export const HomePage: React.FC = () => {
               project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
-              <img
-                src={project.thumbnail}
-                alt={project.name}
-                className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
-                loading="lazy"
-                onError={(e) => {
-                  console.warn(`[HomePage] Could not load thumbnail: ${project.thumbnail}`);
-                  // Fallback zu Icon wenn Bild nicht geladen werden kann
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              {/* Fallback wenn kein Bild vorhanden oder Fehler beim Laden */}
-              <div className="w-full aspect-[2/3] bg-gray-900 border border-red-600 rounded flex items-center justify-center" style={{ display: project.thumbnail ? 'none' : 'flex' }}>
-                <div className="text-center p-8">
-                  <div className="text-6xl mb-4">🛒</div>
-                  <p className="text-white text-lg font-bold">{project.name}</p>
+              {project.thumbnail ? (
+                <ProgressiveImage
+                  src={project.thumbnail}
+                  alt={project.name}
+                  className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full aspect-[2/3] bg-gray-900 border border-red-600 rounded flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <div className="text-6xl mb-4">🛒</div>
+                    <p className="text-white text-lg font-bold">{project.name}</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             
             {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}

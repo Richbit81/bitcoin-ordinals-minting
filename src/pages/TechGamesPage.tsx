@@ -233,7 +233,7 @@ export const TechGamesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black p-8 pt-20">
+    <div className="min-h-screen bg-black p-4 md:p-8 pt-20 pb-24 md:pb-8">
       {/* Back Button */}
       <div className="mb-6">
         <button
@@ -297,7 +297,7 @@ export const TechGamesPage: React.FC = () => {
 
       {/* Items Grid - Optimized for performance */}
       <div 
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 max-w-7xl mx-auto"
         style={{
           contentVisibility: 'auto',
         }}

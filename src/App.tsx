@@ -14,6 +14,7 @@ import { LinkGalleryPage } from './pages/LinkGalleryPage';
 import { SmilePage } from './pages/SmilePage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { useState } from 'react';
 
 function AppContent() {
@@ -47,6 +48,9 @@ function AppContent() {
       </Routes>
 
       {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
+      
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 }

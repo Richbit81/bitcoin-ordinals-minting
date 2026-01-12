@@ -4,6 +4,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { getPointShopItems, mintPointShopItem, PointShopItem } from '../services/pointShopService';
 import { getPoints } from '../services/pointsService';
 import { FeeRateSelector } from '../components/FeeRateSelector';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 
 export const PointShopPage: React.FC = () => {
   const navigate = useNavigate();
@@ -107,7 +108,7 @@ export const PointShopPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-black text-white p-4 md:p-8 pb-20 md:pb-8">
       <div className="container mx-auto max-w-6xl">
         {/* Back Button */}
         <div className="mb-6">
@@ -179,7 +180,7 @@ export const PointShopPage: React.FC = () => {
             <p className="text-gray-400">No items available yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4 mb-8">
             {items.map((item) => {
               const canAfford = walletState.connected && userPoints >= item.pointsCost;
               // Prüfe ob Serie ausverkauft ist
@@ -217,19 +218,13 @@ export const PointShopPage: React.FC = () => {
                       
                       // Direkt von ordinals.com laden - KEIN Backend-API-Call mehr!
                       return inscriptionId ? (
-                        <img
+                        <ProgressiveImage
                           src={`https://ordinals.com/content/${inscriptionId}`}
                           alt={item.title}
-                          className="w-full h-full object-contain transition-all duration-300 group-hover/preview:scale-105"
+                          className="w-full h-full transition-all duration-300 group-hover/preview:scale-105"
                           loading="lazy"
                           onError={(e) => {
                             console.warn(`[PointShop] Could not load image for ${inscriptionId}`);
-                            const target = e.currentTarget as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = '<div class="w-full h-full flex flex-col items-center justify-center p-2"><div class="text-4xl mb-2">🖼️</div><div class="text-xs text-gray-400 text-center">Image</div></div>';
-                            }
                           }}
                         />
                       ) : null;
