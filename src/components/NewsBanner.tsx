@@ -37,6 +37,13 @@ const NEWS_ITEMS: NewsItem[] = [
     image: '/images/Tactical.jpg',
     link: 'https://lunalauncher.io/#mint/richart-tactical-game',
   },
+  {
+    id: 'thebox',
+    title: 'Check out THE BOX space. Every Day on X',
+    description: 'Check out on Magic Eden',
+    image: '/images/Box.png',
+    link: 'https://magiceden.io/ordinals/marketplace/thebox',
+  },
 ];
 
 export const NewsBanner: React.FC = () => {
