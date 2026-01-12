@@ -50,6 +50,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Beta version of the RichArt Synthesizer',
     url: 'https://ordinals.com/inscription/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
     category: 'game',
+    image: 'https://ordinals.com/content/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
   },
   
   // Collections
@@ -140,13 +141,6 @@ const LINK_ITEMS: LinkItem[] = [
     url: 'https://magiceden.io/ordinals/marketplace/ganja',
     category: 'collection',
     image: '/images/vyxvx.png',
-  },
-  {
-    id: 'qubiixx',
-    title: 'QUBIIXX ORDINALS Collection',
-    description: 'Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
-    category: 'collection',
   },
   {
     id: 'smile-a-bit',
