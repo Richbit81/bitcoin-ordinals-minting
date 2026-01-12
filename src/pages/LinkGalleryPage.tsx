@@ -152,7 +152,7 @@ const LINK_ITEMS: LinkItem[] = [
 ];
 
 const CATEGORY_LABELS: Record<LinkItem['category'], string> = {
-  game: '🎮 Games',
+  game: '🎮 Games & Tech',
   collection: '🎨 Collections',
   marketplace: '🛒 Marketplaces',
   social: '📱 Social',
