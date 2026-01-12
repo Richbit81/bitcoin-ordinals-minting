@@ -79,17 +79,41 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center p-8 pt-16 relative">
-      {/* Punkte-Anzeige - oben links */}
-      {walletState.connected && (
-        <div className="fixed top-4 left-4 z-40">
-          <p className="text-gray-400 text-sm">Your Points</p>
-          {loading ? (
-            <p className="text-2xl font-bold text-white">Loading...</p>
-          ) : (
-            <p className="text-2xl font-bold text-white">{pointsData?.points || 0}</p>
-          )}
-        </div>
-      )}
+      {/* Oben links: Link Gallery + Punkte-Anzeige */}
+      <div className="fixed top-4 left-4 z-40 flex items-center gap-4">
+        {/* Link Gallery */}
+        <a
+          href="/link-gallery"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('/link-gallery');
+          }}
+          className="inline-block hover:opacity-80 transition-opacity"
+          title="Link Gallery"
+        >
+          <img
+            src="/images/RichArt.png"
+            alt="RichArt - Link Gallery"
+            className="h-10 cursor-pointer"
+            onError={(e) => {
+              console.warn('[HomePage] Could not load RichArt logo');
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </a>
+        
+        {/* Punkte-Anzeige */}
+        {walletState.connected && (
+          <div>
+            <p className="text-gray-400 text-sm">Your Points</p>
+            {loading ? (
+              <p className="text-2xl font-bold text-white">Loading...</p>
+            ) : (
+              <p className="text-2xl font-bold text-white">{pointsData?.points || 0}</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Logo statt Titel */}
       <div className="mb-12 text-center">
@@ -183,31 +207,6 @@ export const HomePage: React.FC = () => {
       {/* News Banner - nach den Projekten */}
       <div className="mt-12 w-full">
         <NewsBanner />
-      </div>
-
-      {/* RichArt Logo Footer */}
-      <div className="mt-16 mb-8 text-center">
-        <a
-          href="/link-gallery"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('/link-gallery');
-          }}
-          className="inline-block hover:opacity-80 transition-opacity"
-        >
-          <img
-            src="/images/RichArt.png"
-            alt="RichArt - Link Gallery"
-            className="h-12 mx-auto cursor-pointer"
-            onError={(e) => {
-              console.warn('[HomePage] Could not load RichArt logo');
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <p className="text-xs text-gray-500 mt-2 hover:text-gray-400">
-            Link Gallery
-          </p>
-        </a>
       </div>
     </div>
   );
