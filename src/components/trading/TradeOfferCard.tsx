@@ -3,6 +3,7 @@ import { WalletCard } from '../../services/gallery';
 import { TradeOffer, acceptTradeOffer, cancelTradeOffer } from '../../services/tradingService';
 import { useWallet } from '../../contexts/WalletContext';
 import { getCardImageUrl } from '../../game/cardImageService';
+import { ALL_CARDS } from '../../config/cards';
 
 interface TradeOfferCardProps {
   offer: TradeOffer;
@@ -117,14 +118,15 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
           {offer.requestCards.map((requestedOriginalId) => {
             // Prüfe ob der Taker einen Delegate hat, dessen originalInscriptionId mit der gewünschten Original-ID übereinstimmt
             const hasCard = myCards.some((card) => card.originalInscriptionId === requestedOriginalId);
-            const card = myCards.find((c) => c.originalInscriptionId === requestedOriginalId);
+            // Finde die Karte in ALL_CARDS basierend auf der Original-ID
+            const cardFromConfig = ALL_CARDS.find((c) => c.inscriptionId === requestedOriginalId);
             const imageId = requestedOriginalId; // Verwende die Original-ID für das Bild
             return (
-              <div key={id} className="relative">
+              <div key={requestedOriginalId} className="relative">
                 <div className={`relative ${hasCard ? 'ring-2 ring-green-500' : 'ring-2 ring-red-500'}`}>
                   <img
                     src={getCardImageUrl(imageId)}
-                    alt={card?.name || id.slice(0, 8)}
+                    alt={cardFromConfig?.name || requestedOriginalId.slice(0, 8)}
                     className="w-full aspect-square object-contain bg-gray-800 rounded border border-gray-700"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
@@ -133,7 +135,7 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
                     }}
                   />
                   <div className="hidden w-full aspect-square items-center justify-center bg-gray-800 rounded border border-gray-700 text-xs text-gray-500">
-                    {id.slice(0, 8)}...
+                    {requestedOriginalId.slice(0, 8)}...
                   </div>
                   {hasCard && (
                     <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
@@ -141,9 +143,9 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
                     </div>
                   )}
                 </div>
-                {card?.name && (
-                  <p className={`text-xs mt-1 truncate ${hasCard ? 'text-green-400' : 'text-red-400'}`} title={card.name}>
-                    {card.name}
+                {cardFromConfig?.name && (
+                  <p className={`text-xs mt-1 truncate ${hasCard ? 'text-green-400' : 'text-red-400'}`} title={cardFromConfig.name}>
+                    {cardFromConfig.name}
                   </p>
                 )}
               </div>
