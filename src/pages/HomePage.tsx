@@ -116,7 +116,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* Logo statt Titel */}
-      <div className="mb-12 text-center">
+      <div className="mb-6 text-center">
         <img
           src="/richartlogo.png"
           alt="Atelier RichART"
