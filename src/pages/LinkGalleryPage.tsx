@@ -263,27 +263,43 @@ export const LinkGalleryPage: React.FC = () => {
                   {/* Vorschaubild */}
                   {(item.image || linkImages[item.id]) ? (
                     <div className="w-full aspect-square overflow-hidden bg-gray-900 relative">
-                      <img
-                        src={item.image || linkImages[item.id] || ''}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          console.warn(`[LinkGallery] Could not load image for ${item.id}, using fallback`);
-                          // Zeige Platzhalter wenn Bild nicht geladen werden kann
-                          const parent = e.currentTarget.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                <div class="text-center p-2">
-                                  <div class="text-2xl mb-1">🎨</div>
-                                  <p class="text-white text-xs font-semibold">${item.title}</p>
+                      {item.id === 'synthesizer' && item.image?.includes('ordinals.com/content') ? (
+                        // Für Synthesizer: Verwende iframe wie in Tech & Games
+                        <iframe
+                          src={item.image}
+                          className="w-full h-full border-0"
+                          title={item.title}
+                          sandbox="allow-scripts allow-same-origin"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          style={{
+                            transform: 'translateZ(0)',
+                            willChange: 'auto',
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={item.image || linkImages[item.id] || ''}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            console.warn(`[LinkGallery] Could not load image for ${item.id}, using fallback`);
+                            // Zeige Platzhalter wenn Bild nicht geladen werden kann
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                  <div class="text-center p-2">
+                                    <div class="text-2xl mb-1">🎨</div>
+                                    <p class="text-white text-xs font-semibold">${item.title}</p>
+                                  </div>
                                 </div>
-                              </div>
-                            `;
-                          }
-                        }}
-                      />
+                              `;
+                            }
+                          }}
+                        />
+                      )}
                     </div>
                   ) : (
                     // Fallback wenn kein Bild vorhanden
