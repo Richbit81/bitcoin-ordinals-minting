@@ -129,7 +129,7 @@ export const PointShopPage: React.FC = () => {
           Mint exclusive Ordinals with your points
         </p>
 
-        {walletState.connected ? (
+        {walletState.connected && (
           <>
             <div className="text-center mb-8">
               <p className="text-gray-400 text-sm">Your Points</p>
@@ -144,10 +144,6 @@ export const PointShopPage: React.FC = () => {
               />
             </div>
           </>
-        ) : (
-          <div className="text-center mb-8">
-            <p className="text-gray-400">Please connect your wallet to use the Point Shop</p>
-          </div>
         )}
 
         {loading ? (
