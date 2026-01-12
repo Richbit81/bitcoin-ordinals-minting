@@ -436,6 +436,28 @@ export const nextPhase = (state: GameState): GameState => {
 };
 
 /**
+ * Wendet Status-Effekte auf ein Tier an (ATK-Modifikationen)
+ */
+const applyStatusEffectsToAnimal = (animal: BoardAnimal): void => {
+  let atkModifier = 0;
+  
+  animal.statuses.forEach(statusId => {
+    const statusCard = getGameCardById(statusId);
+    if (statusCard) {
+      if (statusCard.name === 'RAGE') {
+        atkModifier += 2; // +2 ATK
+      } else if (statusCard.name === 'TINT') {
+        atkModifier -= 1; // -1 ATK
+      }
+    }
+  });
+  
+  // Wende Modifikationen an (basierend auf Basis-ATK der Karte)
+  const baseAtk = animal.card.atk || 0;
+  animal.currentAtk = Math.max(0, baseAtk + atkModifier);
+};
+
+/**
  * Prüft ob ein Tier angreifen kann
  */
 const canAnimalAttack = (state: GameState, animal: BoardAnimal): boolean => {
@@ -447,14 +469,22 @@ const canAnimalAttack = (state: GameState, animal: BoardAnimal): boolean => {
   // Prüfe Status-Effekte
   for (const statusId of animal.statuses) {
     const statusCard = getGameCardById(statusId);
-    if (statusCard && statusCard.name === 'STUCK') {
-      // Prüfe ob Tier immun gegen STUCK ist
-      const hasImmunity = animal.card.effects.some(e => 
-        e.action === 'status_immunity' && 
-        e.filter?.statusName === 'STUCK'
-      );
-      if (!hasImmunity) {
-        return false;
+    if (statusCard) {
+      if (statusCard.name === 'STUCK') {
+        // Prüfe ob Tier immun gegen STUCK ist
+        const hasImmunity = animal.card.effects.some(e => 
+          e.action === 'status_immunity' && 
+          e.filter?.statusName === 'STUCK'
+        );
+        if (!hasImmunity) {
+          return false;
+        }
+      }
+      
+      if (statusCard.name === 'RAGE') {
+        // RAGE: Muss angreifen wenn möglich
+        // Wenn Tier angreifen kann, muss es angreifen
+        return true; // Erlaube Angriff
       }
     }
   }
