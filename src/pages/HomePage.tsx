@@ -4,6 +4,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { getPoints, PointsData } from '../services/pointsService';
 import { getAllCollections, Collection } from '../services/collectionService';
 import { CollectionCard } from '../components/CollectionCard';
+import { NewsBanner } from '../components/NewsBanner';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -102,6 +103,9 @@ export const HomePage: React.FC = () => {
           }}
         />
       </div>
+
+      {/* News Banner */}
+      <NewsBanner />
 
       {/* Projekte und Kollektionen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl w-full items-stretch">
