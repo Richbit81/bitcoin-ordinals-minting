@@ -130,20 +130,10 @@ export const PointShopPage: React.FC = () => {
         </p>
 
         {walletState.connected && (
-          <>
-            <div className="text-center mb-8">
-              <p className="text-gray-400 text-sm">Your Points</p>
-              <p className="text-3xl font-bold text-red-600">{userPoints}</p>
-            </div>
-
-            {/* Fee Rate Selector */}
-            <div className="max-w-md mx-auto mb-8">
-              <FeeRateSelector
-                selectedFeeRate={inscriptionFeeRate}
-                onFeeRateChange={setInscriptionFeeRate}
-              />
-            </div>
-          </>
+          <div className="text-center mb-8">
+            <p className="text-gray-400 text-sm">Your Points</p>
+            <p className="text-3xl font-bold text-red-600">{userPoints}</p>
+          </div>
         )}
 
         {loading ? (
@@ -155,7 +145,7 @@ export const PointShopPage: React.FC = () => {
             <p className="text-gray-400">No items available yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
             {items.map((item) => {
               const canAfford = walletState.connected && userPoints >= item.pointsCost;
               // Prüfe ob Serie ausverkauft ist
@@ -171,7 +161,7 @@ export const PointShopPage: React.FC = () => {
                     isSeriesSoldOut ? 'border-gray-700 opacity-60' : 'border-red-600'
                   }`}
                 >
-                  <div className="aspect-square bg-gray-900 flex items-center justify-center p-4 relative">
+                  <div className="aspect-square bg-gray-900 flex items-center justify-center p-2 relative">
                     {(() => {
                       let inscriptionId: string | undefined;
                       if (item.itemType === 'series') {
@@ -203,8 +193,8 @@ export const PointShopPage: React.FC = () => {
                         />
                       ) : null;
                     })()}
-                    <div className="absolute top-2 right-2 flex flex-col gap-1">
-                      <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                    <div className="absolute top-1 right-1 flex flex-col gap-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                         item.itemType === 'series'
                           ? 'bg-purple-600 text-white'
                           : item.itemType === 'delegate' 
@@ -214,21 +204,21 @@ export const PointShopPage: React.FC = () => {
                         {item.itemType === 'series' ? 'Series' : item.itemType === 'delegate' ? 'Delegate' : 'Original'}
                       </span>
                       {item.itemType === 'series' && remaining !== null && (
-                        <span className="text-xs px-2 py-1 rounded font-semibold bg-purple-800 text-white">
-                          {remaining}/{item.totalCount} left
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-800 text-white">
+                          {remaining}/{item.totalCount}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-xl font-bold mb-2">{item.title}</h3>
+                  <div className="p-2">
+                    <h3 className="text-sm font-bold mb-1 line-clamp-1">{item.title}</h3>
                     {item.itemType === 'series' && item.seriesTitle && (
-                      <p className="text-xs text-purple-400 mb-2 font-semibold">{item.seriesTitle}</p>
+                      <p className="text-[10px] text-purple-400 mb-1 font-semibold line-clamp-1">{item.seriesTitle}</p>
                     )}
-                    <p className="text-gray-400 text-sm mb-4 min-h-[3rem]">{item.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-red-600 font-bold text-lg">
-                        {item.pointsCost} Points
+                    <p className="text-gray-400 text-[11px] mb-2 min-h-[2.5rem] line-clamp-2">{item.description}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-red-600 font-bold text-sm">
+                        {item.pointsCost} P
                       </span>
                       <button
                         onClick={() => handleMint(item)}
@@ -238,21 +228,31 @@ export const PointShopPage: React.FC = () => {
                           mintingItemId === item.id ||
                           isSeriesSoldOut
                         }
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-colors"
+                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-colors"
                       >
                         {mintingItemId === item.id 
-                          ? 'Processing...' 
+                          ? '...' 
                           : isSeriesSoldOut
-                            ? 'Sold Out'
+                            ? 'Sold'
                             : canAfford 
                               ? (item.itemType === 'series' ? 'Mint' : item.itemType === 'delegate' ? 'Mint' : 'Transfer') 
-                              : 'Not enough points'}
+                              : 'No P'}
                       </button>
                     </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Fee Rate Selector - Jetzt unterhalb der Items */}
+        {walletState.connected && (
+          <div className="max-w-md mx-auto mt-8">
+            <FeeRateSelector
+              selectedFeeRate={inscriptionFeeRate}
+              onFeeRateChange={setInscriptionFeeRate}
+            />
           </div>
         )}
       </div>
