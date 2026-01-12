@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface LinkItem {
@@ -33,7 +33,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style - Mint on lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/blocktris',
     category: 'game',
-    image: 'https://magiceden.io/ordinals/marketplace/blocktris',
   },
   {
     id: 'sequencer',
@@ -41,7 +40,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Make Music with this Ordinal - View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/sequencer',
     category: 'game',
-    image: 'https://magiceden.io/ordinals/marketplace/sequencer',
   },
   
   // Collections
@@ -51,7 +49,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: '25 different Skull Goat ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/skullgoats',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/skullgoats',
   },
   {
     id: 'ordheadz',
@@ -59,7 +56,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: '1,111 Ordheadz with over 200 layers',
     url: 'https://magiceden.io/ordinals/marketplace/ohdz',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/ohdz',
   },
   {
     id: 'conspiracy-narrative',
@@ -67,7 +63,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
   },
   {
     id: 'scanmode',
@@ -75,7 +70,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Perceptions unfold across countless levels',
     url: 'https://magiceden.io/ordinals/marketplace/scanmode',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/scanmode',
   },
   {
     id: 'symmetry',
@@ -83,7 +77,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hand-drawn Series with striking symmetry',
     url: 'https://magiceden.io/ordinals/marketplace/symmetry',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/symmetry',
   },
   {
     id: 'symmetry-phoneutria',
@@ -98,7 +91,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hidden among us... against the system',
     url: 'https://magiceden.io/ordinals/marketplace/sosevo',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/sosevo',
+    image: '/images/SOSEvo.jpg',
   },
   {
     id: 'bone-cat',
@@ -106,7 +99,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Bitcoin vibes with cat skulls - Mintpass for Badcats',
     url: 'https://magiceden.io/ordinals/marketplace/bonecat',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/bonecat',
   },
   {
     id: 'event-fold',
@@ -114,7 +106,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Places not found on any map. Zones between space and time.',
     url: 'https://magiceden.io/ordinals/marketplace/eventfold',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/eventfold',
   },
   {
     id: 'combination-mix',
@@ -122,7 +113,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Art made from art - 1000 pixel crossover ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/combination-mix',
   },
   {
     id: 'ganja-onchain',
@@ -130,7 +120,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden & OKX',
     url: 'https://magiceden.io/ordinals/marketplace/ganja',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/ganja',
   },
   {
     id: 'qubiixx',
@@ -138,7 +127,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/qubiixx',
   },
   {
     id: 'smile-a-bit',
@@ -146,7 +134,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Gamma & RUNES on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
-    image: 'https://magiceden.io/ordinals/marketplace/smile',
   },
   
   // Social
@@ -182,6 +169,38 @@ const CATEGORY_COLORS: Record<LinkItem['category'], string> = {
 
 export const LinkGalleryPage: React.FC = () => {
   const navigate = useNavigate();
+  const [linkImages, setLinkImages] = useState<Record<string, string>>({});
+
+  // Lade Bilder von Linktree für Items ohne lokale Bilder
+  useEffect(() => {
+    const loadLinktreeImages = async () => {
+      try {
+        // Linktree API Endpoint für richart81
+        const response = await fetch('https://linktr.ee/api/profiles/richart81');
+        if (response.ok) {
+          const data = await response.json();
+          // Linktree gibt Links mit Vorschaubildern zurück
+          if (data.links) {
+            const images: Record<string, string> = {};
+            data.links.forEach((link: any) => {
+              if (link.url && link.thumbnailUrl) {
+                // Finde das entsprechende Item in LINK_ITEMS
+                const item = LINK_ITEMS.find(i => i.url === link.url);
+                if (item) {
+                  images[item.id] = link.thumbnailUrl;
+                }
+              }
+            });
+            setLinkImages(images);
+          }
+        }
+      } catch (error) {
+        console.warn('[LinkGallery] Could not load images from Linktree:', error);
+      }
+    };
+
+    loadLinktreeImages();
+  }, []);
 
   const groupedLinks = LINK_ITEMS.reduce((acc, item) => {
     if (!acc[item.category]) {
@@ -241,10 +260,10 @@ export const LinkGalleryPage: React.FC = () => {
                   className={`block rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer overflow-hidden`}
                 >
                   {/* Vorschaubild */}
-                  {item.image ? (
+                  {(item.image || linkImages[item.id]) ? (
                     <div className="w-full aspect-square overflow-hidden bg-gray-900 relative">
                       <img
-                        src={item.image}
+                        src={item.image || linkImages[item.id] || ''}
                         alt={item.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
