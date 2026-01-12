@@ -278,16 +278,18 @@ export const LinkGalleryPage: React.FC = () => {
 
       {/* Header */}
       <div className="text-center mb-12">
-        <img
-          src="/images/RichArt.png"
-          alt="RichArt"
-          className="h-24 mx-auto mb-4"
-          onError={(e) => {
-            console.warn('[LinkGallery] Could not load RichArt logo');
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        <h1 className="text-4xl font-bold mb-4">Link Gallery</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white flex items-center justify-center gap-3">
+          Link Gallery
+          <img
+            src="/images/RichArt.png"
+            alt="RichArt"
+            className="h-12 w-12 object-contain"
+            onError={(e) => {
+              console.warn('[LinkGallery] Could not load RichArt logo');
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </h1>
         <p className="text-gray-400 max-w-2xl mx-auto">
           All projects, collections and links from RichArt at a glance
         </p>
