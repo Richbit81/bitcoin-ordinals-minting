@@ -49,10 +49,10 @@ export const TradingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-center gap-4 mb-4">
+        <div className="mb-6">
           <button
             onClick={() => navigate('/black-wild')}
-            className="text-gray-400 hover:text-white flex items-center gap-2"
+            className="text-gray-400 hover:text-white flex items-center gap-2 mb-4 transition-colors duration-300"
             title="Back to Mint Page"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,36 +60,55 @@ export const TradingPage: React.FC = () => {
             </svg>
             <span className="text-sm font-semibold">Back</span>
           </button>
-          <h1 className="text-4xl font-bold text-center mb-2 border-b-2 border-red-600 pb-4 flex-1">
+          
+          <h1 className="text-4xl font-bold text-center mb-4 border-b-2 border-red-600 pb-4">
             BLACK & WILD Trading
           </h1>
-          <div className="w-20"></div> {/* Spacer für zentrierte Überschrift */}
+          
+          {/* Statistics Banner */}
+          {!loading && myCards.length > 0 && (
+            <div className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-4 mb-6 max-w-2xl mx-auto shadow-lg shadow-red-600/10">
+              <div className="text-center">
+                <p className="text-lg font-bold text-white mb-1">
+                  {myCards.length} {myCards.length === 1 ? 'Card' : 'Cards'} Available
+                </p>
+                <p className="text-xs text-gray-400">Ready to trade</p>
+              </div>
+            </div>
+          )}
+          
+          <p className="text-center text-gray-300 mb-8">
+            Trade your cards with other players
+          </p>
         </div>
-        <p className="text-center text-gray-300 mb-8">
-          Trade your cards with other players
-        </p>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-6 border-b-2 border-gray-800">
+        <div className="flex gap-4 mb-6 border-b-2 border-gray-800 relative">
           <button
             onClick={() => setActiveTab('browse')}
-            className={`px-6 py-3 font-semibold transition ${
+            className={`px-6 py-3 font-semibold transition-all duration-300 relative ${
               activeTab === 'browse'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-red-600 border-b-2 border-red-600 hover:border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-900/50 rounded-t-lg'
             }`}
           >
             Browse Offers
+            {activeTab === 'browse' && (
+              <div className="absolute inset-0 bg-red-600/10 rounded-t-lg pointer-events-none" />
+            )}
           </button>
           <button
             onClick={() => setActiveTab('create')}
-            className={`px-6 py-3 font-semibold transition ${
+            className={`px-6 py-3 font-semibold transition-all duration-300 relative ${
               activeTab === 'create'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-red-600 border-b-2 border-red-600 hover:border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-900/50 rounded-t-lg'
             }`}
           >
             Create Offer
+            {activeTab === 'create' && (
+              <div className="absolute inset-0 bg-red-600/10 rounded-t-lg pointer-events-none" />
+            )}
           </button>
         </div>
 
