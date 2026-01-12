@@ -15,30 +15,38 @@ export const PointShopPage: React.FC = () => {
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
 
   useEffect(() => {
+    loadItems();
+  }, []);
+
+  useEffect(() => {
     if (walletState.connected && walletState.accounts[0]) {
-      loadData();
+      loadPoints();
     } else {
-      setItems([]);
       setUserPoints(0);
-      setLoading(false);
     }
   }, [walletState.connected, walletState.accounts]);
 
-  const loadData = async () => {
-    if (!walletState.accounts[0]) return;
-    
+  const loadItems = async () => {
     setLoading(true);
     try {
-      const [shopItems, pointsData] = await Promise.all([
-        getPointShopItems(),
-        getPoints(walletState.accounts[0].address),
-      ]);
+      const shopItems = await getPointShopItems();
       setItems(shopItems);
-      setUserPoints(pointsData?.points || 0);
     } catch (error) {
-      console.error('Error loading point shop:', error);
+      console.error('Error loading point shop items:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPoints = async () => {
+    if (!walletState.accounts[0]) return;
+    
+    try {
+      const pointsData = await getPoints(walletState.accounts[0].address);
+      setUserPoints(pointsData?.points || 0);
+    } catch (error) {
+      console.error('Error loading points:', error);
+      setUserPoints(0);
     }
   };
 
@@ -87,7 +95,8 @@ export const PointShopPage: React.FC = () => {
       }
       
       alert(successMessage);
-      await loadData(); // Reload points and items
+      await loadItems(); // Reload items
+      await loadPoints(); // Reload points
     } catch (error: any) {
       console.error('[PointShop] Minting error:', error);
       alert(`Error: ${error.message}`);
