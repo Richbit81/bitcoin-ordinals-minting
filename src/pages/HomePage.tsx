@@ -136,7 +136,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* Projekte und Kollektionen */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl w-full items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl w-full items-stretch">
         {projects.map((project, index) => (
           <div
             key={project.id}
@@ -150,10 +150,10 @@ export const HomePage: React.FC = () => {
           >
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 ${
-              project.id === 'black-wild' ? 'md:mt-32' :
-              project.id === 'point-shop' || project.id === 'tech-games' ? 'md:mt-16' : ''
+              project.id === 'black-wild' ? 'md:mt-16' :
+              project.id === 'point-shop' || project.id === 'tech-games' || project.id === 'smile-a-bit' ? 'md:mt-8' : ''
             } ${
-              project.id === 'black-wild' ? 'max-w-48' : 'max-w-md'
+              project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               <img
@@ -178,9 +178,9 @@ export const HomePage: React.FC = () => {
             </div>
             
             {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}
-            <div className="mt-auto pt-6 text-center w-full">
+            <div className="mt-auto pt-3 text-center w-full">
               {project.id === 'black-wild' ? (
-                <h2 className="text-2xl font-bold mb-1">
+                <h2 className="text-xl font-bold mb-1">
                   <span 
                     className="text-black"
                     style={{
@@ -193,9 +193,9 @@ export const HomePage: React.FC = () => {
                   <span className="text-white">WILD</span>
                 </h2>
               ) : (
-                <h2 className="text-2xl font-bold text-white mb-1">{project.name}</h2>
+                <h2 className="text-xl font-bold text-white mb-1">{project.name}</h2>
               )}
-              <p className="text-sm text-gray-400">{project.description}</p>
+              <p className="text-xs text-gray-400">{project.description}</p>
             </div>
           </div>
         ))}
