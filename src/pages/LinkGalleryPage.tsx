@@ -33,6 +33,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style - Mint on lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/blocktris',
     category: 'game',
+    image: 'https://magiceden.io/ordinals/marketplace/blocktris',
   },
   {
     id: 'sequencer',
@@ -40,6 +41,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Make Music with this Ordinal - View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/sequencer',
     category: 'game',
+    image: 'https://magiceden.io/ordinals/marketplace/sequencer',
   },
   
   // Collections
@@ -49,6 +51,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '25 different Skull Goat ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/skullgoats',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/skullgoats',
   },
   {
     id: 'ordheadz',
@@ -56,6 +59,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '1,111 Ordheadz with over 200 layers',
     url: 'https://magiceden.io/ordinals/marketplace/ohdz',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/ohdz',
   },
   {
     id: 'conspiracy-narrative',
@@ -63,6 +67,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
   },
   {
     id: 'scanmode',
@@ -70,6 +75,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Perceptions unfold across countless levels',
     url: 'https://magiceden.io/ordinals/marketplace/scanmode',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/scanmode',
   },
   {
     id: 'symmetry',
@@ -77,6 +83,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hand-drawn Series with striking symmetry',
     url: 'https://magiceden.io/ordinals/marketplace/symmetry',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/symmetry',
   },
   {
     id: 'symmetry-phoneutria',
@@ -91,7 +98,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hidden among us... against the system',
     url: 'https://magiceden.io/ordinals/marketplace/sosevo',
     category: 'collection',
-    image: '/images/SOSEvo.jpg',
+    image: 'https://magiceden.io/ordinals/marketplace/sosevo',
   },
   {
     id: 'bone-cat',
@@ -99,6 +106,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Bitcoin vibes with cat skulls - Mintpass for Badcats',
     url: 'https://magiceden.io/ordinals/marketplace/bonecat',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/bonecat',
   },
   {
     id: 'event-fold',
@@ -106,6 +114,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Places not found on any map. Zones between space and time.',
     url: 'https://magiceden.io/ordinals/marketplace/eventfold',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/eventfold',
   },
   {
     id: 'combination-mix',
@@ -113,6 +122,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Art made from art - 1000 pixel crossover ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/combination-mix',
   },
   {
     id: 'ganja-onchain',
@@ -120,6 +130,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden & OKX',
     url: 'https://magiceden.io/ordinals/marketplace/ganja',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/ganja',
   },
   {
     id: 'qubiixx',
@@ -127,6 +138,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/qubiixx',
   },
   {
     id: 'smile-a-bit',
@@ -134,6 +146,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Gamma & RUNES on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
+    image: 'https://magiceden.io/ordinals/marketplace/smile',
   },
   
   // Social
@@ -234,6 +247,7 @@ export const LinkGalleryPage: React.FC = () => {
                         src={item.image}
                         alt={item.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                         onError={(e) => {
                           console.warn(`[LinkGallery] Could not load image for ${item.id}, using fallback`);
                           // Zeige Platzhalter wenn Bild nicht geladen werden kann
