@@ -553,7 +553,7 @@ export const GamePage: React.FC = () => {
             {currentPlayer.board.map(animal => {
               const isAttacking = attackingAnimal === animal.id;
               return (
-              <div
+                <div
                 key={animal.id}
                 className={`bg-gray-800 rounded p-2 border border-blue-400 min-w-[100px] cursor-pointer hover:border-blue-300 relative overflow-hidden transition-all duration-300 ${
                   isAttacking ? 'scale-110 border-yellow-400 shadow-lg shadow-yellow-400/50 z-50 animate-pulse' : ''
