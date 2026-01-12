@@ -94,33 +94,41 @@ export const acceptTradeOffer = async (
   if (data.requiresSigning && data.psbts && Array.isArray(data.psbts)) {
     const { signPSBT } = await import('../utils/wallet');
     
-    // Signiere alle PSBTs
+    // Filtere nur Taker's PSBTs (die der Taker signieren kann)
+    const takerPsbts = data.psbts.filter((psbt: any) => psbt.from === 'taker');
+    const makerPsbts = data.psbts.filter((psbt: any) => psbt.from === 'maker');
+    
+    if (takerPsbts.length === 0) {
+      throw new Error('No PSBTs found for taker to sign');
+    }
+
+    // Signiere nur Taker's PSBTs
     const signedPsbts = [];
-    for (const psbtData of data.psbts) {
+    for (const psbtData of takerPsbts) {
       try {
-        // Nur Taker's PSBTs signieren (from === 'taker')
-        // Maker's PSBTs müssen vom Maker signiert werden (separater Flow)
-        if (psbtData.from === 'taker') {
-          const signedPsbtHex = await signPSBT(psbtData.psbtBase64, walletType, false);
-          signedPsbts.push({
-            inscriptionId: psbtData.inscriptionId,
-            signedPsbtHex: signedPsbtHex,
-          });
-        } else {
-          // Maker's PSBTs werden nicht signiert - müssen separat behandelt werden
-          // Für jetzt: Fehler werfen, da beide Seiten signieren müssen
-          throw new Error('Trade requires both parties to sign. Maker must sign their PSBTs separately.');
-        }
+        const signedPsbtHex = await signPSBT(psbtData.psbtBase64, walletType, false);
+        signedPsbts.push({
+          inscriptionId: psbtData.inscriptionId,
+          signedPsbtHex: signedPsbtHex,
+        });
       } catch (error: any) {
         throw new Error(`Failed to sign PSBT for ${psbtData.inscriptionId}: ${error.message}`);
       }
     }
 
-    // Broadcast signierte PSBTs
+    // Speichere signierte PSBTs im Backend (Maker muss später seine signieren)
+    // Für jetzt: Broadcast nur Taker's PSBTs
+    // TODO: Implementiere vollständigen Flow wo beide Seiten signieren müssen
+    
+    // Broadcast signierte PSBTs (nur Taker's für jetzt)
     const broadcastResponse = await fetch(`${API_URL}/api/trades/offers/${offerId}/broadcast`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ signedPsbts }),
+      body: JSON.stringify({ 
+        signedPsbts,
+        partial: true, // Markiere als partiell (Maker muss noch signieren)
+        makerPsbtsCount: makerPsbts.length,
+      }),
     });
 
     if (!broadcastResponse.ok) {
@@ -129,6 +137,12 @@ export const acceptTradeOffer = async (
     }
 
     const broadcastData = await broadcastResponse.json();
+    
+    // Warnung: Trade ist noch nicht vollständig, Maker muss noch signieren
+    if (makerPsbts.length > 0) {
+      console.warn('[Trading] ⚠️ Trade partially completed. Maker must still sign their PSBTs.');
+    }
+    
     return broadcastData.offer;
   }
 
