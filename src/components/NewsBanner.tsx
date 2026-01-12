@@ -89,7 +89,7 @@ export const NewsBanner: React.FC = () => {
 
   return (
     <div 
-      className="w-full max-w-6xl mx-auto mb-8 relative"
+      className="w-full max-w-4xl mx-auto mb-8 relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
