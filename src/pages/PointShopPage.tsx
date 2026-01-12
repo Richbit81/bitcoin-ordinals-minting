@@ -123,7 +123,7 @@ export const PointShopPage: React.FC = () => {
           </button>
         </div>
 
-        <h1 className="text-4xl font-bold text-center mb-2 border-b-2 border-red-600 pb-4 flex items-center justify-center gap-3">
+        <h1 className="text-4xl font-bold text-center mb-4 border-b-2 border-red-600 pb-4 flex items-center justify-center gap-3">
           <img
             src="/pointshop.png"
             alt="Point Shop"
@@ -134,6 +134,31 @@ export const PointShopPage: React.FC = () => {
           />
           Point Shop
         </h1>
+        
+        {/* Statistics Banner */}
+        {!loading && items.length > 0 && (
+          <div className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-4 mb-6 max-w-3xl mx-auto shadow-lg shadow-red-600/10">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-center md:text-left">
+                <p className="text-lg font-bold text-white mb-1">
+                  {items.length} {items.length === 1 ? 'Item' : 'Items'} Available
+                </p>
+                <p className="text-xs text-gray-400">
+                  {items.filter(i => i.itemType === 'series').length} Series • {' '}
+                  {items.filter(i => i.itemType === 'delegate').length} Delegates • {' '}
+                  {items.filter(i => i.itemType === 'original').length} Originals
+                </p>
+              </div>
+              {walletState.connected && (
+                <div className="text-center md:text-right">
+                  <p className="text-xs text-gray-400 mb-1">Your Balance</p>
+                  <p className="text-2xl font-bold text-red-600">{userPoints.toLocaleString()} Points</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="text-center text-gray-300 mb-8">
           Mint exclusive Ordinals with your points
         </p>
@@ -166,11 +191,17 @@ export const PointShopPage: React.FC = () => {
               return (
                 <div
                   key={item.id}
-                  className={`bg-black border rounded-lg overflow-hidden hover:border-red-500 transition-all ${
-                    isSeriesSoldOut ? 'border-gray-700 opacity-60' : 'border-red-600'
-                  }`}
+                  className={`bg-black/80 backdrop-blur-sm border rounded-lg overflow-hidden hover:border-red-500 transition-all duration-300 group relative ${
+                    isSeriesSoldOut ? 'border-gray-700 opacity-60' : 'border-red-600/50 hover:bg-black/90'
+                  } hover:shadow-lg hover:shadow-red-600/20 hover:scale-[1.02]`}
                 >
-                  <div className="aspect-square bg-gray-900 flex items-center justify-center p-2 relative">
+                  {/* Glassmorphism Background Effect */}
+                  {!isSeriesSoldOut && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
+                  )}
+                  <div className="aspect-square bg-gray-900 flex items-center justify-center p-2 relative group/preview">
+                    {/* Loading State */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black animate-pulse opacity-0 group-hover/preview:opacity-0 transition-opacity duration-300" />
                     {(() => {
                       let inscriptionId: string | undefined;
                       if (item.itemType === 'series') {
@@ -189,7 +220,8 @@ export const PointShopPage: React.FC = () => {
                         <img
                           src={`https://ordinals.com/content/${inscriptionId}`}
                           alt={item.title}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-contain transition-all duration-300 group-hover/preview:scale-105"
+                          loading="lazy"
                           onError={(e) => {
                             console.warn(`[PointShop] Could not load image for ${inscriptionId}`);
                             const target = e.currentTarget as HTMLImageElement;
@@ -202,6 +234,8 @@ export const PointShopPage: React.FC = () => {
                         />
                       ) : null;
                     })()}
+                    {/* Gradient Overlay on Hover */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-red-600/0 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
                     <div className="absolute top-1 right-1 flex flex-col gap-1">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                         item.itemType === 'series'
@@ -237,15 +271,15 @@ export const PointShopPage: React.FC = () => {
                           mintingItemId === item.id ||
                           isSeriesSoldOut
                         }
-                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-colors"
+                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-red-600/30 hover:scale-105 disabled:hover:scale-100"
                       >
                         {mintingItemId === item.id 
-                          ? '...' 
+                          ? '⏳ Minting...' 
                           : isSeriesSoldOut
-                            ? 'Sold'
+                            ? '❌ Sold'
                             : canAfford 
-                              ? (item.itemType === 'series' ? 'Mint' : item.itemType === 'delegate' ? 'Mint' : 'Transfer') 
-                              : 'No P'}
+                              ? (item.itemType === 'series' ? '🎯 Mint' : item.itemType === 'delegate' ? '🎯 Mint' : '🎯 Transfer') 
+                              : '💰 Need Points'}
                       </button>
                     </div>
                   </div>
