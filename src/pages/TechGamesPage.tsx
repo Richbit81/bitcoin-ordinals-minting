@@ -219,7 +219,7 @@ export const TechGamesPage: React.FC = () => {
       {/* Title */}
       <h1 className="text-4xl font-bold text-center mb-8 text-white flex items-center justify-center gap-3">
         <img
-          src="/techgame.png"
+          src="/images/techgames-logo.gif"
           alt="Tech & Games"
           className="h-8 w-8 object-contain"
           onError={(e) => {
