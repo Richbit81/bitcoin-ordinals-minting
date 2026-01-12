@@ -47,7 +47,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'skull-goats',
     title: 'Skull Goats by RichArt',
     description: '25 different Skull Goat ordinals',
-    url: 'https://magiceden.io/ordinals/marketplace/skull-goats-by-richart',
+    url: 'https://magiceden.io/ordinals/marketplace/skull-goats',
     category: 'collection',
   },
   {
@@ -68,14 +68,14 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'scanmode',
     title: 'scanmode by richart',
     description: 'Perceptions unfold across countless levels',
-    url: 'https://magiceden.io/ordinals/marketplace/scanmode-by-richart',
+    url: 'https://magiceden.io/ordinals/marketplace/scanmode',
     category: 'collection',
   },
   {
     id: 'symmetry',
     title: 'Symmetry by Richart',
     description: 'Hand-drawn Series with striking symmetry',
-    url: 'https://magiceden.io/ordinals/marketplace/symmetry-by-richart',
+    url: 'https://magiceden.io/ordinals/marketplace/symmetry',
     category: 'collection',
   },
   {
@@ -104,14 +104,14 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'event-fold',
     title: 'Event Fold by RichArt',
     description: 'Places not found on any map. Zones between space and time.',
-    url: 'https://magiceden.io/ordinals/marketplace/event-fold-by-richart',
+    url: 'https://magiceden.io/ordinals/marketplace/event-fold',
     category: 'collection',
   },
   {
     id: 'combination-mix',
     title: 'Ordinals CombiNation Mix - Fusion 1000',
     description: 'Art made from art - 1000 pixel crossover ordinals',
-    url: 'https://magiceden.io/ordinals/marketplace/ordinals-combination-mix-fusion-1000',
+    url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
     category: 'collection',
   },
   {
@@ -125,7 +125,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'qubiixx',
     title: 'QUBIIXX ORDINALS Collection',
     description: 'Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/qubiixx-ordinals',
+    url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
     category: 'collection',
   },
   {
