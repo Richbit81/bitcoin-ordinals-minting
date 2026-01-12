@@ -26,7 +26,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Lunalauncher',
     url: 'https://lunalauncher.io/#mint/richart-street-reign',
     category: 'game',
-    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Street+Reign',
   },
   {
     id: 'blocktris',
@@ -34,7 +33,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style - Mint on lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/blocktris',
     category: 'game',
-    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=BLOCKTRIS',
   },
   {
     id: 'sequencer',
@@ -42,25 +40,22 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Make Music with this Ordinal - Mint Live on Lunalauncher.io',
     url: 'https://lunalauncher.io/#mint/richart-sequencer',
     category: 'game',
-    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=SEQUENCER',
   },
   
   // Collections
   {
     id: 'skull-goats',
     title: 'Skull Goats by RichArt',
-    description: '25 different Skull Goat ordinals - Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/skull-goats-richart',
+    description: '25 different Skull Goat ordinals',
+    url: 'https://magiceden.io/ordinals/marketplace/skull-goats-by-richart',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/skull-goats.jpg',
   },
   {
     id: 'ordheadz',
     title: 'ORDHEADZ',
-    description: '1,111 Ordheadz with over 200 layers - Mint on ord-dropz.xyz',
+    description: '1,111 Ordheadz with over 200 layers',
     url: 'https://magiceden.io/ordinals/marketplace/ordheadz',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/ordheadz.jpg',
   },
   {
     id: 'conspiracy-narrative',
@@ -68,31 +63,27 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Gamma',
     url: 'https://gamma.io/ordinals/collections/conspiracy-narrative',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/conspiracy-narrative.jpg',
   },
   {
     id: 'scanmode',
     title: 'scanmode by richart',
-    description: 'Perceptions unfold across countless levels - Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/scanmode-richart',
+    description: 'Perceptions unfold across countless levels',
+    url: 'https://magiceden.io/ordinals/marketplace/scanmode-by-richart',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/scanmode.jpg',
   },
   {
     id: 'symmetry',
     title: 'Symmetry by Richart',
-    description: 'Hand-drawn Series with striking symmetry - Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/symmetry-richart',
+    description: 'Hand-drawn Series with striking symmetry',
+    url: 'https://magiceden.io/ordinals/marketplace/symmetry-by-richart',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/symmetry.jpg',
   },
   {
     id: 'symmetry-phoneutria',
     title: 'Symmetry by Richart - Phoneutria Fera',
     description: 'View on Gamma',
-    url: 'https://gamma.io/ordinals/collections/symmetry-phoneutria',
+    url: 'https://gamma.io/ordinals/collections/symmetry-by-richart-phoneutria-fera',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/symmetry-phoneutria.jpg',
   },
   {
     id: 'sons-of-satoshi',
@@ -105,26 +96,23 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'bone-cat',
     title: 'Bone Cat',
-    description: 'Bitcoin vibes with cat skulls - Also a Mintpass for Badcats Collection',
+    description: 'Bitcoin vibes with cat skulls - Mintpass for Badcats',
     url: 'https://magiceden.io/ordinals/marketplace/bone-cat',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/bone-cat.jpg',
   },
   {
     id: 'event-fold',
     title: 'Event Fold by RichArt',
     description: 'Places not found on any map. Zones between space and time.',
-    url: 'https://magiceden.io/ordinals/marketplace/event-fold',
+    url: 'https://magiceden.io/ordinals/marketplace/event-fold-by-richart',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/event-fold.jpg',
   },
   {
     id: 'combination-mix',
     title: 'Ordinals CombiNation Mix - Fusion 1000',
-    description: 'Art made from art - 1000 pixel crossover ordinals collection',
-    url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
+    description: 'Art made from art - 1000 pixel crossover ordinals',
+    url: 'https://magiceden.io/ordinals/marketplace/ordinals-combination-mix-fusion-1000',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/combination-mix.jpg',
   },
   {
     id: 'ganja-onchain',
@@ -132,15 +120,13 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden & OKX',
     url: 'https://magiceden.io/ordinals/marketplace/ganja-onchain',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/ganja-onchain.jpg',
   },
   {
     id: 'qubiixx',
     title: 'QUBIIXX ORDINALS Collection',
     description: 'Magic Eden',
-    url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
+    url: 'https://magiceden.io/ordinals/marketplace/qubiixx-ordinals',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/qubiixx.jpg',
   },
   {
     id: 'smile-a-bit',
@@ -235,7 +221,7 @@ export const LinkGalleryPage: React.FC = () => {
             <h2 className={`text-2xl font-bold mb-4 ${CATEGORY_COLORS[category as LinkItem['category']].split(' ')[0].replace('border-', 'text-')}`}>
               {CATEGORY_LABELS[category as LinkItem['category']]}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {items.map((item) => (
                 <a
                   key={item.id}
@@ -258,9 +244,9 @@ export const LinkGalleryPage: React.FC = () => {
                           if (parent) {
                             parent.innerHTML = `
                               <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                <div class="text-center p-4">
-                                  <div class="text-4xl mb-2">🎨</div>
-                                  <p class="text-white text-sm font-semibold">${item.title}</p>
+                                <div class="text-center p-2">
+                                  <div class="text-2xl mb-1">🎨</div>
+                                  <p class="text-white text-xs font-semibold">${item.title}</p>
                                 </div>
                               </div>
                             `;
@@ -271,21 +257,21 @@ export const LinkGalleryPage: React.FC = () => {
                   ) : (
                     // Fallback wenn kein Bild vorhanden
                     <div className="w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <div className="text-center p-4">
-                        <div className="text-4xl mb-2">🎨</div>
-                        <p className="text-white text-sm font-semibold">{item.title}</p>
+                      <div className="text-center p-2">
+                        <div className="text-2xl mb-1">🎨</div>
+                        <p className="text-white text-xs font-semibold">{item.title}</p>
                       </div>
                     </div>
                   )}
                   {/* Text-Content */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
+                  <div className="p-2">
+                    <h3 className="text-sm font-bold text-white mb-1 line-clamp-1">{item.title}</h3>
                     {item.description && (
-                      <p className="text-sm text-gray-300 mb-3">{item.description}</p>
+                      <p className="text-xs text-gray-300 mb-2 line-clamp-2">{item.description}</p>
                     )}
-                    <div className="flex items-center text-xs text-gray-400">
+                    <div className="flex items-center text-[10px] text-gray-400">
                       <span>Öffnen</span>
-                      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-2.5 h-2.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </div>
