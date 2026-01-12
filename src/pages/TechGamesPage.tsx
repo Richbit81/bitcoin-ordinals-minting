@@ -217,7 +217,7 @@ export const TechGamesPage: React.FC = () => {
       </div>
 
       {/* Title */}
-      <h1 className="text-4xl font-bold text-center mb-8 text-white flex items-center justify-center gap-3">
+      <h1 className="text-4xl font-bold text-center mb-4 text-white flex items-center justify-center gap-3">
         Tech & Games
         <img
           src="/images/techgames-logo.gif"
@@ -228,6 +228,13 @@ export const TechGamesPage: React.FC = () => {
           }}
         />
       </h1>
+
+      {/* Support Text */}
+      <p className="text-sm text-gray-400 text-center mb-8 max-w-2xl mx-auto px-4">
+        I really enjoy learning new things, but programming also requires a lot of time and effort.
+        You can test and play everything here for free.
+        If you enjoy it and like what I'm creating, I'd really appreciate any support by purchasing something.
+      </p>
 
       {/* Items Grid - Optimized for performance */}
       <div 
