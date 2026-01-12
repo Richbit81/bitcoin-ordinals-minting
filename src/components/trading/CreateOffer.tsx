@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWallet } from '../../contexts/WalletContext';
 import { WalletCard } from '../../services/gallery';
 import { CardSelector } from './CardSelector';
 import { createTradeOffer } from '../../services/tradingService';
+import { ALL_CARDS } from '../../config/cards';
 
 interface CreateOfferProps {
   myCards: WalletCard[];
@@ -86,9 +87,34 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
   const availableForOffer = myCards.filter(
     (card) => !requestCards.includes(card.inscriptionId)
   );
-  const availableForRequest = myCards.filter(
-    (card) => !offerCards.includes(card.inscriptionId)
-  );
+
+  // For "You Want", show all available cards from the collection (not user's cards)
+  // Each card should appear only once (by name + rarity combination)
+  const availableForRequest = useMemo(() => {
+    // Convert ALL_CARDS to WalletCard format for display
+    const allAvailableCards: WalletCard[] = ALL_CARDS.map(card => ({
+      name: card.name,
+      rarity: card.rarity,
+      inscriptionId: card.inscriptionId, // Use the inscriptionId from config as identifier
+      originalInscriptionId: card.inscriptionId,
+      mintedAt: 0,
+      packName: 'Collection',
+      cardType: card.cardType,
+      effect: card.effect,
+      svgIcon: card.svgIcon,
+    }));
+
+    // Remove duplicates: keep only unique combinations of name + rarity
+    const uniqueCards = new Map<string, WalletCard>();
+    allAvailableCards.forEach(card => {
+      const key = `${card.name}-${card.rarity}`;
+      if (!uniqueCards.has(key)) {
+        uniqueCards.set(key, card);
+      }
+    });
+
+    return Array.from(uniqueCards.values());
+  }, []);
 
   return (
     <div className="space-y-6">
