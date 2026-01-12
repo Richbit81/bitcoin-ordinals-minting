@@ -86,7 +86,8 @@ export const mintPointShopItem = async (
   walletAddress: string,
   itemId: string,
   walletType: string,
-  feeRate: number = 1
+  feeRate: number = 1,
+  walletState?: { walletType?: 'unisat' | 'xverse' | null }
 ): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
   // Schritt 1: Punkte abziehen (Backend prüft und zieht ab)
   const pointsResponse = await fetch(`${API_URL}/api/point-shop/mint`, {
