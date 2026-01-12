@@ -18,15 +18,27 @@ interface TechGameItem {
   description: string;
   price: number; // in sats
   category: Category;
+  specs?: string[]; // Für Specs (z.B. SEQUENCER)
+  features?: string[]; // Für Features (z.B. TACTICAL)
 }
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
     inscriptionId: '94c91f823f145daf0200394433c1116781a7a669ba0b24a0d232f46838b37351i0',
     name: 'TACTICAL',
-    description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.\n\nMain Features:\n-Optimized for Full Screen\n-Turn-based combat system with Action Points\n-Fog of War mechanics that reveal the battlefield as you explore\n-Multiple weapon modes: Snap Shot, Aimed Shot, Burst\n-Special abilities: Psi attacks, Teleport, Shield, Overwatch, Grenades, Medkits\n-Campaign mode with Command Center: manage your soldiers, equipment, and progression between missions\n-Map Editor to create custom missions\n-Arcade Mode with predefined missions\n-Multiple difficulty levels\n-Strategic gameplay',
+    description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.',
     price: 10000,
     category: 'game',
+    features: [
+      'Turn-based combat system with Action Points',
+      'Fog of War mechanics that reveal the battlefield as you explore',
+      'Multiple weapon modes: Snap Shot, Aimed Shot, Burst',
+      'Special abilities: Psi attacks, Teleport, Shield, Overwatch, Grenades, Medkits',
+      'Campaign mode with Command Center: manage your soldiers, equipment, and progression between missions',
+      'Map Editor to create custom missions',
+      'Arcade Mode with predefined missions',
+      'Multiple difficulty Levels',
+    ],
   },
   {
     inscriptionId: '0107df3459c64a889c4249011017a13dbbf7ad8e43cf075d3ca6aae7ddb511fai0',
@@ -38,9 +50,22 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
     inscriptionId: 'f90df6134b4d171c5b1f9c85884c3e1075ef7fb32fa404a58004e28a0db274d1i0',
     name: 'SEQUENCER',
-    description: 'Welcome to the S3QU3NC3R. An audio system completely as a standalone ordinal. It consists of over 8,000 lines of code. Mint Live on Lunalauncher.io\n\nSpecs:\n-8 Banks with 16 Steps, 9 Instruments\n-21 Effects, 2 FX per Instrument + EQ + Volume\n-Polyphony Control\n-Tone.js Framework + HTML Audio\n-Design with 4 themes\n-8 Audio Chains max (Auto-cleanup)\n-Memory Management with Garbage Collection\n-Import/Export Fiction via Text\n-AI Composition & Generative Patterns\n-Euclidean Rhythms & Pattern Evolution\n-Polyrhythmic Support',
+    description: 'Welcome to the S3QU3NC3R. An audio system completely as a standalone ordinal. It consists of over 8,000 lines of code. Mint Live on Lunalauncher.io',
     price: 10000,
     category: 'music',
+    specs: [
+      '8 Banks with 16 Steps, 9 Instruments',
+      '21 Effects, 2 FX per Instrument + EQ + Volume',
+      'Polyphony Control',
+      'Tone.js Framework + HTML Audio',
+      'Design with 4 themes',
+      '8 Audio Chains max (Auto-cleanup)',
+      'Memory Management with Garbage Collection',
+      'Import/Export Fiction via Text',
+      'AI Composition & Generative Patterns',
+      'Euclidean Rhythms & Pattern Evolution',
+      'Polyrhythmic Support',
+    ],
   },
   {
     inscriptionId: '93c6cae72268f19c1da6f2f6ca6f5d5aaa450c5c21f25265764d605288c1dffbi0',
@@ -88,6 +113,7 @@ export const TechGamesPage: React.FC = () => {
   const [pendingItem, setPendingItem] = useState<TechGameItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<TechGameItem | null>(null);
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
+  const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // inscriptionId of expanded item
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
@@ -410,20 +436,36 @@ export const TechGamesPage: React.FC = () => {
               {item.description.length > 150 ? '...' : ''}
             </p>
 
-            {/* Quick Features - nur wenn Features vorhanden */}
-            {item.description.includes('Features:') && (
-              <div className="mb-4 space-y-1">
-                {item.description
-                  .split('Features:')[1]
-                  ?.split('\n')
-                  .slice(0, 3)
-                  .filter(line => line.trim().startsWith('-'))
-                  .map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="text-red-600">✓</span>
-                      <span>{feature.replace('-', '').trim()}</span>
-                    </div>
-                  ))}
+            {/* Expandable Specs/Features */}
+            {(item.specs || item.features) && (
+              <div className="mb-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedSpecs(expandedSpecs === item.inscriptionId ? null : item.inscriptionId);
+                  }}
+                  className="w-full text-left text-xs text-red-400 hover:text-red-300 font-semibold flex items-center justify-between transition-colors duration-300"
+                >
+                  <span>{item.specs ? 'Specs' : 'Main Features'}</span>
+                  <svg
+                    className={`w-4 h-4 transition-transform duration-300 ${expandedSpecs === item.inscriptionId ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {expandedSpecs === item.inscriptionId && (
+                  <div className="mt-2 space-y-1 bg-gray-800/50 rounded p-2 max-h-48 overflow-y-auto">
+                    {(item.specs || item.features)?.map((itemText, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs text-gray-300">
+                        <span className="text-red-600 mt-0.5">•</span>
+                        <span>{itemText}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -609,23 +651,56 @@ export const TechGamesPage: React.FC = () => {
 
           {/* Footer with Info */}
           <div 
-            className="p-4 border-t-2 border-red-600 bg-gray-900 text-white"
+            className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="max-w-7xl mx-auto">
-              <div className="flex justify-between items-center">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-300 line-clamp-2">{selectedItem.description.split('\n\n')[0]}</p>
+              {/* Description */}
+              <div className="mb-4">
+                <p className="text-sm text-gray-300">{selectedItem.description}</p>
+              </div>
+              
+              {/* Specs/Features - Aufklappbar */}
+              {(selectedItem.specs || selectedItem.features) && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => setExpandedSpecs(expandedSpecs === selectedItem.inscriptionId ? null : selectedItem.inscriptionId)}
+                    className="w-full text-left text-sm text-red-400 hover:text-red-300 font-semibold flex items-center justify-between transition-colors duration-300 mb-2"
+                  >
+                    <span>{selectedItem.specs ? 'Specs' : 'Main Features'}</span>
+                    <svg
+                      className={`w-5 h-5 transition-transform duration-300 ${expandedSpecs === selectedItem.inscriptionId ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {expandedSpecs === selectedItem.inscriptionId && (
+                    <div className="space-y-2 bg-gray-800/50 rounded p-3 max-h-64 overflow-y-auto">
+                      {(selectedItem.specs || selectedItem.features)?.map((itemText, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                          <span className="text-red-600 mt-0.5">•</span>
+                          <span>{itemText}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {/* Price Info - nur anzeigen wenn price > 0 */}
-                {selectedItem.price > 0 && (
-                  <div className="ml-4 text-right">
+              )}
+              
+              {/* Price Info - nur anzeigen wenn price > 0 */}
+              {selectedItem.price > 0 && (
+                <div className="flex justify-between items-center border-t border-gray-700 pt-4">
+                  <div className="flex-1" />
+                  <div className="text-right">
                     <p className="text-sm text-gray-400">Price</p>
                     <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
                     <p className="text-xs text-gray-500">+ inscription fees</p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

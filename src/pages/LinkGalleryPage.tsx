@@ -8,6 +8,10 @@ interface LinkItem {
   url: string;
   category: 'game' | 'collection' | 'marketplace' | 'social' | 'other';
   image?: string; // Vorschaubild
+  inscriptionId?: string; // Für Fullscreen-Preview (z.B. Synthesizer)
+  specs?: string[]; // Für Specs (z.B. SEQUENCER)
+  features?: string[]; // Für Features (z.B. TACTICAL)
+  hasPreview?: boolean; // Ob Item ein Fullscreen-Modal haben soll
 }
 
 const LINK_ITEMS: LinkItem[] = [
@@ -15,10 +19,21 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'tactical',
     title: 'Tactical The Game',
-    description: 'Mint on LunaLauncher',
+    description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.',
     url: 'https://lunalauncher.io/#mint/richart-tactical-game',
     category: 'game',
     image: '/images/Tactical.jpg',
+    hasPreview: true,
+    features: [
+      'Turn-based combat system with Action Points',
+      'Fog of War mechanics that reveal the battlefield as you explore',
+      'Multiple weapon modes: Snap Shot, Aimed Shot, Burst',
+      'Special abilities: Psi attacks, Teleport, Shield, Overwatch, Grenades, Medkits',
+      'Campaign mode with Command Center: manage your soldiers, equipment, and progression between missions',
+      'Map Editor to create custom missions',
+      'Arcade Mode with predefined missions',
+      'Multiple difficulty Levels',
+    ],
   },
   {
     id: 'street-reign',
@@ -39,10 +54,24 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'sequencer',
     title: 'SEQUENCER',
-    description: 'Make Music with this Ordinal - View on Magic Eden',
+    description: 'Welcome to the S3QU3NC3R. An audio system completely as a standalone ordinal. It consists of over 8,000 lines of code. Mint Live on Lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/sequencer',
     category: 'game',
     image: '/images/Sequencer.png',
+    hasPreview: true,
+    specs: [
+      '8 Banks with 16 Steps, 9 Instruments',
+      '21 Effects, 2 FX per Instrument + EQ + Volume',
+      'Polyphony Control',
+      'Tone.js Framework + HTML Audio',
+      'Design with 4 themes',
+      '8 Audio Chains max (Auto-cleanup)',
+      'Memory Management with Garbage Collection',
+      'Import/Export Fiction via Text',
+      'AI Composition & Generative Patterns',
+      'Euclidean Rhythms & Pattern Evolution',
+      'Polyrhythmic Support',
+    ],
   },
   {
     id: 'synthesizer',
@@ -51,6 +80,8 @@ const LINK_ITEMS: LinkItem[] = [
     url: 'https://ordinals.com/inscription/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
     category: 'game',
     image: 'https://ordinals.com/content/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
+    inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
+    hasPreview: true,
   },
   {
     id: 'consciousness-simulator',
@@ -187,6 +218,8 @@ const CATEGORY_COLORS: Record<LinkItem['category'], string> = {
 export const LinkGalleryPage: React.FC = () => {
   const navigate = useNavigate();
   const [linkImages, setLinkImages] = useState<Record<string, string>>({});
+  const [selectedItem, setSelectedItem] = useState<LinkItem | null>(null);
+  const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // id of expanded item
 
   // Lade Bilder von Linktree für Items ohne lokale Bilder
   useEffect(() => {
@@ -269,12 +302,16 @@ export const LinkGalleryPage: React.FC = () => {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {items.map((item) => (
-                <a
+                <div
                   key={item.id}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className={`block rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer overflow-hidden`}
+                  onClick={() => {
+                    if (item.hasPreview) {
+                      setSelectedItem(item);
+                    } else {
+                      window.open(item.url, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
                 >
                   {/* Vorschaubild */}
                   {(item.image || linkImages[item.id]) ? (
@@ -339,7 +376,7 @@ export const LinkGalleryPage: React.FC = () => {
                       </svg>
                     </div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </div>
@@ -350,6 +387,123 @@ export const LinkGalleryPage: React.FC = () => {
       <div className="mt-16 text-center text-gray-500 text-sm">
         <p>Oneironaut, Artist, Creator</p>
       </div>
+
+      {/* Fullscreen Preview Modal */}
+      {selectedItem && selectedItem.hasPreview && (
+        <div
+          className="fixed inset-0 bg-black z-50 flex flex-col"
+          onClick={() => {
+            setSelectedItem(null);
+            setExpandedSpecs(null);
+          }}
+        >
+          {/* Header with Close Button */}
+          <div className="flex justify-between items-center p-4 border-b-2 border-red-600 bg-gray-900">
+            <h2 className="text-2xl font-bold text-white">{selectedItem.title}</h2>
+            <div className="flex items-center gap-4">
+              <a
+                href={selectedItem.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-semibold"
+              >
+                Open Link
+              </a>
+              <button
+                onClick={() => {
+                  setSelectedItem(null);
+                  setExpandedSpecs(null);
+                }}
+                className="text-gray-400 hover:text-white p-2"
+                title="Close (ESC)"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          {/* Content Area */}
+          <div className="flex-1 overflow-hidden relative flex flex-col">
+            {/* Preview: iframe für Synthesizer, Bild für andere */}
+            {selectedItem.inscriptionId ? (
+              <div 
+                className="flex-1 w-full h-full bg-black overflow-hidden relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <iframe
+                  src={`https://ordinals.com/content/${selectedItem.inscriptionId}`}
+                  className="w-full h-full border-0 absolute inset-0"
+                  title={selectedItem.title}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webgl; xr-spatial-tracking"
+                  allowFullScreen
+                />
+              </div>
+            ) : selectedItem.image ? (
+              <div 
+                className="flex-1 w-full h-full bg-black overflow-hidden relative flex items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={selectedItem.image}
+                  alt={selectedItem.title}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {/* Footer with Info */}
+          <div 
+            className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-w-7xl mx-auto">
+              {/* Description */}
+              {selectedItem.description && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-300">{selectedItem.description}</p>
+                </div>
+              )}
+              
+              {/* Specs/Features - Aufklappbar */}
+              {(selectedItem.specs || selectedItem.features) && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => setExpandedSpecs(expandedSpecs === selectedItem.id ? null : selectedItem.id)}
+                    className="w-full text-left text-sm text-red-400 hover:text-red-300 font-semibold flex items-center justify-between transition-colors duration-300 mb-2"
+                  >
+                    <span>{selectedItem.specs ? 'Specs' : 'Main Features'}</span>
+                    <svg
+                      className={`w-5 h-5 transition-transform duration-300 ${expandedSpecs === selectedItem.id ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {expandedSpecs === selectedItem.id && (
+                    <div className="space-y-2 bg-gray-800/50 rounded p-3 max-h-64 overflow-y-auto">
+                      {(selectedItem.specs || selectedItem.features)?.map((itemText, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                          <span className="text-red-600 mt-0.5">•</span>
+                          <span>{itemText}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
