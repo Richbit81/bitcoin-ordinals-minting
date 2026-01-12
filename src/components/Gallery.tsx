@@ -17,6 +17,7 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [filterRarity, setFilterRarity] = useState<Rarity | 'all'>('all');
 
   useEffect(() => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -73,8 +74,13 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
     );
   }
 
+  // Filtere Cards nach Rarität
+  const filteredCards = filterRarity === 'all' 
+    ? cards 
+    : cards.filter(card => card.rarity === filterRarity);
+
   // Gruppiere nach Rarität
-  const cardsByRarity = cards.reduce((acc, card) => {
+  const cardsByRarity = filteredCards.reduce((acc, card) => {
     if (!acc[card.rarity]) {
       acc[card.rarity] = [];
     }
@@ -83,18 +89,27 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
   }, {} as Record<Rarity, WalletCard[]>);
 
   const rarityOrder: Rarity[] = ['mystic-legendary', 'legendary', 'epic', 'rare', 'uncommon', 'common'];
+  
+  // Statistiken
+  const stats = {
+    total: cards.length,
+    byRarity: rarityOrder.reduce((acc, rarity) => {
+      acc[rarity] = cards.filter(c => c.rarity === rarity).length;
+      return acc;
+    }, {} as Record<Rarity, number>),
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-black border-2 border-red-600 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-black border-b-2 border-red-600 p-4 flex justify-between items-center z-10">
-          <div className="flex items-center gap-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-black/90 backdrop-blur-md border-2 border-red-600/50 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-red-600/20">
+        <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b-2 border-red-600/50 p-4 flex justify-between items-center z-10">
+          <div className="flex items-center gap-4 flex-1">
             <button
               onClick={() => {
                 onClose();
                 navigate('/black-wild');
               }}
-              className="text-gray-400 hover:text-white flex items-center gap-2"
+              className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors duration-300"
               title="Back to Mint Page"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,22 +117,77 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
               </svg>
               <span className="text-sm font-semibold">Back</span>
             </button>
-            <div>
+            <div className="flex-1">
               <h2 className="text-2xl font-bold text-white border-b-2 border-red-600 pb-2 inline-block">My Gallery</h2>
-              <p className="text-sm text-gray-300 mt-2">
-                {cards.length} card{cards.length !== 1 ? 's' : ''} found
-              </p>
+              {/* Statistics Banner */}
+              {!loading && cards.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="px-2 py-1 bg-red-600/20 border border-red-600/50 rounded-full text-red-400 font-semibold">
+                    {stats.total} Total
+                  </span>
+                  {rarityOrder.map(rarity => stats.byRarity[rarity] > 0 && (
+                    <span 
+                      key={rarity}
+                      className="px-2 py-1 rounded-full font-semibold text-xs"
+                      style={{
+                        backgroundColor: `${RARITY_COLORS[rarity]}20`,
+                        border: `1px solid ${RARITY_COLORS[rarity]}50`,
+                        color: RARITY_COLORS[rarity],
+                      }}
+                    >
+                      {stats.byRarity[rarity]} {RARITY_LABELS[rarity]}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white"
+            className="text-gray-400 hover:text-white transition-colors duration-300 p-2 hover:bg-gray-800 rounded-lg"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
+
+        {/* Filter */}
+        {!loading && cards.length > 0 && (
+          <div className="sticky top-[73px] bg-black/80 backdrop-blur-sm border-b border-red-600/30 p-4 z-10">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-gray-400 font-semibold">Filter:</span>
+              <button
+                onClick={() => setFilterRarity('all')}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-300 ${
+                  filterRarity === 'all'
+                    ? 'bg-red-600 text-white border-2 border-red-500'
+                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700'
+                }`}
+              >
+                All
+              </button>
+              {rarityOrder.map(rarity => (
+                <button
+                  key={rarity}
+                  onClick={() => setFilterRarity(rarity)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-300 ${
+                    filterRarity === rarity
+                      ? 'border-2 border-opacity-75'
+                      : 'bg-gray-800 border border-gray-700 hover:bg-gray-700'
+                  }`}
+                  style={{
+                    backgroundColor: filterRarity === rarity ? `${RARITY_COLORS[rarity]}40` : undefined,
+                    borderColor: filterRarity === rarity ? RARITY_COLORS[rarity] : undefined,
+                    color: filterRarity === rarity ? RARITY_COLORS[rarity] : '#D1D5DB',
+                  }}
+                >
+                  {RARITY_LABELS[rarity]} ({stats.byRarity[rarity]})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="p-6">
           {loading ? (
@@ -135,11 +205,19 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
                 Try Again
               </button>
             </div>
-          ) : cards.length === 0 ? (
+          ) : filteredCards.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-300 mb-4">No cards found in this wallet</p>
+              <p className="text-gray-300 mb-4">
+                {filterRarity === 'all' 
+                  ? 'No cards found in this wallet'
+                  : `No ${RARITY_LABELS[filterRarity]} cards found`
+                }
+              </p>
               <p className="text-sm text-gray-400">
-                Mint packs to get cards!
+                {filterRarity === 'all' 
+                  ? 'Mint packs to get cards!'
+                  : 'Try selecting a different rarity filter'
+                }
               </p>
             </div>
           ) : (
@@ -181,19 +259,21 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
                         return (
                           <div 
                             key={index} 
-                            className="flex flex-col cursor-pointer hover:scale-105 transition-transform duration-200"
+                            className="flex flex-col cursor-pointer group relative"
                             onClick={() => setSelectedCard(card)}
                           >
                             {/* Kleinere Kartenansicht */}
-                            <div className="transform scale-75 origin-top-left w-[133%] h-[133%]">
+                            <div className="transform scale-75 origin-top-left w-[133%] h-[133%] transition-all duration-300 group-hover:scale-[0.78] group-hover:shadow-lg group-hover:shadow-red-600/30">
                               <CardReveal card={card} showRarity={true} autoReveal={true} />
                             </div>
                             {/* Kartenname (klein) */}
-                            <div className="mt-1 p-1 bg-gray-900 border border-gray-700 rounded text-xs">
-                              <p className="font-bold text-white text-center text-[10px] truncate" title={walletCard.name}>
+                            <div className="mt-1 p-1 bg-gray-900/80 backdrop-blur-sm border border-gray-700 rounded text-xs transition-all duration-300 group-hover:border-red-600/50 group-hover:bg-gray-800/90">
+                              <p className="font-bold text-white text-center text-[10px] truncate transition-colors duration-300 group-hover:text-red-400" title={walletCard.name}>
                                 {walletCard.name}
                               </p>
                             </div>
+                            {/* Hover Glow Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
                           </div>
                         );
                       })}
