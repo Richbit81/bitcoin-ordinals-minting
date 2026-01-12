@@ -141,15 +141,17 @@ export const HomePage: React.FC = () => {
           <div
             key={project.id}
             onClick={() => navigate(`/${project.id}`)}
-            className={`w-full cursor-pointer hover:opacity-90 transition-opacity duration-300 flex flex-col items-center h-full ${
+            className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative ${
               project.id === 'point-shop' ? 'md:order-3' : 
               project.id === 'tech-games' ? 'md:order-2' : 
               project.id === 'smile-a-bit' ? 'md:order-4' :
               'md:order-1'
-            }`}
+            } hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
+            {/* Glassmorphism Background Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
-            <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 ${
+            <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
               project.id === 'black-wild' ? 'md:mt-16' :
               project.id === 'point-shop' || project.id === 'tech-games' || project.id === 'smile-a-bit' ? 'md:mt-8' : ''
             } ${
@@ -159,7 +161,8 @@ export const HomePage: React.FC = () => {
               <img
                 src={project.thumbnail}
                 alt={project.name}
-                className="w-full h-auto object-contain"
+                className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                loading="lazy"
                 onError={(e) => {
                   console.warn(`[HomePage] Could not load thumbnail: ${project.thumbnail}`);
                   // Fallback zu Icon wenn Bild nicht geladen werden kann
@@ -178,11 +181,11 @@ export const HomePage: React.FC = () => {
             </div>
             
             {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}
-            <div className="mt-auto pt-3 text-center w-full">
+            <div className="mt-auto pt-3 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]">
               {project.id === 'black-wild' ? (
-                <h2 className="text-xl font-bold mb-1">
+                <h2 className="text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-red-600">
                   <span 
-                    className="text-black"
+                    className="text-black transition-all duration-300"
                     style={{
                       textShadow: '-1px -1px 1px rgba(255, 255, 255, 0.5), 1px -1px 1px rgba(255, 255, 255, 0.5), -1px 1px 1px rgba(255, 255, 255, 0.5), 1px 1px 1px rgba(255, 255, 255, 0.5), 0 0 2px rgba(255, 255, 255, 0.3)'
                     }}
@@ -193,9 +196,9 @@ export const HomePage: React.FC = () => {
                   <span className="text-white">WILD</span>
                 </h2>
               ) : (
-                <h2 className="text-xl font-bold text-white mb-1">{project.name}</h2>
+                <h2 className="text-xl font-bold text-white mb-1 transition-colors duration-300 group-hover:text-red-400">{project.name}</h2>
               )}
-              <p className="text-xs text-gray-400">{project.description}</p>
+              <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
             </div>
           </div>
         ))}
