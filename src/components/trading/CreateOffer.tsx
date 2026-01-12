@@ -160,11 +160,12 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
             <div>
               <p className="text-sm text-gray-400 mb-2">You Want:</p>
               <div className="space-y-1">
-                {requestCards.map((id) => {
-                  const card = myCards.find((c) => c.inscriptionId === id);
+                {requestCards.map((originalId) => {
+                  // Finde die Karte in ALL_CARDS basierend auf der Original-ID
+                  const card = availableForRequest.find((c) => c.inscriptionId === originalId);
                   return (
-                    <p key={id} className="text-sm text-white">
-                      • {card?.name || id.slice(0, 8)}...
+                    <p key={originalId} className="text-sm text-white">
+                      • {card?.name || originalId.slice(0, 8)}...
                     </p>
                   );
                 })}

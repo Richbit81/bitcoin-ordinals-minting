@@ -23,8 +23,10 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
   const canAccept = !isMyOffer && offer.status === 'active';
   
   // Check if I have all requested cards
-  const hasRequestedCards = offer.requestCards.every((id) =>
-    myCards.some((card) => card.inscriptionId === id)
+  // requestCards enthält Original-Inskription-IDs aus ALL_CARDS
+  // Wir prüfen, ob der Taker Delegates hat, deren originalInscriptionId mit den requestCards übereinstimmt
+  const hasRequestedCards = offer.requestCards.every((requestedOriginalId) =>
+    myCards.some((card) => card.originalInscriptionId === requestedOriginalId)
   );
 
   const handleAccept = async () => {
