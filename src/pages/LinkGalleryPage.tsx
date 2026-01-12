@@ -52,6 +52,14 @@ const LINK_ITEMS: LinkItem[] = [
     category: 'game',
     image: 'https://ordinals.com/content/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
   },
+  {
+    id: 'consciousness-simulator',
+    title: 'Inside the Consciousness Simulator',
+    description: 'Card Packs',
+    url: 'https://www.ord-x.com/#Inside-the-Consciousness-Simulator',
+    category: 'game',
+    image: '/images/Simulator.jpeg',
+  },
   
   // Collections
   {
