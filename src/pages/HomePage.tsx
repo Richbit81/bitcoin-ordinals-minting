@@ -38,7 +38,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'smile-a-bit',
       name: 'SMILE A BIT',
-      thumbnail: '/images/SmileaBittt.png',
+      thumbnail: '/images/RichArt.png',
       description: 'Coming soon',
       order: 4,
     },
