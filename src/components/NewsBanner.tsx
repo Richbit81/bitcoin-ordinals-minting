@@ -86,33 +86,33 @@ export const NewsBanner: React.FC = () => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Banner mit 2 Items nebeneinander */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Item 1 */}
-        <div
-          onClick={() => handleClick(item1.link)}
-          className="relative bg-gray-900 border-2 border-red-600 rounded-lg overflow-hidden cursor-pointer hover:border-red-500 transition-all group"
-        >
-          {/* Bild - quadratisch/hochformat optimiert */}
-          <div className="relative w-full aspect-square overflow-hidden">
-            <img
-              src={item1.image}
-              alt={item1.title}
-              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => {
-                console.warn(`[NewsBanner] Could not load image: ${item1.image}`);
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            {/* Overlay für bessere Text-Lesbarkeit */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+      {/* Breiter Banner mit 2 Items nebeneinander - kein Rahmen zwischen Items */}
+      <div className="bg-gray-900 border-2 border-red-600 rounded-lg overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-red-600">
+          {/* Item 1 */}
+          <div
+            onClick={() => handleClick(item1.link)}
+            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-800 transition-all group"
+          >
+            {/* Bild links */}
+            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-gray-800">
+              <img
+                src={item1.image}
+                alt={item1.title}
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                onError={(e) => {
+                  console.warn(`[NewsBanner] Could not load image: ${item1.image}`);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
             
-            {/* Text-Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="text-lg md:text-xl font-bold text-white mb-1">
+            {/* Text rechts */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-white mb-1 line-clamp-1">
                 {item1.title}
               </h3>
-              <p className="text-xs md:text-sm text-gray-300 mb-2">
+              <p className="text-xs md:text-sm text-gray-300 mb-2 line-clamp-1">
                 {item1.description}
               </p>
               <div className="flex items-center text-red-400 text-xs font-semibold">
@@ -123,33 +123,31 @@ export const NewsBanner: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Item 2 */}
-        <div
-          onClick={() => handleClick(item2.link)}
-          className="relative bg-gray-900 border-2 border-red-600 rounded-lg overflow-hidden cursor-pointer hover:border-red-500 transition-all group"
-        >
-          {/* Bild - quadratisch/hochformat optimiert */}
-          <div className="relative w-full aspect-square overflow-hidden">
-            <img
-              src={item2.image}
-              alt={item2.title}
-              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => {
-                console.warn(`[NewsBanner] Could not load image: ${item2.image}`);
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            {/* Overlay für bessere Text-Lesbarkeit */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+          {/* Item 2 */}
+          <div
+            onClick={() => handleClick(item2.link)}
+            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-800 transition-all group"
+          >
+            {/* Bild links */}
+            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-gray-800">
+              <img
+                src={item2.image}
+                alt={item2.title}
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                onError={(e) => {
+                  console.warn(`[NewsBanner] Could not load image: ${item2.image}`);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
             
-            {/* Text-Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="text-lg md:text-xl font-bold text-white mb-1">
+            {/* Text rechts */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-white mb-1 line-clamp-1">
                 {item2.title}
               </h3>
-              <p className="text-xs md:text-sm text-gray-300 mb-2">
+              <p className="text-xs md:text-sm text-gray-300 mb-2 line-clamp-1">
                 {item2.description}
               </p>
               <div className="flex items-center text-red-400 text-xs font-semibold">
@@ -164,7 +162,7 @@ export const NewsBanner: React.FC = () => {
       </div>
 
       {/* Navigation Dots - für Slides (jeder Slide = 2 Items) */}
-      <div className="flex justify-center gap-2 mt-4">
+      <div className="flex justify-center gap-2 mt-3">
         {Array.from({ length: slideCount }).map((_, slideIndex) => {
           const slideStartIndex = slideIndex * 2;
           const isActive = currentIndex === slideStartIndex || 
