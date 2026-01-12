@@ -27,10 +27,18 @@ export const fetchWalletCards = async (walletAddress: string): Promise<WalletCar
   let blockchainFetchSuccessful = false;
   
   try {
+    const apiUrl = `${API_URL}/api/delegates/${walletAddress}?hybrid=true`;
     console.log(`[Gallery] 🔍 Fetching inscriptions from blockchain for ${walletAddress}...`);
-    const hybridResponse = await fetch(`${API_URL}/api/delegates/${walletAddress}?hybrid=true`);
+    console.log(`[Gallery] 📡 API URL: ${apiUrl}`);
+    const hybridResponse = await fetch(apiUrl);
+    console.log(`[Gallery] 📥 Response status: ${hybridResponse.status} ${hybridResponse.statusText}`);
     if (hybridResponse.ok) {
       const hybridData = await hybridResponse.json();
+      console.log(`[Gallery] 📋 Response data:`, {
+        delegatesCount: hybridData.delegates?.length || 0,
+        source: hybridData.source,
+        count: hybridData.count
+      });
       delegates = hybridData.delegates || [];
       blockchainFetchSuccessful = true; // Erfolgreiche Abfrage, auch wenn 0 Ergebnisse
       console.log(`[Gallery] ✅ Fetched ${delegates.length} inscriptions from blockchain`);
@@ -38,16 +46,19 @@ export const fetchWalletCards = async (walletAddress: string): Promise<WalletCar
         console.log(`[Gallery] First inscription:`, {
           id: delegates[0].delegateInscriptionId,
           name: delegates[0].name,
-          originalId: delegates[0].originalInscriptionId
+          originalId: delegates[0].originalInscriptionId,
+          rarity: delegates[0].rarity
         });
       } else {
         console.log(`[Gallery] ℹ️ No inscriptions found on blockchain for this wallet`);
       }
     } else {
-      console.warn(`[Gallery] ⚠️ Blockchain fetch failed: ${hybridResponse.status}`);
+      const errorText = await hybridResponse.text().catch(() => 'Unknown error');
+      console.warn(`[Gallery] ⚠️ Blockchain fetch failed: ${hybridResponse.status}`, errorText);
     }
-  } catch (hybridErr) {
+  } catch (hybridErr: any) {
     console.error('[Gallery] ❌ Could not fetch from blockchain:', hybridErr);
+    console.error('[Gallery] ❌ Error details:', hybridErr.message, hybridErr.stack);
     // Nur bei Fehlern (nicht bei 0 Ergebnissen) auf Registry zurückgreifen
   }
   

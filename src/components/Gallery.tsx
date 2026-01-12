@@ -28,15 +28,29 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
   }, [walletState.connected, walletState.accounts]);
 
   const loadCards = async () => {
-    if (!walletState.accounts[0]?.address) return;
+    if (!walletState.accounts[0]?.address) {
+      console.log('[Gallery] ⚠️ No wallet address available');
+      return;
+    }
+
+    const walletAddress = walletState.accounts[0].address;
+    console.log('[Gallery] 🔍 Loading cards for wallet:', walletAddress);
 
     setLoading(true);
     setError(null);
 
     try {
-      const walletCards = await fetchWalletCards(walletState.accounts[0].address);
+      console.log('[Gallery] 📞 Calling fetchWalletCards...');
+      const walletCards = await fetchWalletCards(walletAddress);
+      console.log('[Gallery] ✅ Received cards:', walletCards.length);
+      console.log('[Gallery] 📋 Cards details:', walletCards.map(c => ({
+        name: c.name,
+        inscriptionId: c.inscriptionId,
+        originalId: c.originalInscriptionId
+      })));
       setCards(walletCards);
     } catch (err: any) {
+      console.error('[Gallery] ❌ Error loading cards:', err);
       setError(err.message || 'Error loading cards');
     } finally {
       setLoading(false);
