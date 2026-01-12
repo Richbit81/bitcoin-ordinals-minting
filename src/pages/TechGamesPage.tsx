@@ -10,11 +10,14 @@ import { addPoints } from '../services/pointsService';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
+type Category = 'game' | 'tool' | 'music';
+
 interface TechGameItem {
   inscriptionId: string;
   name: string;
   description: string;
   price: number; // in sats
+  category: Category;
 }
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
@@ -23,48 +26,56 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     name: 'TACTICAL',
     description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.\n\nMain Features:\n-Optimized for Full Screen\n-Turn-based combat system with Action Points\n-Fog of War mechanics that reveal the battlefield as you explore\n-Multiple weapon modes: Snap Shot, Aimed Shot, Burst\n-Special abilities: Psi attacks, Teleport, Shield, Overwatch, Grenades, Medkits\n-Campaign mode with Command Center: manage your soldiers, equipment, and progression between missions\n-Map Editor to create custom missions\n-Arcade Mode with predefined missions\n-Multiple difficulty levels\n-Strategic gameplay',
     price: 10000,
+    category: 'game',
   },
   {
     inscriptionId: '0107df3459c64a889c4249011017a13dbbf7ad8e43cf075d3ca6aae7ddb511fai0',
     name: "SANTA'S REVENGE",
     description: "Do you want to help Santa give the Grinch a serious kick where it hurts? Then Santas Revenge is the game for you! Santas Revenge is an action-packed 3D shooter where you fight your way through a maze and defeat various enemies. The game features multiple levels, different weapons, various difficulty settings, and many additional features. Despite all challenges, I managed to overcome the many obstacles of blockchain development and create a full-fledged shooter. The game runs only on PC, in fullscreen mode, and is played with mouse & keyboard. Enjoy Santas Revenge and good luck defeating all enemies!",
     price: 10000,
+    category: 'game',
   },
   {
     inscriptionId: 'f90df6134b4d171c5b1f9c85884c3e1075ef7fb32fa404a58004e28a0db274d1i0',
     name: 'SEQUENCER',
     description: 'Welcome to the S3QU3NC3R. An audio system completely as a standalone ordinal. It consists of over 8,000 lines of code. Mint Live on Lunalauncher.io\n\nSpecs:\n-8 Banks with 16 Steps, 9 Instruments\n-21 Effects, 2 FX per Instrument + EQ + Volume\n-Polyphony Control\n-Tone.js Framework + HTML Audio\n-Design with 4 themes\n-8 Audio Chains max (Auto-cleanup)\n-Memory Management with Garbage Collection\n-Import/Export Fiction via Text\n-AI Composition & Generative Patterns\n-Euclidean Rhythms & Pattern Evolution\n-Polyrhythmic Support',
     price: 10000,
+    category: 'music',
   },
   {
     inscriptionId: '93c6cae72268f19c1da6f2f6ca6f5d5aaa450c5c21f25265764d605288c1dffbi0',
     name: 'STREET REIGN',
     description: 'Street Reign is a point-and-click game. It puts you in the world of a drug dealer. Buy, sell, escape from the police. The goal is to make money and climb the ranks. Will you succeed? Best gaming experience on PC in full screen.',
     price: 10000,
+    category: 'game',
   },
   {
     inscriptionId: '5be3dfb109321291c0469ab1253be7b5c9d023e694945dbbd71a1dfe7518a4bfi0',
     name: 'TimeBIT',
     description: 'Binary clock',
     price: 2000,
+    category: 'tool',
   },
   {
     inscriptionId: '1164c8fc35613512724f816b98d4b147846d18afe506b62c6a6b552a325cbea9i0',
     name: 'Slot Machine',
     description: 'Push the Button! Try your luck with this little slot machine. 6 designs, sounds, 3 slots. The slot machine is a little experiment and shows what else you can do with ordinals besides art. Over 1500 lines of code and 250kB of data were used to create this machine.',
     price: 2000,
+    category: 'game',
   },
   {
     inscriptionId: 'e6805a3c68fd1abb1904dfb8193b2a01ef2ccbd96d6b8be2c4b9aba4332c413di0',
     name: 'BLOCKTRIS',
     description: 'Tetris Clone in Bitmap/Memepool style',
     price: 2000,
+    category: 'game',
   },
   {
     inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
     name: 'RichArt Synthesizer',
     description: 'Beta version of the RichArt Synthesizer',
     price: 0, // 0 = Test only, not for purchase
+    category: 'music',
   },
 ];
 
@@ -76,6 +87,7 @@ export const TechGamesPage: React.FC = () => {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [pendingItem, setPendingItem] = useState<TechGameItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<TechGameItem | null>(null);
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
@@ -200,6 +212,26 @@ export const TechGamesPage: React.FC = () => {
     return `${sats.toLocaleString()} sats (${(sats / 100000000).toFixed(8)} BTC)`;
   };
 
+  // Helper-Funktionen für Badges
+  const getCategoryBadge = (category: Category) => {
+    const badges = {
+      game: { label: '🎮 Game', color: 'bg-blue-600 text-white' },
+      tool: { label: '🔧 Tool', color: 'bg-green-600 text-white' },
+      music: { label: '🎵 Music', color: 'bg-purple-600 text-white' },
+    };
+    return badges[category];
+  };
+
+  const getPriceBadge = (price: number) => {
+    if (price === 0) {
+      return { label: 'FREE', color: 'bg-gray-600 text-white' };
+    } else if (price >= 8000) {
+      return { label: 'PREMIUM', color: 'bg-yellow-600 text-white' };
+    } else {
+      return { label: 'STANDARD', color: 'bg-gray-700 text-white' };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black p-8 pt-20">
       {/* Back Button */}
@@ -229,6 +261,33 @@ export const TechGamesPage: React.FC = () => {
         />
       </h1>
 
+      {/* Statistics & Info Banner */}
+      <div className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-6 mb-8 max-w-4xl mx-auto shadow-lg shadow-red-600/10">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="text-center md:text-left">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {TECH_GAMES_ITEMS.length} Games & Tools Available
+            </h2>
+            <p className="text-sm text-gray-400">
+              {TECH_GAMES_ITEMS.filter(i => i.category === 'game').length} Games • {' '}
+              {TECH_GAMES_ITEMS.filter(i => i.category === 'tool').length} Tools • {' '}
+              {TECH_GAMES_ITEMS.filter(i => i.category === 'music').length} Music Tools
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center md:justify-end">
+            <span className="px-3 py-1 bg-red-600/20 border border-red-600 rounded-full text-xs text-red-400 font-semibold">
+              🎮 Fullscreen Games
+            </span>
+            <span className="px-3 py-1 bg-blue-600/20 border border-blue-600 rounded-full text-xs text-blue-400 font-semibold">
+              🔧 Interactive Tools
+            </span>
+            <span className="px-3 py-1 bg-purple-600/20 border border-purple-600 rounded-full text-xs text-purple-400 font-semibold">
+              🎵 Music Creation
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Support Text */}
       <p className="text-sm text-gray-400 text-center mb-8 max-w-2xl mx-auto px-4">
         I really enjoy learning new things, but programming also requires a lot of time and effort.
@@ -246,13 +305,27 @@ export const TechGamesPage: React.FC = () => {
         {TECH_GAMES_ITEMS.map((item) => (
           <div
             key={item.inscriptionId}
-            className="bg-gray-900 border border-red-600 rounded-lg p-6 hover:border-red-500 transition-colors flex flex-col"
+            className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-6 hover:border-red-500 hover:bg-gray-900/90 transition-all duration-300 flex flex-col hover:shadow-lg hover:shadow-red-600/20 hover:scale-[1.02] group relative overflow-hidden"
           >
+            {/* Glassmorphism Background Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            {/* Badges */}
+            <div className="flex gap-2 mb-3 relative z-10">
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getCategoryBadge(item.category).color} shadow-sm`}>
+                {getCategoryBadge(item.category).label}
+              </span>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getPriceBadge(item.price).color} shadow-sm`}>
+                {getPriceBadge(item.price).label}
+              </span>
+            </div>
+
             {/* Preview - HTML Inscription in iframe - Optimized for performance */}
             <div
-              className="w-full aspect-square bg-black rounded mb-4 cursor-pointer overflow-hidden border-2 border-gray-800 hover:border-red-600 transition-colors"
+              className="w-full aspect-square bg-black rounded mb-4 cursor-pointer overflow-hidden border-2 border-gray-800 hover:border-red-600 transition-all duration-300 relative group/preview hover:shadow-lg hover:shadow-red-600/30"
               onClick={() => setSelectedItem(item)}
             >
+              {/* Gradient Overlay on Hover */}
+              <div className="absolute inset-0 bg-gradient-to-t from-red-600/0 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
               {selectedItem ? (
                 // Wenn ein anderes Item im Modal ist, zeige Platzhalter statt iframe (spart Ressourcen)
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black text-gray-300 text-center p-4">
@@ -263,42 +336,68 @@ export const TechGamesPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <iframe
-                  src={`https://ordinals.com/content/${item.inscriptionId}`}
-                  className="w-full h-full border-0"
-                  title={item.name}
-                  sandbox="allow-scripts allow-same-origin"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  style={{
-                    transform: 'translateZ(0)',
-                    willChange: 'auto',
-                  }}
-                  onError={(e) => {
-                    console.log(`[TechGames] Iframe load error for ${item.name}`);
-                    const iframe = e.currentTarget as HTMLIFrameElement;
-                    iframe.style.display = 'none';
-                    const parent = iframe.parentElement;
-                    if (parent) {
-                      parent.innerHTML = `
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black text-gray-300 text-center p-4">
-                          <div>
-                            <div class="text-4xl mb-3">🎮</div>
-                            <p class="text-lg font-bold mb-1">${item.name}</p>
-                            <p class="text-xs text-gray-500">HTML Inscription</p>
+                <>
+                  {/* Skeleton Loader */}
+                  {loadingItems.has(item.inscriptionId) && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black animate-pulse flex items-center justify-center z-0">
+                      <div className="text-center">
+                        <div className="w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                        <p className="text-xs text-gray-400">Loading {item.name}...</p>
+                      </div>
+                    </div>
+                  )}
+                  <iframe
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    className={`w-full h-full border-0 ${loadingItems.has(item.inscriptionId) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+                    title={item.name}
+                    sandbox="allow-scripts allow-same-origin"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    style={{
+                      transform: 'translateZ(0)',
+                      willChange: 'auto',
+                    }}
+                    onLoad={() => {
+                      setLoadingItems(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(item.inscriptionId);
+                        return newSet;
+                      });
+                    }}
+                    onLoadStart={() => {
+                      setLoadingItems(prev => new Set(prev).add(item.inscriptionId));
+                    }}
+                    onError={(e) => {
+                      console.log(`[TechGames] Iframe load error for ${item.name}`);
+                      setLoadingItems(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(item.inscriptionId);
+                        return newSet;
+                      });
+                      const iframe = e.currentTarget as HTMLIFrameElement;
+                      iframe.style.display = 'none';
+                      const parent = iframe.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `
+                          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black text-gray-300 text-center p-4">
+                            <div>
+                              <div class="text-4xl mb-3">🎮</div>
+                              <p class="text-lg font-bold mb-1">${item.name}</p>
+                              <p class="text-xs text-gray-500">HTML Inscription</p>
+                            </div>
                           </div>
-                        </div>
-                      `;
-                    }
-                  }}
-                />
+                        `;
+                      }
+                    }}
+                  />
+                </>
               )}
             </div>
 
             {/* Item Info */}
             <h3 
-              className="text-xl font-bold text-white mb-2 cursor-pointer hover:text-red-600 transition-colors"
+              className="text-xl font-bold text-white mb-2 cursor-pointer hover:text-red-600 transition-all duration-300 group-hover:translate-x-1"
               onClick={() => setSelectedItem(item)}
             >
               {item.name}
@@ -311,6 +410,23 @@ export const TechGamesPage: React.FC = () => {
               {item.description.length > 150 ? '...' : ''}
             </p>
 
+            {/* Quick Features - nur wenn Features vorhanden */}
+            {item.description.includes('Features:') && (
+              <div className="mb-4 space-y-1">
+                {item.description
+                  .split('Features:')[1]
+                  ?.split('\n')
+                  .slice(0, 3)
+                  .filter(line => line.trim().startsWith('-'))
+                  .map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="text-red-600">✓</span>
+                      <span>{feature.replace('-', '').trim()}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+
             {/* Price Info - nur anzeigen wenn price > 0 */}
             {item.price > 0 && (
               <div className="mb-4">
@@ -320,21 +436,29 @@ export const TechGamesPage: React.FC = () => {
             )}
 
             {/* Mint oder Test Button - mt-auto schiebt ihn nach unten */}
-            <div className="mt-auto">
+            <div className="mt-auto space-y-2">
               {item.price > 0 ? (
-                <button
-                  onClick={() => handleMint(item)}
-                  disabled={mintingStatus?.status === 'in-progress'}
-                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm font-semibold"
-                >
-                  {mintingStatus?.status === 'in-progress' ? 'Minting...' : 'Mint'}
-                </button>
+                <>
+                  <button
+                    onClick={() => handleMint(item)}
+                    disabled={mintingStatus?.status === 'in-progress'}
+                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all duration-300 text-sm font-semibold hover:shadow-lg hover:shadow-red-600/30 hover:scale-[1.02]"
+                  >
+                    {mintingStatus?.status === 'in-progress' ? 'Minting...' : '🎯 Mint Now'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedItem(item)}
+                    className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-300 text-xs font-medium text-gray-300"
+                  >
+                    👁️ Try First
+                  </button>
+                </>
               ) : (
                 <button
                   onClick={() => setSelectedItem(item)}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-semibold"
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-300 text-sm font-semibold hover:shadow-lg hover:shadow-blue-600/30 hover:scale-[1.02]"
                 >
-                  Test
+                  🎮 Test Now
                 </button>
               )}
             </div>
