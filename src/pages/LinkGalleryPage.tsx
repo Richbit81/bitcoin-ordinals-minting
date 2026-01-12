@@ -54,7 +54,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'ordheadz',
     title: 'ORDHEADZ',
     description: '1,111 Ordheadz with over 200 layers',
-    url: 'https://magiceden.io/ordinals/marketplace/ordheadz',
+    url: 'https://magiceden.io/ordinals/marketplace/ohdz',
     category: 'collection',
   },
   {
@@ -207,7 +207,7 @@ export const LinkGalleryPage: React.FC = () => {
         />
         <h1 className="text-4xl font-bold mb-4">Link Gallery</h1>
         <p className="text-gray-400 max-w-2xl mx-auto">
-          Alle Projekte, Collections und Links von RichArt auf einen Blick
+          All projects, collections and links from RichArt at a glance
         </p>
       </div>
 
@@ -267,7 +267,7 @@ export const LinkGalleryPage: React.FC = () => {
                       <p className="text-xs text-gray-300 mb-2 line-clamp-2">{item.description}</p>
                     )}
                     <div className="flex items-center text-[10px] text-gray-400">
-                      <span>Öffnen</span>
+                      <span>Open</span>
                       <svg className="w-2.5 h-2.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
