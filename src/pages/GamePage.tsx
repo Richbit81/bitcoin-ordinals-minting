@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards } from '../game/gameEngine';
+import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards, canPlayCard } from '../game/gameEngine';
 import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS, STATUS_CATEGORIES } from '../game/gameCards';
 import { getCardImageUrl } from '../game/cardImageService';
 import { makeAIMove } from '../game/aiLogic';
@@ -307,27 +307,21 @@ export const GamePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white p-4">
       {/* Game Info */}
-      <div className="max-w-[1600px] mx-auto mb-4 flex gap-4">
-        <div className="flex-1">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">🖤 BLACK & WILD</h1>
-              <p className="text-sm text-gray-400">
-                Turn {gameState.turnNumber} | Phase: {gameState.phase.toUpperCase()} | 
-                {isPlayerTurn ? ' Your Turn' : ' Opponent Turn'}
-              </p>
-            </div>
-            <button
-              onClick={() => setGameState(null)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
-            >
-              End Game
-            </button>
+      <div className="max-w-[1600px] mx-auto mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">🖤 BLACK & WILD</h1>
+            <p className="text-sm text-gray-400">
+              Turn {gameState.turnNumber} | Phase: {gameState.phase.toUpperCase()} | 
+              {isPlayerTurn ? ' Your Turn' : ' Opponent Turn'}
+            </p>
           </div>
-        </div>
-        {/* Effect Log Sidebar */}
-        <div className="w-80 flex-shrink-0">
-          <EffectLog entries={gameState.effectLog} maxEntries={15} />
+          <button
+            onClick={() => setGameState(null)}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+          >
+            End Game
+          </button>
         </div>
       </div>
 
@@ -452,12 +446,10 @@ export const GamePage: React.FC = () => {
             {isPlayerTurn && gameState.phase === 'main' && (
               <div className="flex items-center gap-2">
                 <div className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                  💡 You can play: {currentPlayer.hand.filter(c => {
-                    if (c.type === 'animal') {
-                      return currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5;
-                    }
-                    return true;
-                  }).length} card(s)
+                  💡 You can play: {currentPlayer.hand.filter(c => canPlayCard(gameState, 0, c)).length} card(s)
+                </div>
+                <div className="text-xs text-gray-500">
+                  • Animals: {currentPlayer.animalsPlayedThisTurn}/1 | Board: {currentPlayer.board.length}/5
                 </div>
                 <button
                   onClick={handleEndMainPhase}
@@ -523,14 +515,25 @@ export const GamePage: React.FC = () => {
               <div className="text-sm font-semibold mb-2">Hand:</div>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {currentPlayer.hand.map(card => {
-                  const canPlay = gameState.phase === 'main' && 
-                    (card.type !== 'animal' || (currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5));
+                  // Verwende canPlayCard Funktion für konsistente Prüfung
+                  const canPlay = canPlayCard(gameState, 0, card);
                   
-                  const cannotPlayReason = !canPlay ? (
-                    card.type === 'animal' && currentPlayer.animalsPlayedThisTurn >= 1 ? 'Already played 1 animal' :
-                    card.type === 'animal' && currentPlayer.board.length >= 5 ? 'Board full (max. 5)' :
-                    'Cannot play'
-                  ) : null;
+                  // Detaillierte Gründe warum Karte nicht gespielt werden kann
+                  let cannotPlayReason: string | null = null;
+                  if (!canPlay) {
+                    if (gameState.phase !== 'main') {
+                      cannotPlayReason = `Can only play in MAIN phase (current: ${gameState.phase.toUpperCase()})`;
+                    } else if (card.type === 'animal') {
+                      if (currentPlayer.animalsPlayedThisTurn >= 1) {
+                        cannotPlayReason = 'Already played 1 animal this turn';
+                      } else if (currentPlayer.board.length >= 5) {
+                        cannotPlayReason = 'Board full (max. 5 animals)';
+                      }
+                    } else if (card.type === 'action' || card.type === 'status') {
+                      // Action/Status Karten können immer gespielt werden (außer in falscher Phase)
+                      cannotPlayReason = null; // Sollte eigentlich spielbar sein
+                    }
+                  }
 
                   return (
                     <div
@@ -568,11 +571,18 @@ export const GamePage: React.FC = () => {
                       <div className="text-[10px] text-gray-400 mt-1 line-clamp-2">
                         {card.effectText}
                       </div>
+                      {/* Warum kann Karte nicht gespielt werden? */}
                       {!canPlay && cannotPlayReason && (
-                        <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded">
-                          <div className="text-[10px] text-red-400 text-center px-2">
-                            {cannotPlayReason}
+                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded z-10">
+                          <div className="text-[10px] text-red-400 text-center px-2 font-semibold">
+                            ⚠️ {cannotPlayReason}
                           </div>
+                        </div>
+                      )}
+                      {/* Spielbar-Indikator */}
+                      {canPlay && isPlayerTurn && gameState.phase === 'main' && (
+                        <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10">
+                          ✓
                         </div>
                       )}
                       {/* Tooltip */}
@@ -614,7 +624,7 @@ export const GamePage: React.FC = () => {
       </div>
 
       {/* Phase Indicator */}
-      <div className="max-w-[1600px] mx-auto text-center">
+      <div className="max-w-[1600px] mx-auto text-center mb-4">
         <div className="inline-flex gap-2 bg-gray-900 rounded-lg p-2">
           {(['draw', 'main', 'attack', 'end'] as GamePhase[]).map(phase => (
             <div
@@ -629,6 +639,11 @@ export const GamePage: React.FC = () => {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Effect Log - Jetzt unten */}
+      <div className="max-w-[1600px] mx-auto">
+        <EffectLog entries={gameState.effectLog} maxEntries={15} />
       </div>
 
       {/* Target Selection Modal */}
