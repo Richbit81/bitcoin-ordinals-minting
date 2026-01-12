@@ -530,16 +530,18 @@ export const GamePage: React.FC = () => {
                   let cannotPlayReason: string | null = null;
                   if (!canPlay) {
                     if (gameState.phase !== 'main') {
-                      cannotPlayReason = `Can only play in MAIN phase (current: ${gameState.phase.toUpperCase()})`;
+                      cannotPlayReason = `⏳ Only in MAIN phase (now: ${gameState.phase.toUpperCase()})`;
+                    } else if (!isPlayerTurn) {
+                      cannotPlayReason = '⏳ Not your turn';
                     } else if (card.type === 'animal') {
                       if (currentPlayer.animalsPlayedThisTurn >= 1) {
-                        cannotPlayReason = 'Already played 1 animal this turn';
+                        cannotPlayReason = '🐾 Already played 1 animal this turn';
                       } else if (currentPlayer.board.length >= 5) {
-                        cannotPlayReason = 'Board full (max. 5 animals)';
+                        cannotPlayReason = '🐾 Board full (max. 5 animals)';
                       }
                     } else if (card.type === 'action' || card.type === 'status') {
                       // Action/Status Karten können immer gespielt werden (außer in falscher Phase)
-                      cannotPlayReason = null; // Sollte eigentlich spielbar sein
+                      cannotPlayReason = `⏳ Only in MAIN phase (now: ${gameState.phase.toUpperCase()})`;
                     }
                   }
 
