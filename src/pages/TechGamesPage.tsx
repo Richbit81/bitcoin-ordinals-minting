@@ -218,15 +218,15 @@ export const TechGamesPage: React.FC = () => {
 
       {/* Title */}
       <h1 className="text-4xl font-bold text-center mb-8 text-white flex items-center justify-center gap-3">
+        Tech & Games
         <img
           src="/images/techgames-logo.gif"
           alt="Tech & Games"
-          className="h-8 w-8 object-contain"
+          className="h-12 w-12 object-contain"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
           }}
         />
-        Tech & Games
       </h1>
 
       {/* Fee Rate Selector */}
