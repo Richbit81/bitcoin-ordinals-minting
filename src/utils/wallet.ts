@@ -603,17 +603,29 @@ export const signPSBTViaXverse = async (
   }
 
   try {
+    console.log('[signPSBTViaXverse] Starting PSBT signing...');
+    console.log('[signPSBTViaXverse] PSBT Base64 length:', psbtBase64.length);
+    console.log('[signPSBTViaXverse] PSBT Base64 preview:', psbtBase64.substring(0, 50) + '...');
+    
     const satsConnect = await import('sats-connect');
     
     if (!satsConnect || !satsConnect.request) {
       throw new Error('Sats Connect nicht verfügbar');
     }
 
+    console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     const response = await satsConnect.request('signPsbt', {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       }
+    });
+    
+    console.log('[signPSBTViaXverse] Response received:', {
+      status: response.status,
+      hasResult: !!response.result,
+      hasError: !!response.error,
+      errorMessage: response.error?.message
     });
 
     if (response.status === 'success') {

@@ -854,13 +854,19 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
     
     try {
       console.log('[AdminPanel] Signing PSBT for inscription:', inscriptionId, 'index:', index);
+      console.log('[AdminPanel] PSBT Base64 length:', inscription.psbtBase64?.length);
+      console.log('[AdminPanel] Wallet type:', walletState.walletType);
+      console.log('[AdminPanel] Transfer ID:', inscription.transferId);
+      
       // Signiere PSBT mit Wallet (gibt signierte PSBT zurück)
+      console.log('[AdminPanel] Calling signPSBT...');
       const signedPsbt = await signPSBT(
         inscription.psbtBase64,
         walletState.walletType,
         false // autoFinalized = false (finalize in confirmTransfer)
       );
       
+      console.log('[AdminPanel] PSBT signed successfully, signed PSBT length:', signedPsbt?.length);
       console.log('[AdminPanel] PSBT signed, confirming transfer:', inscription.transferId);
       // NEU: Verwende confirmTransfer (UniSat Marketplace Flow)
       // Dies finalisiert automatisch und speichert die Transaktion
