@@ -7,6 +7,7 @@ interface LinkItem {
   description?: string;
   url: string;
   category: 'game' | 'collection' | 'marketplace' | 'social' | 'other';
+  image?: string; // Vorschaubild
 }
 
 const LINK_ITEMS: LinkItem[] = [
@@ -17,6 +18,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on LunaLauncher',
     url: 'https://lunalauncher.io/#mint/richart-tactical-game',
     category: 'game',
+    image: '/images/Tactical.jpg',
   },
   {
     id: 'street-reign',
@@ -24,6 +26,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Lunalauncher',
     url: 'https://lunalauncher.io/#mint/richart-street-reign',
     category: 'game',
+    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Street+Reign',
   },
   {
     id: 'blocktris',
@@ -31,6 +34,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style - Mint on lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/blocktris',
     category: 'game',
+    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=BLOCKTRIS',
   },
   {
     id: 'sequencer',
@@ -38,6 +42,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Make Music with this Ordinal - Mint Live on Lunalauncher.io',
     url: 'https://lunalauncher.io/#mint/richart-sequencer',
     category: 'game',
+    image: 'https://via.placeholder.com/300x300/1a1a1a/ffffff?text=SEQUENCER',
   },
   
   // Collections
@@ -47,6 +52,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '25 different Skull Goat ordinals - Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/skull-goats-richart',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/skull-goats.jpg',
   },
   {
     id: 'ordheadz',
@@ -54,6 +60,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '1,111 Ordheadz with over 200 layers - Mint on ord-dropz.xyz',
     url: 'https://magiceden.io/ordinals/marketplace/ordheadz',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/ordheadz.jpg',
   },
   {
     id: 'conspiracy-narrative',
@@ -61,6 +68,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Gamma',
     url: 'https://gamma.io/ordinals/collections/conspiracy-narrative',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/conspiracy-narrative.jpg',
   },
   {
     id: 'scanmode',
@@ -68,6 +76,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Perceptions unfold across countless levels - Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/scanmode-richart',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/scanmode.jpg',
   },
   {
     id: 'symmetry',
@@ -75,6 +84,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hand-drawn Series with striking symmetry - Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/symmetry-richart',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/symmetry.jpg',
   },
   {
     id: 'symmetry-phoneutria',
@@ -82,6 +92,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Gamma',
     url: 'https://gamma.io/ordinals/collections/symmetry-phoneutria',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/symmetry-phoneutria.jpg',
   },
   {
     id: 'sons-of-satoshi',
@@ -89,6 +100,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hidden among us... against the system',
     url: 'https://magiceden.io/ordinals/marketplace/sosevo',
     category: 'collection',
+    image: '/images/SOSEvo.jpg',
   },
   {
     id: 'bone-cat',
@@ -96,6 +108,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Bitcoin vibes with cat skulls - Also a Mintpass for Badcats Collection',
     url: 'https://magiceden.io/ordinals/marketplace/bone-cat',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/bone-cat.jpg',
   },
   {
     id: 'event-fold',
@@ -103,6 +116,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Places not found on any map. Zones between space and time.',
     url: 'https://magiceden.io/ordinals/marketplace/event-fold',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/event-fold.jpg',
   },
   {
     id: 'combination-mix',
@@ -110,6 +124,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Art made from art - 1000 pixel crossover ordinals collection',
     url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/combination-mix.jpg',
   },
   {
     id: 'ganja-onchain',
@@ -117,6 +132,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden & OKX',
     url: 'https://magiceden.io/ordinals/marketplace/ganja-onchain',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/ganja-onchain.jpg',
   },
   {
     id: 'qubiixx',
@@ -124,6 +140,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/qubiixx',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/qubiixx.jpg',
   },
   {
     id: 'smile-a-bit',
@@ -131,6 +148,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Gamma & RUNES on Magic Eden',
     url: 'https://gamma.io/ordinals/collections/smile-a-bit',
     category: 'collection',
+    image: 'https://cdn.linktr.ee/richart81/images/smile-a-bit.jpg',
   },
   
   // Social
@@ -139,12 +157,14 @@ const LINK_ITEMS: LinkItem[] = [
     title: 'Foundation',
     url: 'https://foundation.app/@richart',
     category: 'social',
+    image: 'https://cdn.linktr.ee/richart81/images/foundation.jpg',
   },
   {
     id: 'tiktok',
     title: 'TikTok',
     url: 'https://www.tiktok.com/@richart',
     category: 'social',
+    image: 'https://cdn.linktr.ee/richart81/images/tiktok.jpg',
   },
 ];
 
@@ -222,17 +242,53 @@ export const LinkGalleryPage: React.FC = () => {
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`block p-4 rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer`}
+                  className={`block rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer overflow-hidden`}
                 >
-                  <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-                  {item.description && (
-                    <p className="text-sm text-gray-300">{item.description}</p>
+                  {/* Vorschaubild */}
+                  {item.image ? (
+                    <div className="w-full aspect-square overflow-hidden bg-gray-900 relative">
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.warn(`[LinkGallery] Could not load image for ${item.id}, using fallback`);
+                          // Zeige Platzhalter wenn Bild nicht geladen werden kann
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                <div class="text-center p-4">
+                                  <div class="text-4xl mb-2">🎨</div>
+                                  <p class="text-white text-sm font-semibold">${item.title}</p>
+                                </div>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    // Fallback wenn kein Bild vorhanden
+                    <div className="w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                      <div className="text-center p-4">
+                        <div className="text-4xl mb-2">🎨</div>
+                        <p className="text-white text-sm font-semibold">{item.title}</p>
+                      </div>
+                    </div>
                   )}
-                  <div className="mt-3 flex items-center text-xs text-gray-400">
-                    <span>Öffnen</span>
-                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
+                  {/* Text-Content */}
+                  <div className="p-4">
+                    <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
+                    {item.description && (
+                      <p className="text-sm text-gray-300 mb-3">{item.description}</p>
+                    )}
+                    <div className="flex items-center text-xs text-gray-400">
+                      <span>Öffnen</span>
+                      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </div>
                   </div>
                 </a>
               ))}
