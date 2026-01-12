@@ -47,7 +47,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'skull-goats',
     title: 'Skull Goats by RichArt',
     description: '25 different Skull Goat ordinals',
-    url: 'https://magiceden.io/ordinals/marketplace/skull-goats',
+    url: 'https://magiceden.io/ordinals/marketplace/skullgoats',
     category: 'collection',
   },
   {
@@ -60,8 +60,8 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'conspiracy-narrative',
     title: 'Conspiracy Narrative',
-    description: 'View on Gamma',
-    url: 'https://gamma.io/ordinals/collections/conspiracy-narrative',
+    description: 'View on Magic Eden',
+    url: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
     category: 'collection',
   },
   {
@@ -97,14 +97,14 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'bone-cat',
     title: 'Bone Cat',
     description: 'Bitcoin vibes with cat skulls - Mintpass for Badcats',
-    url: 'https://magiceden.io/ordinals/marketplace/bone-cat',
+    url: 'https://magiceden.io/ordinals/marketplace/bonecat',
     category: 'collection',
   },
   {
     id: 'event-fold',
     title: 'Event Fold by RichArt',
     description: 'Places not found on any map. Zones between space and time.',
-    url: 'https://magiceden.io/ordinals/marketplace/event-fold',
+    url: 'https://magiceden.io/ordinals/marketplace/eventfold',
     category: 'collection',
   },
   {
@@ -118,7 +118,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'ganja-onchain',
     title: 'GANJA Onchain Collection',
     description: 'Magic Eden & OKX',
-    url: 'https://magiceden.io/ordinals/marketplace/ganja-onchain',
+    url: 'https://magiceden.io/ordinals/marketplace/ganja',
     category: 'collection',
   },
   {
@@ -132,7 +132,7 @@ const LINK_ITEMS: LinkItem[] = [
     id: 'smile-a-bit',
     title: 'SMILE A BIT',
     description: 'Mint on Gamma & RUNES on Magic Eden',
-    url: 'https://gamma.io/ordinals/collections/smile-a-bit',
+    url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
   },
   
