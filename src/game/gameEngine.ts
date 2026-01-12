@@ -38,6 +38,13 @@ export interface PlayerState {
   animalsPlayedThisTurn: number;
 }
 
+export interface EffectLogEntry {
+  id: string;
+  message: string;
+  timestamp: number;
+  type: 'play' | 'attack' | 'damage' | 'draw' | 'destroy' | 'status' | 'effect' | 'phase';
+}
+
 export interface GameState {
   currentPlayer: number;
   phase: GamePhase;
@@ -50,6 +57,7 @@ export interface GameState {
     target?: string; // Target ID
     player: number;
   }>;
+  effectLog: EffectLogEntry[];
   gameOver: boolean;
   winner: number | null;
 }
@@ -112,38 +120,67 @@ export const createGameState = (
     ],
     turnNumber: 1,
     pendingEffects: [],
+    effectLog: [],
     gameOver: false,
     winner: null,
   };
 };
 
 /**
+ * Fügt einen Eintrag zum Effect-Log hinzu
+ */
+export const addEffectLog = (
+  state: GameState,
+  message: string,
+  type: EffectLogEntry['type']
+): GameState => {
+  return {
+    ...state,
+    effectLog: [
+      ...state.effectLog,
+      {
+        id: `log-${Date.now()}-${Math.random()}`,
+        message,
+        timestamp: Date.now(),
+        type,
+      },
+    ],
+  };
+};
+
+/**
  * Zieht eine Karte für einen Spieler
  */
-export const drawCard = (state: GameState, playerIndex: number): GameState => {
+export const drawCard = (state: GameState, playerIndex: number, count: number = 1): GameState => {
   const player = state.players[playerIndex];
+  let newState = { ...state };
   
   // Prüfe ob Spieler ziehen kann (z.B. PARANOIA Status)
   if (!player.canDraw) {
-    return state;
+    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen (PARANOIA)`, 'effect');
+    return newState;
   }
 
-  if (player.deck.length > 0) {
-    const drawnCard = player.deck.shift()!;
-    player.hand.push(drawnCard);
-  } else {
-    // Deck leer: Verliere 1 Life
-    player.life -= 1;
-    if (player.life <= 0) {
-      return {
-        ...state,
-        gameOver: true,
-        winner: 1 - playerIndex,
-      };
+  for (let i = 0; i < count; i++) {
+    if (player.deck.length > 0) {
+      const drawnCard = player.deck.shift()!;
+      player.hand.push(drawnCard);
+      newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${drawnCard.name}`, 'draw');
+    } else {
+      // Deck leer: Verliere 1 Life
+      player.life -= 1;
+      newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage');
+      if (player.life <= 0) {
+        return {
+          ...newState,
+          gameOver: true,
+          winner: 1 - playerIndex,
+        };
+      }
     }
   }
 
-  return { ...state };
+  return newState;
 };
 
 /**
@@ -230,6 +267,9 @@ export const playCard = (
     player.board.push(boardAnimal);
     player.animalsPlayedThisTurn++;
 
+    // Log: Karte gespielt
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play');
+
     // Trigger "onPlay" Effekte
     const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
     for (const effect of onPlayEffects) {
@@ -244,6 +284,9 @@ export const playCard = (
     // Löse pending Effects sofort auf
     state = resolvePendingEffects(state);
   } else if (card.type === 'action') {
+    // Log: Action-Karte gespielt
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play');
+    
     // Trigger "onPlay" Effekte
     const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
     for (const effect of onPlayEffects) {
@@ -261,6 +304,9 @@ export const playCard = (
     // Action-Karten gehen sofort in den Discard
     player.discard.push(playedCard);
   } else if (card.type === 'status') {
+    // Log: Status-Karte gespielt
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'status');
+    
     // Status-Karten müssen an ein Ziel angehängt werden
     if (target) {
       // Finde Ziel (Animal oder Player)
@@ -269,11 +315,13 @@ export const playCard = (
       
       if (targetAnimal) {
         targetAnimal.statuses.push(card.id);
+        state = addEffectLog(state, `${card.name} wird an ${targetAnimal.card.name} angehängt`, 'status');
       } else {
         // An Spieler angehängt
         const targetPlayer = state.players.find(p => p.index.toString() === target);
         if (targetPlayer) {
           targetPlayer.statuses.push(card.id);
+          state = addEffectLog(state, `${card.name} wird an Spieler ${targetPlayer.index + 1} angehängt`, 'status');
         }
       }
     }
@@ -294,13 +342,16 @@ export const nextPhase = (state: GameState): GameState => {
   switch (state.phase) {
     case 'draw':
       // Draw Phase: Automatisch 1 Karte ziehen
+      newState = addEffectLog(newState, `Phase: DRAW (Spieler ${state.currentPlayer + 1})`, 'phase');
       drawCard(newState, state.currentPlayer);
       newState.phase = 'main';
+      newState = addEffectLog(newState, `Phase: MAIN (Spieler ${state.currentPlayer + 1})`, 'phase');
       break;
 
     case 'main':
       // Main Phase: Wechsel zu Attack Phase
       newState.phase = 'attack';
+      newState = addEffectLog(newState, `Phase: ATTACK (Spieler ${state.currentPlayer + 1})`, 'phase');
       break;
 
     case 'attack':
@@ -311,8 +362,15 @@ export const nextPhase = (state: GameState): GameState => {
       for (const animal of currentPlayer.board) {
         if (canAnimalAttack(newState, animal)) {
           // Tier greift an
-          opponent.life -= animal.currentAtk;
+          const damage = animal.currentAtk;
+          opponent.life -= damage;
           animal.attacksThisTurn++;
+          
+          // Log: Angriff
+          newState = addEffectLog(newState, `${animal.card.name} greift an → ${damage} Schaden`, 'attack');
+          if (damage > 0) {
+            newState = addEffectLog(newState, `Spieler ${(1 - state.currentPlayer) + 1} verliert ${damage} Life (${opponent.life + damage} → ${opponent.life})`, 'damage');
+          }
 
           // Trigger "onAttack" Effekte
           const onAttackEffects = animal.card.effects.filter(e => e.trigger === 'onAttack');
@@ -338,6 +396,7 @@ export const nextPhase = (state: GameState): GameState => {
       }
 
       newState.phase = 'end';
+      newState = addEffectLog(newState, `Phase: END (Spieler ${state.currentPlayer + 1})`, 'phase');
       break;
 
     case 'end':
@@ -354,8 +413,9 @@ export const nextPhase = (state: GameState): GameState => {
 
       // Wechsel Spieler
       newState.currentPlayer = 1 - state.currentPlayer;
-      newState.phase = 'draw';
       newState.turnNumber++;
+      newState.phase = 'draw';
+      newState = addEffectLog(newState, `Turn ${newState.turnNumber} beginnt`, 'phase');
       break;
   }
 

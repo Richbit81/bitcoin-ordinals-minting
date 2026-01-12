@@ -7,6 +7,8 @@ import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 import { DeckBuilderModal } from '../components/DeckBuilderModal';
 import { TargetSelectionModal } from '../components/TargetSelectionModal';
+import { EffectLog } from '../components/EffectLog';
+import { OpponentHandModal } from '../components/OpponentHandModal';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
 
 export const GamePage: React.FC = () => {
@@ -20,6 +22,8 @@ export const GamePage: React.FC = () => {
   const [loadingWalletCards, setLoadingWalletCards] = useState(false);
   const [pendingCard, setPendingCard] = useState<GameCard | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [showOpponentHand, setShowOpponentHand] = useState(false);
+  const [opponentHandAction, setOpponentHandAction] = useState<((cardId: string) => void) | null>(null);
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
@@ -263,26 +267,32 @@ export const GamePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white p-4">
       {/* Game Info */}
-      <div className="max-w-7xl mx-auto mb-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">🖤 BLACK & WILD</h1>
-            <p className="text-sm text-gray-400">
-              Turn {gameState.turnNumber} | Phase: {gameState.phase.toUpperCase()} | 
-              {isPlayerTurn ? ' Dein Zug' : ' Gegner Zug'}
-            </p>
+      <div className="max-w-[1600px] mx-auto mb-4 flex gap-4">
+        <div className="flex-1">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">🖤 BLACK & WILD</h1>
+              <p className="text-sm text-gray-400">
+                Turn {gameState.turnNumber} | Phase: {gameState.phase.toUpperCase()} | 
+                {isPlayerTurn ? ' Dein Zug' : ' Gegner Zug'}
+              </p>
+            </div>
+            <button
+              onClick={() => setGameState(null)}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+            >
+              Beenden
+            </button>
           </div>
-          <button
-            onClick={() => setGameState(null)}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
-          >
-            Beenden
-          </button>
+        </div>
+        {/* Effect Log Sidebar */}
+        <div className="w-80 flex-shrink-0">
+          <EffectLog entries={gameState.effectLog} maxEntries={15} />
         </div>
       </div>
 
       {/* Opponent Area */}
-      <div className="max-w-7xl mx-auto mb-4">
+      <div className="max-w-[1600px] mx-auto mb-4">
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-red-600">
           <div className="flex justify-between items-center mb-2">
             <div>
@@ -367,7 +377,7 @@ export const GamePage: React.FC = () => {
       </div>
 
       {/* Player Area */}
-      <div className="max-w-7xl mx-auto mb-4">
+      <div className="max-w-[1600px] mx-auto mb-4">
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-blue-600">
           <div className="flex justify-between items-center mb-2">
             <div>
@@ -564,7 +574,7 @@ export const GamePage: React.FC = () => {
       </div>
 
       {/* Phase Indicator */}
-      <div className="max-w-7xl mx-auto text-center">
+      <div className="max-w-[1600px] mx-auto text-center">
         <div className="inline-flex gap-2 bg-gray-900 rounded-lg p-2">
           {(['draw', 'main', 'attack', 'end'] as GamePhase[]).map(phase => (
             <div
@@ -588,6 +598,22 @@ export const GamePage: React.FC = () => {
           gameState={gameState}
           onSelectTarget={handleTargetSelected}
           onCancel={handleTargetCancel}
+        />
+      )}
+
+      {/* Opponent Hand Modal */}
+      {showOpponentHand && gameState && opponentHandAction && (
+        <OpponentHandModal
+          cards={gameState.players[1].hand}
+          onSelectCard={(cardId) => {
+            opponentHandAction(cardId);
+            setShowOpponentHand(false);
+            setOpponentHandAction(null);
+          }}
+          onCancel={() => {
+            setShowOpponentHand(false);
+            setOpponentHandAction(null);
+          }}
         />
       )}
     </div>
