@@ -104,9 +104,6 @@ export const HomePage: React.FC = () => {
         />
       </div>
 
-      {/* News Banner */}
-      <NewsBanner />
-
       {/* Projekte und Kollektionen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl w-full items-stretch">
         {projects.map((project, index) => (
@@ -181,6 +178,11 @@ export const HomePage: React.FC = () => {
             <CollectionCard key={collection.id} collection={collection} />
           ))
         )}
+      </div>
+
+      {/* News Banner - nach den Projekten */}
+      <div className="mt-12 w-full">
+        <NewsBanner />
       </div>
 
       {/* RichArt Logo Footer */}
