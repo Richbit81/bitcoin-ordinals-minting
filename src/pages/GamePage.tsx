@@ -176,32 +176,32 @@ export const GamePage: React.FC = () => {
                 onClick={() => setShowDeckBuilder(true)}
                 className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg font-semibold text-lg transition-colors mb-4"
               >
-                🎴 Admin: Deck Builder (Test-Modus)
+                🎴 Admin: Deck Builder (Test Mode)
               </button>
               <p className="text-sm text-gray-400 mb-4">
-                Als Admin kannst du ein Test-Deck aus allen verfügbaren Karten erstellen
+                As admin, you can create a test deck from all available cards
               </p>
             </div>
           )}
           <div className="space-y-4">
             {loadingWalletCards && (
               <div className="text-sm text-gray-400 mb-4">
-                🔄 Lade Wallet-Karten...
+                🔄 Loading wallet cards...
               </div>
             )}
             {walletCards.length > 0 && (
               <div className="text-sm text-green-400 mb-4">
-                ✅ {walletCards.length} Karten im Wallet gefunden - diese werden für dein Deck verwendet!
+                ✅ {walletCards.length} cards found in wallet - these will be used for your deck!
               </div>
             )}
             {walletState.connected && walletCards.length === 0 && !loadingWalletCards && (
               <div className="text-sm text-yellow-400 mb-4">
-                ⚠️ Keine Karten im Wallet gefunden - Standard-Deck wird verwendet
+                ⚠️ No cards found in wallet - standard deck will be used
               </div>
             )}
             {!walletState.connected && (
               <div className="text-sm text-gray-400 mb-4">
-                ℹ️ Verbinde dein Wallet, um deine eigenen Karten zu verwenden
+                ℹ️ Connect your wallet to use your own cards
               </div>
             )}
             <button
@@ -291,13 +291,13 @@ export const GamePage: React.FC = () => {
       <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">
-            {gameState.winner === 0 ? '🎉 Du hast gewonnen!' : '💀 Du hast verloren!'}
+            {gameState.winner === 0 ? '🎉 You won!' : '💀 You lost!'}
           </h1>
           <button
             onClick={startGame}
             className="mt-8 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
           >
-            Nochmal spielen
+            Play Again
           </button>
         </div>
       </div>
@@ -314,14 +314,14 @@ export const GamePage: React.FC = () => {
               <h1 className="text-2xl font-bold">🖤 BLACK & WILD</h1>
               <p className="text-sm text-gray-400">
                 Turn {gameState.turnNumber} | Phase: {gameState.phase.toUpperCase()} | 
-                {isPlayerTurn ? ' Dein Zug' : ' Gegner Zug'}
+                {isPlayerTurn ? ' Your Turn' : ' Opponent Turn'}
               </p>
             </div>
             <button
               onClick={() => setGameState(null)}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
             >
-              Beenden
+              End Game
             </button>
           </div>
         </div>
@@ -336,7 +336,7 @@ export const GamePage: React.FC = () => {
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-red-600">
           <div className="flex justify-between items-center mb-2">
             <div>
-              <span className="font-bold">Gegner</span>
+              <span className="font-bold">Opponent</span>
               <span className="ml-4">Life: {opponent.life}</span>
               <span className="ml-4">Deck: {opponent.deck.length}</span>
               <span className="ml-4">Hand: {opponent.hand.length}</span>
@@ -421,7 +421,7 @@ export const GamePage: React.FC = () => {
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-blue-600">
           <div className="flex justify-between items-center mb-2">
             <div>
-              <span className="font-bold">Du</span>
+              <span className="font-bold">You</span>
               <span className="ml-4">Life: {currentPlayer.life}</span>
               <span className="ml-4">Deck: {currentPlayer.deck.length}</span>
               <span className="ml-4">Hand: {currentPlayer.hand.length}</span>
@@ -452,12 +452,12 @@ export const GamePage: React.FC = () => {
             {isPlayerTurn && gameState.phase === 'main' && (
               <div className="flex items-center gap-2">
                 <div className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                  💡 Du kannst: {currentPlayer.hand.filter(c => {
+                  💡 You can play: {currentPlayer.hand.filter(c => {
                     if (c.type === 'animal') {
                       return currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5;
                     }
                     return true;
-                  }).length} Karte(n) spielen
+                  }).length} card(s)
                 </div>
                 <button
                   onClick={handleEndMainPhase}
@@ -527,9 +527,9 @@ export const GamePage: React.FC = () => {
                     (card.type !== 'animal' || (currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5));
                   
                   const cannotPlayReason = !canPlay ? (
-                    card.type === 'animal' && currentPlayer.animalsPlayedThisTurn >= 1 ? 'Bereits 1 Tier gespielt' :
-                    card.type === 'animal' && currentPlayer.board.length >= 5 ? 'Board voll (max. 5)' :
-                    'Nicht spielbar'
+                    card.type === 'animal' && currentPlayer.animalsPlayedThisTurn >= 1 ? 'Already played 1 animal' :
+                    card.type === 'animal' && currentPlayer.board.length >= 5 ? 'Board full (max. 5)' :
+                    'Cannot play'
                   ) : null;
 
                   return (
@@ -580,7 +580,7 @@ export const GamePage: React.FC = () => {
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-gray-900 border-2 border-red-600 rounded-lg p-3 z-50 shadow-xl">
                           <div className="text-sm font-bold text-white mb-2">{card.name}</div>
                           <div className="text-xs text-gray-300 mb-2">
-                            <span className="font-semibold">Typ:</span> {card.type === 'animal' ? 'Tier' : card.type === 'action' ? 'Aktion' : 'Status'}
+                            <span className="font-semibold">Type:</span> {card.type === 'animal' ? 'Animal' : card.type === 'action' ? 'Action' : 'Status'}
                           </div>
                           {card.type === 'animal' && (
                             <div className="text-xs text-gray-300 mb-2">
@@ -588,7 +588,7 @@ export const GamePage: React.FC = () => {
                             </div>
                           )}
                           <div className="text-xs text-gray-300">
-                            <span className="font-semibold">Effekt:</span> {card.effectText}
+                            <span className="font-semibold">Effect:</span> {card.effectText}
                           </div>
                           {card.effects.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-gray-700">

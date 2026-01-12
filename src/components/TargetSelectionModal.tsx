@@ -74,7 +74,7 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
           if (!targets.find(t => t.id === 'opponent')) {
             targets.push({
               id: 'opponent',
-              label: `Gegner (Life: ${opponent.life})`,
+              label: `Opponent (Life: ${opponent.life})`,
               type: 'player',
             });
           }
@@ -109,7 +109,7 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 border-2 border-red-600 rounded-lg max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-white">Ziel auswählen</h2>
+          <h2 className="text-xl font-bold text-white">Select Target</h2>
           <button
             onClick={onCancel}
             className="text-gray-400 hover:text-white"
@@ -129,48 +129,48 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
 
         {hasNoValidTargets ? (
           <div className="text-center py-8">
-            <p className="text-yellow-400 mb-4">⚠️ Keine gültigen Ziele verfügbar</p>
+            <p className="text-yellow-400 mb-4">⚠️ No valid targets available</p>
             <p className="text-sm text-gray-400 mb-4">
-              Diese Karte kann trotzdem gespielt werden, hat aber keinen Effekt.
+              This card can still be played, but will have no effect.
             </p>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => onSelectTarget(null)}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Trotzdem spielen
+                Play Anyway
               </button>
               <button
                 onClick={onCancel}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </div>
         ) : validTargets.length === 0 ? (
           // Karte benötigt kein Ziel
           <div className="text-center py-8">
-            <p className="text-gray-300 mb-4">Diese Karte benötigt kein Ziel.</p>
+            <p className="text-gray-300 mb-4">This card does not require a target.</p>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => onSelectTarget(null)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold"
               >
-                Karte spielen
+                Play Card
               </button>
               <button
                 onClick={onCancel}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </div>
         ) : (
           <>
             <div className="mb-4">
-              <p className="text-sm text-gray-300 mb-2">Wähle ein Ziel:</p>
+              <p className="text-sm text-gray-300 mb-2">Select a target:</p>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {validTargets.map(target => (
                   <button
@@ -193,7 +193,7 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
                 onClick={onCancel}
                 className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </>

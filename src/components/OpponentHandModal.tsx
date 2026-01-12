@@ -13,7 +13,7 @@ export const OpponentHandModal: React.FC<OpponentHandModalProps> = ({
   cards,
   onSelectCard,
   onCancel,
-  title = "Gegner-Hand",
+  title = "Opponent Hand",
 }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -32,7 +32,7 @@ export const OpponentHandModal: React.FC<OpponentHandModalProps> = ({
 
         <div className="mb-4">
           <p className="text-sm text-gray-300">
-            Wähle eine Karte aus, die verworfen werden soll:
+            Select a card to discard:
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export const OpponentHandModal: React.FC<OpponentHandModalProps> = ({
             onClick={onCancel}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
           >
-            Abbrechen
+            Cancel
           </button>
         </div>
       </div>

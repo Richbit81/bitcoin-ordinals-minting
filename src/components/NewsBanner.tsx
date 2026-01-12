@@ -123,7 +123,7 @@ export const NewsBanner: React.FC = () => {
                 {item1.description}
               </p>
               <div className="flex items-center text-red-400 text-xs font-semibold">
-                <span>Mehr erfahren</span>
+                <span>Learn more</span>
                 <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -158,7 +158,7 @@ export const NewsBanner: React.FC = () => {
                 {item2.description}
               </p>
               <div className="flex items-center text-red-400 text-xs font-semibold">
-                <span>Mehr erfahren</span>
+                <span>Learn more</span>
                 <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
