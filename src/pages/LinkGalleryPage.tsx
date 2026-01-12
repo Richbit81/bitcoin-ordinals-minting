@@ -60,6 +60,14 @@ const LINK_ITEMS: LinkItem[] = [
     category: 'game',
     image: '/images/Simulator.jpeg',
   },
+  {
+    id: 'critical-view',
+    title: 'Critical View',
+    description: 'View on Magic Eden',
+    url: 'https://magiceden.io/ordinals/marketplace/criticalview',
+    category: 'collection',
+    image: '/images/Cview.png',
+  },
   
   // Collections
   {
