@@ -229,14 +229,6 @@ export const TechGamesPage: React.FC = () => {
         />
       </h1>
 
-      {/* Fee Rate Selector */}
-      <div className="max-w-2xl mx-auto mb-8">
-        <FeeRateSelector
-          selectedFeeRate={inscriptionFeeRate}
-          onFeeRateChange={setInscriptionFeeRate}
-        />
-      </div>
-
       {/* Items Grid - Optimized for performance */}
       <div 
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto"
@@ -341,6 +333,14 @@ export const TechGamesPage: React.FC = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Fee Rate Selector - Jetzt unterhalb der Items */}
+      <div className="max-w-2xl mx-auto mt-8">
+        <FeeRateSelector
+          selectedFeeRate={inscriptionFeeRate}
+          onFeeRateChange={setInscriptionFeeRate}
+        />
       </div>
 
       {/* Wallet Connect Modal */}
