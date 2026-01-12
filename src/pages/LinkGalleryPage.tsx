@@ -26,6 +26,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Lunalauncher',
     url: 'https://lunalauncher.io/#mint/richart-street-reign',
     category: 'game',
+    image: '/images/StreetReign.png',
   },
   {
     id: 'blocktris',
@@ -33,6 +34,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style - Mint on lunalauncher.io',
     url: 'https://magiceden.io/ordinals/marketplace/blocktris',
     category: 'game',
+    image: '/images/Blocktriss.png',
   },
   {
     id: 'sequencer',
@@ -40,6 +42,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Make Music with this Ordinal - View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/sequencer',
     category: 'game',
+    image: '/images/Sequencer.png',
   },
   
   // Collections
@@ -56,6 +59,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: '1,111 Ordheadz with over 200 layers',
     url: 'https://magiceden.io/ordinals/marketplace/ohdz',
     category: 'collection',
+    image: '/images/Ordheadz.png',
   },
   {
     id: 'conspiracy-narrative',
@@ -63,6 +67,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'View on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/conspiracynarrative',
     category: 'collection',
+    image: '/images/ConspiracyNarrative.png',
   },
   {
     id: 'scanmode',
@@ -70,6 +75,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Perceptions unfold across countless levels',
     url: 'https://magiceden.io/ordinals/marketplace/scanmode',
     category: 'collection',
+    image: '/images/scanmode.avif',
   },
   {
     id: 'symmetry',
@@ -77,6 +83,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Hand-drawn Series with striking symmetry',
     url: 'https://magiceden.io/ordinals/marketplace/symmetry',
     category: 'collection',
+    image: '/images/symmetryy.png',
   },
   {
     id: 'symmetry-phoneutria',
@@ -99,6 +106,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Bitcoin vibes with cat skulls - Mintpass for Badcats',
     url: 'https://magiceden.io/ordinals/marketplace/bonecat',
     category: 'collection',
+    image: '/images/bonecat.png',
   },
   {
     id: 'event-fold',
@@ -106,6 +114,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Places not found on any map. Zones between space and time.',
     url: 'https://magiceden.io/ordinals/marketplace/eventfold',
     category: 'collection',
+    image: '/images/EventFold.jpg',
   },
   {
     id: 'combination-mix',
@@ -113,6 +122,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Art made from art - 1000 pixel crossover ordinals',
     url: 'https://magiceden.io/ordinals/marketplace/combination-mix',
     category: 'collection',
+    image: '/images/CombinationMix.png',
   },
   {
     id: 'ganja-onchain',
@@ -134,6 +144,7 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Gamma & RUNES on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
+    image: '/images/SmileaBittt.png',
   },
   
   // Social
