@@ -35,6 +35,13 @@ export const HomePage: React.FC = () => {
       description: 'Interactive games and tech tools',
       order: 2,
     },
+    {
+      id: 'smile-a-bit',
+      name: 'SMILE A BIT',
+      thumbnail: '/images/SmileaBittt.png',
+      description: 'Coming soon',
+      order: 4,
+    },
   ];
 
   useEffect(() => {
@@ -137,6 +144,7 @@ export const HomePage: React.FC = () => {
             className={`w-full cursor-pointer hover:opacity-90 transition-opacity duration-300 flex flex-col items-center h-full ${
               project.id === 'point-shop' ? 'md:order-3' : 
               project.id === 'tech-games' ? 'md:order-2' : 
+              project.id === 'smile-a-bit' ? 'md:order-4' :
               'md:order-1'
             }`}
           >

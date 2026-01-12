@@ -11,6 +11,7 @@ import { PointShopPage } from './pages/PointShopPage';
 import { TechGamesPage } from './pages/TechGamesPage';
 import { CollectionMintingPage } from './pages/CollectionMintingPage';
 import { LinkGalleryPage } from './pages/LinkGalleryPage';
+import { SmilePage } from './pages/SmilePage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { useState } from 'react';
@@ -41,6 +42,7 @@ function AppContent() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/play" element={<GamePage />} />
         <Route path="/link-gallery" element={<LinkGalleryPage />} />
+        <Route path="/smile-a-bit" element={<SmilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
