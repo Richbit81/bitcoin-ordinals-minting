@@ -444,19 +444,27 @@ export const GamePage: React.FC = () => {
               )}
             </div>
             {isPlayerTurn && gameState.phase === 'main' && (
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                  💡 You can play: {currentPlayer.hand.filter(c => canPlayCard(gameState, 0, c)).length} card(s)
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="text-xs text-green-400 bg-green-900/30 px-3 py-1 rounded border border-green-600">
+                  ✅ Playable: {currentPlayer.hand.filter(c => canPlayCard(gameState, 0, c)).length} / {currentPlayer.hand.length} cards
                 </div>
-                <div className="text-xs text-gray-500">
-                  • Animals: {currentPlayer.animalsPlayedThisTurn}/1 | Board: {currentPlayer.board.length}/5
+                <div className="text-xs text-blue-400 bg-blue-900/30 px-3 py-1 rounded border border-blue-600">
+                  🐾 Animals: {currentPlayer.animalsPlayedThisTurn}/1 this turn | Board: {currentPlayer.board.length}/5
+                </div>
+                <div className="text-xs text-purple-400 bg-purple-900/30 px-3 py-1 rounded border border-purple-600">
+                  ⚡ Action/Status: Unlimited
                 </div>
                 <button
                   onClick={handleEndMainPhase}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold ml-auto"
                 >
                   End Main Phase
                 </button>
+              </div>
+            )}
+            {isPlayerTurn && gameState.phase !== 'main' && (
+              <div className="text-xs text-yellow-400 bg-yellow-900/30 px-3 py-1 rounded border border-yellow-600 inline-block">
+                ⏳ Wait for {gameState.phase.toUpperCase()} phase to finish...
               </div>
             )}
           </div>
