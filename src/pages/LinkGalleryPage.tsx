@@ -88,7 +88,7 @@ const LINK_ITEMS: LinkItem[] = [
     title: 'Inside the Consciousness Simulator',
     description: 'Card Packs',
     url: 'https://www.ord-x.com/#Inside-the-Consciousness-Simulator',
-    category: 'game',
+    category: 'collection',
     image: '/images/Simulator.jpeg',
   },
   {
