@@ -114,10 +114,11 @@ export const TradeOfferCard: React.FC<TradeOfferCardProps> = ({
       <div className="mb-4">
         <p className="text-sm font-semibold text-gray-400 mb-2">Wants ({offer.requestCards.length}):</p>
         <div className="grid grid-cols-3 gap-2">
-          {offer.requestCards.map((id) => {
-            const hasCard = myCards.some((card) => card.inscriptionId === id);
-            const card = myCards.find((c) => c.inscriptionId === id);
-            const imageId = card?.originalInscriptionId || id;
+          {offer.requestCards.map((requestedOriginalId) => {
+            // Prüfe ob der Taker einen Delegate hat, dessen originalInscriptionId mit der gewünschten Original-ID übereinstimmt
+            const hasCard = myCards.some((card) => card.originalInscriptionId === requestedOriginalId);
+            const card = myCards.find((c) => c.originalInscriptionId === requestedOriginalId);
+            const imageId = requestedOriginalId; // Verwende die Original-ID für das Bild
             return (
               <div key={id} className="relative">
                 <div className={`relative ${hasCard ? 'ring-2 ring-green-500' : 'ring-2 ring-red-500'}`}>
