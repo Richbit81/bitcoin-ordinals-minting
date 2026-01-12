@@ -562,6 +562,11 @@ const resolveEndPhase = (state: GameState): void => {
     applyStatusEffectsToAnimal(animal);
   });
 
+  // Wende Status-Effekte auf alle Tiere an (ATK-Modifikationen)
+  player.board.forEach(animal => {
+    applyStatusEffectsToAnimal(animal);
+  });
+
   // Zerstöre Tiere mit HP ≤ 0
   const deadAnimals = player.board.filter(animal => animal.currentHp <= 0);
   for (const animal of deadAnimals) {

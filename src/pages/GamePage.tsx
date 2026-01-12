@@ -9,6 +9,7 @@ import { DeckBuilderModal } from '../components/DeckBuilderModal';
 import { TargetSelectionModal } from '../components/TargetSelectionModal';
 import { EffectLog } from '../components/EffectLog';
 import { OpponentHandModal } from '../components/OpponentHandModal';
+import { GameTutorialModal } from '../components/GameTutorialModal';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
 
 export const GamePage: React.FC = () => {
@@ -24,6 +25,7 @@ export const GamePage: React.FC = () => {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [showOpponentHand, setShowOpponentHand] = useState(false);
   const [opponentHandAction, setOpponentHandAction] = useState<((cardId: string) => void) | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
@@ -159,8 +161,15 @@ export const GamePage: React.FC = () => {
   if (!gameState) {
     return (
       <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
+        {showTutorial && <GameTutorialModal onClose={() => setShowTutorial(false)} />}
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-8">🖤 BLACK & WILD</h1>
+          <button
+            onClick={() => setShowTutorial(true)}
+            className="mb-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-sm"
+          >
+            📖 Tutorial anzeigen
+          </button>
           {isAdmin && (
             <div className="mb-6">
               <button
