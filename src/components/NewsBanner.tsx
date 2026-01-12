@@ -94,8 +94,8 @@ export const NewsBanner: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Breiter Banner mit 2 Items nebeneinander - kein Rahmen zwischen Items */}
-      <div className="bg-gray-900 border-2 border-red-600 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-red-600">
+      <div className="bg-gray-900 border-2 border-white rounded-lg overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white">
           {/* Item 1 */}
           <div
             onClick={() => handleClick(item1.link)}
@@ -122,8 +122,8 @@ export const NewsBanner: React.FC = () => {
               <p className="text-xs md:text-sm text-gray-300 mb-2 line-clamp-1">
                 {item1.description}
               </p>
-              <div className="flex items-center text-red-400 text-xs font-semibold">
-                <span>Learn more</span>
+              <div className="flex items-center text-white text-xs font-semibold">
+                <span>LFG!</span>
                 <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -157,8 +157,8 @@ export const NewsBanner: React.FC = () => {
               <p className="text-xs md:text-sm text-gray-300 mb-2 line-clamp-1">
                 {item2.description}
               </p>
-              <div className="flex items-center text-red-400 text-xs font-semibold">
-                <span>Learn more</span>
+              <div className="flex items-center text-white text-xs font-semibold">
+                <span>LFG!</span>
                 <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
