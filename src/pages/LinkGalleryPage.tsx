@@ -134,7 +134,6 @@ const LINK_ITEMS: LinkItem[] = [
     description: 'Mint on Gamma & RUNES on Magic Eden',
     url: 'https://gamma.io/ordinals/collections/smile-a-bit',
     category: 'collection',
-    image: 'https://cdn.linktr.ee/richart81/images/smile-a-bit.jpg',
   },
   
   // Social
@@ -143,14 +142,12 @@ const LINK_ITEMS: LinkItem[] = [
     title: 'Foundation',
     url: 'https://foundation.app/@richart',
     category: 'social',
-    image: 'https://cdn.linktr.ee/richart81/images/foundation.jpg',
   },
   {
     id: 'tiktok',
     title: 'TikTok',
     url: 'https://www.tiktok.com/@richart',
     category: 'social',
-    image: 'https://cdn.linktr.ee/richart81/images/tiktok.jpg',
   },
 ];
 
