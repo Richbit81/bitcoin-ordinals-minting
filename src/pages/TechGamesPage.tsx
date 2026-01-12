@@ -60,6 +60,12 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style',
     price: 2000,
   },
+  {
+    inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
+    name: 'RichArt Synthesizer',
+    description: 'Beta version of the RichArt Synthesizer',
+    price: 0, // 0 = Test only, not for purchase
+  },
 ];
 
 export const TechGamesPage: React.FC = () => {
@@ -298,20 +304,31 @@ export const TechGamesPage: React.FC = () => {
               {item.description.length > 150 ? '...' : ''}
             </p>
 
-            {/* Price Info */}
-            <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-1">Price: {formatPrice(item.price)}</p>
-              <p className="text-sm text-gray-400">+ inscription fees</p>
-            </div>
+            {/* Price Info - nur anzeigen wenn price > 0 */}
+            {item.price > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-1">Price: {formatPrice(item.price)}</p>
+                <p className="text-sm text-gray-400">+ inscription fees</p>
+              </div>
+            )}
 
-            {/* Mint Button */}
-            <button
-              onClick={() => handleMint(item)}
-              disabled={mintingStatus?.status === 'in-progress'}
-              className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm font-semibold"
-            >
-              {mintingStatus?.status === 'in-progress' ? 'Minting...' : 'Mint'}
-            </button>
+            {/* Mint oder Test Button */}
+            {item.price > 0 ? (
+              <button
+                onClick={() => handleMint(item)}
+                disabled={mintingStatus?.status === 'in-progress'}
+                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm font-semibold"
+              >
+                {mintingStatus?.status === 'in-progress' ? 'Minting...' : 'Mint'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setSelectedItem(item)}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-semibold"
+              >
+                Test
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -372,16 +389,19 @@ export const TechGamesPage: React.FC = () => {
           <div className="flex justify-between items-center p-4 border-b-2 border-red-600 bg-gray-900">
             <h2 className="text-2xl font-bold text-white">{selectedItem.name}</h2>
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => {
-                  setSelectedItem(null);
-                  setPendingItem(selectedItem);
-                  setShowWalletConnect(true);
-                }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-semibold"
-              >
-                {walletState.connected ? 'Mint' : 'Connect & Mint'}
-              </button>
+              {/* Mint Button - nur anzeigen wenn price > 0 */}
+              {selectedItem.price > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setPendingItem(selectedItem);
+                    setShowWalletConnect(true);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-semibold"
+                >
+                  {walletState.connected ? 'Mint' : 'Connect & Mint'}
+                </button>
+              )}
               <button
                 onClick={() => setSelectedItem(null)}
                 className="text-gray-400 hover:text-white p-2"
@@ -456,11 +476,14 @@ export const TechGamesPage: React.FC = () => {
                 <div className="flex-1">
                   <p className="text-sm text-gray-300 line-clamp-2">{selectedItem.description.split('\n\n')[0]}</p>
                 </div>
-                <div className="ml-4 text-right">
-                  <p className="text-sm text-gray-400">Price</p>
-                  <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
-                  <p className="text-xs text-gray-500">+ inscription fees</p>
-                </div>
+                {/* Price Info - nur anzeigen wenn price > 0 */}
+                {selectedItem.price > 0 && (
+                  <div className="ml-4 text-right">
+                    <p className="text-sm text-gray-400">Price</p>
+                    <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
+                    <p className="text-xs text-gray-500">+ inscription fees</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
