@@ -301,14 +301,14 @@ export const TechGamesPage: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 justify-center md:justify-end">
-            <span className="px-3 py-1 bg-red-600/20 border border-red-600 rounded-full text-xs text-red-400 font-semibold">
-              🎮 Fullscreen Games
+            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-blue-600 text-white shadow-sm">
+              🎮 Game
             </span>
-            <span className="px-3 py-1 bg-blue-600/20 border border-blue-600 rounded-full text-xs text-blue-400 font-semibold">
-              🔧 Interactive Tools
+            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-green-600 text-white shadow-sm">
+              🔧 Tool
             </span>
-            <span className="px-3 py-1 bg-purple-600/20 border border-purple-600 rounded-full text-xs text-purple-400 font-semibold">
-              🎵 Music Creation
+            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-purple-600 text-white shadow-sm">
+              🎵 Music
             </span>
           </div>
         </div>
