@@ -381,6 +381,8 @@ export const GamePage: React.FC = () => {
             <div className="relative">
               <span className="font-bold">Opponent</span>
               <span className="ml-4">Life: <span className="font-bold">{opponent.life}</span></span>
+              <span className="ml-4">Deck: {opponent.deck.length}</span>
+              <span className="ml-4">Hand: {opponent.hand.length}</span>
               {damageAnimations.filter(d => d.target === 'opponent-life').map(damage => (
                 <div
                   key={damage.id}
@@ -395,9 +397,6 @@ export const GamePage: React.FC = () => {
                   -{damage.amount}
                 </div>
               ))}
-            </div>
-              <span className="ml-4">Deck: {opponent.deck.length}</span>
-              <span className="ml-4">Hand: {opponent.hand.length}</span>
               {opponent.statuses.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {opponent.statuses.map((statusId, idx) => {
