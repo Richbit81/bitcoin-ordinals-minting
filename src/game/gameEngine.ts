@@ -4,8 +4,9 @@
  * Strict phase system with automatic effect resolution
  */
 
-import { GameCard, EffectDefinition, ALL_GAME_CARDS, getGameCardById, STATUS_CATEGORIES } from './gameCards';
+import { GameCard, EffectDefinition, ALL_GAME_CARDS, getGameCardById, getGameCardByName, STATUS_CATEGORIES } from './gameCards';
 import { resolvePendingEffects } from './effectResolver';
+import { WalletCard } from '../services/gallery';
 
 export type GamePhase = 'draw' | 'main' | 'attack' | 'end';
 export type GameMode = 'pvp' | 'pve';
@@ -486,5 +487,93 @@ export const createStandardDeck = (): GameCard[] => {
   const statuses = ALL_GAME_CARDS.filter(c => c.type === 'status').slice(0, 7);
   
   return [...animals, ...actions, ...statuses];
+};
+
+/**
+ * Konvertiert eine WalletCard zu einer GameCard
+ * Findet die passende GameCard basierend auf originalInscriptionId oder name
+ */
+export const walletCardToGameCard = (walletCard: WalletCard): GameCard | null => {
+  // Versuche zuerst nach originalInscriptionId zu finden
+  if (walletCard.originalInscriptionId) {
+    const gameCard = ALL_GAME_CARDS.find(card => card.inscriptionId === walletCard.originalInscriptionId);
+    if (gameCard) {
+      // Erstelle eine Kopie mit der Delegate-Inskription-ID für Bild-Abruf
+      return {
+        ...gameCard,
+        inscriptionId: walletCard.inscriptionId, // Verwende Delegate-ID für Bild-Abruf
+      };
+    }
+  }
+  
+  // Fallback: Suche nach Name
+  const gameCard = getGameCardByName(walletCard.name);
+  if (gameCard) {
+    // Erstelle eine Kopie mit der Delegate-Inskription-ID für Bild-Abruf
+    return {
+      ...gameCard,
+      inscriptionId: walletCard.inscriptionId, // Verwende Delegate-ID für Bild-Abruf
+    };
+  }
+  
+  console.warn(`[GameEngine] ⚠️ Konnte keine GameCard für WalletCard finden: ${walletCard.name} (${walletCard.inscriptionId})`);
+  return null;
+};
+
+/**
+ * Erstellt ein Deck aus Wallet-Karten
+ * Filtert nach Typ (animal/action/status) und erstellt ein ausgewogenes Deck
+ */
+export const createDeckFromWalletCards = (walletCards: WalletCard[]): GameCard[] => {
+  console.log(`[GameEngine] 🔍 Erstelle Deck aus ${walletCards.length} Wallet-Karten...`);
+  
+  // Konvertiere alle Wallet-Karten zu GameCards
+  const gameCards: GameCard[] = [];
+  for (const walletCard of walletCards) {
+    const gameCard = walletCardToGameCard(walletCard);
+    if (gameCard) {
+      gameCards.push(gameCard);
+    }
+  }
+  
+  console.log(`[GameEngine] ✅ ${gameCards.length} Karten erfolgreich konvertiert`);
+  
+  // Gruppiere nach Typ
+  const animals = gameCards.filter(c => c.type === 'animal');
+  const actions = gameCards.filter(c => c.type === 'action');
+  const statuses = gameCards.filter(c => c.type === 'status');
+  
+  console.log(`[GameEngine] 📊 Karten-Verteilung: ${animals.length} Animals, ${actions.length} Actions, ${statuses.length} Status`);
+  
+  // Erstelle ausgewogenes Deck (min. 10 Animals, max. 24 Karten)
+  const deck: GameCard[] = [];
+  
+  // Füge Animals hinzu (min. 10, max. 15)
+  const animalCount = Math.min(animals.length, 15);
+  deck.push(...animals.slice(0, animalCount));
+  
+  // Füge Actions hinzu (max. 7)
+  const actionCount = Math.min(actions.length, 7);
+  deck.push(...actions.slice(0, actionCount));
+  
+  // Füge Status hinzu (max. 7)
+  const statusCount = Math.min(statuses.length, 7);
+  deck.push(...statuses.slice(0, statusCount));
+  
+  // Wenn weniger als 10 Animals, fülle mit Standard-Deck auf
+  if (deck.filter(c => c.type === 'animal').length < 10) {
+    console.log(`[GameEngine] ⚠️ Zu wenige Animals (${deck.filter(c => c.type === 'animal').length}), fülle mit Standard-Deck auf...`);
+    const standardDeck = createStandardDeck();
+    const standardAnimals = standardDeck.filter(c => c.type === 'animal');
+    const neededAnimals = 10 - deck.filter(c => c.type === 'animal').length;
+    deck.push(...standardAnimals.slice(0, neededAnimals));
+  }
+  
+  // Begrenze auf 24 Karten
+  const finalDeck = deck.slice(0, 24);
+  
+  console.log(`[GameEngine] ✅ Finales Deck: ${finalDeck.length} Karten (${finalDeck.filter(c => c.type === 'animal').length} Animals, ${finalDeck.filter(c => c.type === 'action').length} Actions, ${finalDeck.filter(c => c.type === 'status').length} Status)`);
+  
+  return finalDeck;
 };
 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck } from '../game/gameEngine';
+import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards } from '../game/gameEngine';
 import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS } from '../game/gameCards';
 import { getCardImageUrl } from '../game/cardImageService';
 import { makeAIMove } from '../game/aiLogic';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 import { DeckBuilderModal } from '../components/DeckBuilderModal';
+import { fetchWalletCards, WalletCard } from '../services/gallery';
 
 export const GamePage: React.FC = () => {
   const { walletState } = useWallet();
@@ -14,15 +15,60 @@ export const GamePage: React.FC = () => {
   const [gameMode, setGameMode] = useState<'pvp' | 'pve'>('pvp');
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [adminDeck, setAdminDeck] = useState<GameCard[]>([]);
+  const [walletCards, setWalletCards] = useState<WalletCard[]>([]);
+  const [loadingWalletCards, setLoadingWalletCards] = useState(false);
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
                   walletState.accounts.length > 0 &&
                   isAdminAddress(walletState.accounts[0].address);
 
+  // Lade Wallet-Karten beim Verbinden
+  useEffect(() => {
+    if (walletState.connected && walletState.accounts[0]?.address) {
+      loadWalletCards();
+    } else {
+      setWalletCards([]);
+    }
+  }, [walletState.connected, walletState.accounts]);
+
+  const loadWalletCards = async () => {
+    if (!walletState.accounts[0]?.address) return;
+    
+    setLoadingWalletCards(true);
+    try {
+      console.log('[GamePage] 🔍 Lade Wallet-Karten...');
+      const cards = await fetchWalletCards(walletState.accounts[0].address);
+      console.log(`[GamePage] ✅ ${cards.length} Wallet-Karten geladen`);
+      setWalletCards(cards);
+    } catch (error) {
+      console.error('[GamePage] ❌ Fehler beim Laden der Wallet-Karten:', error);
+      setWalletCards([]);
+    } finally {
+      setLoadingWalletCards(false);
+    }
+  };
+
   // Initialisiere Spiel
   const startGame = (customDeck1?: GameCard[], customDeck2?: GameCard[]) => {
-    const deck1 = customDeck1 || createStandardDeck();
+    let deck1: GameCard[];
+    
+    // Verwende Admin-Deck wenn vorhanden, sonst Wallet-Karten, sonst Standard-Deck
+    if (customDeck1) {
+      deck1 = customDeck1;
+    } else if (isAdmin && adminDeck.length === 24) {
+      deck1 = adminDeck;
+    } else if (walletCards.length > 0) {
+      console.log('[GamePage] 🎴 Erstelle Deck aus Wallet-Karten...');
+      deck1 = createDeckFromWalletCards(walletCards);
+      if (deck1.length < 10) {
+        console.log('[GamePage] ⚠️ Zu wenige Wallet-Karten, verwende Standard-Deck');
+        deck1 = createStandardDeck();
+      }
+    } else {
+      deck1 = createStandardDeck();
+    }
+    
     const deck2 = customDeck2 || createStandardDeck();
     const newState = createGameState(deck1, deck2, gameMode);
     setGameState(newState);
@@ -91,14 +137,30 @@ export const GamePage: React.FC = () => {
             </div>
           )}
           <div className="space-y-4">
+            {loadingWalletCards && (
+              <div className="text-sm text-gray-400 mb-4">
+                🔄 Lade Wallet-Karten...
+              </div>
+            )}
+            {walletCards.length > 0 && (
+              <div className="text-sm text-green-400 mb-4">
+                ✅ {walletCards.length} Karten im Wallet gefunden - diese werden für dein Deck verwendet!
+              </div>
+            )}
+            {walletState.connected && walletCards.length === 0 && !loadingWalletCards && (
+              <div className="text-sm text-yellow-400 mb-4">
+                ⚠️ Keine Karten im Wallet gefunden - Standard-Deck wird verwendet
+              </div>
+            )}
+            {!walletState.connected && (
+              <div className="text-sm text-gray-400 mb-4">
+                ℹ️ Verbinde dein Wallet, um deine eigenen Karten zu verwenden
+              </div>
+            )}
             <button
               onClick={() => {
                 setGameMode('pvp');
-                if (isAdmin && adminDeck.length === 24) {
-                  startGame(adminDeck, createStandardDeck());
-                } else {
-                  startGame();
-                }
+                startGame();
               }}
               className="w-64 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-lg transition-colors"
             >
@@ -107,11 +169,7 @@ export const GamePage: React.FC = () => {
             <button
               onClick={() => {
                 setGameMode('pve');
-                if (isAdmin && adminDeck.length === 24) {
-                  startGame(adminDeck, createStandardDeck());
-                } else {
-                  startGame();
-                }
+                startGame();
               }}
               className="w-64 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold text-lg transition-colors"
             >
