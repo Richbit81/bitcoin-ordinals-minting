@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards } from '../game/gameEngine';
-import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS } from '../game/gameCards';
+import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS, STATUS_CATEGORIES } from '../game/gameCards';
 import { getCardImageUrl } from '../game/cardImageService';
 import { makeAIMove } from '../game/aiLogic';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 import { DeckBuilderModal } from '../components/DeckBuilderModal';
+import { TargetSelectionModal } from '../components/TargetSelectionModal';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
 
 export const GamePage: React.FC = () => {
@@ -17,6 +18,8 @@ export const GamePage: React.FC = () => {
   const [adminDeck, setAdminDeck] = useState<GameCard[]>([]);
   const [walletCards, setWalletCards] = useState<WalletCard[]>([]);
   const [loadingWalletCards, setLoadingWalletCards] = useState(false);
+  const [pendingCard, setPendingCard] = useState<GameCard | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
@@ -204,14 +207,33 @@ export const GamePage: React.FC = () => {
     
     // Wenn Action oder Status: Frage nach Ziel
     if (card.type === 'action' || card.type === 'status') {
-      // TODO: Zeige Ziel-Auswahl
-      setGameState(prev => prev ? playCard(prev, 0, card.id) : null);
-      setSelectedCard(null);
+      // Prüfe ob Ziel benötigt wird
+      const needsTarget = card.effects.some(e => e.target && e.target !== 'self');
+      if (needsTarget) {
+        setPendingCard(card);
+      } else {
+        // Kein Ziel benötigt, direkt spielen
+        setGameState(prev => prev ? playCard(prev, 0, card.id) : null);
+        setSelectedCard(null);
+      }
     } else if (card.type === 'animal') {
       // Tier: Direkt spielen
       setGameState(prev => prev ? playCard(prev, 0, card.id) : null);
       setSelectedCard(null);
     }
+  };
+
+  const handleTargetSelected = (target: string | null) => {
+    if (!pendingCard) return;
+    
+    setGameState(prev => prev ? playCard(prev, 0, pendingCard.id, target) : null);
+    setPendingCard(null);
+    setSelectedCard(null);
+  };
+
+  const handleTargetCancel = () => {
+    setPendingCard(null);
+    setSelectedCard(null);
   };
 
   const handleEndMainPhase = () => {
@@ -268,6 +290,29 @@ export const GamePage: React.FC = () => {
               <span className="ml-4">Life: {opponent.life}</span>
               <span className="ml-4">Deck: {opponent.deck.length}</span>
               <span className="ml-4">Hand: {opponent.hand.length}</span>
+              {opponent.statuses.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {opponent.statuses.map((statusId, idx) => {
+                    const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
+                    if (!statusCard) return null;
+                    const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
+                    const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
+                    return (
+                      <span
+                        key={idx}
+                        className={`text-[10px] px-2 py-1 rounded ${
+                          isNegative ? 'bg-red-600 text-white' :
+                          isPositive ? 'bg-green-600 text-white' :
+                          'bg-yellow-600 text-black'
+                        }`}
+                        title={statusCard.effectText}
+                      >
+                        {statusCard.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           
@@ -293,8 +338,26 @@ export const GamePage: React.FC = () => {
                   {animal.currentAtk}/{animal.currentHp}
                 </div>
                 {animal.statuses.length > 0 && (
-                  <div className="text-xs text-yellow-400 mt-1">
-                    {animal.statuses.length} Status
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {animal.statuses.map((statusId, idx) => {
+                      const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
+                      if (!statusCard) return null;
+                      const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
+                      const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
+                      return (
+                        <span
+                          key={idx}
+                          className={`text-[8px] px-1 py-0.5 rounded ${
+                            isNegative ? 'bg-red-600 text-white' :
+                            isPositive ? 'bg-green-600 text-white' :
+                            'bg-yellow-600 text-black'
+                          }`}
+                          title={statusCard.effectText}
+                        >
+                          {statusCard.name}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -312,14 +375,47 @@ export const GamePage: React.FC = () => {
               <span className="ml-4">Life: {currentPlayer.life}</span>
               <span className="ml-4">Deck: {currentPlayer.deck.length}</span>
               <span className="ml-4">Hand: {currentPlayer.hand.length}</span>
+              {currentPlayer.statuses.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {currentPlayer.statuses.map((statusId, idx) => {
+                    const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
+                    if (!statusCard) return null;
+                    const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
+                    const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
+                    return (
+                      <span
+                        key={idx}
+                        className={`text-[10px] px-2 py-1 rounded ${
+                          isNegative ? 'bg-red-600 text-white' :
+                          isPositive ? 'bg-green-600 text-white' :
+                          'bg-yellow-600 text-black'
+                        }`}
+                        title={statusCard.effectText}
+                      >
+                        {statusCard.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             {isPlayerTurn && gameState.phase === 'main' && (
-              <button
-                onClick={handleEndMainPhase}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
-              >
-                End Main Phase
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                  💡 Du kannst: {currentPlayer.hand.filter(c => {
+                    if (c.type === 'animal') {
+                      return currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5;
+                    }
+                    return true;
+                  }).length} Karte(n) spielen
+                </div>
+                <button
+                  onClick={handleEndMainPhase}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
+                >
+                  End Main Phase
+                </button>
+              </div>
             )}
           </div>
 
@@ -345,8 +441,26 @@ export const GamePage: React.FC = () => {
                   {animal.currentAtk}/{animal.currentHp}
                 </div>
                 {animal.statuses.length > 0 && (
-                  <div className="text-xs text-yellow-400 mt-1">
-                    {animal.statuses.length} Status
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {animal.statuses.map((statusId, idx) => {
+                      const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
+                      if (!statusCard) return null;
+                      const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
+                      const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
+                      return (
+                        <span
+                          key={idx}
+                          className={`text-[8px] px-1 py-0.5 rounded ${
+                            isNegative ? 'bg-red-600 text-white' :
+                            isPositive ? 'bg-green-600 text-white' :
+                            'bg-yellow-600 text-black'
+                          }`}
+                          title={statusCard.effectText}
+                        >
+                          {statusCard.name}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -362,14 +476,22 @@ export const GamePage: React.FC = () => {
                   const canPlay = gameState.phase === 'main' && 
                     (card.type !== 'animal' || (currentPlayer.animalsPlayedThisTurn < 1 && currentPlayer.board.length < 5));
                   
+                  const cannotPlayReason = !canPlay ? (
+                    card.type === 'animal' && currentPlayer.animalsPlayedThisTurn >= 1 ? 'Bereits 1 Tier gespielt' :
+                    card.type === 'animal' && currentPlayer.board.length >= 5 ? 'Board voll (max. 5)' :
+                    'Nicht spielbar'
+                  ) : null;
+
                   return (
                     <div
                       key={card.id}
                       onClick={() => canPlay && handleCardClick(card)}
+                      onMouseEnter={() => setHoveredCard(card.id)}
+                      onMouseLeave={() => setHoveredCard(null)}
                       className={`
-                        bg-gray-800 rounded p-3 border-2 min-w-[120px] cursor-pointer transition-all relative overflow-hidden
+                        bg-gray-800 rounded p-3 border-2 min-w-[120px] transition-all relative overflow-hidden
                         ${canPlay 
-                          ? 'border-blue-500 hover:border-blue-300 hover:scale-105' 
+                          ? 'border-green-500 hover:border-green-300 hover:scale-105 cursor-pointer shadow-lg shadow-green-500/50' 
                           : 'border-gray-600 opacity-50 cursor-not-allowed'
                         }
                         ${selectedCard === card.id ? 'ring-2 ring-yellow-400' : ''}
@@ -396,6 +518,42 @@ export const GamePage: React.FC = () => {
                       <div className="text-[10px] text-gray-400 mt-1 line-clamp-2">
                         {card.effectText}
                       </div>
+                      {!canPlay && cannotPlayReason && (
+                        <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded">
+                          <div className="text-[10px] text-red-400 text-center px-2">
+                            {cannotPlayReason}
+                          </div>
+                        </div>
+                      )}
+                      {/* Tooltip */}
+                      {hoveredCard === card.id && (
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-gray-900 border-2 border-red-600 rounded-lg p-3 z-50 shadow-xl">
+                          <div className="text-sm font-bold text-white mb-2">{card.name}</div>
+                          <div className="text-xs text-gray-300 mb-2">
+                            <span className="font-semibold">Typ:</span> {card.type === 'animal' ? 'Tier' : card.type === 'action' ? 'Aktion' : 'Status'}
+                          </div>
+                          {card.type === 'animal' && (
+                            <div className="text-xs text-gray-300 mb-2">
+                              <span className="font-semibold">ATK/HP:</span> {card.atk}/{card.hp}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-300">
+                            <span className="font-semibold">Effekt:</span> {card.effectText}
+                          </div>
+                          {card.effects.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-700">
+                              <div className="text-[10px] text-gray-400">
+                                {card.effects.map((effect, idx) => (
+                                  <div key={idx} className="mb-1">
+                                    <span className="font-semibold">{effect.trigger}:</span> {effect.action}
+                                    {effect.target && ` → ${effect.target}`}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -422,6 +580,16 @@ export const GamePage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Target Selection Modal */}
+      {pendingCard && gameState && (
+        <TargetSelectionModal
+          card={pendingCard}
+          gameState={gameState}
+          onSelectTarget={handleTargetSelected}
+          onCancel={handleTargetCancel}
+        />
+      )}
     </div>
   );
 };
