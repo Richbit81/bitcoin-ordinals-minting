@@ -217,7 +217,15 @@ export const TechGamesPage: React.FC = () => {
       </div>
 
       {/* Title */}
-      <h1 className="text-4xl font-bold text-center mb-8 text-white">
+      <h1 className="text-4xl font-bold text-center mb-8 text-white flex items-center justify-center gap-3">
+        <img
+          src="/techgame.png"
+          alt="Tech & Games"
+          className="h-8 w-8 object-contain"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
         Tech & Games
       </h1>
 

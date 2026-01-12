@@ -122,7 +122,15 @@ export const PointShopPage: React.FC = () => {
           </button>
         </div>
 
-        <h1 className="text-4xl font-bold text-center mb-2 border-b-2 border-red-600 pb-4">
+        <h1 className="text-4xl font-bold text-center mb-2 border-b-2 border-red-600 pb-4 flex items-center justify-center gap-3">
+          <img
+            src="/pointshop.png"
+            alt="Point Shop"
+            className="h-8 w-8 object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
           Point Shop
         </h1>
         <p className="text-center text-gray-300 mb-8">
