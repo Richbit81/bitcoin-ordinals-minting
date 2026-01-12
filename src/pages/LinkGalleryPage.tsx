@@ -44,6 +44,13 @@ const LINK_ITEMS: LinkItem[] = [
     category: 'game',
     image: '/images/Sequencer.png',
   },
+  {
+    id: 'synthesizer',
+    title: 'RichArt Synthesizer',
+    description: 'Beta version of the RichArt Synthesizer',
+    url: 'https://ordinals.com/inscription/26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
+    category: 'game',
+  },
   
   // Collections
   {
