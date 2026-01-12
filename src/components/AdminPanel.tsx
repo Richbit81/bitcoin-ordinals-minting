@@ -588,6 +588,10 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
   const [presignInscriptions, setPresignInscriptions] = useState<Array<{ inscriptionId: string; status: 'pending' | 'preparing' | 'ready' | 'signing' | 'signed' | 'error'; transferId?: string; psbtBase64?: string; error?: string }>>([]);
   const [presignFeeRate, setPresignFeeRate] = useState(15); // Default fee rate
   const [presignRecipient, setPresignRecipient] = useState(adminAddress || ''); // Default: Admin address (wird beim Kauf überschrieben)
+  // Restore Items State
+  const [restoreTitle, setRestoreTitle] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string; found?: number; reactivated?: number; items?: any[] } | null>(null);
 
   useEffect(() => {
     loadItems();
