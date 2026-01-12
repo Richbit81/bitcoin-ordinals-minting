@@ -600,8 +600,9 @@ export const GamePage: React.FC = () => {
                     })}
                   </div>
                 )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* Player Hand */}
