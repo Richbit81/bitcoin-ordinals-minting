@@ -239,7 +239,7 @@ export const TechGamesPage: React.FC = () => {
         {TECH_GAMES_ITEMS.map((item) => (
           <div
             key={item.inscriptionId}
-            className="bg-gray-900 border border-red-600 rounded-lg p-6 hover:border-red-500 transition-colors"
+            className="bg-gray-900 border border-red-600 rounded-lg p-6 hover:border-red-500 transition-colors flex flex-col"
           >
             {/* Preview - HTML Inscription in iframe - Optimized for performance */}
             <div
@@ -297,7 +297,7 @@ export const TechGamesPage: React.FC = () => {
               {item.name}
             </h3>
             <p 
-              className="text-sm text-gray-400 mb-4 line-clamp-3 cursor-pointer hover:text-gray-300 transition-colors"
+              className="text-sm text-gray-400 mb-4 line-clamp-3 cursor-pointer hover:text-gray-300 transition-colors flex-1"
               onClick={() => setSelectedItem(item)}
             >
               {item.description.split('\n\n')[0].substring(0, 150)}
@@ -312,23 +312,25 @@ export const TechGamesPage: React.FC = () => {
               </div>
             )}
 
-            {/* Mint oder Test Button */}
-            {item.price > 0 ? (
-              <button
-                onClick={() => handleMint(item)}
-                disabled={mintingStatus?.status === 'in-progress'}
-                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm font-semibold"
-              >
-                {mintingStatus?.status === 'in-progress' ? 'Minting...' : 'Mint'}
-              </button>
-            ) : (
-              <button
-                onClick={() => setSelectedItem(item)}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-semibold"
-              >
-                Test
-              </button>
-            )}
+            {/* Mint oder Test Button - mt-auto schiebt ihn nach unten */}
+            <div className="mt-auto">
+              {item.price > 0 ? (
+                <button
+                  onClick={() => handleMint(item)}
+                  disabled={mintingStatus?.status === 'in-progress'}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm font-semibold"
+                >
+                  {mintingStatus?.status === 'in-progress' ? 'Minting...' : 'Mint'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedItem(item)}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-semibold"
+                >
+                  Test
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
