@@ -137,7 +137,8 @@ export const mintPointShopItem = async (
         seriesData.inscriptionId,
         walletAddress,
         feeRate,
-        walletType as 'unisat' | 'xverse' | null
+        walletType as 'unisat' | 'xverse' | null,
+        walletState
       );
 
       return {

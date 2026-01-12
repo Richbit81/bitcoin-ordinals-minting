@@ -18,7 +18,8 @@ export const mintPointShopItem = async (
   originalDelegateId: string,
   recipientAddress: string,
   feeRate: number = 1,
-  walletType: 'unisat' | 'xverse' | null = null
+  walletType: 'unisat' | 'xverse' | null = null,
+  walletState?: { walletType?: 'unisat' | 'xverse' | null }
 ): Promise<{ inscriptionId: string; txid: string; payAddress?: string; amount?: number; paymentTxid?: string }> => {
   console.log(`[PointShopMinting] Creating delegate inscription for Point Shop item: ${originalDelegateId}`);
   
