@@ -158,24 +158,28 @@ export const addEffectLog = (
  */
 export const drawCard = (state: GameState, playerIndex: number, count: number = 1): GameState => {
   const player = state.players[playerIndex];
-  let newState = { ...state };
+  let newState = { 
+    ...state,
+    players: state.players.map((p, idx) => idx === playerIndex ? { ...p } : p)
+  };
+  const newPlayer = newState.players[playerIndex];
   
   // Prüfe ob Spieler ziehen kann (z.B. PARANOIA Status)
-  if (!player.canDraw) {
+  if (!newPlayer.canDraw) {
     newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen (PARANOIA)`, 'effect');
     return newState;
   }
 
   for (let i = 0; i < count; i++) {
-    if (player.deck.length > 0) {
-      const drawnCard = player.deck.shift()!;
-      player.hand.push(drawnCard);
+    if (newPlayer.deck.length > 0) {
+      const drawnCard = newPlayer.deck.shift()!;
+      newPlayer.hand.push(drawnCard);
       newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${drawnCard.name}`, 'draw');
     } else {
       // Deck leer: Verliere 1 Life
-      player.life -= 1;
+      newPlayer.life -= 1;
       newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage');
-      if (player.life <= 0) {
+      if (newPlayer.life <= 0) {
         return {
           ...newState,
           gameOver: true,
