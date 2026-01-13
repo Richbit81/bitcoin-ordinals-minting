@@ -131,28 +131,26 @@ export const NewsBanner: React.FC = () => {
       {isFullWidth && item1 ? (
         <div 
           onClick={() => handleClick(item1.link)}
-          className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+          className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative"
         >
-          <div className="p-6">
-            {/* 4 Bilder nebeneinander */}
-            <div className="flex gap-4 justify-center items-center mb-4">
-              {item1.images?.map((img, index) => (
-                <div key={index} className="flex-shrink-0">
-                  <img
-                    src={img}
-                    alt={`${item1.title} ${index + 1}`}
-                    className="h-32 md:h-40 w-auto object-contain"
-                    onError={(e) => {
-                      console.warn(`[NewsBanner] Could not load image: ${img}`);
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            {/* Text groß */}
-            <div className="text-center">
-              <h3 className="text-3xl md:text-4xl font-bold text-white">
+          {/* 4 Bilder nebeneinander - gleiche Höhe wie normale Banner */}
+          <div className="flex gap-4 justify-center items-center p-4 h-full min-h-[120px] md:min-h-[140px]">
+            {item1.images?.map((img, index) => (
+              <div key={index} className="flex-shrink-0">
+                <img
+                  src={img}
+                  alt={`${item1.title} ${index + 1}`}
+                  className="h-20 md:h-28 w-auto object-contain"
+                  onError={(e) => {
+                    console.warn(`[NewsBanner] Could not load image: ${img}`);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            ))}
+            {/* Text groß - über die Bilder, rechtsbündig */}
+            <div className="absolute top-4 right-4 md:top-6 md:right-6">
+              <h3 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
                 {item1.title}
               </h3>
             </div>
