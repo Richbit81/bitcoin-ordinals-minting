@@ -10,6 +10,9 @@ import {
   WalletInscription,
 } from '../../services/collectionService';
 import { InscriptionPreview } from './InscriptionPreview';
+import { useWallet } from '../../contexts/WalletContext';
+import { signPSBT } from '../../utils/wallet';
+import { createTransfer, confirmTransfer } from '../../services/pointShopService';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
@@ -18,6 +21,7 @@ interface CollectionManagerProps {
 }
 
 export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddress }) => {
+  const { walletState } = useWallet();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [walletInscriptions, setWalletInscriptions] = useState<WalletInscription[]>([]);
@@ -25,6 +29,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [presigningItems, setPresigningItems] = useState<Map<string, { status: 'pending' | 'preparing' | 'ready' | 'signing' | 'signed' | 'error'; transferId?: string; psbtBase64?: string; error?: string }>>(new Map());
+  const [presignFeeRate, setPresignFeeRate] = useState(15);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -204,10 +210,144 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     return filteredInscriptions.every(ins => isItemSelected(ins.inscriptionId));
   };
 
+  const preparePresignPSBT = async (inscriptionId: string) => {
+    setPresigningItems(prev => {
+      const newMap = new Map(prev);
+      newMap.set(inscriptionId, { status: 'preparing' });
+      return newMap;
+    });
+    
+    try {
+      const transferData = await createTransfer(
+        inscriptionId,
+        adminAddress, // Placeholder recipient (wird später ersetzt)
+        presignFeeRate,
+      );
+      
+      setPresigningItems(prev => {
+        const newMap = new Map(prev);
+        newMap.set(inscriptionId, {
+          status: 'ready',
+          transferId: transferData.data.transferId,
+          psbtBase64: transferData.data.psbt,
+        });
+        return newMap;
+      });
+    } catch (error: any) {
+      console.error('[CollectionManager] Error preparing PSBT:', error);
+      setPresigningItems(prev => {
+        const newMap = new Map(prev);
+        newMap.set(inscriptionId, {
+          status: 'error',
+          error: error.message || 'Failed to prepare PSBT',
+        });
+        return newMap;
+      });
+    }
+  };
+
+  const signPresignPSBT = async (inscriptionId: string) => {
+    if (!walletState.connected || !walletState.walletType) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    
+    const item = presigningItems.get(inscriptionId);
+    if (!item?.psbtBase64 || !item.transferId) {
+      alert('PSBT not prepared yet');
+      return;
+    }
+    
+    setPresigningItems(prev => {
+      const newMap = new Map(prev);
+      newMap.set(inscriptionId, { ...item, status: 'signing' });
+      return newMap;
+    });
+    
+    try {
+      const signedPsbt = await signPSBT(
+        item.psbtBase64,
+        walletState.walletType,
+        false
+      );
+      
+      await confirmTransfer(
+        item.transferId!,
+        signedPsbt,
+        adminAddress,
+        true,
+        `collection-${Date.now()}`
+      );
+      
+      setPresigningItems(prev => {
+        const newMap = new Map(prev);
+        newMap.set(inscriptionId, { ...item, status: 'signed' });
+        return newMap;
+      });
+    } catch (error: any) {
+      console.error('[CollectionManager] Error signing PSBT:', error);
+      setPresigningItems(prev => {
+        const newMap = new Map(prev);
+        newMap.set(inscriptionId, {
+          ...item,
+          status: 'error',
+          error: error.message || 'Failed to sign PSBT',
+        });
+        return newMap;
+      });
+    }
+  };
+
+  const prepareAllPSBTs = async () => {
+    // Nur für Original-Inskriptionen
+    const originalItems = formData.items.filter(item => item.type === 'original');
+    for (const item of originalItems) {
+      const status = presigningItems.get(item.inscriptionId)?.status;
+      if (status === 'pending' || status === 'error' || !status) {
+        await preparePresignPSBT(item.inscriptionId);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  };
+
+  const signAllPSBTs = async () => {
+    if (!walletState.connected || !walletState.walletType) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    
+    const originalItems = formData.items.filter(item => item.type === 'original');
+    for (const item of originalItems) {
+      const status = presigningItems.get(item.inscriptionId)?.status;
+      if (status === 'ready') {
+        await signPresignPSBT(item.inscriptionId);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  };
+
+  const areAllOriginalsSigned = () => {
+    const originalItems = formData.items.filter(item => item.type === 'original');
+    if (originalItems.length === 0) return true; // Keine Original-Inskriptionen = OK
+    
+    return originalItems.every(item => {
+      const status = presigningItems.get(item.inscriptionId)?.status;
+      return status === 'signed';
+    });
+  };
+
   const handleSave = async () => {
     if (!formData.name || !formData.price || formData.items.length === 0) {
       alert('Please fill in all required fields (Name, Price, and select at least one item)');
       return;
+    }
+
+    // Prüfe ob alle Original-Inskriptionen signiert sind
+    const originalItems = formData.items.filter(item => item.type === 'original');
+    if (originalItems.length > 0 && !areAllOriginalsSigned()) {
+      if (!confirm('Not all original inscriptions are pre-signed. Do you want to continue anyway?')) {
+        return;
+      }
     }
 
     try {
@@ -262,7 +402,21 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     });
     setEditingCollection(null);
     setShowForm(false);
+    setPresigningItems(new Map());
   };
+
+  // Initialisiere Pre-Signing Status wenn Items hinzugefügt werden
+  useEffect(() => {
+    if (formData.items.length > 0) {
+      const newPresigningMap = new Map(presigningItems);
+      formData.items.forEach(item => {
+        if (item.type === 'original' && !newPresigningMap.has(item.inscriptionId)) {
+          newPresigningMap.set(item.inscriptionId, { status: 'pending' });
+        }
+      });
+      setPresigningItems(newPresigningMap);
+    }
+  }, [formData.items]);
 
   const filteredInscriptions = walletInscriptions.filter(ins =>
     ins.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -446,7 +600,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                               {contentType}
                             </div>
                             {selected && (
-                              <div className="flex items-center gap-2 mt-1">
+                              <div className="flex flex-col gap-1 mt-1">
                                 <select
                                   value={itemType}
                                   onChange={(e) => {
@@ -456,6 +610,16 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                                         : item
                                     );
                                     setFormData({ ...formData, items: newItems });
+                                    // Initialisiere Pre-Signing Status für Original-Inskriptionen
+                                    if (e.target.value === 'original') {
+                                      setPresigningItems(prev => {
+                                        const newMap = new Map(prev);
+                                        if (!newMap.has(inscription.inscriptionId)) {
+                                          newMap.set(inscription.inscriptionId, { status: 'pending' });
+                                        }
+                                        return newMap;
+                                      });
+                                    }
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                   className="text-xs bg-gray-700 text-white rounded px-1 py-0.5"
@@ -463,6 +627,71 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                                   <option value="delegate">Delegate</option>
                                   <option value="original">Original</option>
                                 </select>
+                                
+                                {/* Pre-Signing Status für Original-Inskriptionen */}
+                                {itemType === 'original' && (
+                                  <div className="flex items-center gap-1">
+                                    {(() => {
+                                      const presignStatus = presigningItems.get(inscription.inscriptionId);
+                                      if (!presignStatus) return null;
+                                      
+                                      return (
+                                        <>
+                                          <span className={`text-[10px] px-1 py-0.5 rounded ${
+                                            presignStatus.status === 'signed' ? 'bg-green-600 text-white' :
+                                            presignStatus.status === 'ready' ? 'bg-blue-600 text-white' :
+                                            presignStatus.status === 'error' ? 'bg-red-600 text-white' :
+                                            presignStatus.status === 'preparing' || presignStatus.status === 'signing' ? 'bg-yellow-600 text-black' :
+                                            'bg-gray-600 text-white'
+                                          }`}>
+                                            {presignStatus.status === 'signed' ? '✅ Signed' :
+                                             presignStatus.status === 'ready' ? '📝 Ready' :
+                                             presignStatus.status === 'error' ? '❌ Error' :
+                                             presignStatus.status === 'preparing' ? '⏳ Preparing...' :
+                                             presignStatus.status === 'signing' ? '✍️ Signing...' :
+                                             '⏸️ Pending'}
+                                          </span>
+                                          
+                                          {presignStatus.status === 'pending' && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                preparePresignPSBT(inscription.inscriptionId);
+                                              }}
+                                              className="text-[10px] px-1 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                                            >
+                                              Prepare
+                                            </button>
+                                          )}
+                                          
+                                          {presignStatus.status === 'ready' && walletState.connected && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                signPresignPSBT(inscription.inscriptionId);
+                                              }}
+                                              className="text-[10px] px-1 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded"
+                                            >
+                                              Sign
+                                            </button>
+                                          )}
+                                          
+                                          {presignStatus.status === 'error' && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                preparePresignPSBT(inscription.inscriptionId);
+                                              }}
+                                              className="text-[10px] px-1 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded"
+                                            >
+                                              Retry
+                                            </button>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -473,6 +702,60 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                 </div>
               )}
             </div>
+
+            {/* Pre-Signing Controls für Original-Inskriptionen */}
+            {formData.items.some(item => item.type === 'original') && (
+              <div className="bg-gray-800 border border-yellow-600 rounded p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-bold text-yellow-400">
+                    ⚠️ Pre-Signing Required for Original Inscriptions
+                  </h5>
+                  <div className="text-xs text-gray-400">
+                    {formData.items.filter(item => item.type === 'original').length} original(s) selected
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <label className="text-xs text-gray-400">Fee Rate (sat/vB):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={presignFeeRate}
+                    onChange={(e) => setPresignFeeRate(parseInt(e.target.value, 10))}
+                    className="w-20 px-2 py-1 bg-black border border-gray-700 rounded text-white text-xs"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={prepareAllPSBTs}
+                    disabled={formData.items.filter(item => item.type === 'original').some(item => {
+                      const status = presigningItems.get(item.inscriptionId)?.status;
+                      return status === 'preparing' || status === 'signing';
+                    })}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-xs font-semibold text-white"
+                  >
+                    Prepare All PSBTs
+                  </button>
+                  <button
+                    onClick={signAllPSBTs}
+                    disabled={!walletState.connected || formData.items.filter(item => item.type === 'original').some(item => {
+                      const status = presigningItems.get(item.inscriptionId)?.status;
+                      return status === 'preparing' || status === 'signing';
+                    })}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-xs font-semibold text-white"
+                  >
+                    Sign All PSBTs
+                  </button>
+                </div>
+
+                {areAllOriginalsSigned() && formData.items.some(item => item.type === 'original') && (
+                  <div className="text-xs text-green-400 font-semibold">
+                    ✅ All original inscriptions pre-signed and ready!
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button
