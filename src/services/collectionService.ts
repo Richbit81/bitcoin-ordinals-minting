@@ -65,7 +65,11 @@ export const getCollection = async (id: string): Promise<Collection> => {
  * Hole alle Kollektionen (auch inaktive) - für Admin
  */
 export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Collection[]> => {
-  const response = await fetch(`${API_URL}/api/collections/admin/all?adminAddress=${encodeURIComponent(adminAddress)}`);
+  const response = await fetch(`${API_URL}/api/collections/admin/all?adminAddress=${encodeURIComponent(adminAddress)}`, {
+    headers: {
+      'X-Admin-Address': adminAddress,
+    },
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch collections');
   }
@@ -79,8 +83,13 @@ export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Coll
 export const getWalletInscriptions = async (adminAddress: string): Promise<WalletInscription[]> => {
   const url = `${API_URL}/api/collections/admin/wallet-inscriptions?address=${encodeURIComponent(adminAddress)}`;
   console.log('[CollectionService] Fetching wallet inscriptions from:', url);
+  console.log('[CollectionService] Admin address:', adminAddress);
   
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      'X-Admin-Address': adminAddress,
+    },
+  });
   console.log('[CollectionService] Response status:', response.status, response.statusText);
   
   if (!response.ok) {
@@ -132,7 +141,10 @@ export const createCollection = async (
 ): Promise<Collection> => {
   const response = await fetch(`${API_URL}/api/collections/admin/create`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-Admin-Address': adminAddress,
+    },
     body: JSON.stringify({
       ...collectionData,
       adminAddress,
@@ -165,7 +177,10 @@ export const updateCollection = async (
 ): Promise<Collection> => {
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-Admin-Address': adminAddress,
+    },
     body: JSON.stringify({
       ...updates,
       adminAddress,
@@ -187,6 +202,9 @@ export const updateCollection = async (
 export const deleteCollection = async (collectionId: string, adminAddress: string): Promise<void> => {
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}?adminAddress=${encodeURIComponent(adminAddress)}`, {
     method: 'DELETE',
+    headers: {
+      'X-Admin-Address': adminAddress,
+    },
   });
 
   if (!response.ok) {
