@@ -256,11 +256,21 @@ img {
       console.log(`[Delegate] ⚠️ WICHTIG: Dies ist eine Schätzung für JSON-Metadaten! UniSat sollte den korrekten Betrag zurückgeben!`);
     } else {
       console.log(`[Delegate] ✅ Verwende tatsächlichen Betrag von UniSat API: ${amountInBTC.toFixed(8)} BTC`);
+      
+      // Warnung wenn Fees sehr hoch sind (mehr als ~1000 sats pro Inskription für kleine HTML-Dateien)
+      const amountInSats = amountInBTC * 100000000;
+      const feePerInscription = amountInSats / unisatResults.length;
+      if (feePerInscription > 1000) {
+        console.warn(`[Delegate] ⚠️ WARNUNG: Inskriptions-Fees sind sehr hoch: ${feePerInscription.toFixed(0)} sats pro Inskription`);
+        console.warn(`[Delegate] ⚠️ Für kleine HTML-Dateien (~400-600 Bytes) sollten die Fees ~800-1000 sats pro Inskription sein`);
+        console.warn(`[Delegate] ⚠️ Dies könnte an einem hohen feeRate liegen. Prüfen Sie den feeRate-Wert (aktuell: ${feeRate} sat/vB)`);
+      }
     }
     
     payAddresses.set(payAddress, amountInBTC);
     
-    console.log(`[Delegate] ✅ Inskriptions-Fees: ${amountInBTC.toFixed(8)} BTC an ${payAddress}`);
+    console.log(`[Delegate] ✅ Inskriptions-Fees: ${amountInBTC.toFixed(8)} BTC (${(amountInBTC * 100000000).toFixed(0)} sats) an ${payAddress}`);
+    console.log(`[Delegate] ℹ️ Das sind ~${((amountInBTC * 100000000) / unisatResults.length).toFixed(0)} sats pro Inskription (${unisatResults.length} Inskriptionen)`);
   } else {
     // Bei einzelnen Requests: Verwende tatsächliche Beträge von UniSat API
     console.log(`[Delegate] Einzel-Requests erkannt (${uniquePayAddresses.size} verschiedene Adressen)`);
