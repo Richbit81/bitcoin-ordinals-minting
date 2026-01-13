@@ -169,6 +169,41 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     return item?.type || 'delegate';
   };
 
+  const selectAllItems = () => {
+    const newItems: CollectionItem[] = [];
+    const existingIds = new Set(formData.items.map(item => item.inscriptionId));
+    
+    filteredInscriptions.forEach(inscription => {
+      if (!existingIds.has(inscription.inscriptionId)) {
+        const imageUrl = `https://ordinals.com/content/${inscription.inscriptionId}`;
+        newItems.push({
+          inscriptionId: inscription.inscriptionId,
+          name: inscription.name,
+          type: 'delegate', // Default type
+          imageUrl,
+        });
+      }
+    });
+    
+    setFormData({
+      ...formData,
+      items: [...formData.items, ...newItems],
+    });
+  };
+
+  const deselectAllItems = () => {
+    const filteredIds = new Set(filteredInscriptions.map(ins => ins.inscriptionId));
+    setFormData({
+      ...formData,
+      items: formData.items.filter(item => !filteredIds.has(item.inscriptionId)),
+    });
+  };
+
+  const areAllItemsSelected = () => {
+    if (filteredInscriptions.length === 0) return false;
+    return filteredInscriptions.every(ins => isItemSelected(ins.inscriptionId));
+  };
+
   const handleSave = async () => {
     if (!formData.name || !formData.price || formData.items.length === 0) {
       alert('Please fill in all required fields (Name, Price, and select at least one item)');
@@ -324,9 +359,30 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
             </div>
 
             <div>
-              <label className="text-xs text-gray-400 block mb-1">
-                Select Items from Wallet ({formData.items.length} selected) *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-400">
+                  Select Items from Wallet ({formData.items.length} selected) *
+                </label>
+                {!loadingInscriptions && filteredInscriptions.length > 0 && (
+                  <div className="flex gap-2">
+                    {areAllItemsSelected() ? (
+                      <button
+                        onClick={deselectAllItems}
+                        className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs font-semibold text-white"
+                      >
+                        Deselect All
+                      </button>
+                    ) : (
+                      <button
+                        onClick={selectAllItems}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-xs font-semibold text-white"
+                      >
+                        Select All ({filteredInscriptions.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               
               <div className="mb-2">
                 <input
