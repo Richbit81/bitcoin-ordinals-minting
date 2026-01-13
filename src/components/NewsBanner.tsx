@@ -158,15 +158,15 @@ export const NewsBanner: React.FC = () => {
         </div>
       ) : (
         /* Normaler Banner mit 2 Items nebeneinander */
-        <div className="bg-gray-900 border-2 border-white rounded-lg overflow-hidden">
+        <div className="bg-black border-2 border-white rounded-lg overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white">
           {/* Item 1 */}
           <div
             onClick={() => handleClick(item1.link)}
-            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-800 transition-all group"
+            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-900 transition-all group"
           >
             {/* Bild links */}
-            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-gray-800">
+            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-black">
               <img
                 src={item1.image}
                 alt={item1.title}
@@ -198,10 +198,10 @@ export const NewsBanner: React.FC = () => {
           {/* Item 2 */}
           <div
             onClick={() => handleClick(item2.link)}
-            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-800 transition-all group"
+            className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-900 transition-all group"
           >
             {/* Bild links */}
-            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-gray-800">
+            <div className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden rounded bg-black">
               <img
                 src={item2.image}
                 alt={item2.title}
