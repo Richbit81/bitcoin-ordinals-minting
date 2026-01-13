@@ -517,10 +517,11 @@ export const sendMultipleBitcoinPayments = async (
           throw error;
         }
         
-        // Längere Pause zwischen Zahlungen (2 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
+        // Längere Pause zwischen Zahlungen (3 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
+        // Dies verhindert, dass die zweite Zahlung "null" anzeigt
         if (i < recipients.length - 1) {
-          console.log(`[UniSat] Warte 2 Sekunden vor nächster Zahlung...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.log(`[UniSat] ⏳ Warte 3 Sekunden vor nächster Zahlung (${i + 2}/${recipients.length})...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
       
