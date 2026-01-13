@@ -65,6 +65,10 @@ export const getCollection = async (id: string): Promise<Collection> => {
  * Hole alle Kollektionen (auch inaktive) - für Admin
  */
 export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Collection[]> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/all?adminAddress=${encodeURIComponent(adminAddress)}`, {
     headers: {
       'X-Admin-Address': adminAddress,
@@ -81,9 +85,15 @@ export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Coll
  * Hole Inskriptionen aus Admin-Wallet
  */
 export const getWalletInscriptions = async (adminAddress: string): Promise<WalletInscription[]> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
   const url = `${API_URL}/api/collections/admin/wallet-inscriptions?address=${encodeURIComponent(adminAddress)}`;
   console.log('[CollectionService] Fetching wallet inscriptions from:', url);
   console.log('[CollectionService] Admin address:', adminAddress);
+  console.log('[CollectionService] Admin address type:', typeof adminAddress);
+  console.log('[CollectionService] Admin address length:', adminAddress?.length);
   
   const response = await fetch(url, {
     headers: {
@@ -139,6 +149,10 @@ export const createCollection = async (
     category?: string;
   }
 ): Promise<Collection> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/create`, {
     method: 'POST',
     headers: { 
@@ -175,6 +189,10 @@ export const updateCollection = async (
     category?: string;
   }
 ): Promise<Collection> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}`, {
     method: 'PUT',
     headers: { 
@@ -200,6 +218,10 @@ export const updateCollection = async (
  * Lösche/Deaktiviere eine Kollektion
  */
 export const deleteCollection = async (collectionId: string, adminAddress: string): Promise<void> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}?adminAddress=${encodeURIComponent(adminAddress)}`, {
     method: 'DELETE',
     headers: {

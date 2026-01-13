@@ -45,9 +45,11 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   }, [adminAddress]);
 
   const loadWalletInscriptions = async () => {
-    if (!adminAddress) {
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
       console.warn('[CollectionManager] No admin address provided, cannot load wallet inscriptions');
       console.warn('[CollectionManager] adminAddress prop:', adminAddress);
+      console.warn('[CollectionManager] adminAddress type:', typeof adminAddress);
+      alert('Admin address is not available. Please connect your wallet.');
       return;
     }
     console.log('[CollectionManager] Loading wallet inscriptions for:', adminAddress);
@@ -117,6 +119,12 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   }, [showForm, adminAddress]);
 
   const loadCollections = async () => {
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      console.warn('[CollectionManager] No admin address provided, cannot load collections');
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const data = await getAllCollectionsAdmin(adminAddress);
@@ -379,6 +387,11 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   };
 
   const handleSave = async () => {
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      alert('Admin address is not available. Please connect your wallet.');
+      return;
+    }
+    
     if (!formData.name || !formData.price || formData.items.length === 0) {
       alert('Please fill in all required fields (Name, Price, and select at least one item)');
       return;
@@ -421,6 +434,11 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   };
 
   const handleDelete = async (collectionId: string) => {
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      alert('Admin address is not available. Please connect your wallet.');
+      return;
+    }
+    
     if (!confirm('Are you sure you want to deactivate this collection?')) {
       return;
     }
