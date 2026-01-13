@@ -630,6 +630,56 @@ export const createStandardDeck = (): GameCard[] => {
 };
 
 /**
+ * Erstellt ein zufälliges Deck für Tests
+ * 24 Karten: mindestens 10 Animals, Rest Actions und Status
+ */
+export const createRandomDeck = (): GameCard[] => {
+  const allAnimals = ALL_GAME_CARDS.filter(c => c.type === 'animal');
+  const allActions = ALL_GAME_CARDS.filter(c => c.type === 'action');
+  const allStatuses = ALL_GAME_CARDS.filter(c => c.type === 'status');
+  
+  // Zufällige Funktion
+  const shuffle = <T>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+  
+  // Zufällige Auswahl: 10-15 Animals, Rest Actions und Status
+  const animalCount = 10 + Math.floor(Math.random() * 6); // 10-15
+  const remainingCount = 24 - animalCount; // 9-14
+  const actionCount = Math.floor(Math.random() * (remainingCount + 1)); // 0-remainingCount
+  const statusCount = remainingCount - actionCount;
+  
+  // Zufällige Karten auswählen (mit Wiederholungen möglich)
+  const deck: GameCard[] = [];
+  
+  // Animals (10-15)
+  const shuffledAnimals = shuffle(allAnimals);
+  for (let i = 0; i < animalCount; i++) {
+    deck.push(shuffledAnimals[i % shuffledAnimals.length]);
+  }
+  
+  // Actions (0-remainingCount)
+  const shuffledActions = shuffle(allActions);
+  for (let i = 0; i < actionCount; i++) {
+    deck.push(shuffledActions[i % shuffledActions.length]);
+  }
+  
+  // Status (Rest)
+  const shuffledStatuses = shuffle(allStatuses);
+  for (let i = 0; i < statusCount; i++) {
+    deck.push(shuffledStatuses[i % shuffledStatuses.length]);
+  }
+  
+  // Deck zufällig mischen
+  return shuffle(deck);
+};
+
+/**
  * Konvertiert eine WalletCard zu einer GameCard
  * Findet die passende GameCard basierend auf originalInscriptionId oder name
  */

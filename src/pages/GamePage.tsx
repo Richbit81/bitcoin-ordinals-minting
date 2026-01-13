@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards, canPlayCard, walletCardToGameCard } from '../game/gameEngine';
+import { GameState, createGameState, nextPhase, playCard, drawCard, GamePhase, createStandardDeck, createDeckFromWalletCards, canPlayCard, walletCardToGameCard, createRandomDeck } from '../game/gameEngine';
 import { GameCard, ALL_GAME_CARDS, GAME_ANIMAL_CARDS, GAME_ACTION_CARDS, GAME_STATUS_CARDS, STATUS_CATEGORIES } from '../game/gameCards';
 import { getCardImageUrl } from '../game/cardImageService';
 import { makeAIMove } from '../game/aiLogic';
@@ -215,15 +215,32 @@ export const GamePage: React.FC = () => {
           </button>
           {isAdmin && (
             <div className="mb-6">
-              <button
-                onClick={() => setShowDeckBuilder(true)}
-                className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg font-semibold text-lg transition-colors mb-4"
-              >
-                🎴 Admin: Deck Builder (Test Mode)
-              </button>
+              <div className="flex gap-3 mb-4">
+                <button
+                  onClick={() => setShowDeckBuilder(true)}
+                  className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg font-semibold text-lg transition-colors"
+                >
+                  🎴 Admin: Deck Builder (Test Mode)
+                </button>
+                <button
+                  onClick={() => {
+                    const randomDeck = createRandomDeck();
+                    setAdminDeck(randomDeck);
+                    console.log('[GamePage] ✅ Random Deck generiert:', randomDeck.length, 'Karten');
+                  }}
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold text-lg transition-colors"
+                >
+                  🎲 Generate Random Deck
+                </button>
+              </div>
               <p className="text-sm text-gray-400 mb-4">
-                As admin, you can create a test deck from all available cards
+                As admin, you can create a test deck from all available cards or generate a random deck
               </p>
+              {adminDeck.length === 24 && (
+                <p className="text-sm text-green-400 mb-2">
+                  ✅ Admin Deck ready ({adminDeck.filter(c => c.type === 'animal').length} Animals, {adminDeck.filter(c => c.type === 'action').length} Actions, {adminDeck.filter(c => c.type === 'status').length} Status)
+                </p>
+              )}
             </div>
           )}
           <div className="space-y-4">
