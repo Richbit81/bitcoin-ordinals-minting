@@ -8,6 +8,7 @@ import { getCachedInscriptionImage } from '../services/inscriptionImage';
 import { Card } from '../types/wallet';
 import { getPointShopItems, PointShopItem, createTransfer, confirmTransfer, preparePSBT, savePresignedTransaction, finalizePSBT } from '../services/pointShopService';
 import { CollectionManager } from './admin/CollectionManager';
+import { SmileABitCollectionManager } from './admin/SmileABitCollectionManager';
 import { getWalletInscriptions, WalletInscription } from '../services/collectionService';
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
@@ -18,7 +19,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const { walletState } = useWallet();
-  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'cards' | 'settings' | 'pointShop' | 'collections'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'cards' | 'settings' | 'pointShop' | 'collections' | 'smileABit'>('overview');
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [adminStats, setAdminStats] = useState<any>(null);
   const [hashlist, setHashlist] = useState<any>(null);
@@ -198,6 +199,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             }`}
           >
             Collections
+          </button>
+          <button
+            onClick={() => setActiveTab('smileABit')}
+            className={`px-4 py-2 font-semibold transition ${
+              activeTab === 'smileABit'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            SMILE A BIT
           </button>
           <button
             onClick={() => setActiveTab('settings')}

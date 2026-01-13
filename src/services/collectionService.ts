@@ -20,6 +20,7 @@ export interface Collection {
   thumbnail: string;
   price: number; // BTC
   items: CollectionItem[];
+  category?: string; // Optional: Kategorie (z.B. 'smileabit')
   createdAt: string;
   updatedAt: string;
   active: boolean;
@@ -126,6 +127,7 @@ export const createCollection = async (
     thumbnail: string;
     price: number;
     items: CollectionItem[];
+    category?: string;
   }
 ): Promise<Collection> => {
   const response = await fetch(`${API_URL}/api/collections/admin/create`, {
@@ -158,6 +160,7 @@ export const updateCollection = async (
     thumbnail?: string;
     price?: number;
     items?: CollectionItem[];
+    category?: string;
   }
 ): Promise<Collection> => {
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}`, {
