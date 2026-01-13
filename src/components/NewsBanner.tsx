@@ -133,14 +133,14 @@ export const NewsBanner: React.FC = () => {
           onClick={() => handleClick(item1.link)}
           className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative"
         >
-          {/* 4 Bilder nebeneinander - gleiche Höhe wie normale Banner */}
-          <div className="flex gap-4 justify-center items-center p-4 h-full min-h-[120px] md:min-h-[140px]">
+          {/* 4 Bilder nebeneinander - volle Banner-Höhe */}
+          <div className="flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
             {item1.images?.map((img, index) => (
-              <div key={index} className="flex-shrink-0">
+              <div key={index} className="flex-shrink-0 h-full flex items-center">
                 <img
                   src={img}
                   alt={`${item1.title} ${index + 1}`}
-                  className="h-20 md:h-28 w-auto object-contain"
+                  className="max-h-[100px] md:max-h-[120px] w-auto object-contain"
                   onError={(e) => {
                     console.warn(`[NewsBanner] Could not load image: ${img}`);
                     e.currentTarget.style.display = 'none';
