@@ -416,7 +416,7 @@ export const nextPhase = (state: GameState): GameState => {
           animal.attacksThisTurn++;
           
           // Log: Angriff
-          newState = addEffectLog(newState, `${animal.card.name} greift an → ${damage} Schaden`, 'attack');
+          newState = addEffectLog(newState, `${animal.card.name} greift an → ${damage} Schaden`, 'attack', animal.card.id);
           if (damage > 0) {
             newState = addEffectLog(newState, `Spieler ${(1 - state.currentPlayer) + 1} verliert ${damage} Life (${opponent.life + damage} → ${opponent.life})`, 'damage');
           }
