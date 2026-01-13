@@ -68,12 +68,18 @@ export const NewsBanner: React.FC = () => {
 
   // Auto-Rotation alle 5 Sekunden (nur wenn nicht gehovered)
   // Zeige immer 2 Items gleichzeitig, rotiere in 2er-Schritten
+  // Bei Full-Width Items: springe um 1 weiter
   useEffect(() => {
     if (isHovered) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => {
-        // Springe um 2 weiter, damit immer 2 Items sichtbar sind
+        const currentItem = NEWS_ITEMS[prev];
+        // Wenn aktuelles Item Full-Width ist, springe um 1 weiter
+        if (currentItem?.fullWidth) {
+          return (prev + 1) % NEWS_ITEMS.length;
+        }
+        // Sonst springe um 2 weiter, damit immer 2 Items sichtbar sind
         const next = prev + 2;
         // Wenn wir am Ende sind, starte von vorne
         return next >= NEWS_ITEMS.length ? 0 : next;
