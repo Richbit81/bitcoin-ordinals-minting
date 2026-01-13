@@ -356,7 +356,7 @@ export const nextPhase = (state: GameState): GameState => {
     case 'draw':
       // Draw Phase: Automatisch 1 Karte ziehen
       newState = addEffectLog(newState, `Phase: DRAW (Spieler ${state.currentPlayer + 1})`, 'phase');
-      drawCard(newState, state.currentPlayer);
+      newState = drawCard(newState, state.currentPlayer);
       newState.phase = 'main';
       newState = addEffectLog(newState, `Phase: MAIN (Spieler ${state.currentPlayer + 1})`, 'phase');
       break;
