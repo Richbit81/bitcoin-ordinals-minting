@@ -1,10 +1,13 @@
 import React from 'react';
+import { getCardImageUrl } from '../game/cardImageService';
+import { getGameCardById } from '../game/gameCards';
 
 export interface EffectLogEntry {
   id: string;
   message: string;
   timestamp: number;
   type: 'play' | 'attack' | 'damage' | 'draw' | 'destroy' | 'status' | 'effect' | 'phase';
+  cardId?: string; // Optional: ID der Karte für visuelle Darstellung
 }
 
 interface EffectLogProps {
@@ -55,19 +58,35 @@ export const EffectLog: React.FC<EffectLogProps> = ({ entries, maxEntries = 10 }
             Noch keine Effekte
           </div>
         ) : (
-          displayEntries.map(entry => (
-            <div
-              key={entry.id}
-              className="text-xs p-2 bg-gray-800 rounded border-l-2 border-gray-700 hover:border-red-600 transition-colors"
-            >
-              <div className="flex items-start gap-2">
-                <span className="text-sm">{getTypeIcon(entry.type)}</span>
-                <span className={`flex-1 ${getTypeColor(entry.type)}`}>
-                  {entry.message}
-                </span>
+          displayEntries.map(entry => {
+            const card = entry.cardId ? getGameCardById(entry.cardId) : null;
+            const showCardImage = card && (entry.type === 'play' || entry.type === 'draw' || entry.type === 'attack' || entry.type === 'status');
+            
+            return (
+              <div
+                key={entry.id}
+                className="text-xs p-2 bg-gray-800 rounded border-l-2 border-gray-700 hover:border-red-600 transition-colors"
+              >
+                <div className="flex items-start gap-2">
+                  {showCardImage && card ? (
+                    <img
+                      src={getCardImageUrl(card.inscriptionId)}
+                      alt={card.name}
+                      className="w-8 h-8 object-contain rounded border border-gray-600 flex-shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-sm flex-shrink-0">{getTypeIcon(entry.type)}</span>
+                  )}
+                  <span className={`flex-1 ${getTypeColor(entry.type)}`}>
+                    {entry.message}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

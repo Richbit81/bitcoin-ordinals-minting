@@ -43,6 +43,7 @@ export interface EffectLogEntry {
   message: string;
   timestamp: number;
   type: 'play' | 'attack' | 'damage' | 'draw' | 'destroy' | 'status' | 'effect' | 'phase';
+  cardId?: string; // Optional: ID der Karte für visuelle Darstellung
 }
 
 export interface GameState {
@@ -137,7 +138,8 @@ export const createGameState = (
 export const addEffectLog = (
   state: GameState,
   message: string,
-  type: EffectLogEntry['type']
+  type: EffectLogEntry['type'],
+  cardId?: string
 ): GameState => {
   return {
     ...state,
@@ -148,6 +150,7 @@ export const addEffectLog = (
         message,
         timestamp: Date.now(),
         type,
+        cardId,
       },
     ],
   };
@@ -210,7 +213,7 @@ export const drawCard = (state: GameState, playerIndex: number, count: number = 
 
   // Log: Karten gezogen
   for (const card of drawnCards) {
-    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${card.name}`, 'draw');
+    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${card.name}`, 'draw', card.id);
   }
   if (drawnCards.length === 0 && count > 0) {
     newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage');
@@ -312,7 +315,7 @@ export const playCard = (
     applyStatusEffectsToAnimal(boardAnimal);
 
     // Log: Karte gespielt
-    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play');
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play', card.id);
 
     // Trigger "onPlay" Effekte
     const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
@@ -329,7 +332,7 @@ export const playCard = (
     state = resolvePendingEffects(state);
   } else if (card.type === 'action') {
     // Log: Action-Karte gespielt
-    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play');
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'play', card.id);
     
     // Trigger "onPlay" Effekte
     const onPlayEffects = card.effects.filter(e => e.trigger === 'onPlay');
@@ -349,7 +352,7 @@ export const playCard = (
     player.discard.push(playedCard);
   } else if (card.type === 'status') {
     // Log: Status-Karte gespielt
-    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'status');
+    state = addEffectLog(state, `Spieler ${playerIndex + 1} spielt ${card.name}`, 'status', card.id);
     
     // Status-Karten müssen an ein Ziel angehängt werden
     if (target) {
