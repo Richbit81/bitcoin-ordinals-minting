@@ -93,9 +93,9 @@ img {
     let paymentTxid: string | undefined;
 
     if (walletType === 'unisat') {
-      paymentTxid = await sendBitcoinViaUnisat(payments);
+      paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
     } else if (walletType === 'xverse') {
-      paymentTxid = await sendBitcoinViaXverse(payments);
+      paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
     } else {
       throw new Error('Wallet type not supported');
     }

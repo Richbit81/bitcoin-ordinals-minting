@@ -287,8 +287,14 @@ export const sendBitcoinViaUnisat = async (
     throw new Error('UniSat Wallet ist nicht verfügbar. Bitte stellen Sie sicher, dass die UniSat Extension installiert und aktiviert ist.');
   }
 
+  // Debug: Logge verfügbare UniSat-Methoden
+  const availableMethods = Object.keys(window.unisat).filter(key => typeof (window.unisat as any)[key] === 'function');
+  console.log('[UniSat] Verfügbare Methoden:', availableMethods);
+  console.log('[UniSat] sendBitcoin vorhanden:', typeof window.unisat.sendBitcoin);
+
   if (typeof window.unisat.sendBitcoin !== 'function') {
-    throw new Error('UniSat sendBitcoin Funktion ist nicht verfügbar. Bitte aktualisieren Sie Ihre UniSat Extension.');
+    console.error('[UniSat] ❌ sendBitcoin ist nicht verfügbar! Verfügbare Methoden:', availableMethods);
+    throw new Error('UniSat sendBitcoin Funktion ist nicht verfügbar. Bitte aktualisieren Sie Ihre UniSat Extension auf die neueste Version.');
   }
 
   try {
