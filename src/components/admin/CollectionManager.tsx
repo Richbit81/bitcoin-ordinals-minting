@@ -210,6 +210,45 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     return filteredInscriptions.every(ins => isItemSelected(ins.inscriptionId));
   };
 
+  const setAllSelectedToOriginal = () => {
+    const selectedIds = new Set(formData.items.map(item => item.inscriptionId));
+    const newItems = formData.items.map(item => ({
+      ...item,
+      type: 'original' as const
+    }));
+    setFormData({ ...formData, items: newItems });
+    
+    // Initialisiere Pre-Signing Status für alle Original-Inskriptionen
+    setPresigningItems(prev => {
+      const newMap = new Map(prev);
+      newItems.forEach(item => {
+        if (!newMap.has(item.inscriptionId)) {
+          newMap.set(item.inscriptionId, { status: 'pending' });
+        }
+      });
+      return newMap;
+    });
+  };
+
+  const setAllSelectedToDelegate = () => {
+    const newItems = formData.items.map(item => ({
+      ...item,
+      type: 'delegate' as const
+    }));
+    setFormData({ ...formData, items: newItems });
+    
+    // Entferne Pre-Signing Status für Delegates (nicht benötigt)
+    setPresigningItems(prev => {
+      const newMap = new Map(prev);
+      newItems.forEach(item => {
+        if (item.type === 'delegate') {
+          newMap.delete(item.inscriptionId);
+        }
+      });
+      return newMap;
+    });
+  };
+
   const preparePresignPSBT = async (inscriptionId: string) => {
     setPresigningItems(prev => {
       const newMap = new Map(prev);
@@ -537,6 +576,26 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                   </div>
                 )}
               </div>
+              
+              {/* Buttons zum Setzen aller ausgewählten Items auf Original oder Delegate */}
+              {formData.items.length > 0 && (
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={setAllSelectedToOriginal}
+                    className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-xs font-semibold text-white"
+                    title="Set all selected items to Original (requires pre-signing)"
+                  >
+                    Set All to Original ({formData.items.length})
+                  </button>
+                  <button
+                    onClick={setAllSelectedToDelegate}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-semibold text-white"
+                    title="Set all selected items to Delegate (no pre-signing needed)"
+                  >
+                    Set All to Delegate ({formData.items.length})
+                  </button>
+                </div>
+              )}
               
               <div className="mb-2">
                 <input
