@@ -517,11 +517,29 @@ export const sendMultipleBitcoinPayments = async (
           throw error;
         }
         
-        // Längere Pause zwischen Zahlungen (3 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
-        // Dies verhindert, dass die zweite Zahlung "null" anzeigt
+        // Längere Pause zwischen Zahlungen (15 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
+        // Dies verhindert, dass die zweite Zahlung "kein Guthaben" anzeigt, da die erste Transaktion noch pending ist
         if (i < recipients.length - 1) {
-          console.log(`[UniSat] ⏳ Warte 3 Sekunden vor nächster Zahlung (${i + 2}/${recipients.length})...`);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          console.log(`[UniSat] ⏳ Warte 15 Sekunden vor nächster Zahlung (${i + 2}/${recipients.length})...`);
+          console.log(`[UniSat] ⚠️ WICHTIG: Die erste Transaktion muss erst bestätigt werden, bevor die zweite gesendet werden kann.`);
+          console.log(`[UniSat] ⚠️ Bitte warten Sie, bis die erste Zahlung in Ihrem Wallet bestätigt wurde.`);
+          await new Promise(resolve => setTimeout(resolve, 15000));
+          
+          // Prüfe Balance vor der nächsten Zahlung
+          try {
+            if (window.unisat && typeof window.unisat.getBalance === 'function') {
+              const balance = await window.unisat.getBalance();
+              console.log(`[UniSat] Aktuelles Guthaben: ${balance.total} sats (confirmed: ${balance.confirmed} sats)`);
+              
+              const nextAmount = Math.round(recipients[i + 1].amount * 100000000);
+              if (balance.confirmed < nextAmount) {
+                console.warn(`[UniSat] ⚠️ Bestätigtes Guthaben (${balance.confirmed} sats) ist kleiner als benötigter Betrag (${nextAmount} sats)`);
+                console.warn(`[UniSat] ⚠️ Die erste Transaktion ist möglicherweise noch nicht bestätigt. Bitte warten Sie noch etwas.`);
+              }
+            }
+          } catch (balanceError) {
+            console.warn('[UniSat] Konnte Balance nicht prüfen:', balanceError);
+          }
         }
       }
       
