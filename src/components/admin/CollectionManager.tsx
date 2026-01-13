@@ -38,6 +38,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     thumbnail: '',
     price: '',
     items: [] as CollectionItem[],
+    mintType: 'individual' as 'individual' | 'random',
   });
 
   useEffect(() => {
@@ -431,6 +432,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       thumbnail: collection.thumbnail,
       price: collection.price.toString(),
       items: collection.items,
+      mintType: collection.mintType || 'individual',
     });
     setShowForm(true);
   };
@@ -461,6 +463,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       thumbnail: '',
       price: '',
       items: [],
+      mintType: 'individual',
     });
     setEditingCollection(null);
     setShowForm(false);
@@ -572,6 +575,39 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                 className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
                 placeholder="0.0001"
               />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Mint Type *</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, mintType: 'individual' })}
+                  className={`flex-1 px-3 py-2 rounded text-sm font-semibold transition ${
+                    formData.mintType === 'individual'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Individual (Choose Item)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, mintType: 'random' })}
+                  className={`flex-1 px-3 py-2 rounded text-sm font-semibold transition ${
+                    formData.mintType === 'random'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Random (Surprise)
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.mintType === 'individual' 
+                  ? 'Users can choose which item to mint' 
+                  : 'Users receive a random item from the collection'}
+              </p>
             </div>
 
             <div>

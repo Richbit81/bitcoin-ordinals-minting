@@ -21,6 +21,7 @@ export interface Collection {
   price: number; // BTC
   items: CollectionItem[];
   category?: string; // Optional: Kategorie (z.B. 'smileabit')
+  mintType?: 'individual' | 'random'; // Wie werden Items gemintet: einzeln auswählbar oder zufällig
   createdAt: string;
   updatedAt: string;
   active: boolean;

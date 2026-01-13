@@ -58,7 +58,7 @@ export const CollectionMintingPage: React.FC = () => {
     });
 
     try {
-      if (item.type === 'delegate') {
+      if (itemToMint.type === 'delegate') {
         // Erstelle Delegate-Inskription
         setMintingStatus(prev => prev ? { ...prev, progress: 30, message: 'Creating delegate inscription...' } : null);
         
@@ -66,8 +66,8 @@ export const CollectionMintingPage: React.FC = () => {
         const itemPriceSats = collection.price ? Math.round(collection.price * 100000000) : undefined;
         
         const result = await createSingleDelegate(
-          item.inscriptionId,
-          item.name,
+          itemToMint.inscriptionId,
+          itemToMint.name,
           userAddress,
           collection.name,
           inscriptionFeeRate,
@@ -79,7 +79,7 @@ export const CollectionMintingPage: React.FC = () => {
         setMintingStatus({
           progress: 100,
           status: 'success',
-          message: `Successfully minted ${item.name}!`,
+          message: `Successfully minted ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
           inscriptionIds: [result.inscriptionId],
           txid: result.txid,
         });
@@ -93,7 +93,7 @@ export const CollectionMintingPage: React.FC = () => {
           body: JSON.stringify({
             walletAddress: userAddress,
             collectionId: collection.id,
-            itemId: item.inscriptionId,
+            itemId: itemToMint.inscriptionId,
             feeRate: inscriptionFeeRate,
             walletType: walletState.walletType,
           }),
@@ -109,7 +109,7 @@ export const CollectionMintingPage: React.FC = () => {
         setMintingStatus({
           progress: 100,
           status: 'success',
-          message: `Successfully transferred ${item.name}!`,
+          message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
           inscriptionIds: [data.inscriptionId],
           txid: data.txid,
         });
@@ -213,56 +213,83 @@ export const CollectionMintingPage: React.FC = () => {
           </div>
         )}
 
-        {/* Collection Items Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {collection.items.map((item) => {
-            const isMinting = mintingItemId === item.inscriptionId;
-            const imageUrl = item.imageUrl || `${API_URL}/api/inscription/image/${item.inscriptionId}`;
-            
-            return (
-              <div
-                key={item.inscriptionId}
-                className="bg-black border border-red-600 rounded-lg overflow-hidden hover:border-red-500 transition-all"
+        {/* Random Mint Button */}
+        {collection.mintType === 'random' && (
+          <div className="max-w-md mx-auto mb-8">
+            <div className="bg-black border-2 border-red-600 rounded-lg p-6 text-center">
+              <h2 className="text-2xl font-bold mb-4">🎲 Random Mint</h2>
+              <p className="text-gray-300 mb-6">
+                You'll receive a random item from this collection!
+              </p>
+              <p className="text-red-600 font-bold text-xl mb-6">
+                {collection.price} BTC
+              </p>
+              <button
+                onClick={() => handleMint()}
+                disabled={!!mintingItemId || !walletState.connected}
+                className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-colors"
               >
-                <div className="aspect-square bg-gray-900 flex items-center justify-center p-4 relative">
-                  <img
-                    src={imageUrl}
-                    alt={item.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      console.warn(`[CollectionMinting] Could not load image for ${item.inscriptionId}`);
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span className={`text-xs px-2 py-1 rounded font-semibold ${
-                      item.type === 'delegate' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-green-600 text-white'
-                    }`}>
-                      {item.type === 'delegate' ? 'Delegate' : 'Original'}
-                    </span>
+                {mintingItemId ? 'Minting Random Item...' : '🎲 Mint Random Item'}
+              </button>
+              <p className="text-xs text-gray-500 mt-4">
+                {collection.items.length} items in collection
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Collection Items Grid (only show for individual minting) */}
+        {collection.mintType === 'individual' && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {collection.items.map((item) => {
+              const isMinting = mintingItemId === item.inscriptionId;
+              const imageUrl = item.imageUrl || `${API_URL}/api/inscription/image/${item.inscriptionId}`;
+              
+              return (
+                <div
+                  key={item.inscriptionId}
+                  className="bg-black border border-red-600 rounded-lg overflow-hidden hover:border-red-500 transition-all"
+                >
+                  <div className="aspect-square bg-gray-900 flex items-center justify-center p-4 relative">
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.warn(`[CollectionMinting] Could not load image for ${item.inscriptionId}`);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute top-2 right-2">
+                      <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                        item.type === 'delegate' 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-green-600 text-white'
+                      }`}>
+                        {item.type === 'delegate' ? 'Delegate' : 'Original'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-bold mb-2">{item.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-red-600 font-bold">
+                        {collection.price} BTC
+                      </span>
+                      <button
+                        onClick={() => handleMint(item)}
+                        disabled={isMinting || !walletState.connected}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-colors"
+                      >
+                        {isMinting ? 'Minting...' : 'Mint'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-bold mb-2">{item.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-red-600 font-bold">
-                      {collection.price} BTC
-                    </span>
-                    <button
-                      onClick={() => handleMint(item)}
-                      disabled={isMinting || !walletState.connected}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded font-semibold transition-colors"
-                    >
-                      {isMinting ? 'Minting...' : 'Mint'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {!walletState.connected && (
           <div className="text-center mt-8">
