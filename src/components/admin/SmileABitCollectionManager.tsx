@@ -351,6 +351,7 @@ export const SmileABitCollectionManager: React.FC<SmileABitCollectionManagerProp
       thumbnail: collection.thumbnail,
       price: collection.price.toString(),
       items: collection.items,
+      mintType: collection.mintType || 'individual',
     });
     // Lade Pre-Signing Status für alle Items
     const newPresigningMap = new Map();
