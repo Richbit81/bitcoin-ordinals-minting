@@ -41,7 +41,9 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   });
 
   useEffect(() => {
-    loadCollections();
+    if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+      loadCollections();
+    }
   }, [adminAddress]);
 
   const loadWalletInscriptions = async () => {
