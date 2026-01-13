@@ -416,7 +416,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
               {/* Collections Tab */}
               {activeTab === 'collections' && adminAddress && (
-                <CollectionManager adminAddress={adminAddress} />
+                <CollectionManager adminAddress={adminAddress || ''} />
               )}
 
               {/* Settings Tab */}

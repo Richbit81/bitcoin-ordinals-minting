@@ -47,9 +47,12 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   const loadWalletInscriptions = async () => {
     if (!adminAddress) {
       console.warn('[CollectionManager] No admin address provided, cannot load wallet inscriptions');
+      console.warn('[CollectionManager] adminAddress prop:', adminAddress);
       return;
     }
     console.log('[CollectionManager] Loading wallet inscriptions for:', adminAddress);
+    console.log('[CollectionManager] adminAddress type:', typeof adminAddress);
+    console.log('[CollectionManager] adminAddress length:', adminAddress?.length);
     setLoadingInscriptions(true);
     try {
       const data = await getWalletInscriptions(adminAddress);
