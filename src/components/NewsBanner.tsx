@@ -6,9 +6,25 @@ interface NewsItem {
   description: string;
   image: string;
   link: string;
+  fullWidth?: boolean; // Spezieller Banner, der den ganzen Platz einnimmt
+  images?: string[]; // Array von Bildern für Full-Width Banner
 }
 
 const NEWS_ITEMS: NewsItem[] = [
+  {
+    id: 'no-func',
+    title: 'NO_FUNC',
+    description: '',
+    image: '/images/NO_FUNC_87.png', // Fallback für normale Ansicht
+    link: 'https://ord-dropz.xyz/marketplace/listing_1767570381027',
+    fullWidth: true,
+    images: [
+      '/images/NO_FUNC_87.png',
+      '/images/NO_FUNC_88.png',
+      '/images/NO_FUNC_89.png',
+      '/images/NO_FUNC_90.png',
+    ],
+  },
   {
     id: 'santas-revenge',
     title: "Santas Revenge",
@@ -70,7 +86,16 @@ export const NewsBanner: React.FC = () => {
   // Berechne die beiden aktuellen Items
   const getCurrentItems = () => {
     const item1 = NEWS_ITEMS[currentIndex];
+    // Wenn item1 fullWidth ist, zeige nur item1
+    if (item1.fullWidth) {
+      return [item1, null];
+    }
     const item2 = NEWS_ITEMS[(currentIndex + 1) % NEWS_ITEMS.length];
+    // Wenn item2 fullWidth ist, überspringe es
+    if (item2.fullWidth) {
+      const item2Index = (currentIndex + 2) % NEWS_ITEMS.length;
+      return [item1, NEWS_ITEMS[item2Index]];
+    }
     return [item1, item2];
   };
 
@@ -87,15 +112,50 @@ export const NewsBanner: React.FC = () => {
   // Berechne die Anzahl der "Slides" (jeder Slide zeigt 2 Items)
   const slideCount = Math.ceil(NEWS_ITEMS.length / 2);
 
+  // Prüfe ob aktuelles Item Full-Width ist
+  const isFullWidth = item1?.fullWidth;
+
   return (
     <div 
       className="w-full max-w-4xl mx-auto mb-8 relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Breiter Banner mit 2 Items nebeneinander - kein Rahmen zwischen Items */}
-      <div className="bg-gray-900 border-2 border-white rounded-lg overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white">
+      {/* Spezieller Full-Width Banner */}
+      {isFullWidth && item1 ? (
+        <div 
+          onClick={() => handleClick(item1.link)}
+          className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+        >
+          <div className="p-6">
+            {/* 4 Bilder nebeneinander */}
+            <div className="flex gap-4 justify-center items-center mb-4">
+              {item1.images?.map((img, index) => (
+                <div key={index} className="flex-shrink-0">
+                  <img
+                    src={img}
+                    alt={`${item1.title} ${index + 1}`}
+                    className="h-32 md:h-40 w-auto object-contain"
+                    onError={(e) => {
+                      console.warn(`[NewsBanner] Could not load image: ${img}`);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Text groß */}
+            <div className="text-center">
+              <h3 className="text-3xl md:text-4xl font-bold text-white">
+                {item1.title}
+              </h3>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Normaler Banner mit 2 Items nebeneinander */
+        <div className="bg-gray-900 border-2 border-white rounded-lg overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white">
           {/* Item 1 */}
           <div
             onClick={() => handleClick(item1.link)}
@@ -167,32 +227,35 @@ export const NewsBanner: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Navigation Dots - für Slides (jeder Slide = 2 Items) */}
-      <div className="flex justify-center gap-2 mt-3">
-        {Array.from({ length: slideCount }).map((_, slideIndex) => {
-          const slideStartIndex = slideIndex * 2;
-          const isActive = currentIndex === slideStartIndex || 
-                          (currentIndex + 1) % NEWS_ITEMS.length === slideStartIndex ||
-                          (currentIndex === NEWS_ITEMS.length - 1 && slideIndex === slideCount - 1);
-          
-          return (
-            <button
-              key={slideIndex}
-              onClick={(e) => {
-                e.stopPropagation();
-                goToSlide(slideStartIndex);
-              }}
-              className={`h-2 rounded-full transition-all ${
-                isActive
-                  ? 'w-8 bg-red-600'
-                  : 'w-2 bg-gray-600 hover:bg-gray-500'
-              }`}
-              aria-label={`Go to slide ${slideIndex + 1}`}
-            />
-          );
-        })}
-      </div>
+      {/* Navigation Dots - für Slides (jeder Slide = 2 Items, außer Full-Width) */}
+      {!isFullWidth && (
+        <div className="flex justify-center gap-2 mt-3">
+          {Array.from({ length: slideCount }).map((_, slideIndex) => {
+            const slideStartIndex = slideIndex * 2;
+            const isActive = currentIndex === slideStartIndex || 
+                            (currentIndex + 1) % NEWS_ITEMS.length === slideStartIndex ||
+                            (currentIndex === NEWS_ITEMS.length - 1 && slideIndex === slideCount - 1);
+            
+            return (
+              <button
+                key={slideIndex}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToSlide(slideStartIndex);
+                }}
+                className={`h-2 rounded-full transition-all ${
+                  isActive
+                    ? 'w-8 bg-red-600'
+                    : 'w-2 bg-gray-600 hover:bg-gray-500'
+                }`}
+                aria-label={`Go to slide ${slideIndex + 1}`}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
