@@ -389,11 +389,15 @@ export const nextPhase = (state: GameState): GameState => {
   switch (state.phase) {
     case 'draw':
       // Draw Phase: Automatisch 1 Karte ziehen
-      console.log('[nextPhase] DRAW Phase - Drawing card for player', state.currentPlayer + 1);
+      console.log('[nextPhase] DRAW Phase - Drawing card for player', state.currentPlayer + 1, 'Current phase:', state.phase);
       newState = drawCard(newState, state.currentPlayer);
-      console.log('[nextPhase] After drawCard - phase before:', newState.phase, 'deck length:', newState.players[state.currentPlayer].deck.length, 'hand length:', newState.players[state.currentPlayer].hand.length);
-      newState.phase = 'main';
-      console.log('[nextPhase] Phase set to MAIN');
+      console.log('[nextPhase] After drawCard - phase:', newState.phase, 'deck length:', newState.players[state.currentPlayer].deck.length, 'hand length:', newState.players[state.currentPlayer].hand.length);
+      // WICHTIG: Phase muss in einem neuen State-Objekt gesetzt werden
+      newState = {
+        ...newState,
+        phase: 'main',
+      };
+      console.log('[nextPhase] Phase set to MAIN, new phase:', newState.phase);
       newState = addEffectLog(newState, `Phase: MAIN (Spieler ${state.currentPlayer + 1})`, 'phase');
       break;
 
