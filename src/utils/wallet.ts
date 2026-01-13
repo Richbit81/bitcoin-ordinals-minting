@@ -306,13 +306,11 @@ export const sendBitcoinViaUnisat = async (
       throw new Error(`Amount too small. Minimum is 546 sats (Bitcoin dust limit). You tried to send ${amountInSats} sats.`);
     }
     
-    // UniSat sendBitcoin erwartet den Betrag in BTC (nicht Satoshi)
-    // Die Funktion sollte automatisch die Transaktion erstellen
-    // WICHTIG: Stelle sicher, dass der Betrag als Number übergeben wird, nicht als String
-    const amountAsNumber = typeof amount === 'string' ? parseFloat(amount) : amount;
-    console.log('[UniSat] Calling sendBitcoin with:', { to, amount: amountAsNumber, type: typeof amountAsNumber });
+    // WICHTIG: UniSat sendBitcoin erwartet den Betrag in SATOSHI, nicht BTC!
+    // Laut UniSat-Dokumentation: sendBitcoin(toAddress: string, satoshis: number)
+    console.log('[UniSat] Calling sendBitcoin with satoshis:', { to, satoshis: amountInSats });
     
-    const result = await window.unisat.sendBitcoin(to, amountAsNumber);
+    const result = await window.unisat.sendBitcoin(to, amountInSats);
     
     // Prüfe ob result ein String (txid) oder ein Objekt ist
     let txid: string;
