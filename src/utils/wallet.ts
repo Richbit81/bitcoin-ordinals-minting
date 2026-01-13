@@ -283,10 +283,32 @@ export const sendBitcoinViaUnisat = async (
   }
 
   try {
+    console.log('[UniSat] Sending Bitcoin:', { to, amount, amountInSats: Math.round(amount * 100000000) });
+    
+    // UniSat sendBitcoin erwartet den Betrag in BTC (nicht Satoshi)
+    // Die Funktion sollte automatisch die Transaktion erstellen
     const txid = await window.unisat!.sendBitcoin(to, amount);
+    
+    console.log('[UniSat] ✅ Transaction sent successfully, TXID:', txid);
     return txid;
   } catch (error: any) {
-    throw new Error(error.message || 'Fehler beim Senden von Bitcoin');
+    console.error('[UniSat] ❌ Error sending Bitcoin:', error);
+    console.error('[UniSat] Error details:', {
+      message: error.message,
+      code: error.code,
+      error: JSON.stringify(error, null, 2)
+    });
+    
+    // Verbesserte Fehlermeldung
+    if (error.message?.includes('User rejected') || error.message?.includes('USER_REJECTION')) {
+      throw new Error('Payment was cancelled. Please approve the transaction in your UniSat wallet.');
+    }
+    
+    if (error.message?.includes('Insufficient balance')) {
+      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.`);
+    }
+    
+    throw new Error(error.message || 'Fehler beim Senden von Bitcoin über UniSat');
   }
 };
 
