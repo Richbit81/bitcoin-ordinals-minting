@@ -13,6 +13,7 @@ import { OpponentHandModal } from '../components/OpponentHandModal';
 import { GameTutorialModal } from '../components/GameTutorialModal';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
 import { GameBoard } from '../components/GameBoard';
+import { GameBoardView } from '../components/GameBoardView';
 import { ActionText } from '../components/ActionText';
 import { CardBank } from '../components/CardBank';
 
@@ -458,41 +459,13 @@ export const GamePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Opponent Board - Größer und prominenter */}
-      <div className="max-w-[1600px] mx-auto mb-6">
-        <GameBoard
+      {/* Game Board - Einheitliches Board-Design */}
+      <div className="mb-6 relative">
+        <GameBoardView
           gameState={gameState}
-          playerIndex={1}
-          isPlayerTurn={!isPlayerTurn}
-          attackingAnimal={attackingAnimal}
-        />
-        {/* Damage Animations für Opponent Life */}
-        {damageAnimations.filter(d => d.target === 'opponent-life').map(damage => (
-          <div
-            key={damage.id}
-            className="absolute text-red-500 font-bold text-2xl pointer-events-none z-50"
-            style={{
-              animation: 'damageFloat 1s ease-out forwards',
-              left: '50%',
-              top: '20%',
-            }}
-            onAnimationEnd={() => {
-              setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
-            }}
-          >
-            -{damage.amount}
-          </div>
-        ))}
-      </div>
-
-      {/* Player Board - Größer und prominenter */}
-      <div className="max-w-[1600px] mx-auto mb-6 relative">
-        <GameBoard
-          gameState={gameState}
-          playerIndex={0}
           isPlayerTurn={isPlayerTurn}
           attackingAnimal={attackingAnimal}
-          onAnimalClick={(animal) => {
+          onPlayerAnimalClick={(animal) => {
             // Handle animal click for attacks
             if (isPlayerTurn && gameState.phase === 'attack') {
               setAttackingAnimal(animal.id);
@@ -506,15 +479,16 @@ export const GamePage: React.FC = () => {
             }
           }}
         />
-        {/* Damage Animations für Player Life */}
-        {damageAnimations.filter(d => d.target === 'player-life').map(damage => (
+        
+        {/* Damage Animations */}
+        {damageAnimations.map(damage => (
           <div
             key={damage.id}
             className="absolute text-red-500 font-bold text-2xl pointer-events-none z-50"
             style={{
               animation: 'damageFloat 1s ease-out forwards',
               left: '50%',
-              top: '80%',
+              top: damage.target === 'opponent-life' ? '25%' : '75%',
             }}
             onAnimationEnd={() => {
               setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
