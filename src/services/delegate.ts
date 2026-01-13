@@ -417,7 +417,14 @@ img {
       const totalAmount = allPayments.reduce((sum, p) => sum + p.amount, 0);
       const totalSats = totalAmount * 100000000;
       console.log(`[Delegate] Gesamtbetrag: ${totalAmount} BTC (${totalSats.toFixed(0)} sats)`);
-      console.log(`[Delegate] Hinweis: Transaktions-Fees werden automatisch vom Wallet berechnet`);
+      console.log(`[Delegate] ========== KOSTEN-AUFSTELLUNG ==========`);
+      console.log(`[Delegate] 📦 Pack-Preis: ${packPrice.toFixed(8)} BTC (${(packPrice * 100000000).toFixed(0)} sats)`);
+      const inscriptionFeesTotal = allPayments.filter(p => p.address !== RECIPIENT_ADDRESS).reduce((sum, p) => sum + p.amount, 0);
+      console.log(`[Delegate] 📝 Inskriptions-Fees: ${inscriptionFeesTotal.toFixed(8)} BTC (${(inscriptionFeesTotal * 100000000).toFixed(0)} sats)`);
+      console.log(`[Delegate] 💰 GESAMT (ohne Transaktions-Fees): ${totalAmount.toFixed(8)} BTC (${totalSats.toFixed(0)} sats)`);
+      console.log(`[Delegate] ⚠️ HINWEIS: Zusätzlich fallen Transaktions-Fees an (vom Wallet automatisch berechnet)`);
+      console.log(`[Delegate] ⚠️ HINWEIS: Bei 2 separaten Zahlungen = 2 × Transaktions-Fees`);
+      console.log(`[Delegate] =========================================`);
       
       // WICHTIG: Erfasse die Zahlungs-Transaktions-ID
       paymentTxid = await sendMultipleBitcoinPayments(allPayments, walletType);
