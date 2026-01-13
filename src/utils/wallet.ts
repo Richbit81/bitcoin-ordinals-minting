@@ -282,33 +282,65 @@ export const sendBitcoinViaUnisat = async (
     throw new Error('UniSat Wallet nicht gefunden');
   }
 
+  // Prüfe ob window.unisat und sendBitcoin verfügbar sind
+  if (!window.unisat) {
+    throw new Error('UniSat Wallet ist nicht verfügbar. Bitte stellen Sie sicher, dass die UniSat Extension installiert und aktiviert ist.');
+  }
+
+  if (typeof window.unisat.sendBitcoin !== 'function') {
+    throw new Error('UniSat sendBitcoin Funktion ist nicht verfügbar. Bitte aktualisieren Sie Ihre UniSat Extension.');
+  }
+
   try {
     console.log('[UniSat] Sending Bitcoin:', { to, amount, amountInSats: Math.round(amount * 100000000) });
     
     // UniSat sendBitcoin erwartet den Betrag in BTC (nicht Satoshi)
     // Die Funktion sollte automatisch die Transaktion erstellen
-    const txid = await window.unisat!.sendBitcoin(to, amount);
+    const result = await window.unisat.sendBitcoin(to, amount);
+    
+    // Prüfe ob result ein String (txid) oder ein Objekt ist
+    let txid: string;
+    if (typeof result === 'string') {
+      txid = result;
+    } else if (result && typeof result === 'object') {
+      // Möglicherweise gibt UniSat ein Objekt zurück
+      txid = result.txid || result.txId || result.transactionId || '';
+      if (!txid) {
+        console.error('[UniSat] Unexpected response format:', result);
+        throw new Error('UniSat returned an unexpected response format. Please try again.');
+      }
+    } else {
+      console.error('[UniSat] Unexpected response type:', typeof result, result);
+      throw new Error('UniSat returned an unexpected response. Please try again.');
+    }
     
     console.log('[UniSat] ✅ Transaction sent successfully, TXID:', txid);
     return txid;
   } catch (error: any) {
     console.error('[UniSat] ❌ Error sending Bitcoin:', error);
     console.error('[UniSat] Error details:', {
-      message: error.message,
-      code: error.code,
-      error: JSON.stringify(error, null, 2)
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack,
+      error: error ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : 'null/undefined'
     });
     
     // Verbesserte Fehlermeldung
-    if (error.message?.includes('User rejected') || error.message?.includes('USER_REJECTION')) {
+    if (error?.message?.includes('User rejected') || error?.message?.includes('USER_REJECTION') || error?.code === 4001) {
       throw new Error('Payment was cancelled. Please approve the transaction in your UniSat wallet.');
     }
     
-    if (error.message?.includes('Insufficient balance')) {
+    if (error?.message?.includes('Insufficient balance')) {
       throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.`);
     }
+
+    // Prüfe auf "can not read properties" oder ähnliche Fehler
+    if (error?.message?.includes('Cannot read properties') || error?.message?.includes('can not read properties')) {
+      throw new Error('UniSat wallet error: Cannot access wallet properties. Please refresh the page and try again.');
+    }
     
-    throw new Error(error.message || 'Fehler beim Senden von Bitcoin über UniSat');
+    throw new Error(error?.message || 'Fehler beim Senden von Bitcoin über UniSat');
   }
 };
 
