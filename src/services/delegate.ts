@@ -423,7 +423,12 @@ img {
       console.log(`[Delegate] 📝 Inskriptions-Fees: ${inscriptionFeesTotal.toFixed(8)} BTC (${(inscriptionFeesTotal * 100000000).toFixed(0)} sats)`);
       console.log(`[Delegate] 💰 GESAMT (ohne Transaktions-Fees): ${totalAmount.toFixed(8)} BTC (${totalSats.toFixed(0)} sats)`);
       console.log(`[Delegate] ⚠️ HINWEIS: Zusätzlich fallen Transaktions-Fees an (vom Wallet automatisch berechnet)`);
-      console.log(`[Delegate] ⚠️ HINWEIS: Bei 2 separaten Zahlungen = 2 × Transaktions-Fees`);
+      if (walletType === 'unisat') {
+        console.log(`[Delegate] ⚠️ UNISAT: Bei ${allPayments.length} separaten Zahlungen = ${allPayments.length} × Transaktions-Fees`);
+        console.log(`[Delegate] 💡 TIPP: Xverse kann mehrere Zahlungen in EINER Transaktion kombinieren (nur 1 × Transaktions-Fee)`);
+      } else if (walletType === 'xverse') {
+        console.log(`[Delegate] ✅ XVerse: Kann mehrere Zahlungen in EINER Transaktion kombinieren (nur 1 × Transaktions-Fee)`);
+      }
       console.log(`[Delegate] =========================================`);
       
       // WICHTIG: Erfasse die Zahlungs-Transaktions-ID
