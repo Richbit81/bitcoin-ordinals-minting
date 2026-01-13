@@ -234,7 +234,7 @@ export const GamePage: React.FC = () => {
             )}
             {walletCards.length > 0 && (
               <div className="text-sm text-green-400 mb-4">
-                ✅ {walletCards.length} cards found in wallet - these will be used for your deck!
+                ✅ {walletCards.length} cards found in wallet
               </div>
             )}
             {walletState.connected && walletCards.length === 0 && !loadingWalletCards && (
@@ -245,6 +245,25 @@ export const GamePage: React.FC = () => {
             {!walletState.connected && (
               <div className="text-sm text-gray-400 mb-4">
                 ℹ️ Connect your wallet to use your own cards
+              </div>
+            )}
+            {/* Deck Builder Button für normale Spieler mit Wallet-Karten */}
+            {walletState.connected && walletCards.length > 0 && !isAdmin && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowDeckBuilder(true)}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg transition-colors mb-2"
+                >
+                  🎴 Build Deck from Wallet Cards
+                </button>
+                <p className="text-sm text-gray-400">
+                  Select 24 cards from your wallet ({walletCards.length} available)
+                </p>
+                {userSelectedDeck.length === 24 && (
+                  <p className="text-sm text-green-400 mt-2">
+                    ✅ Deck ready ({userSelectedDeck.filter(c => c.type === 'animal').length} Animals, {userSelectedDeck.filter(c => c.type === 'action').length} Actions, {userSelectedDeck.filter(c => c.type === 'status').length} Status)
+                  </p>
+                )}
               </div>
             )}
             <button
