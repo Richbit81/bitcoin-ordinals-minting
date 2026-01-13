@@ -306,9 +306,19 @@ export const sendBitcoinViaUnisat = async (
       throw new Error(`Amount too small. Minimum is 546 sats (Bitcoin dust limit). You tried to send ${amountInSats} sats.`);
     }
     
+    // Prüfe ob Adresse gültig ist
+    if (!to || typeof to !== 'string' || to.length < 26) {
+      throw new Error(`Invalid address: ${to}`);
+    }
+    
+    // Stelle sicher, dass satoshis eine positive ganze Zahl ist
+    if (!Number.isInteger(amountInSats) || amountInSats <= 0 || isNaN(amountInSats)) {
+      throw new Error(`Invalid satoshi amount: ${amountInSats}. Must be a positive integer. Original amount: ${amount} BTC`);
+    }
+    
     // WICHTIG: UniSat sendBitcoin erwartet den Betrag in SATOSHI, nicht BTC!
     // Laut UniSat-Dokumentation: sendBitcoin(toAddress: string, satoshis: number)
-    console.log('[UniSat] Calling sendBitcoin with satoshis:', { to, satoshis: amountInSats });
+    console.log('[UniSat] Calling sendBitcoin with satoshis:', { to, satoshis: amountInSats, addressLength: to.length, addressValid: to.length >= 26 });
     
     const result = await window.unisat.sendBitcoin(to, amountInSats);
     
