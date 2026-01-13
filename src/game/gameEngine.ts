@@ -160,7 +160,13 @@ export const drawCard = (state: GameState, playerIndex: number, count: number = 
   const player = state.players[playerIndex];
   let newState = { 
     ...state,
-    players: state.players.map((p, idx) => idx === playerIndex ? { ...p } : p)
+    players: state.players.map((p, idx) => idx === playerIndex ? {
+      ...p,
+      deck: [...p.deck],
+      hand: [...p.hand],
+      board: [...p.board],
+      discard: [...p.discard],
+    } : p)
   };
   const newPlayer = newState.players[playerIndex];
   
