@@ -29,3 +29,81 @@ code {
     monospace;
 }
 
+/* Game Animations */
+@keyframes damageFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(1.2);
+  }
+}
+
+@keyframes attackFlash {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes shieldGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 255, 1);
+  }
+}
+
+@keyframes cardPlay {
+  0% {
+    transform: scale(0.8) rotateY(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1) rotateY(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotateY(360deg);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromHand {
+  0% {
+    transform: translateY(200px) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-damage-float {
+  animation: damageFloat 1s ease-out forwards;
+}
+
+.animate-attack-flash {
+  animation: attackFlash 0.5s ease-in-out;
+}
+
+.animate-shield-glow {
+  animation: shieldGlow 1s ease-in-out infinite;
+}
+
+.animate-card-play {
+  animation: cardPlay 0.6s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideInFromHand 0.5s ease-out;
+}
+

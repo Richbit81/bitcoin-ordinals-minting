@@ -1,0 +1,31 @@
+<svg viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hintergrund -->
+  <rect width="400" height="600" fill="#1f2937" rx="20"/>
+  
+  <!-- Header mit Titel -->
+  <rect y="0" width="400" height="80" fill="#111827" rx="20 20 0 0"/>
+  <text x="200" y="50" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white" text-anchor="middle">SLAP</text>
+  
+  <!-- Action Badge -->
+  <rect x="150" y="90" width="100" height="30" fill="#4b5563" rx="15"/>
+  <text x="200" y="110" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">ACTION</text>
+  
+  <!-- SVG Icon (weiß) -->
+  <g transform="translate(150, 180) scale(8)">
+    <line x1="6" y1="18" x2="18" y2="6" stroke="white" stroke-width="2"/>
+    <line x1="18" y1="6" x2="21" y2="6" stroke="white" stroke-width="2"/>
+    <line x1="18" y1="6" x2="18" y2="3" stroke="white" stroke-width="2"/>
+  </g>
+  
+  <!-- Effect Text -->
+  <rect y="520" width="400" height="80" fill="#111827" rx="0 0 20 20"/>
+  <text x="200" y="555" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle">Deal 2 damage to any target.</text>
+</svg>
+
+
+
+
+
+
+
+

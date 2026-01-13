@@ -12,6 +12,9 @@ import { EffectLog } from '../components/EffectLog';
 import { OpponentHandModal } from '../components/OpponentHandModal';
 import { GameTutorialModal } from '../components/GameTutorialModal';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
+import { GameBoard } from '../components/GameBoard';
+import { ActionText } from '../components/ActionText';
+import { CardBank } from '../components/CardBank';
 
 export const GamePage: React.FC = () => {
   const { walletState } = useWallet();
@@ -31,6 +34,9 @@ export const GamePage: React.FC = () => {
   const [attackingAnimal, setAttackingAnimal] = useState<string | null>(null);
   const [damageAnimations, setDamageAnimations] = useState<Array<{id: string; target: string; amount: number; type: 'life' | 'animal'}>>([]);
   const [cardPlayAnimations, setCardPlayAnimations] = useState<Set<string>>(new Set());
+  const [actionTexts, setActionTexts] = useState<Array<{id: string; text: string; type: 'attack' | 'shield' | 'heal' | 'card' | 'effect'; position: {x: number; y: number}}>>([]);
+  const [showCardBank, setShowCardBank] = useState(false);
+  const [opponentCardPlays, setOpponentCardPlays] = useState<Array<{id: string; cardName: string; timestamp: number}>>([]);
   
   // Prüfe ob Admin
   const isAdmin = walletState.connected && 
@@ -360,6 +366,14 @@ export const GamePage: React.FC = () => {
       });
     }, 1000);
     
+    // Action-Text-Animation für Kartenlegen
+    setActionTexts(prev => [...prev, {
+      id: `card-${Date.now()}`,
+      text: card.name.toUpperCase(),
+      type: 'card',
+      position: { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+    }]);
+    
     // Wenn Action oder Status: Frage nach Ziel
     if (card.type === 'action' || card.type === 'status') {
       // Prüfe ob Ziel benötigt wird
@@ -427,161 +441,95 @@ export const GamePage: React.FC = () => {
               {isPlayerTurn ? ' Your Turn' : ' Opponent Turn'}
             </p>
           </div>
-          <button
-            onClick={() => setGameState(null)}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCardBank(true)}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+            >
+              📚 Card Bank
+            </button>
+            <button
+              onClick={() => setGameState(null)}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+            >
+              End Game
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Opponent Board - Größer und prominenter */}
+      <div className="max-w-[1600px] mx-auto mb-6">
+        <GameBoard
+          gameState={gameState}
+          playerIndex={1}
+          isPlayerTurn={!isPlayerTurn}
+          attackingAnimal={attackingAnimal}
+        />
+        {/* Damage Animations für Opponent Life */}
+        {damageAnimations.filter(d => d.target === 'opponent-life').map(damage => (
+          <div
+            key={damage.id}
+            className="absolute text-red-500 font-bold text-2xl pointer-events-none z-50"
+            style={{
+              animation: 'damageFloat 1s ease-out forwards',
+              left: '50%',
+              top: '20%',
+            }}
+            onAnimationEnd={() => {
+              setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
+            }}
           >
-            End Game
-          </button>
-        </div>
+            -{damage.amount}
+          </div>
+        ))}
       </div>
 
-      {/* Opponent Area */}
-      <div className="max-w-[1600px] mx-auto mb-4">
-        <div className="bg-gray-900 rounded-lg p-4 border-2 border-red-600">
-          <div className="flex justify-between items-center mb-2">
-            <div className="relative">
-              <span className="font-bold">Opponent</span>
-              <span className="ml-4">Life: <span className="font-bold">{opponent.life}</span></span>
-              <span className="ml-4">Deck: {opponent.deck.length}</span>
-              <span className="ml-4">Hand: {opponent.hand.length}</span>
-              {damageAnimations.filter(d => d.target === 'opponent-life').map(damage => (
-                <div
-                  key={damage.id}
-                  className="absolute top-0 left-32 text-red-500 font-bold text-xl animate-bounce pointer-events-none"
-                  style={{
-                    animation: 'damageFloat 1s ease-out forwards',
-                  }}
-                  onAnimationEnd={() => {
-                    setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
-                  }}
-                >
-                  -{damage.amount}
-                </div>
-              ))}
-              {opponent.statuses.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {opponent.statuses.map((statusId, idx) => {
-                    const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
-                    if (!statusCard) return null;
-                    const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
-                    const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
-                    return (
-                      <span
-                        key={idx}
-                        className={`text-[10px] px-2 py-1 rounded ${
-                          isNegative ? 'bg-red-600 text-white' :
-                          isPositive ? 'bg-green-600 text-white' :
-                          'bg-yellow-600 text-black'
-                        }`}
-                        title={statusCard.effectText}
-                      >
-                        {statusCard.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+      {/* Player Board - Größer und prominenter */}
+      <div className="max-w-[1600px] mx-auto mb-6 relative">
+        <GameBoard
+          gameState={gameState}
+          playerIndex={0}
+          isPlayerTurn={isPlayerTurn}
+          attackingAnimal={attackingAnimal}
+          onAnimalClick={(animal) => {
+            // Handle animal click for attacks
+            if (isPlayerTurn && gameState.phase === 'attack') {
+              setAttackingAnimal(animal.id);
+              // Trigger attack animation
+              setActionTexts(prev => [...prev, {
+                id: `attack-${Date.now()}`,
+                text: 'ATTACK!',
+                type: 'attack',
+                position: { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+              }]);
+            }
+          }}
+        />
+        {/* Damage Animations für Player Life */}
+        {damageAnimations.filter(d => d.target === 'player-life').map(damage => (
+          <div
+            key={damage.id}
+            className="absolute text-red-500 font-bold text-2xl pointer-events-none z-50"
+            style={{
+              animation: 'damageFloat 1s ease-out forwards',
+              left: '50%',
+              top: '80%',
+            }}
+            onAnimationEnd={() => {
+              setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
+            }}
+          >
+            -{damage.amount}
           </div>
-          
-          {/* Opponent Board */}
-          <div className="flex gap-2 mt-4">
-            {opponent.board.map(animal => (
-              <div
-                key={animal.id}
-                className="bg-gray-800 rounded p-2 border border-gray-600 min-w-[100px] relative overflow-hidden"
-              >
-                {animal.card.inscriptionId && !animal.card.inscriptionId.includes('placeholder') && (
-                  <img
-                    src={getCardImageUrl(animal.card.inscriptionId)}
-                    alt={animal.card.name}
-                    className="w-full h-20 object-contain mb-1"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                )}
-                <div className="text-xs font-bold">{animal.card.name}</div>
-                <div className="text-xs">
-                  {animal.currentAtk}/{animal.currentHp}
-                </div>
-                {animal.statuses.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {animal.statuses.map((statusId, idx) => {
-                      const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
-                      if (!statusCard) return null;
-                      const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
-                      const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
-                      return (
-                        <span
-                          key={idx}
-                          className={`text-[8px] px-1 py-0.5 rounded ${
-                            isNegative ? 'bg-red-600 text-white' :
-                            isPositive ? 'bg-green-600 text-white' :
-                            'bg-yellow-600 text-black'
-                          }`}
-                          title={statusCard.effectText}
-                        >
-                          {statusCard.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Player Area */}
+      {/* Player Hand Area */}
       <div className="max-w-[1600px] mx-auto mb-4">
         <div className="bg-gray-900 rounded-lg p-4 border-2 border-blue-600">
           <div className="flex justify-between items-center mb-2">
             <div className="relative">
-              <span className="font-bold">You</span>
-              <span className="ml-4">Life: <span className="font-bold">{currentPlayer.life}</span></span>
-              {damageAnimations.filter(d => d.target === 'player-life').map(damage => (
-                <div
-                  key={damage.id}
-                  className="absolute top-0 left-20 text-red-500 font-bold text-xl animate-bounce pointer-events-none"
-                  style={{
-                    animation: 'damageFloat 1s ease-out forwards',
-                  }}
-                  onAnimationEnd={() => {
-                    setDamageAnimations(prev => prev.filter(d => d.id !== damage.id));
-                  }}
-                >
-                  -{damage.amount}
-                </div>
-              ))}
-              <span className="ml-4">Deck: {currentPlayer.deck.length}</span>
-              <span className="ml-4">Hand: {currentPlayer.hand.length}</span>
-              {currentPlayer.statuses.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {currentPlayer.statuses.map((statusId, idx) => {
-                    const statusCard = ALL_GAME_CARDS.find(c => c.id === statusId);
-                    if (!statusCard) return null;
-                    const isNegative = STATUS_CATEGORIES.negative.includes(statusCard.name);
-                    const isPositive = STATUS_CATEGORIES.positive.includes(statusCard.name);
-                    return (
-                      <span
-                        key={idx}
-                        className={`text-[10px] px-2 py-1 rounded ${
-                          isNegative ? 'bg-red-600 text-white' :
-                          isPositive ? 'bg-green-600 text-white' :
-                          'bg-yellow-600 text-black'
-                        }`}
-                        title={statusCard.effectText}
-                      >
-                        {statusCard.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
             {isPlayerTurn && gameState.phase === 'main' && (
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="text-xs text-green-400 bg-green-900/30 px-3 py-1 rounded border border-green-600">
@@ -665,10 +613,11 @@ export const GamePage: React.FC = () => {
             })}
           </div>
 
-          {/* Player Hand */}
-          {isPlayerTurn && (
-            <div className="mt-4">
-              <div className="text-sm font-semibold mb-2">Hand:</div>
+          {/* Player Hand - Immer anzeigen */}
+          <div className="mt-4">
+            <div className="text-sm font-semibold mb-2">
+              Your Hand {!isPlayerTurn && gameState.phase === 'main' && '(Opponent\'s Turn)'}:
+            </div>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {currentPlayer.hand.map(card => {
                   // Verwende canPlayCard Funktion für konsistente Prüfung
@@ -833,6 +782,31 @@ export const GamePage: React.FC = () => {
             setShowOpponentHand(false);
             setOpponentHandAction(null);
           }}
+        />
+      )}
+
+      {/* Action Text Animations */}
+      {actionTexts.map(action => (
+        <ActionText
+          key={action.id}
+          id={action.id}
+          text={action.text}
+          type={action.type}
+          position={action.position}
+          onComplete={(id) => {
+            setActionTexts(prev => prev.filter(a => a.id !== id));
+          }}
+        />
+      ))}
+
+      {/* Card Bank Modal */}
+      {gameState && (
+        <CardBank
+          isOpen={showCardBank}
+          onClose={() => setShowCardBank(false)}
+          playerDeck={gameState.players[0].deck}
+          playerHand={gameState.players[0].hand}
+          playerDiscard={gameState.players[0].discard}
         />
       )}
     </div>
