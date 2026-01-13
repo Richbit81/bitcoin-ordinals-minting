@@ -355,8 +355,8 @@ export const sendBitcoinViaUnisat = async (
       throw new Error('Payment was cancelled. Please approve the transaction in your UniSat wallet.');
     }
     
-    if (error?.message?.includes('Insufficient balance')) {
-      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.`);
+    if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
+      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees. Please ensure you have sufficient balance on your SegWit address (bc1q...) or Taproot address (bc1p...). UniSat uses the total balance from all addresses.`);
     }
 
     // Prüfe auf "can not read properties" oder ähnliche Fehler
@@ -519,27 +519,13 @@ export const sendMultipleBitcoinPayments = async (
         
         // Längere Pause zwischen Zahlungen (15 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
         // Dies verhindert, dass die zweite Zahlung "kein Guthaben" anzeigt, da die erste Transaktion noch pending ist
+        // WICHTIG: UniSat verwendet das Gesamtguthaben aller Adressen (SegWit + Taproot), daher keine Balance-Prüfung nötig
         if (i < recipients.length - 1) {
           console.log(`[UniSat] ⏳ Warte 15 Sekunden vor nächster Zahlung (${i + 2}/${recipients.length})...`);
           console.log(`[UniSat] ⚠️ WICHTIG: Die erste Transaktion muss erst bestätigt werden, bevor die zweite gesendet werden kann.`);
           console.log(`[UniSat] ⚠️ Bitte warten Sie, bis die erste Zahlung in Ihrem Wallet bestätigt wurde.`);
+          console.log(`[UniSat] ℹ️ Hinweis: UniSat verwendet automatisch das Guthaben von allen Adressen (SegWit + Taproot).`);
           await new Promise(resolve => setTimeout(resolve, 15000));
-          
-          // Prüfe Balance vor der nächsten Zahlung
-          try {
-            if (window.unisat && typeof window.unisat.getBalance === 'function') {
-              const balance = await window.unisat.getBalance();
-              console.log(`[UniSat] Aktuelles Guthaben: ${balance.total} sats (confirmed: ${balance.confirmed} sats)`);
-              
-              const nextAmount = Math.round(recipients[i + 1].amount * 100000000);
-              if (balance.confirmed < nextAmount) {
-                console.warn(`[UniSat] ⚠️ Bestätigtes Guthaben (${balance.confirmed} sats) ist kleiner als benötigter Betrag (${nextAmount} sats)`);
-                console.warn(`[UniSat] ⚠️ Die erste Transaktion ist möglicherweise noch nicht bestätigt. Bitte warten Sie noch etwas.`);
-              }
-            }
-          } catch (balanceError) {
-            console.warn('[UniSat] Konnte Balance nicht prüfen:', balanceError);
-          }
         }
       }
       
