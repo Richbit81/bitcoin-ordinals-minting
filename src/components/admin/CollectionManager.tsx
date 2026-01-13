@@ -109,7 +109,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
 
   // Lade Wallet-Inskriptionen nur wenn Formular geöffnet ist
   useEffect(() => {
-    if (showForm && adminAddress) {
+    if (showForm && adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
       console.log('[CollectionManager] Form opened, loading wallet inscriptions...');
       loadWalletInscriptions();
     } else if (!showForm) {

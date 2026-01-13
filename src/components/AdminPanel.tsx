@@ -415,8 +415,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
               )}
 
               {/* Collections Tab */}
-              {activeTab === 'collections' && adminAddress && (
-                <CollectionManager adminAddress={adminAddress || ''} />
+              {activeTab === 'collections' && adminAddress && adminAddress !== 'undefined' && adminAddress !== '' && (
+                <CollectionManager adminAddress={adminAddress} />
+              )}
+              {activeTab === 'collections' && (!adminAddress || adminAddress === 'undefined' || adminAddress === '') && (
+                <div className="text-white text-center py-8">
+                  <p className="text-gray-400">Please connect your admin wallet to manage collections.</p>
+                </div>
               )}
 
               {/* Settings Tab */}
