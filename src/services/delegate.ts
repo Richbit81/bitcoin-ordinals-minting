@@ -178,7 +178,7 @@ img {
     files,
     recipientAddress,
     feeRate,
-    330, // Postage
+    546, // Postage (Bitcoin Dust-Limit: 546 sats, erhöht von 330 um "too low dust" Fehler zu vermeiden)
     metadataArray // Metadaten für jede Datei
   );
   

@@ -9,7 +9,7 @@ export interface UnisatInscriptionRequest {
   file: File;
   address: string;
   feeRate: number;
-  postage?: number; // Default: 330 sats
+  postage?: number; // Default: 546 sats (Bitcoin Dust-Limit)
   delegateMetadata?: string; // JSON-String mit Metadaten für Delegate-Inscriptions
 }
 
@@ -28,7 +28,7 @@ export interface UnisatInscriptionResponse {
 export const createUnisatInscription = async (
   request: UnisatInscriptionRequest
 ): Promise<UnisatInscriptionResponse> => {
-  const { file, address, feeRate, postage = 330, delegateMetadata } = request;
+  const { file, address, feeRate, postage = 546, delegateMetadata } = request; // 546 sats = Bitcoin Dust-Limit
 
   const formData = new FormData();
   formData.append('file', file); // Backend erwartet 'file' (Singular), nicht 'files'
@@ -124,7 +124,7 @@ export const createBatchUnisatInscriptions = async (
   files: File[],
   address: string,
   feeRate: number,
-  postage: number = 330,
+  postage: number = 546, // 546 sats = Bitcoin Dust-Limit (erhöht von 330 um "too low dust" Fehler zu vermeiden)
   delegateMetadataArray?: string[] // Optional: Metadaten für jede Datei
 ): Promise<UnisatInscriptionResponse[]> => {
   // WICHTIG: Sende alle Dateien in einem einzigen Request an das Backend

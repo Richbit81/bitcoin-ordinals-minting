@@ -121,7 +121,7 @@ img {
     file: htmlFile,
     address: recipientAddress,
     feeRate,
-    postage: 330,
+    postage: 546, // Bitcoin Dust-Limit (erhöht von 330)
     delegateMetadata: JSON.stringify(delegateContent),
   });
 
