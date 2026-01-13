@@ -140,7 +140,7 @@ export const NewsBanner: React.FC = () => {
                 <img
                   src={img}
                   alt={`${item1.title} ${index + 1}`}
-                  className="max-h-[100px] md:max-h-[120px] w-auto object-contain"
+                  className="h-[100px] md:h-[120px] w-auto object-contain"
                   onError={(e) => {
                     console.warn(`[NewsBanner] Could not load image: ${img}`);
                     e.currentTarget.style.display = 'none';
