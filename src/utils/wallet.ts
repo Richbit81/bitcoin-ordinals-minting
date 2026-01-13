@@ -495,11 +495,23 @@ export const sendMultipleBitcoinPayments = async (
       console.log('[UniSat] Führe Zahlungen sequenziell aus...');
       
       let lastTxid = '';
-      for (const recipient of recipients) {
-        lastTxid = await sendBitcoinViaUnisat(recipient.address, recipient.amount);
-        console.log(`[UniSat] Zahlung an ${recipient.address}: ${lastTxid}`);
-        // Kurze Pause zwischen Zahlungen
-        await new Promise(resolve => setTimeout(resolve, 500));
+      for (let i = 0; i < recipients.length; i++) {
+        const recipient = recipients[i];
+        console.log(`[UniSat] Zahlung ${i + 1}/${recipients.length}: ${recipient.address}, ${recipient.amount} BTC (${Math.round(recipient.amount * 100000000)} sats)`);
+        
+        try {
+          lastTxid = await sendBitcoinViaUnisat(recipient.address, recipient.amount);
+          console.log(`[UniSat] ✅ Zahlung ${i + 1}/${recipients.length} erfolgreich: ${lastTxid}`);
+        } catch (error: any) {
+          console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${recipients.length}:`, error);
+          throw error;
+        }
+        
+        // Längere Pause zwischen Zahlungen (2 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
+        if (i < recipients.length - 1) {
+          console.log(`[UniSat] Warte 2 Sekunden vor nächster Zahlung...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
       
       return lastTxid;
