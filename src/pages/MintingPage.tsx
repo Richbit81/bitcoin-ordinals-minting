@@ -61,6 +61,9 @@ export const MintingPage: React.FC = () => {
       progress: 0,
     });
 
+    // WICHTIG: pollingInterval außerhalb des try Blocks deklarieren, damit es im finally Block verfügbar ist
+    let pollingInterval: NodeJS.Timeout | null = null;
+
     try {
       console.log('[MintingPage] ========== TRY BLOCK START ==========');
 
@@ -102,7 +105,6 @@ export const MintingPage: React.FC = () => {
       let finalResults = [...results];
       let attempts = 0;
       const maxAttempts = 10; // 10 Versuche über 5 Minuten
-      let pollingInterval: NodeJS.Timeout | null = null;
       
       const checkForFinalIds = async () => {
         try {
