@@ -158,41 +158,62 @@ export const addEffectLog = (
  */
 export const drawCard = (state: GameState, playerIndex: number, count: number = 1): GameState => {
   const player = state.players[playerIndex];
-  let newState = { 
-    ...state,
-    players: state.players.map((p, idx) => idx === playerIndex ? {
-      ...p,
-      deck: [...p.deck],
-      hand: [...p.hand],
-      board: [...p.board],
-      discard: [...p.discard],
-    } : p)
-  };
-  const newPlayer = newState.players[playerIndex];
   
   // Prüfe ob Spieler ziehen kann (z.B. PARANOIA Status)
-  if (!newPlayer.canDraw) {
-    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen (PARANOIA)`, 'effect');
-    return newState;
+  if (!player.canDraw) {
+    return addEffectLog(state, `Spieler ${playerIndex + 1} kann keine Karte ziehen (PARANOIA)`, 'effect');
   }
 
+  let currentDeck = [...player.deck];
+  let currentHand = [...player.hand];
+  let currentLife = player.life;
+  let drawnCards: GameCard[] = [];
+
   for (let i = 0; i < count; i++) {
-    if (newPlayer.deck.length > 0) {
-      const drawnCard = newPlayer.deck.shift()!;
-      newPlayer.hand.push(drawnCard);
-      newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${drawnCard.name}`, 'draw');
+    if (currentDeck.length > 0) {
+      const drawnCard = currentDeck[0];
+      currentDeck = currentDeck.slice(1); // Entferne erste Karte
+      currentHand = [...currentHand, drawnCard]; // Füge zur Hand hinzu
+      drawnCards.push(drawnCard);
     } else {
       // Deck leer: Verliere 1 Life
-      newPlayer.life -= 1;
-      newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage');
-      if (newPlayer.life <= 0) {
+      currentLife -= 1;
+      if (currentLife <= 0) {
+        const newState = {
+          ...state,
+          players: state.players.map((p, idx) => idx === playerIndex ? {
+            ...p,
+            deck: currentDeck,
+            hand: currentHand,
+            life: currentLife,
+          } : p),
+        };
         return {
-          ...newState,
+          ...addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage'),
           gameOver: true,
           winner: 1 - playerIndex,
         };
       }
     }
+  }
+
+  // Erstelle neuen State mit aktualisierten Arrays
+  let newState = {
+    ...state,
+    players: state.players.map((p, idx) => idx === playerIndex ? {
+      ...p,
+      deck: currentDeck,
+      hand: currentHand,
+      life: currentLife,
+    } : p),
+  };
+
+  // Log: Karten gezogen
+  for (const card of drawnCards) {
+    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} zieht ${card.name}`, 'draw');
+  }
+  if (drawnCards.length === 0 && count > 0) {
+    newState = addEffectLog(newState, `Spieler ${playerIndex + 1} kann keine Karte ziehen → verliert 1 Life`, 'damage');
   }
 
   return newState;
