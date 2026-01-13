@@ -142,8 +142,15 @@ export const GamePage: React.FC = () => {
 
     // Draw Phase: Automatisch
     if (gameState.phase === 'draw') {
+      console.log('[GamePage] DRAW Phase detected, setting timer to call nextPhase');
       const timer = setTimeout(() => {
-        setGameState(prev => prev ? nextPhase(prev) : null);
+        console.log('[GamePage] DRAW Phase timer fired, calling nextPhase');
+        setGameState(prev => {
+          if (!prev) return null;
+          const newState = nextPhase(prev);
+          console.log('[GamePage] After nextPhase - new phase:', newState.phase);
+          return newState;
+        });
       }, 500);
       return () => clearTimeout(timer);
     }
