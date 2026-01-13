@@ -356,7 +356,7 @@ export const sendBitcoinViaUnisat = async (
     }
     
     if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
-      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees. Please ensure you have sufficient balance on your SegWit address (bc1q...) or Taproot address (bc1p...). UniSat uses the total balance from all addresses.`);
+      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt, müssen Sie möglicherweise:\n1. Die SegWit-Adresse im UniSat Wallet auswählen\n2. Oder sicherstellen, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben aller Adressen verwenden, aber manchmal funktioniert das nicht korrekt.`);
     }
 
     // Prüfe auf "can not read properties" oder ähnliche Fehler
@@ -504,24 +504,35 @@ export const sendMultipleBitcoinPayments = async (
       console.log('[UniSat] Mehrere Zahlungen - UniSat unterstützt nur eine Zahlung pro Transaktion');
       console.log('[UniSat] Führe Zahlungen sequenziell aus...');
       
+      // Sortiere Zahlungen nach Betrag (größte zuerst), falls das hilft
+      // Dies kann helfen, wenn das Guthaben auf einer bestimmten Adresse liegt
+      const sortedRecipients = [...recipients].sort((a, b) => b.amount - a.amount);
+      console.log(`[UniSat] Sortiere Zahlungen nach Betrag (größte zuerst):`, sortedRecipients.map(r => `${r.address}: ${r.amount} BTC`));
+      
       let lastTxid = '';
-      for (let i = 0; i < recipients.length; i++) {
-        const recipient = recipients[i];
-        console.log(`[UniSat] Zahlung ${i + 1}/${recipients.length}: ${recipient.address}, ${recipient.amount} BTC (${Math.round(recipient.amount * 100000000)} sats)`);
+      for (let i = 0; i < sortedRecipients.length; i++) {
+        const recipient = sortedRecipients[i];
+        console.log(`[UniSat] Zahlung ${i + 1}/${sortedRecipients.length}: ${recipient.address}, ${recipient.amount} BTC (${Math.round(recipient.amount * 100000000)} sats)`);
         
         try {
           lastTxid = await sendBitcoinViaUnisat(recipient.address, recipient.amount);
-          console.log(`[UniSat] ✅ Zahlung ${i + 1}/${recipients.length} erfolgreich: ${lastTxid}`);
+          console.log(`[UniSat] ✅ Zahlung ${i + 1}/${sortedRecipients.length} erfolgreich: ${lastTxid}`);
         } catch (error: any) {
-          console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${recipients.length}:`, error);
+          console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
+          
+          // Spezielle Fehlermeldung für Insufficient Balance
+          if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
+            throw new Error(`Insufficient balance bei Zahlung ${i + 1}/${sortedRecipients.length}.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt:\n1. Öffnen Sie das UniSat Wallet\n2. Wechseln Sie zur SegWit-Adresse (falls verfügbar)\n3. Oder stellen Sie sicher, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben verwenden, aber manchmal funktioniert das nicht korrekt.`);
+          }
+          
           throw error;
         }
         
         // Längere Pause zwischen Zahlungen (15 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
         // Dies verhindert, dass die zweite Zahlung "kein Guthaben" anzeigt, da die erste Transaktion noch pending ist
         // WICHTIG: UniSat verwendet das Gesamtguthaben aller Adressen (SegWit + Taproot), daher keine Balance-Prüfung nötig
-        if (i < recipients.length - 1) {
-          console.log(`[UniSat] ⏳ Warte 15 Sekunden vor nächster Zahlung (${i + 2}/${recipients.length})...`);
+        if (i < sortedRecipients.length - 1) {
+          console.log(`[UniSat] ⏳ Warte 15 Sekunden vor nächster Zahlung (${i + 2}/${sortedRecipients.length})...`);
           console.log(`[UniSat] ⚠️ WICHTIG: Die erste Transaktion muss erst bestätigt werden, bevor die zweite gesendet werden kann.`);
           console.log(`[UniSat] ⚠️ Bitte warten Sie, bis die erste Zahlung in Ihrem Wallet bestätigt wurde.`);
           console.log(`[UniSat] ℹ️ Hinweis: UniSat verwendet automatisch das Guthaben von allen Adressen (SegWit + Taproot).`);
