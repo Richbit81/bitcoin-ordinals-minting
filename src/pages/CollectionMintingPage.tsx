@@ -43,21 +43,40 @@ export const CollectionMintingPage: React.FC = () => {
     }
   };
 
-  const handleMint = async (item: CollectionItem) => {
+  const handleMint = async (item?: CollectionItem) => {
     if (!walletState.connected || !walletState.accounts[0] || !collection) {
       setShowWalletConnect(true);
       return;
     }
 
-    // Validierung: Prüfe ob item definiert ist
-    if (!item || !item.inscriptionId) {
-      console.error('[CollectionMinting] Invalid item to mint:', item);
-      alert('Error: Invalid item selected. Please try again.');
+    // Prüfe ob Collection Items vorhanden sind
+    if (!collection.items || collection.items.length === 0) {
+      alert('Collection has no items available for minting.');
       return;
     }
 
     const userAddress = walletState.accounts[0].address;
-    const itemToMint = item; // Verwende item als itemToMint für Konsistenz
+    
+    // Für Random Mint: Wähle zufälliges Item
+    let itemToMint: CollectionItem | undefined;
+    if (collection.mintType === 'random') {
+      const randomIndex = Math.floor(Math.random() * collection.items.length);
+      itemToMint = collection.items[randomIndex];
+    } else {
+      if (!item) {
+        console.error('[CollectionMinting] No item provided for individual mint');
+        alert('Please select an item to mint.');
+        return;
+      }
+      itemToMint = item;
+    }
+
+    // Validierung: Prüfe ob itemToMint definiert ist
+    if (!itemToMint || !itemToMint.inscriptionId) {
+      console.error('[CollectionMinting] Invalid item to mint:', itemToMint);
+      alert('Error: Invalid item selected. Please try again.');
+      return;
+    }
     
     setMintingItemId(itemToMint.inscriptionId);
     setMintingStatus({
