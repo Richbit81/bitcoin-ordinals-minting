@@ -940,6 +940,13 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                           <span className="text-gray-500 text-xs">
                             {collection.items.length} items
                           </span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                            collection.mintType === 'random' 
+                              ? 'bg-purple-600 text-white' 
+                              : 'bg-blue-600 text-white'
+                          }`}>
+                            {collection.mintType === 'random' ? '🎲 Random' : '📋 Individual'}
+                          </span>
                         </div>
                       </div>
                     </div>
