@@ -804,6 +804,7 @@ export const signPSBT = async (
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
   } else {
+    // Für Xverse: autoFinalized wird in signPSBTViaXverse immer auf true gesetzt
     return await signPSBTViaXverse(psbtBase64);
   }
 };

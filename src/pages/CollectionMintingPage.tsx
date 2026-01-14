@@ -161,10 +161,12 @@ export const CollectionMintingPage: React.FC = () => {
           
           // Schritt 2: PSBT signieren
           const { signPSBT } = await import('../utils/wallet');
+          // WICHTIG: Für Xverse muss autoFinalized auf true gesetzt werden für Taproot
+          const autoFinalized = walletState.walletType === 'xverse';
           const signedPsbt = await signPSBT(
             prepareData.psbtBase64,
             walletState.walletType || 'unisat',
-            false
+            autoFinalized
           );
 
           setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Broadcasting transaction...' } : null);
