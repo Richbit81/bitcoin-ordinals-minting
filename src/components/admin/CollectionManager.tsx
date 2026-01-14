@@ -951,13 +951,51 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => handleEdit(collection)}
                       className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold text-white"
                     >
                       Edit
                     </button>
+                    {collection.mintType !== 'random' && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Set "${collection.name}" to Random Mint? Users will receive a random item instead of choosing.`)) {
+                            return;
+                          }
+                          try {
+                            await updateCollection(collection.id, adminAddress, { mintType: 'random' });
+                            alert('Collection set to Random Mint!');
+                            loadCollections();
+                          } catch (error: any) {
+                            alert(`Error: ${error.message}`);
+                          }
+                        }}
+                        className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm font-semibold text-white"
+                      >
+                        Set Random
+                      </button>
+                    )}
+                    {collection.mintType === 'random' && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Set "${collection.name}" to Individual Mint? Users will be able to choose which item to mint.`)) {
+                            return;
+                          }
+                          try {
+                            await updateCollection(collection.id, adminAddress, { mintType: 'individual' });
+                            alert('Collection set to Individual Mint!');
+                            loadCollections();
+                          } catch (error: any) {
+                            alert(`Error: ${error.message}`);
+                          }
+                        }}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold text-white"
+                      >
+                        Set Individual
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(collection.id)}
                       className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold text-white"
