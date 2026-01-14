@@ -729,14 +729,16 @@ export const signPSBTViaXverse = async (
     }
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
-    // WICHTIG: Für Taproot-Inputs muss autoFinalized auf true gesetzt werden
-    // damit Xverse die PSBT automatisch finalisiert
+    // WICHTIG: Für Taproot-Inputs müssen wir signInputs NICHT angeben
+    // Xverse signiert automatisch alle Inputs, die vom Wallet kontrolliert werden
+    // broadcast: false bedeutet, dass wir die PSBT selbst broadcasten
     const response = await satsConnect.request('signPsbt', {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       },
-      autoFinalized: true // WICHTIG: Finalisiere automatisch für Taproot
+      broadcast: false // Wir broadcasten selbst über Backend
+      // signInputs wird weggelassen - Xverse signiert automatisch alle kontrollierten Inputs
     });
     
     console.log('[signPSBTViaXverse] Response received:', {
