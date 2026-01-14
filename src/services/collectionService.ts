@@ -168,13 +168,27 @@ export const createCollection = async (
     headers['X-Admin-Address'] = adminAddress;
   }
   
+  const bodyData: any = {
+    ...collectionData,
+  };
+  
+  // Nur adminAddress hinzufügen, wenn es gültig ist
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    bodyData.adminAddress = adminAddress;
+  }
+  
+  console.log('[CollectionService] Creating collection with:', {
+    name: collectionData.name,
+    price: collectionData.price,
+    itemsCount: collectionData.items.length,
+    adminAddress: adminAddress ? `${adminAddress.substring(0, 10)}...` : 'MISSING',
+    hasHeader: !!headers['X-Admin-Address'],
+  });
+  
   const response = await fetch(`${API_URL}/api/collections/admin/create`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      ...collectionData,
-      adminAddress: (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') ? adminAddress : undefined,
-    }),
+    body: JSON.stringify(bodyData),
   });
 
   if (!response.ok) {
