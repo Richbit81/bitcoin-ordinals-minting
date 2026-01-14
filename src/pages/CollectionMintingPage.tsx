@@ -246,7 +246,7 @@ export const CollectionMintingPage: React.FC = () => {
             <img
               src={collection.thumbnail}
               alt={collection.name}
-              className="max-w-md mx-auto h-auto mb-4 rounded"
+              className="max-w-md mx-auto h-auto mb-4 rounded shadow-lg"
             />
           )}
           <h1 className="text-4xl font-bold mb-2 border-b-2 border-red-600 pb-4">

@@ -23,6 +23,7 @@ export interface Collection {
   category?: string; // Optional: Kategorie (z.B. 'smileabit')
   page?: string | null; // Optional: Seiten-Zuordnung (z.B. 'smile-a-bit', 'tech-games', etc.)
   mintType?: 'individual' | 'random'; // Wie werden Items gemintet: einzeln auswählbar oder zufällig
+  showBanner?: boolean; // Optional: Banner mit letzten Mints anzeigen
   createdAt: string;
   updatedAt: string;
   active: boolean;
@@ -217,6 +218,7 @@ export const updateCollection = async (
     category?: string;
     page?: string | null;
     mintType?: 'individual' | 'random';
+    showBanner?: boolean;
   }
 ): Promise<Collection> => {
   if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {

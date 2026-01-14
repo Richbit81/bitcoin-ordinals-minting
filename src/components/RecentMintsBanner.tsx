@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Collection } from '../services/collectionService';
 
 interface RecentMintItem {
   inscriptionId: string;
@@ -10,11 +11,12 @@ interface RecentMintItem {
 
 interface RecentMintsBannerProps {
   collectionId: string;
+  collection?: Collection; // Optional: für Wallet-Fallback
 }
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
-export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collectionId }) => {
+export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collectionId, collection }) => {
   const [items, setItems] = useState<RecentMintItem[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -37,10 +39,37 @@ export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collection
         }
         const data = await response.json();
         console.log('[RecentMintsBanner] Loaded items:', data.items?.length || 0, data.items);
-        setItems(data.items || []);
+        
+        // Wenn keine Mints vorhanden, verwende Collection-Items als Fallback
+        if ((data.items || []).length === 0 && collection && collection.items && collection.items.length > 0) {
+          console.log('[RecentMintsBanner] No recent mints found, using collection items as fallback');
+          const fallbackItems: RecentMintItem[] = collection.items.slice(0, 10).map(item => ({
+            inscriptionId: item.inscriptionId,
+            name: item.name,
+            imageUrl: item.imageUrl || `${API_URL}/api/inscription/image/${item.inscriptionId}`,
+            type: item.type || 'delegate',
+            mintedAt: Date.now(),
+          }));
+          setItems(fallbackItems);
+        } else {
+          setItems(data.items || []);
+        }
       } catch (error) {
         console.error('[RecentMintsBanner] Error loading recent mints:', error);
-        setItems([]); // Setze leeres Array bei Fehler
+        // Fallback zu Collection-Items wenn verfügbar
+        if (collection && collection.items && collection.items.length > 0) {
+          console.log('[RecentMintsBanner] Using collection items as fallback due to error');
+          const fallbackItems: RecentMintItem[] = collection.items.slice(0, 10).map(item => ({
+            inscriptionId: item.inscriptionId,
+            name: item.name,
+            imageUrl: item.imageUrl || `${API_URL}/api/inscription/image/${item.inscriptionId}`,
+            type: item.type || 'delegate',
+            mintedAt: Date.now(),
+          }));
+          setItems(fallbackItems);
+        } else {
+          setItems([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -50,7 +79,7 @@ export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collection
     // Refresh alle 30 Sekunden
     const interval = setInterval(loadRecentMints, 30000);
     return () => clearInterval(interval);
-  }, [collectionId]);
+  }, [collectionId, collection]);
 
   // Auto-Scroll Logic
   useEffect(() => {

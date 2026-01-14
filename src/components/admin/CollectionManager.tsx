@@ -40,6 +40,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     items: [] as CollectionItem[],
     mintType: 'individual' as 'individual' | 'random',
     page: '' as string | null,
+    showBanner: false as boolean,
   });
 
   useEffect(() => {
@@ -439,6 +440,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       price: collection.price.toString(),
       items: collection.items,
       mintType: collection.mintType || 'individual',
+      page: collection.page || null,
+      showBanner: collection.showBanner !== undefined ? collection.showBanner : false,
     });
     setShowForm(true);
   };
@@ -470,6 +473,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       price: '',
       items: [],
       mintType: 'individual',
+      page: null,
+      showBanner: false,
     });
     setEditingCollection(null);
     setShowForm(false);
@@ -632,6 +637,24 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 Select which page this collection should appear on. Leave empty for general collections.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Show Banner</label>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.showBanner}
+                    onChange={(e) => setFormData({ ...formData, showBanner: e.target.checked })}
+                    className="w-4 h-4 text-red-600 bg-black border-gray-700 rounded focus:ring-red-500"
+                  />
+                  <span className="text-sm text-white">Show recent mints banner</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                When enabled, a banner showing the last 10 minted items (or wallet items if no mints yet) will be displayed on the minting page.
               </p>
             </div>
 

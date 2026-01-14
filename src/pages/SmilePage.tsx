@@ -284,8 +284,10 @@ export const SmilePage: React.FC = () => {
             {/* Minting Interface */}
             {selectedCollection && (
               <div className="w-full">
-                {/* Recent Mints Banner */}
-                <RecentMintsBanner collectionId={selectedCollection.id} />
+                {/* Recent Mints Banner - nur anzeigen wenn showBanner aktiviert */}
+                {selectedCollection.showBanner && (
+                  <RecentMintsBanner collectionId={selectedCollection.id} collection={selectedCollection} />
+                )}
                 
                 {/* Collection Header */}
                 <div className="text-center mb-8">
