@@ -96,10 +96,13 @@ export const getWalletInscriptions = async (adminAddress: string): Promise<Walle
   console.log('[CollectionService] Admin address type:', typeof adminAddress);
   console.log('[CollectionService] Admin address length:', adminAddress?.length);
   
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(url, {
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
   });
   console.log('[CollectionService] Response status:', response.status, response.statusText);
   

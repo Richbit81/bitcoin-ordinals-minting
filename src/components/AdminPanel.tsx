@@ -1427,7 +1427,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'X-Admin-Address': adminAddress || '',
+                    'X-Admin-Address': (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') ? adminAddress : undefined,
                   },
                   body: JSON.stringify({ title: restoreTitle }),
                 });
