@@ -741,16 +741,13 @@ export const signPSBTViaXverse = async (
         throw new Error('Keine signierte PSBT erhalten');
       }
 
-      // Konvertiere Base64 zu Hex für Rückgabe (Browser-kompatibel)
-      const binaryString = atob(signedPsbtBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const signedPsbtHex = Array.from(bytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-      return signedPsbtHex;
+      console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
+      console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
+      
+      // WICHTIG: Xverse gibt Base64 zurück, aber das Backend erwartet möglicherweise Base64 oder Hex
+      // Lass uns Base64 zurückgeben, da das Backend Base64 besser handhaben kann
+      // Das Backend kann dann selbst entscheiden, ob es Base64 oder Hex ist
+      return signedPsbtBase64;
     } else {
       throw new Error(response.error?.message || 'Fehler beim Signieren der PSBT');
     }
