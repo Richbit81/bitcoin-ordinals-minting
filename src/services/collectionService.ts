@@ -70,10 +70,14 @@ export const getAllCollectionsAdmin = async (adminAddress: string): Promise<Coll
     throw new Error('Admin address is required');
   }
   
-  const response = await fetch(`${API_URL}/api/collections/admin/all?adminAddress=${encodeURIComponent(adminAddress)}`, {
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
+  const url = `${API_URL}/api/collections/admin/all${adminAddress && adminAddress !== 'undefined' && adminAddress !== '' ? `?adminAddress=${encodeURIComponent(adminAddress)}` : ''}`;
+  const response = await fetch(url, {
+    headers,
   });
   if (!response.ok) {
     throw new Error('Failed to fetch collections');
@@ -157,15 +161,19 @@ export const createCollection = async (
     throw new Error('Admin address is required');
   }
   
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/create`, {
     method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
     body: JSON.stringify({
       ...collectionData,
-      adminAddress,
+      adminAddress: (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') ? adminAddress : undefined,
     }),
   });
 
@@ -197,15 +205,19 @@ export const updateCollection = async (
     throw new Error('Admin address is required');
   }
   
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}`, {
     method: 'PUT',
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
     body: JSON.stringify({
       ...updates,
-      adminAddress,
+      adminAddress: (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') ? adminAddress : undefined,
     }),
   });
 
@@ -226,11 +238,15 @@ export const deleteCollection = async (collectionId: string, adminAddress: strin
     throw new Error('Admin address is required');
   }
   
-  const response = await fetch(`${API_URL}/api/collections/admin/${collectionId}?adminAddress=${encodeURIComponent(adminAddress)}`, {
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
+  const url = `${API_URL}/api/collections/admin/${collectionId}${adminAddress && adminAddress !== 'undefined' && adminAddress !== '' ? `?adminAddress=${encodeURIComponent(adminAddress)}` : ''}`;
+  const response = await fetch(url, {
     method: 'DELETE',
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
   });
 
   if (!response.ok) {
