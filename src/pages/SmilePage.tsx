@@ -163,18 +163,29 @@ export const SmilePage: React.FC = () => {
 
         // Wenn Signing erforderlich ist
         if (prepareData.requiresSigning && prepareData.psbtBase64) {
+          // WICHTIG: ownerAddress ist die Adresse, die das Ordinal besitzt (Input-Adresse)
+          // Diese Adresse muss die PSBT signieren können
+          const ownerAddress = prepareData.ownerAddress;
+          console.log(`[SmilePage] Owner address (input): ${ownerAddress}`);
+          console.log(`[SmilePage] User address (recipient): ${userAddress}`);
+          
+          // Prüfe ob ownerAddress mit userAddress übereinstimmt (dann kann der Benutzer signieren)
+          if (ownerAddress && ownerAddress !== userAddress) {
+            console.warn(`[SmilePage] ⚠️ Owner address (${ownerAddress}) differs from user address (${userAddress})`);
+            console.warn(`[SmilePage] ⚠️ The user's wallet may not be able to sign this PSBT if it doesn't control ${ownerAddress}`);
+          }
+          
           setMintingStatus(prev => prev ? { ...prev, progress: 50, message: 'Please sign the transaction in your wallet...' } : null);
           
           // Schritt 2: PSBT signieren
           const { signPSBT } = await import('../utils/wallet');
-          // WICHTIG: Für Xverse muss autoFinalized auf true gesetzt werden für Taproot
-          // Außerdem übergeben wir die walletAddress für signInputs
+          // WICHTIG: Für Xverse verwenden wir ownerAddress (Input-Adresse) für signInputs
           const autoFinalized = walletState.walletType === 'xverse';
           const signedPsbt = await signPSBT(
             prepareData.psbtBase64,
             walletState.walletType || 'unisat',
             autoFinalized,
-            userAddress // Übergebe walletAddress für Xverse signInputs
+            ownerAddress || userAddress // Verwende ownerAddress (Input-Adresse) für signInputs
           );
 
           setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Broadcasting transaction...' } : null);

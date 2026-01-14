@@ -732,10 +732,9 @@ export const signPSBTViaXverse = async (
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     
-    // WICHTIG: Xverse signiert automatisch alle Inputs, die vom Wallet kontrolliert werden
-    // Wir müssen NICHT signInputs angeben - Xverse erkennt automatisch, welche Inputs signiert werden können
-    // signInputs sollte nur verwendet werden, wenn wir explizit bestimmte Inputs signieren wollen
-    // Für Ordinal-Transfers: Das Wallet signiert automatisch alle kontrollierten Inputs
+    // WICHTIG: walletAddress sollte die Input-Adresse sein (die Adresse, die das Ordinal besitzt)
+    // Xverse signiert automatisch alle Inputs, die vom Wallet kontrolliert werden
+    // Wenn walletAddress angegeben ist, können wir signInputs verwenden, um Xverse zu helfen
     
     const requestParams: any = {
       psbt: psbtBase64,
@@ -745,11 +744,21 @@ export const signPSBTViaXverse = async (
       broadcast: false // Wir broadcasten selbst über Backend
     };
     
-    // WICHTIG: signInputs NICHT angeben - Xverse signiert automatisch alle kontrollierten Inputs
-    // Wenn wir signInputs mit der falschen Adresse angeben, wird die Signatur abgelehnt
-    // Xverse erkennt automatisch, welche Inputs vom Wallet kontrolliert werden
+    // Für Taproot: Xverse benötigt möglicherweise signInputs, um zu wissen, welche Inputs signiert werden sollen
+    // Wenn walletAddress (Input-Adresse) angegeben ist, verwenden wir sie für signInputs
+    if (walletAddress) {
+      // signInputs Format: { "address": [inputIndices] }
+      // Für Ordinal-Transfers gibt es normalerweise nur einen Input (Index 0)
+      requestParams.signInputs = {
+        [walletAddress]: [0] // Signiere Input 0 für diese Adresse
+      };
+      console.log('[signPSBTViaXverse] Using signInputs with input address:', walletAddress);
+      console.log('[signPSBTViaXverse] signInputs:', JSON.stringify(requestParams.signInputs, null, 2));
+    } else {
+      console.log('[signPSBTViaXverse] No input address provided - Xverse will auto-detect controlled inputs');
+    }
     
-    console.log('[signPSBTViaXverse] Request params (without signInputs - Xverse will auto-detect):', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
+    console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     
     const response = await satsConnect.request('signPsbt', requestParams);
     
