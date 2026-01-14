@@ -165,14 +165,20 @@ export const HomePage: React.FC = () => {
 
       {/* Projekte und Kollektionen */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 max-w-5xl w-full items-stretch">
-        {projects.map((project, index) => (
+        {projects.map((project, index) => {
+          // Bestimme die Route basierend auf project.id oder collectionId
+          const route = (project as any).collectionId 
+            ? `/collection/${(project as any).collectionId}`
+            : `/${project.id}`;
+          
+          return (
           <div
             key={project.id}
-            onClick={() => navigate(`/${project.id}`)}
+            onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'point-shop' ? 'md:order-3' : 
               project.id === 'tech-games' ? 'md:order-2' : 
-              project.id === 'smile-a-bit' ? 'md:order-4' :
+              project.order === 4 ? 'md:order-4' :
               'md:order-1'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
@@ -181,7 +187,7 @@ export const HomePage: React.FC = () => {
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
               project.id === 'black-wild' ? 'md:mt-16' :
-              project.id === 'point-shop' || project.id === 'tech-games' || project.id === 'smile-a-bit' ? 'md:mt-8' : ''
+              project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
             }`}>
