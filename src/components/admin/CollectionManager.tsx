@@ -416,11 +416,23 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     }
 
     try {
+      const collectionData = {
+        name: formData.name,
+        description: formData.description,
+        thumbnail: formData.thumbnail,
+        price: parseFloat(formData.price),
+        items: formData.items,
+        category: 'default',
+        page: formData.page,
+        mintType: formData.mintType,
+        showBanner: formData.showBanner,
+      };
+      
       if (editingCollection) {
-        await updateCollection(editingCollection.id, adminAddress, formData);
+        await updateCollection(editingCollection.id, adminAddress, collectionData);
         alert('Collection updated successfully!');
       } else {
-        await createCollection(adminAddress, formData);
+        await createCollection(adminAddress, collectionData);
         alert('Collection created successfully!');
       }
       
