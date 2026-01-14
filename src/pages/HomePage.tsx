@@ -15,19 +15,21 @@ export const HomePage: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
 
-  const projects = [
+  // Statische Projekte (immer vorhanden)
+  const staticProjects = [
     {
       id: 'black-wild',
       name: 'Black & Wild',
       thumbnail: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif',
       description: 'Bitcoin Ordinals Card Game',
+      order: 1,
     },
     {
       id: 'point-shop',
       name: 'Point Shop',
       thumbnail: '/pointshop.png',
       description: 'Mint exclusive Ordinals with your points',
-      order: 3, // Für Grid-Reihenfolge
+      order: 3,
     },
     {
       id: 'tech-games',
@@ -36,14 +38,39 @@ export const HomePage: React.FC = () => {
       description: 'Interactive games and tech tools',
       order: 2,
     },
-    {
-      id: 'smile-a-bit',
-      name: 'SMILE A BIT',
-      thumbnail: '/images/RichArt.png',
-      description: 'Coming soon',
-      order: 4,
-    },
   ];
+
+  // Dynamische Projekte aus Collections mit 'page' Feld
+  const dynamicProjects = collections
+    .filter(collection => collection.page && collection.page !== '')
+    .map(collection => {
+      // Mapping von page-Werten zu Route-IDs
+      const pageToId: Record<string, string> = {
+        'smile-a-bit': 'smile-a-bit',
+        'tech-games': 'tech-games',
+        'point-shop': 'point-shop',
+        'gallery': 'gallery',
+        'trading': 'trading',
+      };
+      
+      const projectId = pageToId[collection.page] || collection.page.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+      
+      return {
+        id: projectId,
+        name: collection.name,
+        thumbnail: collection.thumbnail || '/images/RichArt.png',
+        description: collection.description || 'Collection',
+        order: 4, // Standard-Order für dynamische Projekte
+        collectionId: collection.id, // Für Navigation
+      };
+    });
+
+  // Kombiniere statische und dynamische Projekte, entferne Duplikate
+  const allProjectIds = new Set([...staticProjects.map(p => p.id), ...dynamicProjects.map(p => p.id)]);
+  const projects = [
+    ...staticProjects,
+    ...dynamicProjects.filter(p => !staticProjects.some(sp => sp.id === p.id)),
+  ].sort((a, b) => (a.order || 999) - (b.order || 999));
 
   useEffect(() => {
     loadCollections();
