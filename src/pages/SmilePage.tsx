@@ -168,11 +168,13 @@ export const SmilePage: React.FC = () => {
           // Schritt 2: PSBT signieren
           const { signPSBT } = await import('../utils/wallet');
           // WICHTIG: Für Xverse muss autoFinalized auf true gesetzt werden für Taproot
+          // Außerdem übergeben wir die walletAddress für signInputs
           const autoFinalized = walletState.walletType === 'xverse';
           const signedPsbt = await signPSBT(
             prepareData.psbtBase64,
             walletState.walletType || 'unisat',
-            autoFinalized
+            autoFinalized,
+            userAddress // Übergebe walletAddress für Xverse signInputs
           );
 
           setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Broadcasting transaction...' } : null);

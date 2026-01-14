@@ -708,10 +708,12 @@ export const signPSBTViaUnisat = async (
 /**
  * Signiere eine PSBT mit Xverse Wallet
  * @param {string} psbtBase64 - PSBT als Base64-String
+ * @param {string} walletAddress - Optional: Wallet-Adresse für signInputs
  * @returns {Promise<string>} - Signierte Transaktion als Hex-String
  */
 export const signPSBTViaXverse = async (
-  psbtBase64: string
+  psbtBase64: string,
+  walletAddress?: string
 ): Promise<string> => {
   if (!isXverseInstalled()) {
     throw new Error('Xverse Wallet nicht gefunden');
@@ -730,18 +732,19 @@ export const signPSBTViaXverse = async (
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     
-    // Versuche, die Input-Adresse aus der PSBT zu extrahieren (für signInputs)
-    // Xverse benötigt möglicherweise signInputs, um zu wissen, welche Inputs signiert werden sollen
+    // WICHTIG: Xverse benötigt möglicherweise signInputs, um zu wissen, welche Inputs signiert werden sollen
+    // Wenn walletAddress angegeben ist, verwenden wir sie für signInputs
     let signInputs: any = undefined;
-    try {
-      // Parse PSBT um Input-Adressen zu finden
-      // Für jetzt: Xverse sollte automatisch alle kontrollierten Inputs signieren
-      // Aber wenn das nicht funktioniert, müssen wir signInputs explizit angeben
-      console.log('[signPSBTViaXverse] Attempting to extract input addresses from PSBT...');
-      // TODO: PSBT parsen und Input-Adressen extrahieren
-      // Für jetzt: Lass Xverse automatisch signieren
-    } catch (parseError) {
-      console.warn('[signPSBTViaXverse] Could not parse PSBT for input addresses:', parseError);
+    if (walletAddress) {
+      // Xverse signInputs Format: { "address": [inputIndices] }
+      // Für jetzt nehmen wir an, dass Input 0 signiert werden soll
+      // (normalerweise gibt es nur einen Input für Ordinal-Transfers)
+      signInputs = {
+        [walletAddress]: [0] // Signiere Input 0 für diese Adresse
+      };
+      console.log('[signPSBTViaXverse] Using signInputs with wallet address:', walletAddress);
+    } else {
+      console.log('[signPSBTViaXverse] No wallet address provided - Xverse will sign all controlled inputs');
     }
     
     const requestParams: any = {
@@ -752,12 +755,10 @@ export const signPSBTViaXverse = async (
       broadcast: false // Wir broadcasten selbst über Backend
     };
     
-    // Wenn signInputs extrahiert wurde, füge es hinzu
+    // Wenn signInputs definiert ist, füge es hinzu
     if (signInputs) {
       requestParams.signInputs = signInputs;
-      console.log('[signPSBTViaXverse] Added signInputs to request');
-    } else {
-      console.log('[signPSBTViaXverse] No signInputs specified - Xverse will sign all controlled inputs');
+      console.log('[signPSBTViaXverse] Added signInputs to request:', JSON.stringify(signInputs, null, 2));
     }
     
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
@@ -824,13 +825,14 @@ export const signPSBTViaXverse = async (
 export const signPSBT = async (
   psbtBase64: string,
   walletType: 'unisat' | 'xverse',
-  autoFinalized: boolean = false
+  autoFinalized: boolean = false,
+  walletAddress?: string
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
   } else {
-    // Für Xverse: autoFinalized wird in signPSBTViaXverse immer auf true gesetzt
-    return await signPSBTViaXverse(psbtBase64);
+    // Für Xverse: Übergebe walletAddress für signInputs
+    return await signPSBTViaXverse(psbtBase64, walletAddress);
   }
 };
 
