@@ -85,9 +85,10 @@ export const CollectionMintingPage: React.FC = () => {
         });
       } else {
         // Transferiere Original-Ordinal
-        setMintingStatus(prev => prev ? { ...prev, progress: 30, message: 'Initiating transfer...' } : null);
+        setMintingStatus(prev => prev ? { ...prev, progress: 30, message: 'Creating transfer PSBT...' } : null);
         
-        const response = await fetch(`${API_URL}/api/collections/mint-original`, {
+        // Schritt 1: PSBT erstellen
+        const prepareResponse = await fetch(`${API_URL}/api/collections/mint-original`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -99,12 +100,50 @@ export const CollectionMintingPage: React.FC = () => {
           }),
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(errorData.error || 'Transfer failed');
+        if (!prepareResponse.ok) {
+          const errorData = await prepareResponse.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(errorData.error || 'Failed to create transfer PSBT');
         }
 
-        const data = await response.json();
+        const prepareData = await prepareResponse.json();
+
+        // Wenn Signing erforderlich ist
+        if (prepareData.requiresSigning && prepareData.psbtBase64) {
+          setMintingStatus(prev => prev ? { ...prev, progress: 50, message: 'Please sign the transaction in your wallet...' } : null);
+          
+          // Schritt 2: PSBT signieren
+          const { signPSBT } = await import('../utils/wallet');
+          const signedPsbt = await signPSBT(
+            prepareData.psbtBase64,
+            walletState.walletType || 'unisat',
+            false
+          );
+
+          setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Broadcasting transaction...' } : null);
+          
+          // Schritt 3: Signierte PSBT broadcasten
+          const broadcastResponse = await fetch(`${API_URL}/api/collections/mint-original`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              walletAddress: userAddress,
+              collectionId: collection.id,
+              itemId: itemToMint.inscriptionId,
+              feeRate: inscriptionFeeRate,
+              walletType: walletState.walletType,
+              signedPsbt: signedPsbt,
+            }),
+          });
+
+          if (!broadcastResponse.ok) {
+            const errorData = await broadcastResponse.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || 'Failed to broadcast transaction');
+          }
+
+          const data = await broadcastResponse.json();
+        } else {
+          // Fallback: Direkter Transfer (wenn kein Signing erforderlich)
+          const data = prepareData;
 
         setMintingStatus({
           progress: 100,
