@@ -729,9 +729,21 @@ export const signPSBTViaXverse = async (
     }
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
-    // WICHTIG: Xverse signPsbt erwartet möglicherweise signInputs für Taproot
-    // Aber laut Dokumentation signiert Xverse automatisch alle Inputs, die vom Wallet kontrolliert werden
-    // Versuchen wir es ohne signInputs zuerst
+    
+    // Versuche, die Input-Adresse aus der PSBT zu extrahieren (für signInputs)
+    // Xverse benötigt möglicherweise signInputs, um zu wissen, welche Inputs signiert werden sollen
+    let signInputs: any = undefined;
+    try {
+      // Parse PSBT um Input-Adressen zu finden
+      // Für jetzt: Xverse sollte automatisch alle kontrollierten Inputs signieren
+      // Aber wenn das nicht funktioniert, müssen wir signInputs explizit angeben
+      console.log('[signPSBTViaXverse] Attempting to extract input addresses from PSBT...');
+      // TODO: PSBT parsen und Input-Adressen extrahieren
+      // Für jetzt: Lass Xverse automatisch signieren
+    } catch (parseError) {
+      console.warn('[signPSBTViaXverse] Could not parse PSBT for input addresses:', parseError);
+    }
+    
     const requestParams: any = {
       psbt: psbtBase64,
       network: {
@@ -740,8 +752,14 @@ export const signPSBTViaXverse = async (
       broadcast: false // Wir broadcasten selbst über Backend
     };
     
-    // Für Taproot: Xverse sollte automatisch signieren, aber wir können es explizit angeben
-    // Wenn die PSBT nicht signiert wird, müssen wir möglicherweise signInputs hinzufügen
+    // Wenn signInputs extrahiert wurde, füge es hinzu
+    if (signInputs) {
+      requestParams.signInputs = signInputs;
+      console.log('[signPSBTViaXverse] Added signInputs to request');
+    } else {
+      console.log('[signPSBTViaXverse] No signInputs specified - Xverse will sign all controlled inputs');
+    }
+    
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     
     const response = await satsConnect.request('signPsbt', requestParams);
