@@ -214,7 +214,7 @@ export const CollectionMintingPage: React.FC = () => {
         )}
 
         {/* Random Mint Button */}
-        {(collection.mintType === 'random' || !collection.mintType) && (
+        {collection.mintType === 'random' && (
           <div className="max-w-md mx-auto mb-8">
             <div className="bg-black border-2 border-red-600 rounded-lg p-6 text-center">
               <h2 className="text-2xl font-bold mb-4">🎲 Random Mint</h2>
