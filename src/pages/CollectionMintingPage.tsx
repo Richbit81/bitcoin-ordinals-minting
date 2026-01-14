@@ -141,17 +141,26 @@ export const CollectionMintingPage: React.FC = () => {
           }
 
           const data = await broadcastResponse.json();
+          
+          setMintingStatus({
+            progress: 100,
+            status: 'success',
+            message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
+            inscriptionIds: [data.inscriptionId],
+            txid: data.txid,
+          });
         } else {
           // Fallback: Direkter Transfer (wenn kein Signing erforderlich)
           const data = prepareData;
-
-        setMintingStatus({
-          progress: 100,
-          status: 'success',
-          message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
-          inscriptionIds: [data.inscriptionId],
-          txid: data.txid,
-        });
+          
+          setMintingStatus({
+            progress: 100,
+            status: 'success',
+            message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
+            inscriptionIds: [data.inscriptionId],
+            txid: data.txid,
+          });
+        }
       }
     } catch (error: any) {
       console.error('[CollectionMinting] Error:', error);
