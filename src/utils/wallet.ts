@@ -747,14 +747,28 @@ export const signPSBTViaXverse = async (
     });
 
     if (response.status === 'success') {
+      // Prüfe ob Xverse eine finalisierte Transaction zurückgegeben hat (wenn autoFinalized: true)
+      const finalTxHex = response.result?.tx || response.result?.txHex || response.tx || response.txHex;
       const signedPsbtBase64 = response.result?.psbt || response.psbt;
       
+      // Wenn autoFinalized: true war und eine finalisierte Transaction zurückgegeben wurde
+      if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500) {
+        console.log('[signPSBTViaXverse] ✅ Finalized transaction received (Hex), length:', finalTxHex.length);
+        console.log('[signPSBTViaXverse] Transaction preview:', finalTxHex.substring(0, 50) + '...');
+        // Konvertiere Hex zu Base64 für Konsistenz
+        const hexBytes = finalTxHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+        const binaryString = String.fromCharCode(...hexBytes);
+        const finalTxBase64 = btoa(binaryString);
+        return finalTxBase64;
+      }
+      
       if (!signedPsbtBase64) {
-        throw new Error('Keine signierte PSBT erhalten');
+        throw new Error('Keine signierte PSBT oder finalisierte Transaction erhalten');
       }
 
       console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
       console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
+      console.log('[signPSBTViaXverse] ⚠️ PSBT is not finalized - will be finalized in backend');
       
       // WICHTIG: Xverse gibt Base64 zurück, aber das Backend erwartet möglicherweise Base64 oder Hex
       // Lass uns Base64 zurückgeben, da das Backend Base64 besser handhaben kann
