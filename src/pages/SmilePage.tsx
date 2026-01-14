@@ -162,11 +162,28 @@ export const SmilePage: React.FC = () => {
 
           const broadcastData = await broadcastResponse.json();
 
+          // Record recent mint
+          try {
+            await fetch(`${API_URL}/api/collections/${selectedCollection.id}/record-mint`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                inscriptionId: itemToMint.inscriptionId, // Original inscription ID (not transferred, but minted)
+                itemName: itemToMint.name,
+                itemType: itemToMint.type,
+                itemImageUrl: itemToMint.imageUrl,
+              }),
+            });
+          } catch (recordError) {
+            console.warn('[SmilePage] Failed to record mint:', recordError);
+            // Nicht kritisch, weiter mit Success
+          }
+
           setMintingStatus({
             progress: 100,
             status: 'success',
             message: `Successfully transferred ${itemToMint.name}!${selectedCollection.mintType === 'random' ? ' (Random)' : ''}`,
-            inscriptionIds: [broadcastData.inscriptionId],
+            inscriptionIds: [broadcastData.inscriptionId || itemToMint.inscriptionId],
             txid: broadcastData.txid,
           });
         } else {

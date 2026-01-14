@@ -142,16 +142,50 @@ export const CollectionMintingPage: React.FC = () => {
 
           const data = await broadcastResponse.json();
           
+          // Record recent mint
+          try {
+            await fetch(`${API_URL}/api/collections/${collection.id}/record-mint`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                inscriptionId: itemToMint.inscriptionId,
+                itemName: itemToMint.name,
+                itemType: itemToMint.type,
+                itemImageUrl: itemToMint.imageUrl,
+              }),
+            });
+          } catch (recordError) {
+            console.warn('[CollectionMinting] Failed to record mint:', recordError);
+            // Nicht kritisch, weiter mit Success
+          }
+          
           setMintingStatus({
             progress: 100,
             status: 'success',
             message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
-            inscriptionIds: [data.inscriptionId],
+            inscriptionIds: [data.inscriptionId || itemToMint.inscriptionId],
             txid: data.txid,
           });
         } else {
           // Fallback: Direkter Transfer (wenn kein Signing erforderlich)
           const data = prepareData;
+          
+          // Record recent mint
+          try {
+            await fetch(`${API_URL}/api/collections/${collection.id}/record-mint`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                inscriptionId: itemToMint.inscriptionId,
+                itemName: itemToMint.name,
+                itemType: itemToMint.type,
+                itemImageUrl: itemToMint.imageUrl,
+              }),
+            });
+          } catch (recordError) {
+            console.warn('[CollectionMinting] Failed to record mint:', recordError);
+            // Nicht kritisch, weiter mit Success
+          }
           
           setMintingStatus({
             progress: 100,
