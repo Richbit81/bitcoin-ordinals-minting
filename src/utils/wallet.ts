@@ -732,23 +732,31 @@ export const signPSBTViaXverse = async (
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     
+    // WICHTIG: Für Taproot-PSBTs mit Xverse gibt es zwei Optionen:
+    // 1. Xverse signiert und finalisiert (autoFinalized: true) - dann bekommen wir eine fertige Transaction
+    // 2. Xverse signiert nur (broadcast: false) - dann müssen wir im Backend finalisieren
+    // 
+    // Problem: Wenn die ownerAddress eine Admin-Adresse ist, die der Benutzer nicht kontrolliert,
+    // kann Xverse die PSBT nicht signieren. In diesem Fall müssen wir einen anderen Flow verwenden.
+    //
+    // Für jetzt: Versuchen wir, Xverse die PSBT finalisieren zu lassen (autoFinalized: true)
+    // Das funktioniert nur, wenn Xverse die Input-Adresse kontrolliert
+    
     const requestParams: any = {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       },
-      broadcast: false // Wir broadcasten selbst über Backend
+      broadcast: false, // Wir broadcasten selbst über Backend
+      // Versuche autoFinalized - Xverse finalisiert dann die PSBT automatisch
+      // Wenn das nicht funktioniert, müssen wir im Backend finalisieren
+      autoFinalized: true
     };
     
-    // WICHTIG: signInputs NUR verwenden, wenn walletAddress tatsächlich vom Wallet kontrolliert wird
-    // Wenn walletAddress eine Admin-Adresse ist (die der Benutzer nicht kontrolliert),
-    // wird Xverse die Signatur ablehnen mit "address doesn't match the account currently active"
-    // In diesem Fall lassen wir Xverse automatisch erkennen, welche Inputs signiert werden können
-    // Xverse signiert automatisch alle Inputs, die vom verbundenen Wallet kontrolliert werden
-    
     // NICHT signInputs verwenden - Xverse erkennt automatisch kontrollierte Inputs
-    console.log('[signPSBTViaXverse] Letting Xverse auto-detect controlled inputs (not using signInputs)');
-    console.log('[signPSBTViaXverse] Note: If walletAddress was provided, it may be an admin address that the user does not control');
+    // Wenn die ownerAddress eine Admin-Adresse ist, wird Xverse die Signatur ablehnen
+    console.log('[signPSBTViaXverse] Requesting PSBT signing with autoFinalized: true');
+    console.log('[signPSBTViaXverse] Xverse will auto-detect controlled inputs and finalize if possible');
     
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     
