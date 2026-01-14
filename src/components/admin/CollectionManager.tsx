@@ -271,10 +271,15 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     });
     
     try {
+      if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+        throw new Error('Admin address is required for pre-signing');
+      }
+      
       const transferData = await createTransfer(
         inscriptionId,
         adminAddress, // Placeholder recipient (wird später ersetzt)
         presignFeeRate,
+        adminAddress, // Admin address für Authorization
       );
       
       setPresigningItems(prev => {
