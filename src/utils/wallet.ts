@@ -693,8 +693,8 @@ export const signPSBTViaUnisat = async (
     // UniSat gibt Hex zurück, konvertiere zu Base64 für Konsistenz
     // Konvertiere Hex zu Base64
     const hexBytes = signedPsbtHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
-    const binaryString = String.fromCharCode(...hexBytes);
-    const signedPsbtBase64 = btoa(binaryString);
+    const hexBinaryString = String.fromCharCode(...hexBytes);
+    const signedPsbtBase64 = btoa(hexBinaryString);
     
     return signedPsbtBase64;
   } catch (error: any) {
