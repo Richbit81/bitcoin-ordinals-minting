@@ -1423,12 +1423,16 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
               setRestoring(true);
               setRestoreResult(null);
               try {
+                const headers: Record<string, string> = {
+                  'Content-Type': 'application/json',
+                };
+                if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+                  headers['X-Admin-Address'] = adminAddress;
+                }
+                
                 const response = await fetch(`${API_URL}/api/point-shop/admin/reactivate-by-title`, {
                   method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-Admin-Address': (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') ? adminAddress : undefined,
-                  },
+                  headers,
                   body: JSON.stringify({ title: restoreTitle }),
                 });
                 const data = await response.json();

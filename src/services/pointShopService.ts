@@ -306,12 +306,16 @@ export const createTransfer = async (
   adminAddress: string,
   itemId?: string
 ): Promise<CreateTransferResponse> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/point-shop/admin/create-transfer`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
     body: JSON.stringify({
       inscriptionId,
       recipientAddress,
@@ -345,12 +349,16 @@ export const confirmTransfer = async (
   fromBase64: boolean = true,
   itemId?: string
 ): Promise<ConfirmTransferResponse> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/point-shop/admin/confirm-transfer`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
     body: JSON.stringify({
       transferId,
       psbt: signedPsbt,

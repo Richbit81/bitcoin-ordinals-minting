@@ -60,6 +60,10 @@ export const getCollectionHashlist = async (adminAddress?: string): Promise<Coll
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 Sekunden Timeout
 
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      throw new Error('Admin address is required');
+    }
+    
     const response = await fetch(`${INSCRIPTION_API_URL}/api/collection/hashlist?address=${encodeURIComponent(adminAddress)}`, {
       signal: controller.signal,
       headers: {
@@ -100,6 +104,10 @@ export const getCollectionStats = async (adminAddress?: string): Promise<Collect
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      throw new Error('Admin address is required');
+    }
+    
     const response = await fetch(`${INSCRIPTION_API_URL}/api/collection/stats?address=${encodeURIComponent(adminAddress)}`, {
       signal: controller.signal,
       headers: {

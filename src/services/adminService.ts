@@ -27,10 +27,13 @@ export interface TradeOfferAdmin {
  * Hole Admin-Statistiken
  */
 export const getAdminStats = async (adminAddress: string): Promise<AdminStats> => {
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/admin/stats`, {
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -47,10 +50,13 @@ export const getAdminStats = async (adminAddress: string): Promise<AdminStats> =
  * Hole alle Trade Offers (Admin)
  */
 export const getAdminTradeOffers = async (adminAddress: string): Promise<TradeOfferAdmin[]> => {
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/admin/trades`, {
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -67,12 +73,16 @@ export const getAdminTradeOffers = async (adminAddress: string): Promise<TradeOf
  * Öffne Karten-Bilder Ordner
  */
 export const openCardImagesFolder = async (adminAddress: string): Promise<void> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/admin/open-card-images`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
     body: JSON.stringify({}),
   });
 
@@ -86,10 +96,13 @@ export const openCardImagesFolder = async (adminAddress: string): Promise<void> 
  * Exportiere alle Karten-Informationen als JSON
  */
 export const exportAllCardsInfo = async (adminAddress: string): Promise<void> => {
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
   const response = await fetch(`${API_URL}/api/admin/export-cards`, {
-    headers: {
-      'X-Admin-Address': adminAddress,
-    },
+    headers,
   });
 
   if (!response.ok) {
