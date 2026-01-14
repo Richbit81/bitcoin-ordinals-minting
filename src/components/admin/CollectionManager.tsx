@@ -39,6 +39,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     price: '',
     items: [] as CollectionItem[],
     mintType: 'individual' as 'individual' | 'random',
+    page: '' as string | null,
   });
 
   useEffect(() => {
@@ -612,6 +613,25 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                 {formData.mintType === 'individual' 
                   ? 'Users can choose which item to mint' 
                   : 'Users receive a random item from the collection'}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Page Assignment</label>
+              <select
+                value={formData.page || ''}
+                onChange={(e) => setFormData({ ...formData, page: e.target.value || null })}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+              >
+                <option value="">None (General Collection)</option>
+                <option value="smile-a-bit">SMILE A BIT (/smile-a-bit)</option>
+                <option value="tech-games">Tech & Games (/tech-games)</option>
+                <option value="point-shop">Point Shop (/point-shop)</option>
+                <option value="gallery">Gallery (/gallery)</option>
+                <option value="trading">Trading (/trading)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Select which page this collection should appear on. Leave empty for general collections.
               </p>
             </div>
 

@@ -26,8 +26,8 @@ export const SmilePage: React.FC = () => {
     const loadCollections = async () => {
       try {
         console.log('[SmilePage] Loading collections...');
-        // Hole Collections mit category Filter direkt vom Backend
-        const response = await fetch(`${API_URL}/api/collections?category=smileabit`);
+        // Hole Collections mit page Filter direkt vom Backend (page='smile-a-bit')
+        const response = await fetch(`${API_URL}/api/collections?page=smile-a-bit`);
         if (!response.ok) {
           throw new Error('Failed to fetch collections');
         }

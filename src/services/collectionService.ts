@@ -21,6 +21,7 @@ export interface Collection {
   price: number; // BTC
   items: CollectionItem[];
   category?: string; // Optional: Kategorie (z.B. 'smileabit')
+  page?: string | null; // Optional: Seiten-Zuordnung (z.B. 'smile-a-bit', 'tech-games', etc.)
   mintType?: 'individual' | 'random'; // Wie werden Items gemintet: einzeln auswählbar oder zufällig
   createdAt: string;
   updatedAt: string;
@@ -214,6 +215,8 @@ export const updateCollection = async (
     price?: number;
     items?: CollectionItem[];
     category?: string;
+    page?: string | null;
+    mintType?: 'individual' | 'random';
   }
 ): Promise<Collection> => {
   if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
