@@ -11,6 +11,8 @@ export const ADMIN_ADDRESSES: string[] = [
   'bc1p9j4g6r27yqhmp4c403vn33mz7uug439sthqngkkrylu7d7uq7d6qvz39jj',
   // Weitere Admin Taproot-Adresse
   'bc1p8hfflnq8dspvpeqdprqkncdfnk4hl5ne0ydnlslj2sk49fu5jxns2xxmk9',
+  // Neue Admin Taproot-Adresse
+  'bc1pv6vt56dyt5he62gnhyp3c5wqtglethjaegsmc4dxcs702sy6ccxsrhzyuj',
   // Du kannst auch über Environment Variable weitere Adressen hinzufügen:
   ...(import.meta.env.VITE_ADMIN_ADDRESSES?.split(',').map(a => a.trim()).filter(Boolean) || []),
 ].filter(Boolean); // Entferne leere Einträge

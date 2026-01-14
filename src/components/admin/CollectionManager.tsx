@@ -29,8 +29,14 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [itemFilter, setItemFilter] = useState<'all' | 'delegate' | 'original'>('all');
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [presigningItems, setPresigningItems] = useState<Map<string, { status: 'pending' | 'preparing' | 'ready' | 'signing' | 'signed' | 'error'; transferId?: string; psbtBase64?: string; error?: string }>>(new Map());
   const [presignFeeRate, setPresignFeeRate] = useState(15);
+  const [isDraggingThumbnail, setIsDraggingThumbnail] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -40,6 +46,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     items: [] as CollectionItem[],
     mintType: 'individual' as 'individual' | 'random',
     page: '' as string | null,
+    category: 'default' as string,
     showBanner: false as boolean,
   });
 
@@ -48,6 +55,14 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       loadCollections();
     }
   }, [adminAddress]);
+
+  // Debouncing für Suche (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const loadWalletInscriptions = async () => {
     if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
@@ -150,6 +165,44 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Drag & Drop für Thumbnail
+  const handleThumbnailDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingThumbnail(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, thumbnail: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleThumbnailDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingThumbnail(true);
+  };
+
+  const handleThumbnailDragLeave = () => {
+    setIsDraggingThumbnail(false);
+  };
+
+  // Item-Sortierung
+  const moveItemUp = (index: number) => {
+    if (index === 0) return;
+    const newItems = [...formData.items];
+    [newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]];
+    setFormData({ ...formData, items: newItems });
+  };
+
+  const moveItemDown = (index: number) => {
+    if (index === formData.items.length - 1) return;
+    const newItems = [...formData.items];
+    [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+    setFormData({ ...formData, items: newItems });
   };
 
   const toggleItemSelection = (inscription: WalletInscription, type: 'delegate' | 'original') => {
@@ -415,6 +468,13 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       }
     }
 
+    // Zeige Vorschau-Dialog
+    if (!showPreview) {
+      setShowPreview(true);
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const collectionData = {
         name: formData.name,
@@ -422,7 +482,7 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
         thumbnail: formData.thumbnail,
         price: parseFloat(formData.price),
         items: formData.items,
-        category: 'default',
+        category: formData.category,
         page: formData.page,
         mintType: formData.mintType,
         showBanner: formData.showBanner,
@@ -437,9 +497,12 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       }
       
       resetForm();
+      setShowPreview(false);
       loadCollections();
     } catch (error: any) {
       alert(`Error: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -506,10 +569,23 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     }
   }, [formData.items]);
 
-  const filteredInscriptions = walletInscriptions.filter(ins =>
-    ins.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ins.inscriptionId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter Inskriptionen basierend auf Suche und Filter
+  const filteredInscriptions = walletInscriptions.filter(ins => {
+    // Suche-Filter (mit Debouncing)
+    const matchesSearch = ins.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      ins.inscriptionId.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Typ-Filter
+    if (itemFilter === 'delegate') {
+      return ins.isDelegate === true || ins.originalInscriptionId !== undefined;
+    } else if (itemFilter === 'original') {
+      return ins.isDelegate !== true && ins.originalInscriptionId === undefined;
+    }
+    
+    return true; // 'all'
+  });
 
   if (loading) {
     return <div className="text-white text-center py-8">Loading...</div>;
@@ -652,20 +728,24 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
               </p>
             </div>
 
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Show Banner</label>
-              <div className="flex items-center gap-3">
+            <div className="bg-gray-800 border border-yellow-600 rounded p-4">
+              <label className="text-sm font-bold text-yellow-400 block mb-2">
+                🎯 Show Recent Mints Banner
+              </label>
+              <div className="flex items-center gap-3 mb-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.showBanner}
                     onChange={(e) => setFormData({ ...formData, showBanner: e.target.checked })}
-                    className="w-4 h-4 text-red-600 bg-black border-gray-700 rounded focus:ring-red-500"
+                    className="w-5 h-5 text-red-600 bg-black border-gray-700 rounded focus:ring-red-500 cursor-pointer"
                   />
-                  <span className="text-sm text-white">Show recent mints banner</span>
+                  <span className="text-sm text-white font-semibold">
+                    {formData.showBanner ? '✅ Enabled' : '❌ Disabled'}
+                  </span>
                 </label>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 When enabled, a banner showing the last 10 minted items (or wallet items if no mints yet) will be displayed on the minting page.
               </p>
             </div>
@@ -716,20 +796,37 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                 </div>
               )}
               
-              <div className="mb-2">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
-                  placeholder="Search inscriptions..."
-                />
+              {/* Filter und Suche */}
+              <div className="mb-2 flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                    placeholder="Search inscriptions..."
+                  />
+                </div>
+                <select
+                  value={itemFilter}
+                  onChange={(e) => setItemFilter(e.target.value as 'all' | 'delegate' | 'original')}
+                  className="px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                >
+                  <option value="all">All Types</option>
+                  <option value="delegate">Only Delegates</option>
+                  <option value="original">Only Originals</option>
+                </select>
               </div>
 
               {!adminAddress ? (
                 <div className="text-gray-400 text-sm py-4">Please connect admin wallet to view inscriptions</div>
               ) : loadingInscriptions ? (
-                <div className="text-gray-400 text-sm py-4">Loading wallet inscriptions...</div>
+                <div className="text-gray-400 text-sm py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    <span>Loading wallet inscriptions...</span>
+                  </div>
+                </div>
               ) : (
                 <div className="max-h-96 overflow-y-auto border border-gray-700 rounded p-4 bg-black">
                   {filteredInscriptions.length === 0 ? (
