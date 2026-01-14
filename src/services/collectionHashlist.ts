@@ -64,11 +64,14 @@ export const getCollectionHashlist = async (adminAddress?: string): Promise<Coll
       throw new Error('Admin address is required');
     }
     
+    const headers: Record<string, string> = {};
+    if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+      headers['X-Admin-Address'] = adminAddress;
+    }
+    
     const response = await fetch(`${INSCRIPTION_API_URL}/api/collection/hashlist?address=${encodeURIComponent(adminAddress)}`, {
       signal: controller.signal,
-      headers: {
-        'X-Admin-Address': adminAddress,
-      },
+      headers,
     });
 
     clearTimeout(timeoutId);
@@ -108,11 +111,14 @@ export const getCollectionStats = async (adminAddress?: string): Promise<Collect
       throw new Error('Admin address is required');
     }
     
+    const headers: Record<string, string> = {};
+    if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+      headers['X-Admin-Address'] = adminAddress;
+    }
+    
     const response = await fetch(`${INSCRIPTION_API_URL}/api/collection/stats?address=${encodeURIComponent(adminAddress)}`, {
       signal: controller.signal,
-      headers: {
-        'X-Admin-Address': adminAddress,
-      },
+      headers,
     });
 
     clearTimeout(timeoutId);
