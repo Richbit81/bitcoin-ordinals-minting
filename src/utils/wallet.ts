@@ -687,7 +687,16 @@ export const signPSBTViaUnisat = async (
     
     const signedPsbtHex = await window.unisat.signPsbt(psbtHex, { autoFinalized });
     
-    return signedPsbtHex;
+    console.log('[signPSBTViaUnisat] ✅ Signed PSBT received (Hex), length:', signedPsbtHex.length);
+    console.log('[signPSBTViaUnisat] Signed PSBT preview:', signedPsbtHex.substring(0, 50) + '...');
+    
+    // UniSat gibt Hex zurück, konvertiere zu Base64 für Konsistenz
+    // Konvertiere Hex zu Base64
+    const hexBytes = signedPsbtHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+    const binaryString = String.fromCharCode(...hexBytes);
+    const signedPsbtBase64 = btoa(binaryString);
+    
+    return signedPsbtBase64;
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message?.includes('rejected'))) {
       throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktion in Ihrem Wallet.');
