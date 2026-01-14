@@ -113,6 +113,26 @@ export const CollectionMintingPage: React.FC = () => {
         });
       } else {
         // Transferiere Original-Ordinal
+        // Schritt 0: Preis bezahlen (falls vorhanden)
+        if (collection.price && collection.price > 0) {
+          setMintingStatus(prev => prev ? { ...prev, progress: 10, message: `Paying ${collection.price} BTC...` } : null);
+          
+          const { sendBitcoinViaUnisat, sendBitcoinViaXverse } = await import('../utils/wallet');
+          const adminAddress = 'bc1pk04c62dkcev08jvmhlecufxtp4xw4af0s9n3vtm8w3dsn9985dhsvpralc'; // Admin-Adresse für Preis-Zahlung
+          
+          try {
+            if (walletState.walletType === 'unisat') {
+              await sendBitcoinViaUnisat(adminAddress, collection.price);
+            } else {
+              await sendBitcoinViaXverse(adminAddress, collection.price);
+            }
+            console.log(`[CollectionMinting] ✅ Price paid: ${collection.price} BTC to ${adminAddress}`);
+          } catch (priceError: any) {
+            console.error('[CollectionMinting] Price payment error:', priceError);
+            throw new Error(`Failed to pay collection price: ${priceError.message || 'Unknown error'}`);
+          }
+        }
+        
         setMintingStatus(prev => prev ? { ...prev, progress: 30, message: 'Creating transfer PSBT...' } : null);
         
         // Schritt 1: PSBT erstellen
