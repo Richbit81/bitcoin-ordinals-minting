@@ -55,19 +55,33 @@ export const SmilePage: React.FC = () => {
       return;
     }
 
+    // Prüfe ob Collection Items vorhanden sind
+    if (!selectedCollection.items || selectedCollection.items.length === 0) {
+      alert('Collection has no items available for minting.');
+      return;
+    }
+
     const userAddress = walletState.accounts[0].address;
     
     // Für Random Mint: Wähle zufälliges Item
-    let itemToMint: CollectionItem;
+    let itemToMint: CollectionItem | undefined;
     if (selectedCollection.mintType === 'random') {
       const randomIndex = Math.floor(Math.random() * selectedCollection.items.length);
       itemToMint = selectedCollection.items[randomIndex];
     } else {
       if (!item) {
         console.error('[SmilePage] No item provided for individual mint');
+        alert('Please select an item to mint.');
         return;
       }
       itemToMint = item;
+    }
+
+    // Validierung: Prüfe ob itemToMint definiert ist
+    if (!itemToMint || !itemToMint.inscriptionId) {
+      console.error('[SmilePage] Invalid item to mint:', itemToMint);
+      alert('Error: Invalid item selected. Please try again.');
+      return;
     }
 
     setMintingItemId(itemToMint.inscriptionId);

@@ -49,12 +49,21 @@ export const CollectionMintingPage: React.FC = () => {
       return;
     }
 
+    // Validierung: Prüfe ob item definiert ist
+    if (!item || !item.inscriptionId) {
+      console.error('[CollectionMinting] Invalid item to mint:', item);
+      alert('Error: Invalid item selected. Please try again.');
+      return;
+    }
+
     const userAddress = walletState.accounts[0].address;
-    setMintingItemId(item.inscriptionId);
+    const itemToMint = item; // Verwende item als itemToMint für Konsistenz
+    
+    setMintingItemId(itemToMint.inscriptionId);
     setMintingStatus({
       progress: 0,
       status: 'processing',
-      message: `Minting ${item.name}...`,
+      message: `Minting ${itemToMint.name}...`,
     });
 
     try {
