@@ -278,3 +278,28 @@ export const deleteCollection = async (collectionId: string, adminAddress: strin
   }
 };
 
+/**
+ * Lösche Collection komplett (permanently erase)
+ */
+export const eraseCollection = async (collectionId: string, adminAddress: string): Promise<void> => {
+  if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+    throw new Error('Admin address is required');
+  }
+  
+  const headers: Record<string, string> = {};
+  if (adminAddress && adminAddress !== 'undefined' && adminAddress !== '') {
+    headers['X-Admin-Address'] = adminAddress;
+  }
+  
+  const url = `${API_URL}/api/collections/admin/${collectionId}/erase${adminAddress && adminAddress !== 'undefined' && adminAddress !== '' ? `?adminAddress=${encodeURIComponent(adminAddress)}` : ''}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || 'Failed to erase collection');
+  }
+};
+

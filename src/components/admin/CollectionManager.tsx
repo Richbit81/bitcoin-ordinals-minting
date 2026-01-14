@@ -4,6 +4,7 @@ import {
   createCollection,
   updateCollection,
   deleteCollection,
+  eraseCollection,
   getWalletInscriptions,
   Collection,
   CollectionItem,
@@ -534,6 +535,31 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     try {
       await deleteCollection(collectionId, adminAddress);
       alert('Collection deactivated successfully!');
+      loadCollections();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  const handleErase = async (collectionId: string, collectionName: string) => {
+    if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
+      alert('Admin address is not available. Please connect your wallet.');
+      return;
+    }
+    
+    // Erste Bestätigung
+    if (!confirm(`⚠️ WARNING: Do you really want to ERASE the collection "${collectionName}"?\n\nThis will PERMANENTLY DELETE the collection and cannot be undone!`)) {
+      return;
+    }
+
+    // Zweite Bestätigung (doppelte Sicherheit)
+    if (!confirm(`🚨 FINAL WARNING: This will PERMANENTLY DELETE "${collectionName}"!\n\nThis action CANNOT be undone. Are you absolutely sure?`)) {
+      return;
+    }
+
+    try {
+      await eraseCollection(collectionId, adminAddress);
+      alert('Collection permanently erased!');
       loadCollections();
     } catch (error: any) {
       alert(`Error: ${error.message}`);
@@ -1153,6 +1179,13 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
                       className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold text-white"
                     >
                       Deactivate
+                    </button>
+                    <button
+                      onClick={() => handleErase(collection.id, collection.name)}
+                      className="px-3 py-1 bg-red-800 hover:bg-red-900 rounded text-sm font-semibold text-white"
+                      title="Permanently delete this collection (cannot be undone)"
+                    >
+                      🗑️ Erase
                     </button>
                   </div>
                 </div>
