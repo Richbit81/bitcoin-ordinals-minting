@@ -729,11 +729,14 @@ export const signPSBTViaXverse = async (
     }
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
+    // WICHTIG: Für Taproot-Inputs muss autoFinalized auf true gesetzt werden
+    // damit Xverse die PSBT automatisch finalisiert
     const response = await satsConnect.request('signPsbt', {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
-      }
+      },
+      autoFinalized: true // WICHTIG: Finalisiere automatisch für Taproot
     });
     
     console.log('[signPSBTViaXverse] Response received:', {
