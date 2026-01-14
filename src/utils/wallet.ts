@@ -743,16 +743,20 @@ export const signPSBTViaXverse = async (
       status: response.status,
       hasResult: !!response.result,
       hasError: !!response.error,
-      errorMessage: response.error?.message
+      errorMessage: response.error?.message,
+      resultKeys: response.result ? Object.keys(response.result) : []
     });
+    
+    // Debug: Logge die vollständige Response
+    console.log('[signPSBTViaXverse] Full response result:', JSON.stringify(response.result, null, 2));
 
     if (response.status === 'success') {
       // Prüfe ob Xverse eine finalisierte Transaction zurückgegeben hat (wenn autoFinalized: true)
-      const finalTxHex = response.result?.tx || response.result?.txHex || response.tx || response.txHex;
+      const finalTxHex = response.result?.tx || response.result?.txHex || response.result?.txid || response.tx || response.txHex;
       const signedPsbtBase64 = response.result?.psbt || response.psbt;
       
       // Wenn autoFinalized: true war und eine finalisierte Transaction zurückgegeben wurde
-      if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500) {
+      if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500 && /^[0-9a-fA-F]+$/.test(finalTxHex)) {
         console.log('[signPSBTViaXverse] ✅ Finalized transaction received (Hex), length:', finalTxHex.length);
         console.log('[signPSBTViaXverse] Transaction preview:', finalTxHex.substring(0, 50) + '...');
         // Konvertiere Hex zu Base64 für Konsistenz
