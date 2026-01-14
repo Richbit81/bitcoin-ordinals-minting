@@ -25,12 +25,19 @@ export const SmilePage: React.FC = () => {
   useEffect(() => {
     const loadCollections = async () => {
       try {
-        const allCollections = await getAllCollections();
-        // Filter nur SMILE A BIT Kollektionen
-        const smileCollections = allCollections.filter(c => c.category === 'smileabit');
+        console.log('[SmilePage] Loading collections...');
+        // Hole Collections mit category Filter direkt vom Backend
+        const response = await fetch(`${API_URL}/api/collections?category=smileabit`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch collections');
+        }
+        const data = await response.json();
+        const smileCollections = data.collections || [];
+        console.log('[SmilePage] Loaded collections:', smileCollections.length, smileCollections);
         setCollections(smileCollections);
         // Wenn nur eine Collection vorhanden ist, automatisch auswählen
         if (smileCollections.length === 1) {
+          console.log('[SmilePage] Auto-selecting single collection:', smileCollections[0].name);
           setSelectedCollection(smileCollections[0]);
         }
       } catch (error) {
