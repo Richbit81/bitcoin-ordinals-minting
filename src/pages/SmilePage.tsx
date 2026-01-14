@@ -7,6 +7,7 @@ import { createSingleDelegate } from '../services/collectionMinting';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
+import { RecentMintsBanner } from '../components/RecentMintsBanner';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
