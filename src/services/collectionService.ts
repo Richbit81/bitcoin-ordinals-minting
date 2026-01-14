@@ -158,6 +158,9 @@ export const createCollection = async (
     price: number;
     items: CollectionItem[];
     category?: string;
+    page?: string | null;
+    mintType?: 'individual' | 'random';
+    showBanner?: boolean;
   }
 ): Promise<Collection> => {
   if (!adminAddress || adminAddress === 'undefined' || adminAddress === '') {
