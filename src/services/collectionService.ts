@@ -59,7 +59,8 @@ export const getCollection = async (id: string): Promise<Collection> => {
     throw new Error('Failed to fetch collection');
   }
   const data = await response.json();
-  return data.collection;
+  // Backend gibt direkt collection zurück, nicht als { collection: ... }
+  return data.collection || data;
 };
 
 /**
