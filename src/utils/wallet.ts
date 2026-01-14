@@ -729,17 +729,22 @@ export const signPSBTViaXverse = async (
     }
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
-    // WICHTIG: Für Taproot-Inputs müssen wir signInputs NICHT angeben
-    // Xverse signiert automatisch alle Inputs, die vom Wallet kontrolliert werden
-    // broadcast: false bedeutet, dass wir die PSBT selbst broadcasten
-    const response = await satsConnect.request('signPsbt', {
+    // WICHTIG: Xverse signPsbt erwartet möglicherweise signInputs für Taproot
+    // Aber laut Dokumentation signiert Xverse automatisch alle Inputs, die vom Wallet kontrolliert werden
+    // Versuchen wir es ohne signInputs zuerst
+    const requestParams: any = {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       },
       broadcast: false // Wir broadcasten selbst über Backend
-      // signInputs wird weggelassen - Xverse signiert automatisch alle kontrollierten Inputs
-    });
+    };
+    
+    // Für Taproot: Xverse sollte automatisch signieren, aber wir können es explizit angeben
+    // Wenn die PSBT nicht signiert wird, müssen wir möglicherweise signInputs hinzufügen
+    console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
+    
+    const response = await satsConnect.request('signPsbt', requestParams);
     
     console.log('[signPSBTViaXverse] Response received:', {
       status: response.status,
