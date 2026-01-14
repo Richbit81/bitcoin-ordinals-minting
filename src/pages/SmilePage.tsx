@@ -182,8 +182,11 @@ export const SmilePage: React.FC = () => {
           <div className="text-white text-center py-8">Loading collections...</div>
         ) : collections.length === 0 ? (
           <div className="mt-auto mb-16">
-            <p className="text-4xl md:text-6xl font-bold text-red-600 text-center drop-shadow-2xl">
+            <p className="text-4xl md:text-6xl font-bold text-red-600 text-center drop-shadow-2xl mb-4">
               COMING SOON
+            </p>
+            <p className="text-gray-400 text-center text-sm">
+              No SMILE A BIT collections found. Please create a collection with category "smileabit" in the Admin Panel.
             </p>
           </div>
         ) : (

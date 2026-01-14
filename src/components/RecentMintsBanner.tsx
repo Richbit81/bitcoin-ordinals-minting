@@ -22,26 +22,34 @@ export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collection
 
   useEffect(() => {
     const loadRecentMints = async () => {
+      if (!collectionId) {
+        setLoading(false);
+        return;
+      }
+      
       try {
+        console.log('[RecentMintsBanner] Loading recent mints for collection:', collectionId);
         const response = await fetch(`${API_URL}/api/collections/${collectionId}/recent-mints?limit=10`);
         if (!response.ok) {
-          throw new Error('Failed to fetch recent mints');
+          const errorText = await response.text();
+          console.error('[RecentMintsBanner] Response not OK:', response.status, errorText);
+          throw new Error(`Failed to fetch recent mints: ${response.status}`);
         }
         const data = await response.json();
+        console.log('[RecentMintsBanner] Loaded items:', data.items?.length || 0, data.items);
         setItems(data.items || []);
       } catch (error) {
         console.error('[RecentMintsBanner] Error loading recent mints:', error);
+        setItems([]); // Setze leeres Array bei Fehler
       } finally {
         setLoading(false);
       }
     };
 
-    if (collectionId) {
-      loadRecentMints();
-      // Refresh alle 30 Sekunden
-      const interval = setInterval(loadRecentMints, 30000);
-      return () => clearInterval(interval);
-    }
+    loadRecentMints();
+    // Refresh alle 30 Sekunden
+    const interval = setInterval(loadRecentMints, 30000);
+    return () => clearInterval(interval);
   }, [collectionId]);
 
   // Auto-Scroll Logic
