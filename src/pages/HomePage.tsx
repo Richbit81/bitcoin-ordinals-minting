@@ -172,9 +172,9 @@ export const HomePage: React.FC = () => {
             : `/${project.id}`;
           
           return (
-          <div
-            key={project.id}
-            onClick={() => navigate(route)}
+            <div
+              key={project.id}
+              onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'point-shop' ? 'md:order-3' : 
               project.id === 'tech-games' ? 'md:order-2' : 
@@ -229,8 +229,9 @@ export const HomePage: React.FC = () => {
               )}
               <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
             </div>
-          </div>
-        ))}
+            </div>
+          );
+        })}
         
         {/* Dynamische Kollektionen */}
         {loadingCollections ? (
