@@ -732,10 +732,6 @@ export const signPSBTViaXverse = async (
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     
-    // WICHTIG: walletAddress sollte die Input-Adresse sein (die Adresse, die das Ordinal besitzt)
-    // Xverse signiert automatisch alle Inputs, die vom Wallet kontrolliert werden
-    // Wenn walletAddress angegeben ist, können wir signInputs verwenden, um Xverse zu helfen
-    
     const requestParams: any = {
       psbt: psbtBase64,
       network: {
@@ -744,19 +740,15 @@ export const signPSBTViaXverse = async (
       broadcast: false // Wir broadcasten selbst über Backend
     };
     
-    // Für Taproot: Xverse benötigt möglicherweise signInputs, um zu wissen, welche Inputs signiert werden sollen
-    // Wenn walletAddress (Input-Adresse) angegeben ist, verwenden wir sie für signInputs
-    if (walletAddress) {
-      // signInputs Format: { "address": [inputIndices] }
-      // Für Ordinal-Transfers gibt es normalerweise nur einen Input (Index 0)
-      requestParams.signInputs = {
-        [walletAddress]: [0] // Signiere Input 0 für diese Adresse
-      };
-      console.log('[signPSBTViaXverse] Using signInputs with input address:', walletAddress);
-      console.log('[signPSBTViaXverse] signInputs:', JSON.stringify(requestParams.signInputs, null, 2));
-    } else {
-      console.log('[signPSBTViaXverse] No input address provided - Xverse will auto-detect controlled inputs');
-    }
+    // WICHTIG: signInputs NUR verwenden, wenn walletAddress tatsächlich vom Wallet kontrolliert wird
+    // Wenn walletAddress eine Admin-Adresse ist (die der Benutzer nicht kontrolliert),
+    // wird Xverse die Signatur ablehnen mit "address doesn't match the account currently active"
+    // In diesem Fall lassen wir Xverse automatisch erkennen, welche Inputs signiert werden können
+    // Xverse signiert automatisch alle Inputs, die vom verbundenen Wallet kontrolliert werden
+    
+    // NICHT signInputs verwenden - Xverse erkennt automatisch kontrollierte Inputs
+    console.log('[signPSBTViaXverse] Letting Xverse auto-detect controlled inputs (not using signInputs)');
+    console.log('[signPSBTViaXverse] Note: If walletAddress was provided, it may be an admin address that the user does not control');
     
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     

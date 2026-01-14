@@ -179,13 +179,17 @@ export const SmilePage: React.FC = () => {
           
           // Schritt 2: PSBT signieren
           const { signPSBT } = await import('../utils/wallet');
-          // WICHTIG: Für Xverse verwenden wir ownerAddress (Input-Adresse) für signInputs
+          // WICHTIG: Wenn ownerAddress eine Admin-Adresse ist (nicht userAddress),
+          // kann der Benutzer die PSBT nicht signieren, weil sein Wallet die Admin-Adresse nicht kontrolliert
+          // In diesem Fall lassen wir Xverse automatisch erkennen, welche Inputs signiert werden können
+          // (Xverse signiert nur Inputs, die vom verbundenen Wallet kontrolliert werden)
           const autoFinalized = walletState.walletType === 'xverse';
+          // NICHT ownerAddress übergeben - Xverse erkennt automatisch kontrollierte Inputs
           const signedPsbt = await signPSBT(
             prepareData.psbtBase64,
             walletState.walletType || 'unisat',
             autoFinalized,
-            ownerAddress || userAddress // Verwende ownerAddress (Input-Adresse) für signInputs
+            undefined // Keine signInputs - Xverse erkennt automatisch
           );
 
           setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Broadcasting transaction...' } : null);
