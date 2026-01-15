@@ -124,7 +124,7 @@ export const SmilePage: React.FC = () => {
           setMintingStatus(prev => prev ? { ...prev, progress: 10, message: `Paying ${selectedCollection.price} BTC...` } : null);
           
           const { sendBitcoinViaUnisat, sendBitcoinViaXverse } = await import('../utils/wallet');
-          const adminAddress = 'bc1pk04c62dkcev08jvmhlecufxtp4xw4af0s9n3vtm8w3dsn9985dhsvpralc'; // Admin-Adresse für Preis-Zahlung
+          const adminAddress = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft'; // Admin-Adresse für Preis-Zahlung (Legacy)
           
           try {
             if (walletState.walletType === 'unisat') {

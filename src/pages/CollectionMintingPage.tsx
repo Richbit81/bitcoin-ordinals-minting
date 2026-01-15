@@ -118,7 +118,7 @@ export const CollectionMintingPage: React.FC = () => {
           setMintingStatus(prev => prev ? { ...prev, progress: 10, message: `Paying ${collection.price} BTC...` } : null);
           
           const { sendBitcoinViaUnisat, sendBitcoinViaXverse } = await import('../utils/wallet');
-          const adminAddress = 'bc1pk04c62dkcev08jvmhlecufxtp4xw4af0s9n3vtm8w3dsn9985dhsvpralc'; // Admin-Adresse für Preis-Zahlung
+          const adminAddress = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft'; // Admin-Adresse für Preis-Zahlung (Legacy)
           
           try {
             if (walletState.walletType === 'unisat') {
@@ -169,6 +169,11 @@ export const CollectionMintingPage: React.FC = () => {
           if (ownerAddress && ownerAddress !== userAddress) {
             console.warn(`[CollectionMinting] ⚠️ Owner address (${ownerAddress}) differs from user address (${userAddress})`);
             console.warn(`[CollectionMinting] ⚠️ The user's wallet may not be able to sign this PSBT if it doesn't control ${ownerAddress}`);
+            
+            // Zeige Warnung an den Benutzer
+            if (prepareData.warning) {
+              alert(`⚠️ Warnung: ${prepareData.warning}\n\nDie PSBT kann möglicherweise nicht von Ihrem Wallet signiert werden, da sie eine Admin-Adresse erfordert.`);
+            }
           }
           
           setMintingStatus(prev => prev ? { ...prev, progress: 50, message: 'Please sign the transaction in your wallet...' } : null);
