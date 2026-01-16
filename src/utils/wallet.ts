@@ -255,7 +255,7 @@ export const getUnisatTaprootAddress = async (): Promise<string | null> => {
     
     // Gib die erste Adresse zurück (falls vorhanden)
     if (accounts.length > 0) {
-      console.warn([UniSat] ⚠️ Verwende stattdessen: + accounts[0]);
+      console.warn(`[UniSat] ⚠️ Verwende stattdessen: ${accounts[0]}`);
       return accounts[0];
     }
     
@@ -265,7 +265,8 @@ export const getUnisatTaprootAddress = async (): Promise<string | null> => {
     return null;
   }
 };
- = async (): Promise<WalletAccount[]> => {
+
+export const getXverseAccounts = async (): Promise<WalletAccount[]> => {
   if (!isXverseInstalled()) {
     return [];
   }
