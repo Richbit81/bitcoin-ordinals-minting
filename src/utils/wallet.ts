@@ -1,4 +1,4 @@
-import { WalletType, WalletAccount } from '../types/wallet';
+﻿import { WalletType, WalletAccount } from '../types/wallet';
 
 declare global {
   interface Window {
@@ -25,20 +25,20 @@ declare global {
 export const isUnisatInstalled = (): boolean => {
   if (typeof window === 'undefined') return false;
   
-  // Einfache Prüfung - wie vorher
+  // Einfache PrÃ¼fung - wie vorher
   return typeof window.unisat !== 'undefined';
 };
 
 export const isXverseInstalled = (): boolean => {
   if (typeof window === 'undefined') return false;
   
-  // Einfache Prüfung - wie vorher (BitcoinProvider ist der Haupt-Provider)
+  // Einfache PrÃ¼fung - wie vorher (BitcoinProvider ist der Haupt-Provider)
   return typeof window.BitcoinProvider !== 'undefined';
 };
 
 /**
  * Warte auf UniSat Wallet mit Retry-Logik
- * Wichtig für localhost, wo Extensions verzögert laden können
+ * Wichtig fÃ¼r localhost, wo Extensions verzÃ¶gert laden kÃ¶nnen
  */
 export const waitForUnisat = (timeout = 3000): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -62,7 +62,7 @@ export const waitForUnisat = (timeout = 3000): Promise<boolean> => {
 
 /**
  * Warte auf Xverse Wallet mit Retry-Logik
- * Wichtig für localhost, wo Extensions verzögert laden können
+ * Wichtig fÃ¼r localhost, wo Extensions verzÃ¶gert laden kÃ¶nnen
  */
 export const waitForXverse = (timeout = 3000): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -90,7 +90,7 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
   }
 
   try {
-    // Prüfe ob window.unisat wirklich verfügbar ist
+    // PrÃ¼fe ob window.unisat wirklich verfÃ¼gbar ist
     if (!window.unisat || typeof window.unisat.requestAccounts !== 'function') {
       throw new Error('UniSat Wallet is detected but the connection API is not available. This may be due to multiple wallet extensions interfering with each other. Try disabling other Bitcoin wallet extensions and reload the page.');
     }
@@ -141,7 +141,7 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
       throw new Error('sats-connect konnte nicht geladen werden. Bitte stellen Sie sicher, dass sats-connect installiert ist (npm install sats-connect).');
     }
     
-    // wallet_connect kann mit null aufgerufen werden für alle Adresstypen
+    // wallet_connect kann mit null aufgerufen werden fÃ¼r alle Adresstypen
     const response = await satsConnect.request('wallet_connect', null);
     
     console.log('Xverse wallet_connect response:', response);
@@ -160,7 +160,7 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
         (addr: any) => addr.purpose === 'ordinals'
       );
       
-      // Finde Payment-Adresse (falls benötigt)
+      // Finde Payment-Adresse (falls benÃ¶tigt)
       const paymentAddress = addresses.find(
         (addr: any) => addr.purpose === 'payment'
       );
@@ -224,17 +224,57 @@ export const getUnisatAccounts = async (): Promise<WalletAccount[]> => {
   } catch {
     return [];
   }
-};
 
-export const getXverseAccounts = async (): Promise<WalletAccount[]> => {
+
+
+/**
+ * Gibt die Taproot-Adresse (bc1p...) vom UniSat Wallet zurÃ¼ck.
+ * Falls keine Taproot-Adresse gefunden wird, wird die erste verfÃ¼gbare Adresse zurÃ¼ckgegeben,
+ * aber eine Warnung wird ausgegeben.
+ */
+export const getUnisatTaprootAddress = async (): Promise<string | null> => {
+  if (!isUnisatInstalled()) {
+    return null;
+  }
+
+  try {
+    const accounts = await window.unisat!.getAccounts();
+    
+    // Suche nach Taproot-Adresse (bc1p...)
+    const taprootAddress = accounts.find(addr => addr.startsWith('bc1p'));
+    
+    if (taprootAddress) {
+      console.log('[UniSat] âœ… Taproot-Adresse gefunden:', taprootAddress);
+      return taprootAddress;
+    }
+    
+    // Falls keine Taproot-Adresse gefunden, prÃ¼fe alle Adressen
+    console.warn('[UniSat] âš ï¸ Keine Taproot-Adresse (bc1p...) gefunden!');
+    console.warn('[UniSat] âš ï¸ VerfÃ¼gbare Adressen:', accounts);
+    console.warn('[UniSat] âš ï¸ FÃ¼r Inskriptionen sollte eine Taproot-Adresse verwendet werden!');
+    console.warn('[UniSat] âš ï¸ Bitte wechseln Sie zur Taproot-Adresse im UniSat Wallet!');
+    
+    // Gib die erste Adresse zurÃ¼ck (falls vorhanden)
+    if (accounts.length > 0) {
+      console.warn([UniSat] âš ï¸ Verwende stattdessen: );
+      return accounts[0];
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error('[UniSat] Fehler beim Abrufen der Taproot-Adresse:', error);
+    return null;
+  }
+};
+ = async (): Promise<WalletAccount[]> => {
   if (!isXverseInstalled()) {
     return [];
   }
 
   try {
-    // WICHTIG: Diese Funktion sollte KEINE Popups öffnen!
-    // Sie prüft nur, ob bereits Accounts verbunden sind.
-    // Verwenden Sie connectXverse() für aktive Verbindungen mit Popup.
+    // WICHTIG: Diese Funktion sollte KEINE Popups Ã¶ffnen!
+    // Sie prÃ¼ft nur, ob bereits Accounts verbunden sind.
+    // Verwenden Sie connectXverse() fÃ¼r aktive Verbindungen mit Popup.
     
     // Versuche wallet_getAccount (ohne Popup)
     try {
@@ -282,31 +322,31 @@ export const sendBitcoinViaUnisat = async (
     throw new Error('UniSat Wallet nicht gefunden');
   }
 
-  // Prüfe ob window.unisat und sendBitcoin verfügbar sind
+  // PrÃ¼fe ob window.unisat und sendBitcoin verfÃ¼gbar sind
   if (!window.unisat) {
-    throw new Error('UniSat Wallet ist nicht verfügbar. Bitte stellen Sie sicher, dass die UniSat Extension installiert und aktiviert ist.');
+    throw new Error('UniSat Wallet ist nicht verfÃ¼gbar. Bitte stellen Sie sicher, dass die UniSat Extension installiert und aktiviert ist.');
   }
 
-  // Debug: Logge verfügbare UniSat-Methoden
+  // Debug: Logge verfÃ¼gbare UniSat-Methoden
   const availableMethods = Object.keys(window.unisat).filter(key => typeof (window.unisat as any)[key] === 'function');
-  console.log('[UniSat] Verfügbare Methoden:', availableMethods);
+  console.log('[UniSat] VerfÃ¼gbare Methoden:', availableMethods);
   console.log('[UniSat] sendBitcoin vorhanden:', typeof window.unisat.sendBitcoin);
 
   if (typeof window.unisat.sendBitcoin !== 'function') {
-    console.error('[UniSat] ❌ sendBitcoin ist nicht verfügbar! Verfügbare Methoden:', availableMethods);
-    throw new Error('UniSat sendBitcoin Funktion ist nicht verfügbar. Bitte aktualisieren Sie Ihre UniSat Extension auf die neueste Version.');
+    console.error('[UniSat] âŒ sendBitcoin ist nicht verfÃ¼gbar! VerfÃ¼gbare Methoden:', availableMethods);
+    throw new Error('UniSat sendBitcoin Funktion ist nicht verfÃ¼gbar. Bitte aktualisieren Sie Ihre UniSat Extension auf die neueste Version.');
   }
 
   try {
     const amountInSats = Math.round(amount * 100000000);
     console.log('[UniSat] Sending Bitcoin:', { to, amount, amountInSats });
     
-    // Prüfe auf Dust-Limit (546 sats ist das Bitcoin Dust-Limit)
+    // PrÃ¼fe auf Dust-Limit (546 sats ist das Bitcoin Dust-Limit)
     if (amountInSats < 546) {
       throw new Error(`Amount too small. Minimum is 546 sats (Bitcoin dust limit). You tried to send ${amountInSats} sats.`);
     }
     
-    // Prüfe ob Adresse gültig ist
+    // PrÃ¼fe ob Adresse gÃ¼ltig ist
     if (!to || typeof to !== 'string' || to.length < 26) {
       throw new Error(`Invalid address: ${to}`);
     }
@@ -322,12 +362,12 @@ export const sendBitcoinViaUnisat = async (
     
     const result = await window.unisat.sendBitcoin(to, amountInSats);
     
-    // Prüfe ob result ein String (txid) oder ein Objekt ist
+    // PrÃ¼fe ob result ein String (txid) oder ein Objekt ist
     let txid: string;
     if (typeof result === 'string') {
       txid = result;
     } else if (result && typeof result === 'object') {
-      // Möglicherweise gibt UniSat ein Objekt zurück
+      // MÃ¶glicherweise gibt UniSat ein Objekt zurÃ¼ck
       txid = result.txid || result.txId || result.transactionId || '';
       if (!txid) {
         console.error('[UniSat] Unexpected response format:', result);
@@ -338,10 +378,10 @@ export const sendBitcoinViaUnisat = async (
       throw new Error('UniSat returned an unexpected response. Please try again.');
     }
     
-    console.log('[UniSat] ✅ Transaction sent successfully, TXID:', txid);
+    console.log('[UniSat] âœ… Transaction sent successfully, TXID:', txid);
     return txid;
   } catch (error: any) {
-    console.error('[UniSat] ❌ Error sending Bitcoin:', error);
+    console.error('[UniSat] âŒ Error sending Bitcoin:', error);
     console.error('[UniSat] Error details:', {
       message: error?.message,
       code: error?.code,
@@ -356,15 +396,15 @@ export const sendBitcoinViaUnisat = async (
     }
     
     if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
-      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt, müssen Sie möglicherweise:\n1. Die SegWit-Adresse im UniSat Wallet auswählen\n2. Oder sicherstellen, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben aller Adressen verwenden, aber manchmal funktioniert das nicht korrekt.`);
+      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.\n\nâš ï¸ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt, mÃ¼ssen Sie mÃ¶glicherweise:\n1. Die SegWit-Adresse im UniSat Wallet auswÃ¤hlen\n2. Oder sicherstellen, dass genug Guthaben auf der aktuell ausgewÃ¤hlten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben aller Adressen verwenden, aber manchmal funktioniert das nicht korrekt.`);
     }
 
-    // Prüfe auf "can not read properties" oder ähnliche Fehler
+    // PrÃ¼fe auf "can not read properties" oder Ã¤hnliche Fehler
     if (error?.message?.includes('Cannot read properties') || error?.message?.includes('can not read properties')) {
       throw new Error('UniSat wallet error: Cannot access wallet properties. Please refresh the page and try again.');
     }
     
-    throw new Error(error?.message || 'Fehler beim Senden von Bitcoin über UniSat');
+    throw new Error(error?.message || 'Fehler beim Senden von Bitcoin Ã¼ber UniSat');
   }
 };
 
@@ -376,7 +416,7 @@ export const sendMultipleBitcoinPayments = async (
   walletType: 'unisat' | 'xverse'
 ): Promise<string> => {
   if (recipients.length === 0) {
-    throw new Error('Keine Empfänger angegeben');
+    throw new Error('Keine EmpfÃ¤nger angegeben');
   }
 
   if (recipients.length === 1) {
@@ -390,7 +430,7 @@ export const sendMultipleBitcoinPayments = async (
 
   // Mehrere Zahlungen - kombiniere sie
   if (walletType === 'xverse') {
-    // Xverse unterstützt mehrere recipients
+    // Xverse unterstÃ¼tzt mehrere recipients
     if (!isXverseInstalled()) {
       throw new Error('Xverse Wallet nicht gefunden');
     }
@@ -399,7 +439,7 @@ export const sendMultipleBitcoinPayments = async (
       const satsConnect = await import('sats-connect');
       
       if (satsConnect && satsConnect.request) {
-        // Konvertiere alle Beträge zu Satoshi und runde präzise
+        // Konvertiere alle BetrÃ¤ge zu Satoshi und runde prÃ¤zise
         const recipientsInSats = recipients.map(r => {
           const sats = Math.round(r.amount * 100000000);
           console.log(`[Xverse sats-connect] Zahlung: ${r.address} = ${r.amount} BTC = ${sats} sats`);
@@ -430,10 +470,10 @@ export const sendMultipleBitcoinPayments = async (
       // Fallback: Direkte Xverse API
       const provider = window.BitcoinProvider || window.xverse;
       if (!provider || !provider.request) {
-        throw new Error('Xverse Provider API nicht verfügbar');
+        throw new Error('Xverse Provider API nicht verfÃ¼gbar');
       }
 
-      // Konvertiere alle Beträge zu Satoshi und runde präzise
+      // Konvertiere alle BetrÃ¤ge zu Satoshi und runde prÃ¤zise
       const recipientsInSats = recipients.map(r => {
         const sats = Math.round(r.amount * 100000000);
         console.log(`[Xverse] Zahlung: ${r.address} = ${r.amount} BTC = ${sats} sats`);
@@ -445,7 +485,7 @@ export const sendMultipleBitcoinPayments = async (
 
       const totalSats = recipientsInSats.reduce((sum, r) => sum + r.amount, 0);
       console.log(`[Xverse] Gesamt: ${totalSats} sats (${(totalSats / 100000000).toFixed(8)} BTC)`);
-      console.log(`[Xverse] Anzahl Empfänger: ${recipientsInSats.length}`);
+      console.log(`[Xverse] Anzahl EmpfÃ¤nger: ${recipientsInSats.length}`);
 
       const response = await provider.request('sendTransfer', {
         recipients: recipientsInSats
@@ -482,32 +522,32 @@ export const sendMultipleBitcoinPayments = async (
         throw new Error('Payment was cancelled. Please approve the transaction in your Xverse wallet.');
       }
       
-      // Prüfe ob die Fehlermeldung "Amount should not be less than" enthält
+      // PrÃ¼fe ob die Fehlermeldung "Amount should not be less than" enthÃ¤lt
       if (error.message && error.message.includes('Amount should not be less than')) {
-        console.error('[Xverse] ⚠️ Fehler: Mindestbetrag-Anforderung erkannt');
+        console.error('[Xverse] âš ï¸ Fehler: Mindestbetrag-Anforderung erkannt');
         console.error('[Xverse] Recipients:', JSON.stringify(recipientsInSats, null, 2));
-        // Werfe den ursprünglichen Fehler weiter, damit der Benutzer die genaue Meldung sieht
+        // Werfe den ursprÃ¼nglichen Fehler weiter, damit der Benutzer die genaue Meldung sieht
       }
       
       throw error;
     }
   } else {
-    // UniSat - verwende sendPsbt für mehrere Outputs
+    // UniSat - verwende sendPsbt fÃ¼r mehrere Outputs
     if (!isUnisatInstalled()) {
       throw new Error('UniSat Wallet nicht gefunden');
     }
 
     try {
-      // Für UniSat müssen wir sendPsbt verwenden
+      // FÃ¼r UniSat mÃ¼ssen wir sendPsbt verwenden
       // Da das komplexer ist, machen wir die Zahlungen sequenziell, aber informieren den Benutzer
       // dass es mehrere Transaktionen sind
-      console.log('[UniSat] Mehrere Zahlungen - UniSat unterstützt nur eine Zahlung pro Transaktion');
-      console.log('[UniSat] Führe Zahlungen sequenziell aus...');
+      console.log('[UniSat] Mehrere Zahlungen - UniSat unterstÃ¼tzt nur eine Zahlung pro Transaktion');
+      console.log('[UniSat] FÃ¼hre Zahlungen sequenziell aus...');
       
-      // Sortiere Zahlungen nach Betrag (größte zuerst), falls das hilft
+      // Sortiere Zahlungen nach Betrag (grÃ¶ÃŸte zuerst), falls das hilft
       // Dies kann helfen, wenn das Guthaben auf einer bestimmten Adresse liegt
       const sortedRecipients = [...recipients].sort((a, b) => b.amount - a.amount);
-      console.log(`[UniSat] Sortiere Zahlungen nach Betrag (größte zuerst):`, sortedRecipients.map(r => `${r.address}: ${r.amount} BTC`));
+      console.log(`[UniSat] Sortiere Zahlungen nach Betrag (grÃ¶ÃŸte zuerst):`, sortedRecipients.map(r => `${r.address}: ${r.amount} BTC`));
       
       let lastTxid = '';
       for (let i = 0; i < sortedRecipients.length; i++) {
@@ -516,26 +556,26 @@ export const sendMultipleBitcoinPayments = async (
         
         try {
           lastTxid = await sendBitcoinViaUnisat(recipient.address, recipient.amount);
-          console.log(`[UniSat] ✅ Zahlung ${i + 1}/${sortedRecipients.length} erfolgreich: ${lastTxid}`);
+          console.log(`[UniSat] âœ… Zahlung ${i + 1}/${sortedRecipients.length} erfolgreich: ${lastTxid}`);
         } catch (error: any) {
-          console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
+          console.error(`[UniSat] âŒ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
           
-          // Spezielle Fehlermeldung für Insufficient Balance
+          // Spezielle Fehlermeldung fÃ¼r Insufficient Balance
           if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
-            throw new Error(`Insufficient balance bei Zahlung ${i + 1}/${sortedRecipients.length}.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt:\n1. Öffnen Sie das UniSat Wallet\n2. Wechseln Sie zur SegWit-Adresse (falls verfügbar)\n3. Oder stellen Sie sicher, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben verwenden, aber manchmal funktioniert das nicht korrekt.`);
+            throw new Error(`Insufficient balance bei Zahlung ${i + 1}/${sortedRecipients.length}.\n\nâš ï¸ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt:\n1. Ã–ffnen Sie das UniSat Wallet\n2. Wechseln Sie zur SegWit-Adresse (falls verfÃ¼gbar)\n3. Oder stellen Sie sicher, dass genug Guthaben auf der aktuell ausgewÃ¤hlten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben verwenden, aber manchmal funktioniert das nicht korrekt.`);
           }
           
           throw error;
         }
         
-        // Längere Pause zwischen Zahlungen (15 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
+        // LÃ¤ngere Pause zwischen Zahlungen (15 Sekunden), damit das Wallet Zeit hat, die erste Transaktion zu verarbeiten
         // Dies verhindert, dass die zweite Zahlung "kein Guthaben" anzeigt, da die erste Transaktion noch pending ist
-        // WICHTIG: UniSat verwendet das Gesamtguthaben aller Adressen (SegWit + Taproot), daher keine Balance-Prüfung nötig
+        // WICHTIG: UniSat verwendet das Gesamtguthaben aller Adressen (SegWit + Taproot), daher keine Balance-PrÃ¼fung nÃ¶tig
         if (i < sortedRecipients.length - 1) {
-          console.log(`[UniSat] ⏳ Warte 15 Sekunden vor nächster Zahlung (${i + 2}/${sortedRecipients.length})...`);
-          console.log(`[UniSat] ⚠️ WICHTIG: Die erste Transaktion muss erst bestätigt werden, bevor die zweite gesendet werden kann.`);
-          console.log(`[UniSat] ⚠️ Bitte warten Sie, bis die erste Zahlung in Ihrem Wallet bestätigt wurde.`);
-          console.log(`[UniSat] ℹ️ Hinweis: UniSat verwendet automatisch das Guthaben von allen Adressen (SegWit + Taproot).`);
+          console.log(`[UniSat] â³ Warte 15 Sekunden vor nÃ¤chster Zahlung (${i + 2}/${sortedRecipients.length})...`);
+          console.log(`[UniSat] âš ï¸ WICHTIG: Die erste Transaktion muss erst bestÃ¤tigt werden, bevor die zweite gesendet werden kann.`);
+          console.log(`[UniSat] âš ï¸ Bitte warten Sie, bis die erste Zahlung in Ihrem Wallet bestÃ¤tigt wurde.`);
+          console.log(`[UniSat] â„¹ï¸ Hinweis: UniSat verwendet automatisch das Guthaben von allen Adressen (SegWit + Taproot).`);
           await new Promise(resolve => setTimeout(resolve, 15000));
         }
       }
@@ -570,8 +610,8 @@ export const sendBitcoinViaXverse = async (
         // Konvertiere BTC zu Satoshi (1 BTC = 100,000,000 Satoshi)
         const satoshiAmount = Math.round(amount * 100000000);
 
-        // Versuche sendTransfer über sats-connect
-        // Für sats-connect könnte es als String oder Number funktionieren, aber probieren wir Number zuerst
+        // Versuche sendTransfer Ã¼ber sats-connect
+        // FÃ¼r sats-connect kÃ¶nnte es als String oder Number funktionieren, aber probieren wir Number zuerst
         response = await satsConnect.request('sendTransfer', {
           recipients: [
             {
@@ -600,7 +640,7 @@ export const sendBitcoinViaXverse = async (
     // Fallback: Direkte Xverse API
     const provider = window.BitcoinProvider || window.xverse;
     if (!provider || !provider.request) {
-      throw new Error('Xverse Provider API nicht verfügbar');
+      throw new Error('Xverse Provider API nicht verfÃ¼gbar');
     }
     
     // Konvertiere BTC zu Satoshi
@@ -618,7 +658,7 @@ export const sendBitcoinViaXverse = async (
 
     console.log('Xverse sendTransfer (direct API) response:', response);
 
-    // Prüfe auf Fehler in der Response
+    // PrÃ¼fe auf Fehler in der Response
     if (response?.error) {
       const errorCode = response.error.code;
       const errorMessage = response.error.message || '';
@@ -651,7 +691,7 @@ export const sendBitcoinViaXverse = async (
       throw error; // Fehlermeldung wurde bereits oben gesetzt
     }
     
-    throw new Error(error.message || 'Fehler beim Senden von Bitcoin via Xverse. Bitte überprüfen Sie Ihr Wallet.');
+    throw new Error(error.message || 'Fehler beim Senden von Bitcoin via Xverse. Bitte Ã¼berprÃ¼fen Sie Ihr Wallet.');
   }
 };
 
@@ -671,7 +711,7 @@ export const signPSBTViaUnisat = async (
 
   try {
     if (!window.unisat || typeof window.unisat.signPsbt !== 'function') {
-      throw new Error('UniSat Wallet unterstützt keine PSBT-Signatur. Bitte aktualisieren Sie Ihre Wallet-Extension.');
+      throw new Error('UniSat Wallet unterstÃ¼tzt keine PSBT-Signatur. Bitte aktualisieren Sie Ihre Wallet-Extension.');
     }
 
     // UniSat erwartet PSBT als Hex, nicht Base64
@@ -687,10 +727,10 @@ export const signPSBTViaUnisat = async (
     
     const signedPsbtHex = await window.unisat.signPsbt(psbtHex, { autoFinalized });
     
-    console.log('[signPSBTViaUnisat] ✅ Signed PSBT received (Hex), length:', signedPsbtHex.length);
+    console.log('[signPSBTViaUnisat] âœ… Signed PSBT received (Hex), length:', signedPsbtHex.length);
     console.log('[signPSBTViaUnisat] Signed PSBT preview:', signedPsbtHex.substring(0, 50) + '...');
     
-    // UniSat gibt Hex zurück, konvertiere zu Base64 für Konsistenz
+    // UniSat gibt Hex zurÃ¼ck, konvertiere zu Base64 fÃ¼r Konsistenz
     // Konvertiere Hex zu Base64
     const hexBytes = signedPsbtHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
     const hexBinaryString = String.fromCharCode(...hexBytes);
@@ -699,7 +739,7 @@ export const signPSBTViaUnisat = async (
     return signedPsbtBase64;
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message?.includes('rejected'))) {
-      throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktion in Ihrem Wallet.');
+      throw new Error('Signatur abgelehnt. Bitte bestÃ¤tigen Sie die Transaktion in Ihrem Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Signieren der PSBT');
   }
@@ -708,7 +748,7 @@ export const signPSBTViaUnisat = async (
 /**
  * Signiere eine PSBT mit Xverse Wallet
  * @param {string} psbtBase64 - PSBT als Base64-String
- * @param {string} walletAddress - Optional: Wallet-Adresse für signInputs
+ * @param {string} walletAddress - Optional: Wallet-Adresse fÃ¼r signInputs
  * @returns {Promise<string>} - Signierte Transaktion als Hex-String
  */
 export const signPSBTViaXverse = async (
@@ -727,19 +767,19 @@ export const signPSBTViaXverse = async (
     const satsConnect = await import('sats-connect');
     
     if (!satsConnect || !satsConnect.request) {
-      throw new Error('Sats Connect nicht verfügbar');
+      throw new Error('Sats Connect nicht verfÃ¼gbar');
     }
 
     console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
     
-    // WICHTIG: Für Taproot-PSBTs mit Xverse gibt es zwei Optionen:
+    // WICHTIG: FÃ¼r Taproot-PSBTs mit Xverse gibt es zwei Optionen:
     // 1. Xverse signiert und finalisiert (autoFinalized: true) - dann bekommen wir eine fertige Transaction
-    // 2. Xverse signiert nur (broadcast: false) - dann müssen wir im Backend finalisieren
+    // 2. Xverse signiert nur (broadcast: false) - dann mÃ¼ssen wir im Backend finalisieren
     // 
     // Problem: Wenn die ownerAddress eine Admin-Adresse ist, die der Benutzer nicht kontrolliert,
-    // kann Xverse die PSBT nicht signieren. In diesem Fall müssen wir einen anderen Flow verwenden.
+    // kann Xverse die PSBT nicht signieren. In diesem Fall mÃ¼ssen wir einen anderen Flow verwenden.
     //
-    // Für jetzt: Versuchen wir, Xverse die PSBT finalisieren zu lassen (autoFinalized: true)
+    // FÃ¼r jetzt: Versuchen wir, Xverse die PSBT finalisieren zu lassen (autoFinalized: true)
     // Das funktioniert nur, wenn Xverse die Input-Adresse kontrolliert
     
     const requestParams: any = {
@@ -747,9 +787,9 @@ export const signPSBTViaXverse = async (
       network: {
         type: 'Mainnet'
       },
-      broadcast: false, // Wir broadcasten selbst über Backend
+      broadcast: false, // Wir broadcasten selbst Ã¼ber Backend
       // Versuche autoFinalized - Xverse finalisiert dann die PSBT automatisch
-      // Wenn das nicht funktioniert, müssen wir im Backend finalisieren
+      // Wenn das nicht funktioniert, mÃ¼ssen wir im Backend finalisieren
       autoFinalized: true
     };
     
@@ -770,19 +810,19 @@ export const signPSBTViaXverse = async (
       resultKeys: response.result ? Object.keys(response.result) : []
     });
     
-    // Debug: Logge die vollständige Response
+    // Debug: Logge die vollstÃ¤ndige Response
     console.log('[signPSBTViaXverse] Full response result:', JSON.stringify(response.result, null, 2));
 
     if (response.status === 'success') {
-      // Prüfe ob Xverse eine finalisierte Transaction zurückgegeben hat (wenn autoFinalized: true)
+      // PrÃ¼fe ob Xverse eine finalisierte Transaction zurÃ¼ckgegeben hat (wenn autoFinalized: true)
       const finalTxHex = response.result?.tx || response.result?.txHex || response.result?.txid || response.tx || response.txHex;
       const signedPsbtBase64 = response.result?.psbt || response.psbt;
       
-      // Wenn autoFinalized: true war und eine finalisierte Transaction zurückgegeben wurde
+      // Wenn autoFinalized: true war und eine finalisierte Transaction zurÃ¼ckgegeben wurde
       if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500 && /^[0-9a-fA-F]+$/.test(finalTxHex)) {
-        console.log('[signPSBTViaXverse] ✅ Finalized transaction received (Hex), length:', finalTxHex.length);
+        console.log('[signPSBTViaXverse] âœ… Finalized transaction received (Hex), length:', finalTxHex.length);
         console.log('[signPSBTViaXverse] Transaction preview:', finalTxHex.substring(0, 50) + '...');
-        // Konvertiere Hex zu Base64 für Konsistenz
+        // Konvertiere Hex zu Base64 fÃ¼r Konsistenz
         const hexBytes = finalTxHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
         const binaryString = String.fromCharCode(...hexBytes);
         const finalTxBase64 = btoa(binaryString);
@@ -793,12 +833,12 @@ export const signPSBTViaXverse = async (
         throw new Error('Keine signierte PSBT oder finalisierte Transaction erhalten');
       }
 
-      console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
+      console.log('[signPSBTViaXverse] âœ… Signed PSBT received (Base64), length:', signedPsbtBase64.length);
       console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
-      console.log('[signPSBTViaXverse] ⚠️ PSBT is not finalized - will be finalized in backend');
+      console.log('[signPSBTViaXverse] âš ï¸ PSBT is not finalized - will be finalized in backend');
       
-      // WICHTIG: Xverse gibt Base64 zurück, aber das Backend erwartet möglicherweise Base64 oder Hex
-      // Lass uns Base64 zurückgeben, da das Backend Base64 besser handhaben kann
+      // WICHTIG: Xverse gibt Base64 zurÃ¼ck, aber das Backend erwartet mÃ¶glicherweise Base64 oder Hex
+      // Lass uns Base64 zurÃ¼ckgeben, da das Backend Base64 besser handhaben kann
       // Das Backend kann dann selbst entscheiden, ob es Base64 oder Hex ist
       return signedPsbtBase64;
     } else {
@@ -806,7 +846,7 @@ export const signPSBTViaXverse = async (
     }
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message.includes('rejected') || error.message.includes('USER_REJECTION'))) {
-      throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktion in Ihrem Wallet.');
+      throw new Error('Signatur abgelehnt. Bitte bestÃ¤tigen Sie die Transaktion in Ihrem Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Signieren der PSBT');
   }
@@ -828,7 +868,7 @@ export const signPSBT = async (
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
   } else {
-    // Für Xverse: Übergebe walletAddress für signInputs
+    // FÃ¼r Xverse: Ãœbergebe walletAddress fÃ¼r signInputs
     return await signPSBTViaXverse(psbtBase64, walletAddress);
   }
 };
@@ -849,13 +889,13 @@ export const signPsbtsViaUnisat = async (
 
   try {
     if (!window.unisat || typeof window.unisat.signPsbts !== 'function') {
-      throw new Error('UniSat Wallet unterstützt keine Batch-PSBT-Signatur. Bitte aktualisieren Sie Ihre Wallet-Extension.');
+      throw new Error('UniSat Wallet unterstÃ¼tzt keine Batch-PSBT-Signatur. Bitte aktualisieren Sie Ihre Wallet-Extension.');
     }
 
     // UniSat erwartet PSBTs als Hex-Array
     // Wenn psbtHexs Base64-Strings sind, konvertiere sie zu Hex
     const psbtHexsArray = psbtHexs.map(psbt => {
-      // Prüfe ob Base64 oder Hex
+      // PrÃ¼fe ob Base64 oder Hex
       if (psbt.length > 100 && !/^[0-9a-fA-F]+$/.test(psbt)) {
         // Wahrscheinlich Base64 - konvertiere zu Hex
         const binaryString = atob(psbt);
@@ -875,7 +915,7 @@ export const signPsbtsViaUnisat = async (
     return signedPsbtHexs;
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message?.includes('rejected'))) {
-      throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktionen in Ihrem Wallet.');
+      throw new Error('Signatur abgelehnt. Bitte bestÃ¤tigen Sie die Transaktionen in Ihrem Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Signieren der PSBTs');
   }
@@ -897,12 +937,12 @@ export const signPsbtsViaXverse = async (
     const satsConnect = await import('sats-connect');
     
     if (!satsConnect || !satsConnect.request) {
-      throw new Error('Sats Connect nicht verfügbar');
+      throw new Error('Sats Connect nicht verfÃ¼gbar');
     }
 
-    // Xverse signPsbt unterstützt nur einzelne PSBTs
+    // Xverse signPsbt unterstÃ¼tzt nur einzelne PSBTs
     // Fallback: Signiere sequenziell, aber informiere den Benutzer
-    console.warn('[Xverse] Batch-PSBT-Signatur nicht direkt unterstützt, signiere sequenziell...');
+    console.warn('[Xverse] Batch-PSBT-Signatur nicht direkt unterstÃ¼tzt, signiere sequenziell...');
     
     const signedPsbts: string[] = [];
     for (const psbtBase64 of psbtBase64s) {
@@ -920,7 +960,7 @@ export const signPsbtsViaXverse = async (
           throw new Error('Keine signierte PSBT erhalten');
         }
 
-        // Konvertiere Base64 zu Hex für Rückgabe (Browser-kompatibel)
+        // Konvertiere Base64 zu Hex fÃ¼r RÃ¼ckgabe (Browser-kompatibel)
         const binaryString = atob(signedPsbtBase64);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -938,7 +978,7 @@ export const signPsbtsViaXverse = async (
     return signedPsbts;
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message.includes('rejected') || error.message.includes('USER_REJECTION'))) {
-      throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktionen in Ihrem Wallet.');
+      throw new Error('Signatur abgelehnt. Bitte bestÃ¤tigen Sie die Transaktionen in Ihrem Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Signieren der PSBTs');
   }
@@ -957,7 +997,7 @@ export const signPsbts = async (
   autoFinalized: boolean = false
 ): Promise<string[]> => {
   if (walletType === 'unisat') {
-    // Für UniSat: Konvertiere Base64 zu Hex
+    // FÃ¼r UniSat: Konvertiere Base64 zu Hex
     const psbtHexs = psbtBase64s.map(psbtBase64 => {
       const binaryString = atob(psbtBase64);
       const bytes = new Uint8Array(binaryString.length);
@@ -988,14 +1028,14 @@ export const pushPsbtViaUnisat = async (
 
   try {
     if (!window.unisat || typeof window.unisat.pushPsbt !== 'function') {
-      throw new Error('UniSat Wallet unterstützt keine PSBT-Push-Funktion. Bitte aktualisieren Sie Ihre Wallet-Extension.');
+      throw new Error('UniSat Wallet unterstÃ¼tzt keine PSBT-Push-Funktion. Bitte aktualisieren Sie Ihre Wallet-Extension.');
     }
 
     const txid = await window.unisat.pushPsbt(psbtHex);
     return txid;
   } catch (error: any) {
     if (error.message && (error.message.includes('User rejected') || error.message?.includes('rejected'))) {
-      throw new Error('Push abgelehnt. Bitte bestätigen Sie die Transaktion in Ihrem Wallet.');
+      throw new Error('Push abgelehnt. Bitte bestÃ¤tigen Sie die Transaktion in Ihrem Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Pushen der PSBT');
   }
@@ -1014,9 +1054,9 @@ export const pushPsbt = async (
   if (walletType === 'unisat') {
     return await pushPsbtViaUnisat(psbtHex);
   } else {
-    // Xverse unterstützt pushPsbt nicht direkt
-    // Fallback: Verwende Broadcast über Backend
-    throw new Error('Xverse unterstützt pushPsbt nicht direkt. Bitte verwenden Sie das Backend-Broadcast.');
+    // Xverse unterstÃ¼tzt pushPsbt nicht direkt
+    // Fallback: Verwende Broadcast Ã¼ber Backend
+    throw new Error('Xverse unterstÃ¼tzt pushPsbt nicht direkt. Bitte verwenden Sie das Backend-Broadcast.');
   }
 };
 
