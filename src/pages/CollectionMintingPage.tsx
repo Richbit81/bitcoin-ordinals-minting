@@ -4,6 +4,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { getCollection, Collection, CollectionItem } from '../services/collectionService';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { getUnisatTaprootAddress } from '../utils/wallet';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
@@ -55,7 +56,43 @@ export const CollectionMintingPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    // WICHTIG: Für UniSat Wallet immer Taproot-Adresse (bc1p...) verwenden!
+
+
+    // Für Inskriptionen sollte immer eine Taproot-Adresse verwendet werden, nicht Legacy (1... oder 3...)
+
+
+    let userAddress = walletState.accounts[0].address;
+
+
+    
+
+
+    if (walletState.walletType === 'unisat') {
+
+
+      const taprootAddress = await getUnisatTaprootAddress();
+
+
+      if (taprootAddress) {
+
+
+        userAddress = taprootAddress;
+
+
+        console.log('[CollectionMintingPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
+
+
+      } else {
+
+
+        console.warn('[CollectionMintingPage] ⚠️ Konnte keine Taproot-Adresse finden, verwende aktuelle Adresse:', userAddress);
+
+
+      }
+
+
+    }
     
     // Für Random Mint: Wähle zufälliges Item
     let itemToMint: CollectionItem | undefined;

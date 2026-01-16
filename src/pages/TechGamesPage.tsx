@@ -177,7 +177,19 @@ export const TechGamesPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    // WICHTIG: Für UniSat Wallet immer Taproot-Adresse (bc1p...) verwenden!
+    // Für Inskriptionen sollte immer eine Taproot-Adresse verwendet werden, nicht Legacy (1... oder 3...)
+    let userAddress = walletState.accounts[0].address;
+    
+    if (walletState.walletType === 'unisat') {
+      const taprootAddress = await getUnisatTaprootAddress();
+      if (taprootAddress) {
+        userAddress = taprootAddress;
+        console.log('[TechGamesPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
+      } else {
+        console.warn('[TechGamesPage] ⚠️ Konnte keine Taproot-Adresse finden, verwende aktuelle Adresse:', userAddress);
+      }
+    }
     setMintingStatus({ status: 'in-progress', progress: 10, message: 'Starting minting process...' });
 
     try {
