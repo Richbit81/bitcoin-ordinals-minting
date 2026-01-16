@@ -224,6 +224,7 @@ export const getUnisatAccounts = async (): Promise<WalletAccount[]> => {
   } catch {
     return [];
   }
+};
 
 /**
  * Gibt die Taproot-Adresse (bc1p...) vom UniSat Wallet zurück.
