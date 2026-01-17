@@ -84,6 +84,15 @@ export const waitForXverse = (timeout = 3000): Promise<boolean> => {
   });
 };
 
+// Helper-Funktion: Bestimme den Adresstyp
+const getAddressType = (address: string): string => {
+  if (address.startsWith('bc1p')) return 'Taproot';
+  if (address.startsWith('bc1q')) return 'Native SegWit';
+  if (address.startsWith('3')) return 'Nested SegWit';
+  if (address.startsWith('1')) return 'Legacy';
+  return 'Unbekannt';
+};
+
 export const connectUnisat = async (): Promise<WalletAccount[]> => {
   if (!isUnisatInstalled()) {
     throw new Error('UniSat Wallet is not installed. Please install the UniSat browser extension.');
@@ -100,6 +109,28 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
     if (!accounts || accounts.length === 0) {
       throw new Error('No accounts returned. Please unlock your UniSat Wallet and try again.');
     }
+
+    // ✅ KRITISCH: Prüfe sofort, ob es eine Taproot-Adresse ist
+    const firstAddress = accounts[0];
+    if (!firstAddress.startsWith('bc1p')) {
+      const addressType = getAddressType(firstAddress);
+      console.error(`[UniSat] ❌ Falsche Adresse! Typ: ${addressType}, Adresse: ${firstAddress}`);
+      throw new Error(
+        `⚠️ Falsche Adresse!\n\n` +
+        `UniSat ist mit einer ${addressType}-Adresse verbunden.\n` +
+        `Für Ordinal-Inscriptions benötigen Sie eine Taproot-Adresse (bc1p...).\n\n` +
+        `➡️ So beheben Sie das Problem:\n` +
+        `1. Öffnen Sie das UniSat Wallet (Browser-Extension)\n` +
+        `2. Klicken Sie oben auf den Account-Namen\n` +
+        `3. Wählen Sie die Taproot-Adresse (bc1p...)\n` +
+        `4. Oder: Settings → Address Type → Taproot\n` +
+        `5. Verbinden Sie das Wallet erneut\n\n` +
+        `💡 Hinweis: Die Zahlung kann trotzdem von jeder Adresse erfolgen. ` +
+        `Nur die Inscription muss an eine Taproot-Adresse gesendet werden.`
+      );
+    }
+
+    console.log(`[UniSat] ✅ Taproot-Adresse verbunden: ${firstAddress}`);
 
     const network = await window.unisat.getNetwork();
     
@@ -247,17 +278,28 @@ export const getUnisatTaprootAddress = async (): Promise<string | null> => {
       return taprootAddress;
     }
     
-    // Falls keine Taproot-Adresse gefunden, NICHT auf andere Adressen zurückfallen!
-    console.error('[UniSat] ❌ Keine Taproot-Adresse (bc1p...) gefunden!');
-    console.error('[UniSat] ❌ Verfügbare Adressen:', accounts);
-    console.error('[UniSat] ❌ Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse!');
-    console.error('[UniSat] ❌ Ordinal-Inscriptions müssen an eine Taproot-Adresse gesendet werden!');
+    // ❌ KEINE Legacy-Adresse als Fallback - werfe klaren Fehler!
+    const currentAddress = accounts[0];
+    const addressType = getAddressType(currentAddress);
     
-    // WICHTIG: Werfe einen Fehler statt eine falsche Adresse zu verwenden!
-    throw new Error('Keine Taproot-Adresse gefunden! Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse (bc1p...) für Ordinal-Inscriptions.');
+    console.error('[UniSat] ❌ Keine Taproot-Adresse gefunden!');
+    console.error('[UniSat] ❌ Aktuell verbunden mit:', addressType, currentAddress);
+    console.error('[UniSat] ❌ Verfügbare Adressen:', accounts);
+    
+    throw new Error(
+      `❌ Keine Taproot-Adresse gefunden!\n\n` +
+      `Aktuell verbunden mit: ${addressType}-Adresse\n` +
+      `${currentAddress}\n\n` +
+      `Ordinal-Inscriptions benötigen eine Taproot-Adresse (bc1p...).\n\n` +
+      `➡️ So beheben Sie das Problem:\n` +
+      `1. Öffnen Sie das UniSat Wallet\n` +
+      `2. Wechseln Sie zur Taproot-Adresse (bc1p...)\n` +
+      `3. Versuchen Sie es erneut\n\n` +
+      `💡 Hinweis: Die Zahlung kann trotzdem von jeder Adresse erfolgen.`
+    );
   } catch (error: any) {
     console.error('[UniSat] Fehler beim Abrufen der Taproot-Adresse:', error);
-    return null;
+    throw error; // Weitergeben statt null zurückgeben
   }
 };
 
