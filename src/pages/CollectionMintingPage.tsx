@@ -4,7 +4,6 @@ import { useWallet } from '../contexts/WalletContext';
 import { getCollection, Collection, CollectionItem } from '../services/collectionService';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { createSingleDelegate } from '../services/collectionMinting';
-import { getUnisatTaprootAddress } from '../utils/wallet';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
@@ -63,34 +62,28 @@ export const CollectionMintingPage: React.FC = () => {
 
 
     // WICHTIG: Inscription muss immer an die richtige Adresse gehen
-    // - UniSat: Taproot-Adresse (bc1p...) bevorzugt
-    // - Xverse: Ordinals-Adresse (Taproot) für Inscriptions, Payment-Adresse für Zahlung
+    // Beide Wallets: Suche nach Ordinals-Adresse (Taproot), fallback zur ersten Adresse
     let userAddress = walletState.accounts[0].address;
 
-    if (walletState.walletType === 'unisat') {
-      const address = await getUnisatTaprootAddress();
-      if (address) {
-        userAddress = address;
-        console.log('[CollectionMintingPage] ✅ UniSat - Verwende Adresse für Inscription:', userAddress);
-      }
-    } else if (walletState.walletType === 'xverse') {
-      // ✅ Für Xverse: Verwende Ordinals-Adresse (Taproot) für Inscription
-      const ordinalsAccount = walletState.accounts.find(acc => 
-        acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-      );
-      
-      if (ordinalsAccount) {
-        userAddress = ordinalsAccount.address;
-        console.log('[CollectionMintingPage] ✅ Xverse - Verwende Ordinals-Adresse für Inscription:', userAddress);
-      } else {
-        console.warn('[CollectionMintingPage] ⚠️ Xverse - Keine Ordinals-Adresse gefunden, verwende:', userAddress);
-      }
-      
-      // Payment erfolgt automatisch von Payment-Adresse (Xverse handled das intern)
-      const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
-      if (paymentAccount) {
-        console.log('[CollectionMintingPage] 💰 Xverse - Payment kommt von:', paymentAccount.address);
-      }
+    // Suche nach Ordinals-Adresse (für beide Wallet-Typen)
+    const ordinalsAccount = walletState.accounts.find(acc => 
+      acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
+    );
+    
+    if (ordinalsAccount) {
+      userAddress = ordinalsAccount.address;
+      console.log(`[CollectionMintingPage] ✅ ${walletState.walletType?.toUpperCase()} - Verwende Ordinals-Adresse (Taproot) für Inscription:`, userAddress);
+    } else {
+      const addressType = userAddress.startsWith('bc1p') ? 'Taproot' :
+                          userAddress.startsWith('bc1q') ? 'SegWit' :
+                          userAddress.startsWith('3') ? 'Nested SegWit' : 'Legacy';
+      console.warn(`[CollectionMintingPage] ⚠️ ${walletState.walletType?.toUpperCase()} - Keine Taproot-Adresse! Verwende ${addressType}:`, userAddress);
+    }
+    
+    // Zeige Payment-Adresse (falls vorhanden)
+    const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
+    if (paymentAccount) {
+      console.log(`[CollectionMintingPage] 💰 ${walletState.walletType?.toUpperCase()} - Payment kommt von:`, paymentAccount.address);
     }
     
     // Für Random Mint: Wähle zufälliges Item
