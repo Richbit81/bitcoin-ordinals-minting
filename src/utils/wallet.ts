@@ -247,19 +247,14 @@ export const getUnisatTaprootAddress = async (): Promise<string | null> => {
       return taprootAddress;
     }
     
-    // Falls keine Taproot-Adresse gefunden, prüfe alle Adressen
-    console.warn('[UniSat] ⚠️ Keine Taproot-Adresse (bc1p...) gefunden!');
-    console.warn('[UniSat] ⚠️ Verfügbare Adressen:', accounts);
-    console.warn('[UniSat] ⚠️ Für Inskriptionen sollte eine Taproot-Adresse verwendet werden!');
-    console.warn('[UniSat] ⚠️ Bitte wechseln Sie zur Taproot-Adresse im UniSat Wallet!');
+    // Falls keine Taproot-Adresse gefunden, NICHT auf andere Adressen zurückfallen!
+    console.error('[UniSat] ❌ Keine Taproot-Adresse (bc1p...) gefunden!');
+    console.error('[UniSat] ❌ Verfügbare Adressen:', accounts);
+    console.error('[UniSat] ❌ Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse!');
+    console.error('[UniSat] ❌ Ordinal-Inscriptions müssen an eine Taproot-Adresse gesendet werden!');
     
-    // Gib die erste Adresse zurück (falls vorhanden)
-    if (accounts.length > 0) {
-      console.warn(`[UniSat] ⚠️ Verwende stattdessen: ${accounts[0]}`);
-      return accounts[0];
-    }
-    
-    return null;
+    // WICHTIG: Werfe einen Fehler statt eine falsche Adresse zu verwenden!
+    throw new Error('Keine Taproot-Adresse gefunden! Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse (bc1p...) für Ordinal-Inscriptions.');
   } catch (error: any) {
     console.error('[UniSat] Fehler beim Abrufen der Taproot-Adresse:', error);
     return null;
