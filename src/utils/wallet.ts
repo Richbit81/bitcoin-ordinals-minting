@@ -145,17 +145,20 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
       
       // Schritt 3: Frage nach Taproot-Adresse
       const shouldGetTaproot = confirm(
-        `🔔 UniSat Wallet Setup\n\n` +
-        `✅ Verbunden: ${currentAddressType}-Adresse\n` +
+        `🔔 UniSat Wallet Setup - WICHTIG!\n\n` +
+        `✅ Aktuell verbunden: ${currentAddressType}-Adresse\n` +
         `   ${currentAddress}\n\n` +
         `⚠️ Für Ordinals-Inscriptions wird eine Taproot-Adresse (bc1p...) benötigt.\n\n` +
-        `📋 ANLEITUNG:\n` +
-        `1. Klicke "OK"\n` +
+        `📋 SETUP-ANLEITUNG:\n` +
+        `1. Klicke "OK" um fortzufahren\n` +
         `2. Öffne UniSat Wallet → Settings → Address Type\n` +
         `3. Wähle "Taproot (P2TR)"\n` +
         `4. Akzeptiere die Verbindung erneut\n` +
-        `5. Fertig! Du kannst danach zurück zu ${currentAddressType} wechseln\n\n` +
-        `💡 Payment erfolgt von ${currentAddressType}, Inscriptions gehen an Taproot.\n\n` +
+        `5. Taproot-Adresse wird gespeichert ✅\n\n` +
+        `💰 WICHTIG FÜR PAYMENTS:\n` +
+        `Danach WECHSLE ZURÜCK zur ${currentAddressType}-Adresse!\n` +
+        `→ Payment muss von der Adresse kommen, wo dein BTC ist\n` +
+        `→ Inscription geht automatisch an Taproot ✅\n\n` +
         `Möchtest du jetzt die Taproot-Adresse hinzufügen?`
       );
       
@@ -491,16 +494,33 @@ export const sendBitcoinViaUnisat = async (
     }
     
     // WICHTIG: Prüfe ALLE UTXOs über alle Adressen für bessere Fehlermeldungen
+    // ⚠️ Dies ist nur informativ - UniSat kann automatisch von allen Adressen ziehen!
     try {
       const allUtxos = await window.unisat!.getBitcoinUtxos();
-      const totalBalance = allUtxos
-        .filter((utxo: any) => !utxo.inscriptions || utxo.inscriptions.length === 0)
-        .reduce((sum: number, utxo: any) => sum + utxo.satoshi, 0);
       
-      console.log(`[UniSat] 💰 Total balance across all addresses: ${totalBalance} sats (${(totalBalance / 100000000).toFixed(8)} BTC)`);
-      console.log(`[UniSat] 💸 Required: ${amountInSats} sats (${amount.toFixed(8)} BTC)`);
+      if (!Array.isArray(allUtxos)) {
+        console.warn('[UniSat] ⚠️ getBitcoinUtxos() returned unexpected format:', typeof allUtxos);
+      } else {
+        // Berechne Gesamt-Balance (ohne Inscriptions)
+        const totalBalance = allUtxos
+          .filter((utxo: any) => !utxo.inscriptions || utxo.inscriptions.length === 0)
+          .reduce((sum: number, utxo: any) => {
+            const utxoValue = utxo.satoshi || utxo.satoshis || utxo.value || 0;
+            return sum + (typeof utxoValue === 'number' ? utxoValue : 0);
+          }, 0);
+        
+        if (!isNaN(totalBalance) && totalBalance > 0) {
+          console.log(`[UniSat] 💰 Total balance across all addresses: ${totalBalance} sats (${(totalBalance / 100000000).toFixed(8)} BTC)`);
+          console.log(`[UniSat] 💸 Required: ${amountInSats} sats (${amount.toFixed(8)} BTC)`);
+          console.log(`[UniSat] ℹ️ UniSat kann automatisch von ALLEN Adressen im Wallet ziehen (Legacy, SegWit, Taproot)`);
+        } else {
+          console.warn('[UniSat] ⚠️ Could not calculate total balance (NaN or 0)');
+          console.warn('[UniSat] ℹ️ UniSat sendBitcoin() wird trotzdem versuchen, von verfügbaren Adressen zu ziehen');
+        }
+      }
     } catch (utxoError) {
       console.warn('[UniSat] ⚠️ Could not fetch UTXOs for balance check:', utxoError);
+      console.warn('[UniSat] ℹ️ UniSat sendBitcoin() wird trotzdem versuchen, von verfügbaren Adressen zu ziehen');
     }
     
     // WICHTIG: UniSat sendBitcoin erwartet den Betrag in SATOSHI, nicht BTC!
@@ -537,8 +557,42 @@ export const sendBitcoinViaUnisat = async (
       error: error ? JSON.stringify(error, Object.getOwnPropertyNames(error), 2) : 'null/undefined'
     });
     
-    // Verbesserte Fehlermeldung
+    // Verbesserte Fehlermeldung für "User rejected"
+    // WICHTIG: Code 4001 kann auch bedeuten, dass UniSat "Insufficient balance" anzeigt!
     if (error?.message?.includes('User rejected') || error?.message?.includes('USER_REJECTION') || error?.code === 4001) {
+      // Prüfe welche Adresse aktuell verbunden ist
+      let detailedError: Error | null = null;
+      try {
+        const currentAccounts = await window.unisat!.getAccounts();
+        const currentAddress = currentAccounts[0];
+        const addressType = getAddressType(currentAddress);
+        
+        // Wenn Taproot verbunden ist, könnte das Problem sein, dass Geld auf Legacy ist
+        if (addressType !== 'Legacy') {
+          detailedError = new Error(
+            `❌ Payment abgelehnt oder Insufficient Balance!\n\n` +
+            `🔍 Aktuell verbunden: ${addressType}-Adresse\n` +
+            `   ${currentAddress}\n\n` +
+            `💡 LÖSUNG:\n` +
+            `Wenn dein BTC auf einer anderen Adresse ist (z.B. Legacy),\n` +
+            `musst du MIT DIESER ADRESSE verbinden für das Payment!\n\n` +
+            `📋 SO GEHT'S:\n` +
+            `1. Öffne UniSat Wallet → Settings → Address Type\n` +
+            `2. Wechsle zur Adresse WO DEIN BTC IST (Legacy/SegWit)\n` +
+            `3. Akzeptiere die neue Verbindung\n` +
+            `4. Versuche das Payment erneut\n\n` +
+            `✅ Die Inscription geht trotzdem an deine Taproot-Adresse!`
+          );
+        }
+      } catch (checkError) {
+        // Fallback zur generischen Meldung unten
+      }
+      
+      // Werfe detaillierte Meldung falls vorhanden, sonst generisch
+      if (detailedError) {
+        throw detailedError;
+      }
+      
       throw new Error('Payment was cancelled. Please approve the transaction in your UniSat wallet.');
     }
     
