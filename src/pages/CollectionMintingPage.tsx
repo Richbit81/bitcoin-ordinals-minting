@@ -62,17 +62,34 @@ export const CollectionMintingPage: React.FC = () => {
     // Für Inskriptionen sollte immer eine Taproot-Adresse verwendet werden, nicht Legacy (1... oder 3...)
 
 
+    // WICHTIG: Inscription muss immer an die richtige Adresse gehen
+    // - UniSat: Taproot-Adresse (bc1p...) bevorzugt
+    // - Xverse: Ordinals-Adresse (Taproot) für Inscriptions, Payment-Adresse für Zahlung
     let userAddress = walletState.accounts[0].address;
-
-
-    
-
 
     if (walletState.walletType === 'unisat') {
       const address = await getUnisatTaprootAddress();
       if (address) {
         userAddress = address;
-        console.log('[CollectionMintingPage] ✅ Verwende Adresse für Inskription:', userAddress);
+        console.log('[CollectionMintingPage] ✅ UniSat - Verwende Adresse für Inscription:', userAddress);
+      }
+    } else if (walletState.walletType === 'xverse') {
+      // ✅ Für Xverse: Verwende Ordinals-Adresse (Taproot) für Inscription
+      const ordinalsAccount = walletState.accounts.find(acc => 
+        acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
+      );
+      
+      if (ordinalsAccount) {
+        userAddress = ordinalsAccount.address;
+        console.log('[CollectionMintingPage] ✅ Xverse - Verwende Ordinals-Adresse für Inscription:', userAddress);
+      } else {
+        console.warn('[CollectionMintingPage] ⚠️ Xverse - Keine Ordinals-Adresse gefunden, verwende:', userAddress);
+      }
+      
+      // Payment erfolgt automatisch von Payment-Adresse (Xverse handled das intern)
+      const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
+      if (paymentAccount) {
+        console.log('[CollectionMintingPage] 💰 Xverse - Payment kommt von:', paymentAccount.address);
       }
     }
     

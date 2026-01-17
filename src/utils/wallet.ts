@@ -187,43 +187,45 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
 
       const accounts: WalletAccount[] = [];
       
-      // Finde Ordinals-Adresse (bc1p...)
+      // Finde Ordinals-Adresse (bc1p... - Taproot)
       const ordinalsAddress = addresses.find(
         (addr: any) => addr.purpose === 'ordinals'
       );
       
-      // Finde Payment-Adresse (falls benötigt)
+      // Finde Payment-Adresse (für UTXOs/Zahlung)
       const paymentAddress = addresses.find(
         (addr: any) => addr.purpose === 'payment'
       );
 
+      // ✅ WICHTIG: Füge BEIDE Adressen hinzu (Ordinals ZUERST für receiveAddress)
       if (ordinalsAddress && ordinalsAddress.address) {
         accounts.push({
           address: ordinalsAddress.address,
-          publicKey: ordinalsAddress.publicKey
+          publicKey: ordinalsAddress.publicKey,
+          purpose: 'ordinals'
         });
+        console.log('[Xverse] ✅ Ordinals-Adresse:', ordinalsAddress.address);
       }
       
-      if (paymentAddress && paymentAddress.address && 
-          paymentAddress.address !== ordinalsAddress?.address) {
+      if (paymentAddress && paymentAddress.address) {
         accounts.push({
           address: paymentAddress.address,
-          publicKey: paymentAddress.publicKey
+          publicKey: paymentAddress.publicKey,
+          purpose: 'payment'
         });
+        console.log('[Xverse] ✅ Payment-Adresse:', paymentAddress.address);
       }
 
       if (accounts.length === 0) {
         throw new Error('No valid addresses found. Please ensure your Xverse Wallet has Ordinals addresses set up.');
       }
 
-      // Filtere nur Taproot-Adressen (bc1p...)
-      const taprootAccounts = accounts.filter(acc => acc.address && acc.address.startsWith('bc1p'));
-      
-      if (taprootAccounts.length === 0 && accounts.length > 0) {
-        throw new Error('No Taproot addresses found. Please set up a Taproot address (bc1p...) in your Xverse Wallet.');
-      }
+      // ✅ INFO: Gebe BEIDE Adressen zurück (nicht filtern!)
+      console.log('[Xverse] ✅ Verbunden mit', accounts.length, 'Adresse(n)');
+      console.log('[Xverse] 💰 Payment wird automatisch von Payment-Adresse gezogen');
+      console.log('[Xverse] 🎯 Inscriptions gehen an Ordinals-Adresse (Taproot)');
 
-      return taprootAccounts.length > 0 ? taprootAccounts : accounts;
+      return accounts;
     } else {
       // Fehlerbehandlung
       if (response.error?.code === 'USER_REJECTION') {
@@ -700,8 +702,12 @@ export const sendBitcoinViaXverse = async (
   }
 
   try {
-    console.log('Sending Bitcoin via Xverse...');
-    console.log('To:', to, 'Amount:', amount, 'BTC');
+    // Konvertiere BTC zu Satoshi
+    const satoshiAmount = Math.round(amount * 100000000);
+    
+    console.log('🌐 Sending Bitcoin via Xverse...');
+    console.log('   To:', to);
+    console.log('   Amount:', amount, 'BTC (', satoshiAmount, 'sats)');
     
     // Versuche zuerst sats-connect, dann direkte API
     let response: any;
@@ -711,9 +717,8 @@ export const sendBitcoinViaXverse = async (
       const satsConnect = await import('sats-connect');
       
       if (satsConnect && satsConnect.request) {
-        // Konvertiere BTC zu Satoshi (1 BTC = 100,000,000 Satoshi)
-        const satoshiAmount = Math.round(amount * 100000000);
-
+        console.log('   🔧 Verwende sats-connect API');
+        
         // Versuche sendTransfer über sats-connect
         // Für sats-connect könnte es als String oder Number funktionieren, aber probieren wir Number zuerst
         response = await satsConnect.request('sendTransfer', {
@@ -728,27 +733,26 @@ export const sendBitcoinViaXverse = async (
           }
         });
         
-        console.log('Xverse sendTransfer (sats-connect) response:', response);
+        console.log('   ✅ Xverse sendTransfer (sats-connect) response:', response);
         
         if (response.status === 'success') {
           const txid = response.result?.txid || response.result?.txId || response.txid;
           if (txid) {
+            console.log('   🎉 Transaction broadcast! TX ID:', txid);
             return txid;
           }
         }
       }
     } catch (satsConnectError) {
-      console.warn('sats-connect sendTransfer failed, trying direct API:', satsConnectError);
+      console.warn('   ⚠️ sats-connect sendTransfer failed, trying direct API:', satsConnectError);
     }
     
     // Fallback: Direkte Xverse API
+    console.log('   🔧 Verwende direkte Xverse Provider API');
     const provider = window.BitcoinProvider || window.xverse;
     if (!provider || !provider.request) {
       throw new Error('Xverse Provider API nicht verfügbar');
     }
-    
-    // Konvertiere BTC zu Satoshi
-    const satoshiAmount = Math.round(amount * 100000000);
     
     // WICHTIG: amount muss als NUMBER gesendet werden, nicht als String!
     response = await provider.request('sendTransfer', {
@@ -760,7 +764,7 @@ export const sendBitcoinViaXverse = async (
       ]
     });
 
-    console.log('Xverse sendTransfer (direct API) response:', response);
+    console.log('   ✅ Xverse sendTransfer (direct API) response:', response);
 
     // Prüfe auf Fehler in der Response
     if (response?.error) {
@@ -768,6 +772,9 @@ export const sendBitcoinViaXverse = async (
       const errorMessage = response.error.message || '';
       
       if (errorCode === -32603 && errorMessage.includes('Insufficient balance')) {
+        console.error('   ❌ Insufficient balance!');
+        console.error('   💰 Hinweis: Xverse verwendet die Payment-Adresse für Zahlungen');
+        console.error('   💡 Stellen Sie sicher, dass Ihre Payment-Adresse genug BTC hat');
         throw new Error('Insufficient balance. Your Xverse wallet does not have enough Bitcoin to complete this transaction. Please add more Bitcoin to your wallet and try again.');
       }
       

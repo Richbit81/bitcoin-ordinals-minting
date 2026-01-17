@@ -178,15 +178,34 @@ export const TechGamesPage: React.FC = () => {
       return;
     }
 
-    // WICHTIG: Für UniSat Wallet bevorzugt Taproot-Adresse (bc1p...) verwenden
-    // Taproot wird empfohlen für niedrigere Gebühren und bessere Kompatibilität
+    // WICHTIG: Inscription muss immer an die richtige Adresse gehen
+    // - UniSat: Taproot-Adresse (bc1p...) bevorzugt
+    // - Xverse: Ordinals-Adresse (Taproot) für Inscriptions, Payment-Adresse für Zahlung
     let userAddress = walletState.accounts[0].address;
     
     if (walletState.walletType === 'unisat') {
       const address = await getUnisatTaprootAddress();
       if (address) {
         userAddress = address;
-        console.log('[TechGamesPage] ✅ Verwende Adresse für Inskription:', userAddress);
+        console.log('[TechGamesPage] ✅ UniSat - Verwende Adresse für Inscription:', userAddress);
+      }
+    } else if (walletState.walletType === 'xverse') {
+      // ✅ Für Xverse: Verwende Ordinals-Adresse (Taproot) für Inscription
+      const ordinalsAccount = walletState.accounts.find(acc => 
+        acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
+      );
+      
+      if (ordinalsAccount) {
+        userAddress = ordinalsAccount.address;
+        console.log('[TechGamesPage] ✅ Xverse - Verwende Ordinals-Adresse für Inscription:', userAddress);
+      } else {
+        console.warn('[TechGamesPage] ⚠️ Xverse - Keine Ordinals-Adresse gefunden, verwende:', userAddress);
+      }
+      
+      // Payment erfolgt automatisch von Payment-Adresse (Xverse handled das intern)
+      const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
+      if (paymentAccount) {
+        console.log('[TechGamesPage] 💰 Xverse - Payment kommt von:', paymentAccount.address);
       }
     }
     

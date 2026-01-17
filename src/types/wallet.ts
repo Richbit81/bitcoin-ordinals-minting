@@ -1,6 +1,7 @@
 export interface WalletAccount {
   address: string;
   publicKey?: string;
+  purpose?: 'ordinals' | 'payment'; // Xverse: unterscheidet zwischen Ordinals- und Payment-Adresse
 }
 
 export type WalletType = 'unisat' | 'xverse' | null;
