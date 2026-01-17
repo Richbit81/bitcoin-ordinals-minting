@@ -393,6 +393,19 @@ export const sendBitcoinViaUnisat = async (
       throw new Error(`Invalid satoshi amount: ${amountInSats}. Must be a positive integer. Original amount: ${amount} BTC`);
     }
     
+    // WICHTIG: Prüfe ALLE UTXOs über alle Adressen für bessere Fehlermeldungen
+    try {
+      const allUtxos = await window.unisat!.getBitcoinUtxos();
+      const totalBalance = allUtxos
+        .filter((utxo: any) => !utxo.inscriptions || utxo.inscriptions.length === 0)
+        .reduce((sum: number, utxo: any) => sum + utxo.satoshi, 0);
+      
+      console.log(`[UniSat] 💰 Total balance across all addresses: ${totalBalance} sats (${(totalBalance / 100000000).toFixed(8)} BTC)`);
+      console.log(`[UniSat] 💸 Required: ${amountInSats} sats (${amount.toFixed(8)} BTC)`);
+    } catch (utxoError) {
+      console.warn('[UniSat] ⚠️ Could not fetch UTXOs for balance check:', utxoError);
+    }
+    
     // WICHTIG: UniSat sendBitcoin erwartet den Betrag in SATOSHI, nicht BTC!
     // Laut UniSat-Dokumentation: sendBitcoin(toAddress: string, satoshis: number)
     console.log('[UniSat] Calling sendBitcoin with satoshis:', { to, satoshis: amountInSats, addressLength: to.length, addressValid: to.length >= 26 });
@@ -432,8 +445,68 @@ export const sendBitcoinViaUnisat = async (
       throw new Error('Payment was cancelled. Please approve the transaction in your UniSat wallet.');
     }
     
+    // ERWEITERTE INSUFFICIENT BALANCE FEHLERMELDUNG
     if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
-      throw new Error(`Insufficient balance. Your UniSat wallet does not have enough Bitcoin to complete this transaction. Required: ${amount} BTC + transaction fees.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt, müssen Sie möglicherweise:\n1. Die SegWit-Adresse im UniSat Wallet auswählen\n2. Oder sicherstellen, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben aller Adressen verwenden, aber manchmal funktioniert das nicht korrekt.`);
+      try {
+        // Hole alle UTXOs für detaillierte Analyse
+        const allUtxos = await window.unisat!.getBitcoinUtxos();
+        const utxosByAddress: Record<string, { sats: number; count: number; hasInscriptions: boolean }> = {};
+        
+        allUtxos.forEach((utxo: any) => {
+          const addr = utxo.address;
+          if (!utxosByAddress[addr]) {
+            utxosByAddress[addr] = { sats: 0, count: 0, hasInscriptions: false };
+          }
+          // Nur UTXOs ohne Inscriptions zählen
+          if (!utxo.inscriptions || utxo.inscriptions.length === 0) {
+            utxosByAddress[addr].sats += utxo.satoshi;
+          } else {
+            utxosByAddress[addr].hasInscriptions = true;
+          }
+          utxosByAddress[addr].count++;
+        });
+        
+        let errorMsg = `❌ Insufficient balance on connected address.\n\n`;
+        errorMsg += `📊 Your wallet has Bitcoin on multiple addresses:\n\n`;
+        
+        Object.entries(utxosByAddress).forEach(([addr, info]) => {
+          const addrType = getAddressType(addr);
+          const btcAmount = (info.sats / 100000000).toFixed(8);
+          const inscriptionNote = info.hasInscriptions ? ' (⚠️ has inscriptions)' : '';
+          errorMsg += `  ${addrType}: ${btcAmount} BTC${inscriptionNote}\n`;
+          errorMsg += `    ${addr.substring(0, 12)}...${addr.substring(addr.length - 8)}\n\n`;
+        });
+        
+        errorMsg += `⚠️ UniSat kann nur von der aktuell verbundenen Adresse senden.\n\n`;
+        errorMsg += `💡 LÖSUNG (2 Möglichkeiten):\n\n`;
+        errorMsg += `Option 1 (Empfohlen):\n`;
+        errorMsg += `1. Öffnen Sie das UniSat Wallet\n`;
+        errorMsg += `2. Wechseln Sie zur Adresse mit Guthaben (z.B. Legacy/SegWit)\n`;
+        errorMsg += `3. Führen Sie die Zahlung durch\n`;
+        errorMsg += `4. Wechseln Sie zurück zur Taproot-Adresse\n`;
+        errorMsg += `5. Die Inscription wird trotzdem an Taproot gesendet! ✅\n\n`;
+        errorMsg += `Option 2:\n`;
+        errorMsg += `1. Senden Sie Bitcoin von Ihrer anderen Adresse zur Taproot-Adresse\n`;
+        errorMsg += `2. Versuchen Sie es erneut\n`;
+        
+        throw new Error(errorMsg);
+      } catch (detailError: any) {
+        // Falls getBitcoinUtxos fehlschlägt, normale Fehlermeldung
+        if (detailError.message && detailError.message.includes('Insufficient balance')) {
+          throw detailError; // Werfe die detaillierte Fehlermeldung von oben
+        }
+        
+        throw new Error(
+          `❌ Insufficient balance.\n\n` +
+          `⚠️ Ihr Guthaben liegt möglicherweise auf einer anderen Adresse.\n\n` +
+          `💡 LÖSUNG:\n` +
+          `1. Öffnen Sie das UniSat Wallet\n` +
+          `2. Wechseln Sie zur Adresse mit Guthaben (z.B. Legacy/SegWit)\n` +
+          `3. Führen Sie die Zahlung durch\n` +
+          `4. Wechseln Sie zurück zur Taproot-Adresse\n` +
+          `5. Die Inscription wird trotzdem an Taproot gesendet! ✅`
+        );
+      }
     }
 
     // Prüfe auf "can not read properties" oder ähnliche Fehler
