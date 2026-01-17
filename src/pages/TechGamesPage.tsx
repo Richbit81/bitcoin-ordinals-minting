@@ -183,14 +183,22 @@ export const TechGamesPage: React.FC = () => {
     let userAddress = walletState.accounts[0].address;
     
     if (walletState.walletType === 'unisat') {
-      const taprootAddress = await getUnisatTaprootAddress();
-      if (taprootAddress) {
-        userAddress = taprootAddress;
-        console.log('[TechGamesPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
-      } else {
-        console.warn('[TechGamesPage] ⚠️ Konnte keine Taproot-Adresse finden, verwende aktuelle Adresse:', userAddress);
+      try {
+        const taprootAddress = await getUnisatTaprootAddress();
+        if (taprootAddress) {
+          userAddress = taprootAddress;
+          console.log('[TechGamesPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
+        }
+      } catch (error: any) {
+        console.error('[TechGamesPage] ❌ Fehler beim Abrufen der Taproot-Adresse:', error);
+        setMintingStatus({ 
+          status: 'error', 
+          message: error.message || 'Fehler beim Abrufen der Taproot-Adresse. Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse und versuchen Sie es erneut.'
+        });
+        return;
       }
     }
+    
     setMintingStatus({ status: 'in-progress', progress: 10, message: 'Starting minting process...' });
 
     try {

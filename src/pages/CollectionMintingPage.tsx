@@ -69,29 +69,20 @@ export const CollectionMintingPage: React.FC = () => {
 
 
     if (walletState.walletType === 'unisat') {
-
-
-      const taprootAddress = await getUnisatTaprootAddress();
-
-
-      if (taprootAddress) {
-
-
-        userAddress = taprootAddress;
-
-
-        console.log('[CollectionMintingPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
-
-
-      } else {
-
-
-        console.warn('[CollectionMintingPage] ⚠️ Konnte keine Taproot-Adresse finden, verwende aktuelle Adresse:', userAddress);
-
-
+      try {
+        const taprootAddress = await getUnisatTaprootAddress();
+        if (taprootAddress) {
+          userAddress = taprootAddress;
+          console.log('[CollectionMintingPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
+        }
+      } catch (error: any) {
+        console.error('[CollectionMintingPage] ❌ Fehler beim Abrufen der Taproot-Adresse:', error);
+        setMintingStatus({ 
+          status: 'error', 
+          message: error.message || 'Fehler beim Abrufen der Taproot-Adresse. Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse und versuchen Sie es erneut.'
+        });
+        return;
       }
-
-
     }
     
     // Für Random Mint: Wähle zufälliges Item
