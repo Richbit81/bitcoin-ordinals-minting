@@ -110,27 +110,28 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
       throw new Error('No accounts returned. Please unlock your UniSat Wallet and try again.');
     }
 
-    // ✅ KRITISCH: Prüfe sofort, ob es eine Taproot-Adresse ist
+    // ✅ Prüfe Adresstyp und informiere Benutzer
     const firstAddress = accounts[0];
+    const addressType = getAddressType(firstAddress);
+    
     if (!firstAddress.startsWith('bc1p')) {
-      const addressType = getAddressType(firstAddress);
-      console.error(`[UniSat] ❌ Falsche Adresse! Typ: ${addressType}, Adresse: ${firstAddress}`);
-      throw new Error(
-        `⚠️ Falsche Adresse!\n\n` +
-        `UniSat ist mit einer ${addressType}-Adresse verbunden.\n` +
-        `Für Ordinal-Inscriptions benötigen Sie eine Taproot-Adresse (bc1p...).\n\n` +
-        `➡️ So beheben Sie das Problem:\n` +
-        `1. Öffnen Sie das UniSat Wallet (Browser-Extension)\n` +
-        `2. Klicken Sie oben auf den Account-Namen\n` +
-        `3. Wählen Sie die Taproot-Adresse (bc1p...)\n` +
-        `4. Oder: Settings → Address Type → Taproot\n` +
-        `5. Verbinden Sie das Wallet erneut\n\n` +
-        `💡 Hinweis: Die Zahlung kann trotzdem von jeder Adresse erfolgen. ` +
-        `Nur die Inscription muss an eine Taproot-Adresse gesendet werden.`
+      console.warn(`[UniSat] ⚠️ Nicht-Taproot Adresse verbunden: ${addressType} (${firstAddress})`);
+      console.warn(`[UniSat] 💡 Empfehlung: Für Ordinal-Inscriptions wird Taproot (bc1p...) empfohlen für niedrigere Gebühren und bessere Kompatibilität.`);
+      
+      // Zeige Info-Nachricht (nicht blockierend)
+      console.info(
+        `[UniSat] ℹ️ Sie verwenden eine ${addressType}-Adresse.\n` +
+        `Taproot-Adressen (bc1p...) bieten:\n` +
+        `• Niedrigere Transaktionsgebühren\n` +
+        `• Bessere Kompatibilität mit Ordinals-Tools\n` +
+        `• Effizientere Inscription-Verwaltung\n\n` +
+        `Sie können im UniSat Wallet zur Taproot-Adresse wechseln (Settings → Address Type).`
       );
+    } else {
+      console.log(`[UniSat] ✅ Taproot-Adresse verbunden: ${firstAddress}`);
     }
-
-    console.log(`[UniSat] ✅ Taproot-Adresse verbunden: ${firstAddress}`);
+    
+    console.log(`[UniSat] ✅ ${addressType}-Adresse verbunden: ${firstAddress}`);
 
     const network = await window.unisat.getNetwork();
     
@@ -278,28 +279,21 @@ export const getUnisatTaprootAddress = async (): Promise<string | null> => {
       return taprootAddress;
     }
     
-    // ❌ KEINE Legacy-Adresse als Fallback - werfe klaren Fehler!
+    // ✅ HYBRID: Gebe aktuelle Adresse zurück mit Warnung
     const currentAddress = accounts[0];
     const addressType = getAddressType(currentAddress);
     
-    console.error('[UniSat] ❌ Keine Taproot-Adresse gefunden!');
-    console.error('[UniSat] ❌ Aktuell verbunden mit:', addressType, currentAddress);
-    console.error('[UniSat] ❌ Verfügbare Adressen:', accounts);
+    console.warn('[UniSat] ⚠️ Keine Taproot-Adresse gefunden!');
+    console.warn(`[UniSat] ⚠️ Verwende ${addressType}-Adresse: ${currentAddress}`);
+    console.warn('[UniSat] 💡 Empfehlung: Für beste Ergebnisse zur Taproot-Adresse wechseln!');
+    console.warn('[UniSat] ℹ️ Taproot-Adressen bieten niedrigere Gebühren und bessere Ordinals-Kompatibilität.');
     
-    throw new Error(
-      `❌ Keine Taproot-Adresse gefunden!\n\n` +
-      `Aktuell verbunden mit: ${addressType}-Adresse\n` +
-      `${currentAddress}\n\n` +
-      `Ordinal-Inscriptions benötigen eine Taproot-Adresse (bc1p...).\n\n` +
-      `➡️ So beheben Sie das Problem:\n` +
-      `1. Öffnen Sie das UniSat Wallet\n` +
-      `2. Wechseln Sie zur Taproot-Adresse (bc1p...)\n` +
-      `3. Versuchen Sie es erneut\n\n` +
-      `💡 Hinweis: Die Zahlung kann trotzdem von jeder Adresse erfolgen.`
-    );
+    // Gebe aktuelle Adresse zurück (funktioniert technisch, auch wenn nicht optimal)
+    return currentAddress;
+    
   } catch (error: any) {
-    console.error('[UniSat] Fehler beim Abrufen der Taproot-Adresse:', error);
-    throw error; // Weitergeben statt null zurückgeben
+    console.error('[UniSat] Fehler beim Abrufen der Adresse:', error);
+    throw error;
   }
 };
 

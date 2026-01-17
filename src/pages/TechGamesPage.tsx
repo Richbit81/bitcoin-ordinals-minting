@@ -178,24 +178,15 @@ export const TechGamesPage: React.FC = () => {
       return;
     }
 
-    // WICHTIG: Für UniSat Wallet immer Taproot-Adresse (bc1p...) verwenden!
-    // Für Inskriptionen sollte immer eine Taproot-Adresse verwendet werden, nicht Legacy (1... oder 3...)
+    // WICHTIG: Für UniSat Wallet bevorzugt Taproot-Adresse (bc1p...) verwenden
+    // Taproot wird empfohlen für niedrigere Gebühren und bessere Kompatibilität
     let userAddress = walletState.accounts[0].address;
     
     if (walletState.walletType === 'unisat') {
-      try {
-        const taprootAddress = await getUnisatTaprootAddress();
-        if (taprootAddress) {
-          userAddress = taprootAddress;
-          console.log('[TechGamesPage] ✅ Verwende Taproot-Adresse für Inskription:', userAddress);
-        }
-      } catch (error: any) {
-        console.error('[TechGamesPage] ❌ Fehler beim Abrufen der Taproot-Adresse:', error);
-        setMintingStatus({ 
-          status: 'error', 
-          message: error.message || 'Fehler beim Abrufen der Taproot-Adresse. Bitte wechseln Sie im UniSat Wallet zur Taproot-Adresse und versuchen Sie es erneut.'
-        });
-        return;
+      const address = await getUnisatTaprootAddress();
+      if (address) {
+        userAddress = address;
+        console.log('[TechGamesPage] ✅ Verwende Adresse für Inskription:', userAddress);
       }
     }
     
