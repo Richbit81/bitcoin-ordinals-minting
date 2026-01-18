@@ -3,6 +3,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { WalletType, WalletAccount } from '../types/wallet';
 import { waitForUnisat, waitForXverse } from '../utils/wallet';
 import { WalletConnectFallback } from './WalletConnectFallback';
+import { FEATURES } from '../config/features';
 
 interface WalletConnectProps {
   onConnected?: () => void;
@@ -31,12 +32,13 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
       setIsCheckingWallets(true);
       
       // Warte bis zu 3 Sekunden auf Wallets
+      // UniSat nur prüfen wenn Feature aktiviert ist
       const [unisat, xverse] = await Promise.all([
-        waitForUnisat(3000),
+        FEATURES.ENABLE_UNISAT ? waitForUnisat(3000) : Promise.resolve(false),
         waitForXverse(3000),
       ]);
       
-      setUnisatAvailable(unisat);
+      setUnisatAvailable(FEATURES.ENABLE_UNISAT && unisat);
       setXverseAvailable(xverse);
       setIsCheckingWallets(false);
 
@@ -77,12 +79,12 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
 
     // Prüfe erneut alle 2 Sekunden (falls Extension später lädt)
     const retryInterval = setInterval(async () => {
-      if (!unisatAvailable || !xverseAvailable) {
+      if ((!unisatAvailable && FEATURES.ENABLE_UNISAT) || !xverseAvailable) {
         const [unisat, xverse] = await Promise.all([
-          waitForUnisat(2000),
+          FEATURES.ENABLE_UNISAT ? waitForUnisat(2000) : Promise.resolve(false),
           waitForXverse(2000),
         ]);
-        setUnisatAvailable(prev => prev || unisat);
+        setUnisatAvailable(prev => prev || (FEATURES.ENABLE_UNISAT && unisat));
         setXverseAvailable(prev => prev || xverse);
       }
     }, 2000);
@@ -202,7 +204,7 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
 
       <div className="space-y-3">
         {/* Info bei mehreren Extensions */}
-        {unisatAvailable && xverseAvailable && (
+        {FEATURES.ENABLE_UNISAT && unisatAvailable && xverseAvailable && (
           <div className="mb-4 p-3 bg-gray-900/50 border border-gray-700 rounded-lg">
             <p className="text-sm font-bold text-gray-300 mb-1">
               ℹ️ Multiple Wallet Extensions Detected
@@ -213,8 +215,8 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
           </div>
         )}
 
-        {/* Fallback-Option anzeigen wenn keine Wallets gefunden */}
-        {!unisatAvailable && !xverseAvailable && !showFallback && (
+        {/* Fallback-Option anzeigen wenn keine AKTIVIERTEN Wallets gefunden */}
+        {!xverseAvailable && (!FEATURES.ENABLE_UNISAT || !unisatAvailable) && !showFallback && (
           <div className="mb-4 p-4 bg-gray-900 border-2 border-red-600 rounded-lg">
             <p className="text-sm font-bold text-red-600 mb-2">
               ⚠️ Wallet Extensions Not Detected
@@ -262,7 +264,8 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
           </div>
         )}
 
-        {unisatAvailable ? (
+        {/* UniSat Wallet - Nur anzeigen wenn Feature aktiviert */}
+        {FEATURES.ENABLE_UNISAT && (unisatAvailable ? (
           <button
             onClick={() => handleConnect('unisat')}
             disabled={isConnecting}
@@ -315,7 +318,7 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
               Install UniSat Wallet
             </a>
           </div>
-        )}
+        ))}
 
         {xverseAvailable ? (
           <button

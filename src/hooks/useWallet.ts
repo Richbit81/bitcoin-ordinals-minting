@@ -8,6 +8,7 @@ import {
   getUnisatAccounts,
   getXverseAccounts,
 } from '../utils/wallet';
+import { FEATURES } from '../config/features';
 
 export const useWallet = () => {
   const [walletState, setWalletState] = useState<WalletState>({
@@ -18,21 +19,23 @@ export const useWallet = () => {
   });
 
   const checkWalletConnection = useCallback(async () => {
-    // Prüfe nur UniSat beim automatischen Laden
+    // Prüfe nur UniSat beim automatischen Laden wenn Feature aktiviert ist
     // Xverse wird übersprungen, da getXverseAccounts() Popups öffnen könnte
-    try {
-      const unisatAccounts = await getUnisatAccounts();
-      if (unisatAccounts.length > 0) {
-        setWalletState({
-          walletType: 'unisat',
-          accounts: unisatAccounts,
-          connected: true,
-          network: 'mainnet',
-        });
-        return;
+    if (FEATURES.ENABLE_UNISAT) {
+      try {
+        const unisatAccounts = await getUnisatAccounts();
+        if (unisatAccounts.length > 0) {
+          setWalletState({
+            walletType: 'unisat',
+            accounts: unisatAccounts,
+            connected: true,
+            network: 'mainnet',
+          });
+          return;
+        }
+      } catch (err) {
+        // Ignoriere Fehler beim automatischen Laden
       }
-    } catch (err) {
-      // Ignoriere Fehler beim automatischen Laden
     }
 
     // Xverse Accounts werden nur beim aktiven Verbindungsversuch geprüft
@@ -42,8 +45,8 @@ export const useWallet = () => {
   useEffect(() => {
     checkWalletConnection();
 
-    // Listener für Wallet-Änderungen (UniSat)
-    if (isUnisatInstalled()) {
+    // Listener für Wallet-Änderungen (UniSat) - nur wenn Feature aktiviert
+    if (FEATURES.ENABLE_UNISAT && isUnisatInstalled()) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {
           setWalletState(prev => ({
@@ -78,6 +81,15 @@ export const useWallet = () => {
 
   const connect = useCallback(async (walletType: WalletType) => {
     try {
+      // Prüfe ob Wallet aktiviert ist
+      if (walletType === 'unisat' && !FEATURES.ENABLE_UNISAT) {
+        throw new Error(
+          'UniSat wallet is temporarily disabled. Please use Xverse wallet.\n\n' +
+          'Reason: Stability issues (insufficient funds detection, UTXO parsing).\n' +
+          'UniSat will be re-enabled once these issues are resolved.'
+        );
+      }
+      
       let accounts: WalletAccount[] = [];
 
       if (walletType === 'unisat') {
