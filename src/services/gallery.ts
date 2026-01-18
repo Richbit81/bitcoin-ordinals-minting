@@ -15,119 +15,138 @@ export interface WalletCard {
 }
 
 /**
- * Lädt alle Karten eines Wallets
- * Nutzt Registry als Basis und prüft dann, welche auf der Blockchain existieren
+ * 💎 Lädt alle Karten eines Wallets mit 3-Tier System + Auto-Sync
+ * EBENE 1: PostgreSQL DB (instant, bombensicher)
+ * EBENE 2: Blockchain-Scan (langsam, findet ALLES) + Auto-Sync zu DB
+ * EBENE 3: Registry Cache (letzter Fallback)
  */
 export const fetchWalletCards = async (walletAddress: string): Promise<WalletCard[]> => {
   const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
   
-  // Schritt 1: Hole Inskriptionen direkt von der Blockchain (hybrid mode)
-  // Das findet die tatsächlich erstellten Inskriptionen, nicht die alten pending Einträge
   let delegates: DelegateCard[] = [];
-  let blockchainFetchSuccessful = false;
+  let source = 'unknown';
   
+  // ✨ EBENE 1: PostgreSQL DB (Primary - INSTANT!)
   try {
-    const apiUrl = `${API_URL}/api/delegates/${walletAddress}?hybrid=true`;
-    console.log(`[Gallery] 🔍 Fetching inscriptions from blockchain for ${walletAddress}...`);
-    console.log(`[Gallery] 📡 API URL: ${apiUrl}`);
-    const hybridResponse = await fetch(apiUrl);
-    console.log(`[Gallery] 📥 Response status: ${hybridResponse.status} ${hybridResponse.statusText}`);
-    if (hybridResponse.ok) {
-      const hybridData = await hybridResponse.json();
-      console.log(`[Gallery] 📋 Response data:`, {
-        delegatesCount: hybridData.delegates?.length || 0,
-        source: hybridData.source,
-        count: hybridData.count
-      });
-      delegates = hybridData.delegates || [];
-      blockchainFetchSuccessful = true; // Erfolgreiche Abfrage, auch wenn 0 Ergebnisse
-      console.log(`[Gallery] ✅ Fetched ${delegates.length} inscriptions from blockchain`);
+    const dbUrl = `${API_URL}/api/delegates/${walletAddress}`;
+    console.log(`[Gallery] 💣 Trying DB first (instant) for ${walletAddress}...`);
+    
+    const dbResponse = await fetch(dbUrl);
+    if (dbResponse.ok) {
+      const dbData = await dbResponse.json();
+      delegates = dbData.delegates || [];
+      source = dbData.source || 'database';
+      
+      console.log(`[Gallery] ✅ DB response: ${delegates.length} cards, source: ${source}`);
+      
+      // Wenn DB Karten hat → FERTIG (instant)
       if (delegates.length > 0) {
-        console.log(`[Gallery] First inscription:`, {
-          id: delegates[0].delegateInscriptionId,
-          name: delegates[0].name,
-          originalId: delegates[0].originalInscriptionId,
-          rarity: delegates[0].rarity
-        });
-      } else {
-        console.log(`[Gallery] ℹ️ No inscriptions found on blockchain for this wallet`);
+        console.log(`[Gallery] 🎉 DB hit! Returning ${delegates.length} cards instantly`);
+        return processCardsToWalletCards(delegates);
+      }
+      
+      console.log(`[Gallery] ℹ️ DB empty, falling back to blockchain scan...`);
+    }
+  } catch (dbErr: any) {
+    console.warn(`[Gallery] ⚠️ DB fetch failed:`, dbErr.message);
+  }
+  
+  // ✨ EBENE 2: Blockchain-Scan (wenn DB leer) + AUTO-SYNC
+  try {
+    const blockchainUrl = `${API_URL}/api/delegates/${walletAddress}?hybrid=true`;
+    console.log(`[Gallery] 🔍 Fetching from blockchain (may take 5-10 min)...`);
+    console.log(`[Gallery] 📡 API URL: ${blockchainUrl}`);
+    
+    const blockchainResponse = await fetch(blockchainUrl);
+    console.log(`[Gallery] 📥 Blockchain response: ${blockchainResponse.status}`);
+    
+    if (blockchainResponse.ok) {
+      const blockchainData = await blockchainResponse.json();
+      delegates = blockchainData.delegates || [];
+      source = blockchainData.source || 'blockchain-hybrid';
+      
+      console.log(`[Gallery] ✅ Blockchain: ${delegates.length} cards found`);
+      console.log(`[Gallery] 🔄 Auto-sync: Cards werden automatisch in DB gespeichert für nächste Abfrage!`);
+      
+      if (delegates.length > 0) {
+        return processCardsToWalletCards(delegates);
       }
     } else {
-      const errorText = await hybridResponse.text().catch(() => 'Unknown error');
-      console.warn(`[Gallery] ⚠️ Blockchain fetch failed: ${hybridResponse.status}`, errorText);
+      const errorText = await blockchainResponse.text().catch(() => 'Unknown error');
+      console.warn(`[Gallery] ⚠️ Blockchain fetch failed: ${blockchainResponse.status}`, errorText);
     }
-  } catch (hybridErr: any) {
-    console.error('[Gallery] ❌ Could not fetch from blockchain:', hybridErr);
-    console.error('[Gallery] ❌ Error details:', hybridErr.message, hybridErr.stack);
-    // Nur bei Fehlern (nicht bei 0 Ergebnissen) auf Registry zurückgreifen
+  } catch (blockchainErr: any) {
+    console.error('[Gallery] ❌ Blockchain fetch error:', blockchainErr);
   }
   
-  // Schritt 2: Fallback auf Registry NUR wenn Blockchain-Abfrage fehlgeschlagen ist
-  // Wenn Blockchain erfolgreich war aber 0 Ergebnisse hat, zeige 0 (keine alten pending Einträge)
-  if (delegates.length === 0 && !blockchainFetchSuccessful) {
+  // ✨ EBENE 3: Registry Cache (letzter Fallback)
+  try {
+    console.log(`[Gallery] ⚠️ Trying registry as last fallback...`);
+    delegates = await getDelegatesByWallet(walletAddress, false);
+    console.log(`[Gallery] ✅ Registry: ${delegates.length} cards found (cache)`);
+  } catch (registryErr) {
+    console.error('[Gallery] ❌ Registry fetch failed:', registryErr);
+  }
+  
+  // Wenn keine Delegates gefunden → leeres Array
+  if (delegates.length === 0) {
+    console.log(`[Gallery] ℹ️ No cards found for wallet ${walletAddress}`);
+    return [];
+  }
+  
+  return processCardsToWalletCards(delegates, walletAddress);
+};
+
+/**
+ * 💎 Helper: Verarbeite Delegates zu WalletCard-Format
+ */
+async function processCardsToWalletCards(delegates: DelegateCard[], walletAddress?: string): Promise<WalletCard[]> {
+  console.log(`[Gallery] 📊 Processing ${delegates.length} delegates to WalletCard format...`);
+  
+  // Hole Logs (für zusätzliche Metadaten) - optional
+  let logCardMap = new Map<string, any>();
+  if (walletAddress) {
     try {
-      console.log(`[Gallery] ⚠️ Blockchain fetch failed, trying registry as fallback...`);
-      delegates = await getDelegatesByWallet(walletAddress, false);
-      console.log(`[Gallery] ✅ Fetched ${delegates.length} delegates from registry (fallback)`);
-    } catch (err) {
-      console.error('[Gallery] ❌ Could not fetch delegates from registry:', err);
+      const logs = await getWalletLogs(walletAddress);
+      logs.forEach(log => {
+        log.cards.forEach(card => {
+          logCardMap.set(card.inscriptionId, card);
+        });
+      });
+    } catch (logErr) {
+      console.warn(`[Gallery] ⚠️ Could not load logs:`, logErr);
     }
-  } else if (delegates.length === 0 && blockchainFetchSuccessful) {
-    console.log(`[Gallery] ✅ Blockchain query successful but no inscriptions found. Showing 0 cards (not using old registry entries).`);
   }
   
-  // Erstelle Map für schnellen Zugriff: delegateInscriptionId -> DelegateCard
-  const delegateMap = new Map<string, DelegateCard>();
-  delegates.forEach(delegate => {
-    delegateMap.set(delegate.delegateInscriptionId, delegate);
-  });
-  
-  // Hole Logs (für zusätzliche Metadaten)
-  const logs = await getWalletLogs(walletAddress);
-  const logCardMap = new Map<string, MintingLogEntry['cards'][0]>();
-  logs.forEach(log => {
-    log.cards.forEach(card => {
-      logCardMap.set(card.inscriptionId, card);
-    });
-  });
-  
-  console.log(`[Gallery] 📊 Processing ${delegates.length} delegates...`);
-  
-  // Konvertiere Inskriptionen zu WalletCard-Format
-  // Zeige ALLE Delegates an (auch pending), damit der Benutzer sieht, dass etwas passiert
+  // Konvertiere Delegates zu WalletCard-Format
   const cards: WalletCard[] = delegates
     .filter(delegate => {
       // Filtere nur mock IDs raus - zeige pending UND finale IDs
       const isValid = !delegate.delegateInscriptionId.startsWith('mock-');
       if (!isValid) {
-        console.log(`[Gallery] ⏳ Skipping mock inscription: ${delegate.delegateInscriptionId} (${delegate.name})`);
+        console.log(`[Gallery] ⏳ Skipping mock inscription: ${delegate.delegateInscriptionId}`);
       }
       return isValid;
     })
     .map(delegate => {
       const logCard = logCardMap.get(delegate.delegateInscriptionId);
-      const walletCard = {
+      const walletCard: WalletCard = {
         name: delegate.name,
         rarity: delegate.rarity as Rarity,
-        inscriptionId: delegate.delegateInscriptionId, // Delegate-Inskription-ID (finale ID)
-        originalInscriptionId: delegate.originalInscriptionId, // Original für Bild-Abruf (echte Inskription-ID)
+        inscriptionId: delegate.delegateInscriptionId,
+        originalInscriptionId: delegate.originalInscriptionId,
         mintedAt: new Date(delegate.timestamp).getTime(),
         packName: logCard?.packName || 'Unknown',
         cardType: delegate.cardType,
         effect: delegate.effect,
         svgIcon: delegate.svgIcon,
       };
-      console.log(`[Gallery] ✅ Created WalletCard:`, {
-        name: walletCard.name,
-        delegateId: walletCard.inscriptionId,
-        originalId: walletCard.originalInscriptionId,
-      });
       return walletCard;
     });
   
   const pendingCount = cards.filter(c => c.inscriptionId.startsWith('pending-')).length;
   const finalCount = cards.filter(c => !c.inscriptionId.startsWith('pending-')).length;
-  console.log(`[Gallery] ✅ Total cards to display: ${cards.length} (${finalCount} final, ${pendingCount} pending)`);
+  console.log(`[Gallery] ✅ Processed: ${cards.length} cards (${finalCount} confirmed, ${pendingCount} pending)`);
   
   // Sortiere nach Rarität (seltenste zuerst) und dann nach Datum
   const rarityOrder: Record<Rarity, number> = {
@@ -144,5 +163,5 @@ export const fetchWalletCards = async (walletAddress: string): Promise<WalletCar
     if (rarityDiff !== 0) return rarityDiff;
     return b.mintedAt - a.mintedAt;
   });
-};
+}
 
