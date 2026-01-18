@@ -103,6 +103,14 @@ export const fetchWalletCards = async (walletAddress: string): Promise<WalletCar
 async function processCardsToWalletCards(delegates: DelegateCard[], walletAddress?: string): Promise<WalletCard[]> {
   console.log(`[Gallery] 📊 Processing ${delegates.length} delegates to WalletCard format...`);
   
+  // 🎯 BLACK & WILD Original IDs (nur diese Karten zeigen)
+  const BLACK_WILD_ORIGINALS = [
+    '5e6f59c6e871f5ccf7ccc09e3e8ae73ac2e63c78a64e66a3ca9a5c8f7e5d35b6i0', // Bär
+    'e6805a3c68fd1abb1904dfb8193b2a01ef2ccbd96d6b8be2c4b9aba4332c413di0', // Wolf
+    '44740a1f30efb247ef41de3355133e12d6f58ab4dc8a3146648e2249fa9c6a39i0', // Fuchs
+    '5be3dfb109321291c0469ab1253be7b5c9d023e694945dbbd71a1dfe7518a4bfi0', // Eule
+  ];
+  
   // Hole Logs (für zusätzliche Metadaten) - optional
   let logCardMap = new Map<string, any>();
   if (walletAddress) {
@@ -118,15 +126,25 @@ async function processCardsToWalletCards(delegates: DelegateCard[], walletAddres
     }
   }
   
-  // Konvertiere Delegates zu WalletCard-Format
+  // Konvertiere Delegates zu WalletCard-Format + Filter auf Black & Wild
   const cards: WalletCard[] = delegates
     .filter(delegate => {
-      // Filtere nur mock IDs raus - zeige pending UND finale IDs
+      // Filtere mock IDs raus
       const isValid = !delegate.delegateInscriptionId.startsWith('mock-');
       if (!isValid) {
         console.log(`[Gallery] ⏳ Skipping mock inscription: ${delegate.delegateInscriptionId}`);
+        return false;
       }
-      return isValid;
+      
+      // 🎯 NUR Black & Wild Karten (Filter auf originalInscriptionId)
+      const isBlackWild = delegate.originalInscriptionId && 
+        BLACK_WILD_ORIGINALS.includes(delegate.originalInscriptionId);
+      
+      if (!isBlackWild) {
+        console.log(`[Gallery] 🚫 Filtering out non-Black&Wild: ${delegate.name} (${delegate.originalInscriptionId})`);
+      }
+      
+      return isBlackWild;
     })
     .map(delegate => {
       const logCard = logCardMap.get(delegate.delegateInscriptionId);

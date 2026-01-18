@@ -8,14 +8,15 @@ import { ALL_CARDS } from '../../config/cards';
 interface CreateOfferProps {
   myCards: WalletCard[];
   onOfferCreated: () => void;
+  loading?: boolean; // ✨ NEU: Loading-State vom Parent
 }
 
-export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreated }) => {
+export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreated, loading: parentLoading = false }) => {
   const { walletState } = useWallet();
   const [offerCards, setOfferCards] = useState<string[]>([]);
   const [requestCards, setRequestCards] = useState<string[]>([]);
   const [expiresInDays, setExpiresInDays] = useState(7);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // Rename to avoid confusion
   const [error, setError] = useState<string | null>(null);
 
   const handleCardToggle = (
@@ -53,7 +54,7 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     setError(null);
 
     try {
@@ -79,7 +80,7 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
     } catch (err: any) {
       setError(err.message || 'Failed to create offer');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -127,6 +128,7 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
           onCardToggle={(id) => handleCardToggle(id, true)}
           title="You Give"
           maxCards={10}
+          loading={parentLoading}
         />
 
         {/* Right: You Want */}
@@ -200,10 +202,10 @@ export const CreateOffer: React.FC<CreateOfferProps> = ({ myCards, onOfferCreate
       {/* Create Button */}
       <button
         onClick={handleCreateOffer}
-        disabled={loading || offerCards.length === 0 || requestCards.length === 0}
+        disabled={submitting || offerCards.length === 0 || requestCards.length === 0}
         className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition"
       >
-        {loading ? 'Creating Offer...' : 'Create Trade Offer'}
+        {submitting ? 'Creating Offer...' : 'Create Trade Offer'}
       </button>
     </div>
   );

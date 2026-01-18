@@ -171,10 +171,6 @@ export const CardReveal: React.FC<CardRevealProps> = ({
               </span>
             </div>
           )}
-          {/* Zusätzliche Kartendaten */}
-          {card.effect && (
-            <p className="text-[9px] text-gray-300 mt-1 text-center italic line-clamp-2">{card.effect}</p>
-          )}
         </div>
 
         {/* Card Image - Für ALLE Kartentypen mit inscriptionId (wie im AdminPanel) */}

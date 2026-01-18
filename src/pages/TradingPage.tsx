@@ -116,7 +116,7 @@ export const TradingPage: React.FC = () => {
         {activeTab === 'browse' ? (
           <TradeOfferList myCards={myCards} />
         ) : (
-          <CreateOffer myCards={myCards} onOfferCreated={loadMyCards} />
+          <CreateOffer myCards={myCards} onOfferCreated={loadMyCards} loading={loading} />
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ interface CardSelectorProps {
   onCardToggle: (inscriptionId: string) => void;
   title: string;
   maxCards?: number;
+  loading?: boolean; // ✨ NEU: Loading-State
 }
 
 export const CardSelector: React.FC<CardSelectorProps> = ({
@@ -17,6 +18,7 @@ export const CardSelector: React.FC<CardSelectorProps> = ({
   onCardToggle,
   title,
   maxCards,
+  loading = false,
 }) => {
   const isSelected = (inscriptionId: string) => selectedCards.includes(inscriptionId);
   const canSelectMore = maxCards ? selectedCards.length < maxCards : true;
@@ -32,9 +34,15 @@ export const CardSelector: React.FC<CardSelectorProps> = ({
         )}
       </h3>
 
-      {cards.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-400 text-sm">Loading cards...</p>
+        </div>
+      ) : cards.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p>No cards available</p>
+          <p className="text-xs mt-2">Mint some cards first!</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[600px] overflow-y-auto">

@@ -28,14 +28,6 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
     loadCards();
   }, [walletState.connected, walletState.accounts]);
 
-  // 🎯 BLACK & WILD Original IDs (nur diese Karten anzeigen)
-  const BLACK_WILD_ORIGINALS = [
-    '5e6f59c6e871f5ccf7ccc09e3e8ae73ac2e63c78a64e66a3ca9a5c8f7e5d35b6i0', // Bär
-    'e6805a3c68fd1abb1904dfb8193b2a01ef2ccbd96d6b8be2c4b9aba4332c413di0', // Wolf
-    '44740a1f30efb247ef41de3355133e12d6f58ab4dc8a3146648e2249fa9c6a39i0', // Fuchs
-    '5be3dfb109321291c0469ab1253be7b5c9d023e694945dbbd71a1dfe7518a4bfi0', // Eule
-  ];
-
   const loadCards = async () => {
     if (!walletState.accounts[0]?.address) {
       console.log('[Gallery] ⚠️ No wallet address available');
@@ -50,23 +42,15 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
 
     try {
       console.log('[Gallery] 📞 Calling fetchWalletCards...');
-      const allCards = await fetchWalletCards(walletAddress);
-      console.log('[Gallery] ✅ Received cards:', allCards.length);
-      
-      // 🎯 Filtere NUR Black & Wild Karten
-      const blackWildCards = allCards.filter(card => 
-        card.originalInscriptionId && 
-        BLACK_WILD_ORIGINALS.includes(card.originalInscriptionId)
-      );
-      
-      console.log('[Gallery] 🐻 Filtered to Black & Wild cards:', blackWildCards.length);
-      console.log('[Gallery] 📋 Cards details:', blackWildCards.map(c => ({
+      const cards = await fetchWalletCards(walletAddress);
+      console.log('[Gallery] ✅ Received Black & Wild cards:', cards.length);
+      console.log('[Gallery] 📋 Cards details:', cards.map(c => ({
         name: c.name,
         inscriptionId: c.inscriptionId,
         originalId: c.originalInscriptionId
       })));
       
-      setCards(blackWildCards);
+      setCards(cards); // Filter ist jetzt in gallery.ts!
     } catch (err: any) {
       console.error('[Gallery] ❌ Error loading cards:', err);
       setError(err.message || 'Error loading cards');
