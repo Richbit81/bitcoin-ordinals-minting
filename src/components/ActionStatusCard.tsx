@@ -66,15 +66,6 @@ export const ActionStatusCard: React.FC<ActionStatusCardProps> = ({ card, showRa
           </div>
         </div>
       )}
-
-      {/* Effect Text */}
-      {card.effect && (
-        <div className="p-3 bg-gray-900 border-t border-gray-700">
-          <p className="text-xs text-gray-300 text-center leading-relaxed">
-            {card.effect}
-          </p>
-        </div>
-      )}
     </div>
   );
 };

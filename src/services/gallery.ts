@@ -111,6 +111,16 @@ async function processCardsToWalletCards(delegates: DelegateCard[], walletAddres
     '5be3dfb109321291c0469ab1253be7b5c9d023e694945dbbd71a1dfe7518a4bfi0', // Eule
   ];
   
+  // 🚫 BLACKLIST: Tech & Games Karten die NIEMALS angezeigt werden sollen
+  const TECH_GAMES_BLACKLIST = [
+    'BLOCKTRIS', 'TimeBIT', 'Slot Machine', 
+    'Cat', 'Gecko', 'Grasshopper', 'Koala',
+    'WRONG MOVE', 'SLAP', 'PANIC', 'NOPE', 'OVERDOSE', 
+    'SWITCH', 'COLLAPSE', 'INSTINCT', 'STARE', 'PUSH',
+    'ACCIDENT', 'LAST WORDS', 'BLEEDING', 'STUCK',
+    'TINT', 'TARGET', 'SWARM', 'SHIELD', 'RAGE', 'PARANOIA'
+  ];
+  
   // Hole Logs (für zusätzliche Metadaten) - optional
   let logCardMap = new Map<string, any>();
   if (walletAddress) {
@@ -133,6 +143,12 @@ async function processCardsToWalletCards(delegates: DelegateCard[], walletAddres
       const isValid = !delegate.delegateInscriptionId.startsWith('mock-');
       if (!isValid) {
         console.log(`[Gallery] ⏳ Skipping mock inscription: ${delegate.delegateInscriptionId}`);
+        return false;
+      }
+      
+      // 🚫 KRITISCH: Blacklist für Tech & Games Karten (übertrumpft alles!)
+      if (TECH_GAMES_BLACKLIST.includes(delegate.name)) {
+        console.log(`[Gallery] 🚫 BLACKLISTED: ${delegate.name} (Tech & Games - NIEMALS anzeigen!)`);
         return false;
       }
       
