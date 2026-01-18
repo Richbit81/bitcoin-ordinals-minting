@@ -28,6 +28,14 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
     loadCards();
   }, [walletState.connected, walletState.accounts]);
 
+  // 🎯 BLACK & WILD Original IDs (nur diese Karten anzeigen)
+  const BLACK_WILD_ORIGINALS = [
+    '5e6f59c6e871f5ccf7ccc09e3e8ae73ac2e63c78a64e66a3ca9a5c8f7e5d35b6i0', // Bär
+    'e6805a3c68fd1abb1904dfb8193b2a01ef2ccbd96d6b8be2c4b9aba4332c413di0', // Wolf
+    '44740a1f30efb247ef41de3355133e12d6f58ab4dc8a3146648e2249fa9c6a39i0', // Fuchs
+    '5be3dfb109321291c0469ab1253be7b5c9d023e694945dbbd71a1dfe7518a4bfi0', // Eule
+  ];
+
   const loadCards = async () => {
     if (!walletState.accounts[0]?.address) {
       console.log('[Gallery] ⚠️ No wallet address available');
@@ -42,14 +50,23 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
 
     try {
       console.log('[Gallery] 📞 Calling fetchWalletCards...');
-      const walletCards = await fetchWalletCards(walletAddress);
-      console.log('[Gallery] ✅ Received cards:', walletCards.length);
-      console.log('[Gallery] 📋 Cards details:', walletCards.map(c => ({
+      const allCards = await fetchWalletCards(walletAddress);
+      console.log('[Gallery] ✅ Received cards:', allCards.length);
+      
+      // 🎯 Filtere NUR Black & Wild Karten
+      const blackWildCards = allCards.filter(card => 
+        card.originalInscriptionId && 
+        BLACK_WILD_ORIGINALS.includes(card.originalInscriptionId)
+      );
+      
+      console.log('[Gallery] 🐻 Filtered to Black & Wild cards:', blackWildCards.length);
+      console.log('[Gallery] 📋 Cards details:', blackWildCards.map(c => ({
         name: c.name,
         inscriptionId: c.inscriptionId,
         originalId: c.originalInscriptionId
       })));
-      setCards(walletCards);
+      
+      setCards(blackWildCards);
     } catch (err: any) {
       console.error('[Gallery] ❌ Error loading cards:', err);
       setError(err.message || 'Error loading cards');
@@ -239,7 +256,7 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
                         ({rarityCards.length})
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                       {rarityCards.map((walletCard, index) => {
                         // Konvertiere WalletCard zu Card für CardReveal
                         // WICHTIG: Verwende die Delegate-Inskription-ID (auch wenn "pending-"), nicht die Original-ID
@@ -259,18 +276,12 @@ export const Gallery: React.FC<GalleryProps> = ({ onClose }) => {
                         return (
                           <div 
                             key={index} 
-                            className="flex flex-col cursor-pointer group relative"
+                            className="cursor-pointer group relative"
                             onClick={() => setSelectedCard(card)}
                           >
-                            {/* Kleinere Kartenansicht */}
-                            <div className="transform scale-75 origin-top-left w-[133%] h-[133%] transition-all duration-300 group-hover:scale-[0.78] group-hover:shadow-lg group-hover:shadow-red-600/30">
+                            {/* Karte direkt anzeigen ohne extra Container */}
+                            <div className="transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-red-600/40">
                               <CardReveal card={card} showRarity={true} autoReveal={true} />
-                            </div>
-                            {/* Kartenname (klein) */}
-                            <div className="mt-1 p-1 bg-gray-900/80 backdrop-blur-sm border border-gray-700 rounded text-xs transition-all duration-300 group-hover:border-red-600/50 group-hover:bg-gray-800/90">
-                              <p className="font-bold text-white text-center text-[10px] truncate transition-colors duration-300 group-hover:text-red-400" title={walletCard.name}>
-                                {walletCard.name}
-                              </p>
                             </div>
                             {/* Hover Glow Effect */}
                             <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
