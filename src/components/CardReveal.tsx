@@ -100,11 +100,12 @@ export const CardReveal: React.FC<CardRevealProps> = ({
         className="bg-gradient-to-br from-gray-900 to-black rounded-lg overflow-hidden border-2 cursor-pointer hover:scale-105 transition-transform duration-200"
         style={{
           borderColor: showRarity ? (RARITY_COLORS[card.rarity] || '#9CA3AF') : '#9CA3AF',
-          minHeight: '200px',
+          minHeight: '120px', // ✨ Kleiner: 200px → 120px
+          maxHeight: '160px', // ✨ Max-Höhe begrenzen
         }}
         onClick={handleReveal}
       >
-        <div className="h-full flex flex-col items-center justify-center p-6 bg-gray-950">
+        <div className="h-full flex flex-col items-center justify-center p-3 bg-gray-950">
           {/* Mystery Card Design */}
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Glowing Rarity Border */}
@@ -117,16 +118,16 @@ export const CardReveal: React.FC<CardRevealProps> = ({
             
             {/* Question Mark */}
             <div className="relative z-10 text-center">
-              <div className="text-8xl mb-4 opacity-50">?</div>
-              <p className="text-sm font-bold text-white uppercase tracking-wider">
-                Click to Reveal
+              <div className="text-5xl mb-2 opacity-50">?</div>
+              <p className="text-[10px] font-bold text-white uppercase tracking-wider">
+                Click
               </p>
             </div>
 
             {/* Rarity Indicator (subtle) */}
-            <div className="absolute bottom-2 left-2 right-2">
+            <div className="absolute bottom-1 left-1 right-1">
               <div
-                className="text-xs font-bold px-2 py-1 rounded text-center opacity-50"
+                className="text-[9px] font-bold px-1 py-0.5 rounded text-center opacity-50"
                 style={{
                   backgroundColor: RARITY_COLORS[card.rarity] || '#9CA3AF',
                   color: 'white',
@@ -148,18 +149,19 @@ export const CardReveal: React.FC<CardRevealProps> = ({
         className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden border-2"
         style={{
           borderColor: showRarity ? (RARITY_COLORS[card.rarity] || '#9CA3AF') : '#9CA3AF',
+          maxHeight: '280px', // ✨ Max-Höhe für aufgedeckte Karte
         }}
       >
         {/* Header mit Original-Kartendaten */}
-        <div className="p-3 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900">
-          <h3 className="text-lg font-bold text-white text-center mb-1">{card.name}</h3>
+        <div className="p-2 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900">
+          <h3 className="text-sm font-bold text-white text-center mb-1">{card.name}</h3>
           {showRarity && (
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-700 text-gray-200">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-gray-700 text-gray-200">
                 {card.cardType?.toUpperCase() || 'CARD'}
               </span>
               <span
-                className="text-xs font-semibold px-2 py-1 rounded"
+                className="text-[9px] font-semibold px-1 py-0.5 rounded"
                 style={{
                   backgroundColor: RARITY_COLORS[card.rarity] || '#9CA3AF',
                   color: 'white',
@@ -171,12 +173,12 @@ export const CardReveal: React.FC<CardRevealProps> = ({
           )}
           {/* Zusätzliche Kartendaten */}
           {card.effect && (
-            <p className="text-xs text-gray-300 mt-2 text-center italic">{card.effect}</p>
+            <p className="text-[9px] text-gray-300 mt-1 text-center italic line-clamp-2">{card.effect}</p>
           )}
         </div>
 
         {/* Card Image - Für ALLE Kartentypen mit inscriptionId (wie im AdminPanel) */}
-        <div className="p-6 flex items-center justify-center bg-white min-h-[200px]">
+        <div className="p-3 flex items-center justify-center bg-white min-h-[100px] max-h-[150px]">
           {(() => {
             // Prüfe ob wir eine inscriptionId haben (für alle Kartentypen)
             // WICHTIG: Auch "pending-" IDs werden unterstützt - sie zeigen die Delegate-Inskription
@@ -230,8 +232,8 @@ export const CardReveal: React.FC<CardRevealProps> = ({
 
         {/* Footer mit Inskription-ID */}
         {card.inscriptionId && !card.inscriptionId.startsWith('mock-') && (
-          <div className="p-2 bg-gray-900 border-t border-gray-700">
-            <p className="text-[10px] font-mono text-gray-400 text-center truncate" title={card.inscriptionId}>
+          <div className="p-1 bg-gray-900 border-t border-gray-700">
+            <p className="text-[8px] font-mono text-gray-400 text-center truncate" title={card.inscriptionId}>
               {card.inscriptionId}
             </p>
           </div>

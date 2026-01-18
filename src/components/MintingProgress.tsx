@@ -70,7 +70,7 @@ export const MintingProgress: React.FC<MintingProgressProps> = ({ status }) => {
           {status.cards && status.cards.length > 0 && (
             <div className="mb-2">
               <p className="text-[10px] font-semibold text-gray-300 mb-2 uppercase">Your Cards:</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                 {status.cards.map((card, index) => {
                   const isRevealed = revealedCards.has(index);
                   return (
