@@ -75,7 +75,7 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
           >
             {walletState.connected && walletState.accounts && walletState.accounts.length > 0 ? (
               <>
-                <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" style={{ willChange: 'opacity, transform' }}></div>
                 <span className="text-sm font-bold text-white">
                   Connected
                 </span>

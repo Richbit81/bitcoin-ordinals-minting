@@ -107,3 +107,21 @@ code {
   animation: slideInFromHand 0.5s ease-out;
 }
 
+/* Optimierte Pulse Animation (flüssiger) */
+@keyframes smoothPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+.animate-pulse {
+  animation: smoothPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform: translateZ(0); /* Hardware-Beschleunigung */
+  backface-visibility: hidden;
+}
+
