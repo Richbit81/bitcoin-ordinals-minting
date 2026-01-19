@@ -38,6 +38,13 @@ export const HomePage: React.FC = () => {
       description: 'Mint exclusive Ordinals with your points',
       order: 4,
     },
+    {
+      id: 'bitcoin-mixtape',
+      name: 'Bitcoin Mix Tape',
+      thumbnail: '/mixtape.png',
+      description: 'Coming Soon',
+      order: 6,
+    },
   ];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

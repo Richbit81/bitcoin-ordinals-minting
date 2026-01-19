@@ -12,6 +12,7 @@ import { TechGamesPage } from './pages/TechGamesPage';
 import { CollectionMintingPage } from './pages/CollectionMintingPage';
 import { LinkGalleryPage } from './pages/LinkGalleryPage';
 import { SmilePage } from './pages/SmilePage';
+import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -38,6 +39,7 @@ function AppContent() {
         <Route path="/black-wild" element={<MintingPage />} />
         <Route path="/point-shop" element={<PointShopPage />} />
         <Route path="/tech-games" element={<TechGamesPage />} />
+        <Route path="/bitcoin-mixtape" element={<BitcoinMixtapePage />} />
         <Route path="/collection/:id" element={<CollectionMintingPage />} />
         <Route path="/trade" element={<TradingPage />} />
         <Route path="/history" element={<HistoryPage />} />
