@@ -228,7 +228,11 @@ export const HomePage: React.FC = () => {
             </div>
             
             {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}
-            <div className={`mt-auto ${project.id === 'tech-games' ? '-mt-8' : '-mt-2'} text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]`}>
+            <div className={`mt-auto ${
+              project.id === 'tech-games' ? '-mt-8' : 
+              project.id === 'bitcoin-mixtape' ? '-mt-7' : 
+              '-mt-2'
+            } text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]`}>
               {project.id === 'black-wild' ? (
                 <h2 className="text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-red-600">
                   <span 
