@@ -205,6 +205,7 @@ export const HomePage: React.FC = () => {
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
               project.id === 'black-wild' ? 'md:mt-16' :
               project.order === 2 ? 'md:mt-20' : // Sons of Satoshi: optimal positioning
+              project.id === 'bitcoin-mixtape' ? 'md:mt-8' : // Bitcoin Mix Tape: 30px nach unten
               project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
