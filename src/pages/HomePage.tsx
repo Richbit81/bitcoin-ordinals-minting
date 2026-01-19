@@ -40,9 +40,8 @@ export const HomePage: React.FC = () => {
     },
   ];
 
-  // Dynamische Projekte aus Collections mit 'page' Feld
+  // Dynamische Projekte aus Collections (mit oder ohne 'page' Feld)
   const dynamicProjects = collections
-    .filter(collection => collection.page && collection.page !== '')
     .map(collection => {
       // Mapping von page-Werten zu Route-IDs
       const pageToId: Record<string, string> = {
@@ -53,10 +52,12 @@ export const HomePage: React.FC = () => {
         'trading': 'trading',
       };
       
-      const projectId = pageToId[collection.page] || collection.page.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+      const projectId = collection.page 
+        ? (pageToId[collection.page] || collection.page.replace(/[^a-z0-9-]/gi, '-').toLowerCase())
+        : collection.id.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
       
       // Sons of Satoshi Evolution bekommt Position 2 (nach Black & Wild, vor Tech Games)
-      const order = collection.name === 'Sons of Satoshi Evolution' ? 2 : 5; // Standard: 5 (nach Point Shop)
+      const order = collection.name.toLowerCase().includes('sons of satoshi') ? 2 : 5; // Standard: 5 (nach Point Shop)
       
       return {
         id: projectId,
