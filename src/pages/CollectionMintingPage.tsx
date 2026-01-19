@@ -356,6 +356,11 @@ export const CollectionMintingPage: React.FC = () => {
           <h1 className="text-4xl font-bold mb-2 border-b-2 border-red-600 pb-4">
             {collection.name}
           </h1>
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              📋 WICHTIG: Beschreibung wird NUR auf Mint-Seite angezeigt!
+              - Hauptseite: Nur Titel
+              - Mint-Seite: Vollständige Beschreibung + alle Details
+              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
           <p className="text-gray-300 mb-4">{collection.description}</p>
           <p className="text-red-600 font-bold text-lg">
             {collection.price} BTC per item

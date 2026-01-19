@@ -40,6 +40,18 @@ export const HomePage: React.FC = () => {
     },
   ];
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📋 REGEL FÜR ALLE ZUKÜNFTIGEN COLLECTIONS (Admin Panel):
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ HAUPTSEITE: Nur Titel anzeigen (KEINE Beschreibung)
+  // ✅ MINT-SEITE: Vollständige Beschreibung + Details anzeigen
+  // 
+  // Technische Umsetzung:
+  // - Dynamische Collections haben ein `collectionId` Feld
+  // - Beschreibung wird nur angezeigt wenn `!project.collectionId`
+  // - Statische Projekte (Black & Wild, Tech & Games) zeigen Beschreibung
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
   // Dynamische Projekte aus Collections
   // NUR Collections OHNE page Feld (z.B. Sons of Satoshi Evolution)
   // Collections MIT page Feld sind bereits in staticProjects definiert
@@ -226,7 +238,12 @@ export const HomePage: React.FC = () => {
               ) : (
                 <h2 className="text-xl font-bold text-white mb-1 transition-colors duration-300 group-hover:text-red-400">{project.name}</h2>
               )}
-              {/* Beschreibung nur für statische Projekte anzeigen */}
+              {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  📋 WICHTIG: Beschreibung NUR für statische Projekte!
+                  - Statische Projekte: Black & Wild, Tech & Games, Point Shop
+                  - Dynamische Collections (Admin Panel): NUR Titel
+                  - Beschreibung wird auf Mint-Seite angezeigt
+                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
               {!project.collectionId && (
                 <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
               )}
