@@ -345,7 +345,8 @@ export const CollectionMintingPage: React.FC = () => {
 
         {/* Collection Header */}
         <div className="text-center mb-8">
-          {collection.thumbnail && (
+          {/* Bild wird bei Random Mint rechts neben dem Panel angezeigt */}
+          {collection.mintType !== 'random' && collection.thumbnail && (
             <img
               src={collection.thumbnail}
               alt={collection.name}
@@ -398,27 +399,43 @@ export const CollectionMintingPage: React.FC = () => {
           </div>
         )}
 
-        {/* Random Mint Button */}
+        {/* Random Mint Button mit Bild rechts */}
         {collection.mintType === 'random' && (
-          <div className="max-w-md mx-auto mb-8">
-            <div className="bg-black border-2 border-red-600 rounded-lg p-6 text-center">
-              <h2 className="text-2xl font-bold mb-4">🎲 Random Mint</h2>
-              <p className="text-gray-300 mb-6">
-                You'll receive a random item from this collection!
-              </p>
-              <p className="text-red-600 font-bold text-xl mb-6">
-                {collection.price} BTC
-              </p>
-              <button
-                onClick={() => handleMint()}
-                disabled={!!mintingItemId || !walletState.connected}
-                className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-colors"
-              >
-                {mintingItemId ? 'Minting Random Item...' : '🎲 Mint Random Item'}
-              </button>
-              <p className="text-xs text-gray-500 mt-4">
-                {collection.items.length} items in collection
-              </p>
+          <div className="max-w-5xl mx-auto mb-8">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              {/* Mint Panel (links) */}
+              <div className="w-full md:w-1/2">
+                <div className="bg-black border-2 border-red-600 rounded-lg p-6 text-center">
+                  <h2 className="text-2xl font-bold mb-4">🎲 Random Mint</h2>
+                  <p className="text-gray-300 mb-6">
+                    You'll receive a random item from this collection!
+                  </p>
+                  <p className="text-red-600 font-bold text-xl mb-6">
+                    {collection.price} BTC
+                  </p>
+                  <button
+                    onClick={() => handleMint()}
+                    disabled={!!mintingItemId || !walletState.connected}
+                    className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-colors"
+                  >
+                    {mintingItemId ? 'Minting Random Item...' : '🎲 Mint Random Item'}
+                  </button>
+                  <p className="text-xs text-gray-500 mt-4">
+                    {collection.items.length} items in collection
+                  </p>
+                </div>
+              </div>
+              
+              {/* Bild (rechts) */}
+              {collection.thumbnail && (
+                <div className="w-full md:w-1/2 flex items-start justify-center">
+                  <img
+                    src={collection.thumbnail}
+                    alt={collection.name}
+                    className="w-full max-w-md h-auto rounded shadow-lg"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
