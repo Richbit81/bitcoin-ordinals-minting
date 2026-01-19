@@ -40,7 +40,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection }) =>
       </div>
       
       {/* Text unter dem Bild - NUR TITEL (Beschreibung ist auf Mint-Seite) */}
-      <div className="mt-auto pt-3 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]">
+      <div className="mt-auto pt-1 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]">
         <h2 className="text-xl font-bold text-white mb-1 transition-colors duration-300 group-hover:text-red-400">{collection.name}</h2>
       </div>
     </div>
