@@ -40,21 +40,13 @@ export const HomePage: React.FC = () => {
     },
   ];
 
-  // Dynamische Projekte aus Collections (mit oder ohne 'page' Feld)
+  // Dynamische Projekte aus Collections
+  // NUR Collections OHNE page Feld (z.B. Sons of Satoshi Evolution)
+  // Collections MIT page Feld sind bereits in staticProjects definiert
   const dynamicProjects = collections
+    .filter(collection => !collection.page || collection.page === '')
     .map(collection => {
-      // Mapping von page-Werten zu Route-IDs
-      const pageToId: Record<string, string> = {
-        'smile-a-bit': 'smile-a-bit',
-        'tech-games': 'tech-games',
-        'point-shop': 'point-shop',
-        'gallery': 'gallery',
-        'trading': 'trading',
-      };
-      
-      const projectId = collection.page 
-        ? (pageToId[collection.page] || collection.page.replace(/[^a-z0-9-]/gi, '-').toLowerCase())
-        : collection.id.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+      const projectId = collection.id.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
       
       // Sons of Satoshi Evolution bekommt Position 2 (nach Black & Wild, vor Tech Games)
       const order = collection.name.toLowerCase().includes('sons of satoshi') ? 2 : 5; // Standard: 5 (nach Point Shop)
