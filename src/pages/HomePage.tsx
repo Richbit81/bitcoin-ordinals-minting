@@ -185,6 +185,7 @@ export const HomePage: React.FC = () => {
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
               project.id === 'black-wild' ? 'md:mt-16' :
+              project.order === 2 ? 'md:mt-24' : // Sons of Satoshi: 30px weiter runter
               project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
@@ -208,7 +209,7 @@ export const HomePage: React.FC = () => {
             </div>
             
             {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}
-            <div className="mt-auto pt-3 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]">
+            <div className="mt-auto -mt-2 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]">
               {project.id === 'black-wild' ? (
                 <h2 className="text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-red-600">
                   <span 
@@ -225,7 +226,10 @@ export const HomePage: React.FC = () => {
               ) : (
                 <h2 className="text-xl font-bold text-white mb-1 transition-colors duration-300 group-hover:text-red-400">{project.name}</h2>
               )}
-              <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
+              {/* Beschreibung nur für statische Projekte anzeigen */}
+              {!project.collectionId && (
+                <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
+              )}
             </div>
             </div>
           );
