@@ -25,18 +25,18 @@ export const HomePage: React.FC = () => {
       order: 1,
     },
     {
-      id: 'point-shop',
-      name: 'Point Shop',
-      thumbnail: '/pointshop.png',
-      description: 'Mint exclusive Ordinals with your points',
-      order: 3,
-    },
-    {
       id: 'tech-games',
       name: 'TECH & GAMES',
       thumbnail: '/techgame.png',
       description: 'Interactive games and tech tools',
-      order: 2,
+      order: 3,
+    },
+    {
+      id: 'point-shop',
+      name: 'Point Shop',
+      thumbnail: '/pointshop.png',
+      description: 'Mint exclusive Ordinals with your points',
+      order: 4,
     },
   ];
 
@@ -55,12 +55,15 @@ export const HomePage: React.FC = () => {
       
       const projectId = pageToId[collection.page] || collection.page.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
       
+      // Sons of Satoshi Evolution bekommt Position 2 (nach Black & Wild, vor Tech Games)
+      const order = collection.name === 'Sons of Satoshi Evolution' ? 2 : 5; // Standard: 5 (nach Point Shop)
+      
       return {
         id: projectId,
         name: collection.name,
         thumbnail: collection.thumbnail || '/images/RichArt.png',
         description: collection.description || 'Collection',
-        order: 4, // Standard-Order für dynamische Projekte
+        order: order,
         collectionId: collection.id, // Für Navigation
       };
     });
@@ -176,10 +179,12 @@ export const HomePage: React.FC = () => {
               key={project.id}
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
-              project.id === 'point-shop' ? 'md:order-3' : 
-              project.id === 'tech-games' ? 'md:order-2' : 
-              project.order === 4 ? 'md:order-4' :
-              'md:order-1'
+              project.id === 'black-wild' ? 'md:order-1' :
+              project.order === 2 ? 'md:order-2' : // Sons of Satoshi Evolution
+              project.id === 'tech-games' ? 'md:order-3' : 
+              project.id === 'point-shop' ? 'md:order-4' :
+              project.order >= 5 ? 'md:order-5' : // Weitere dynamische Collections
+              'md:order-6'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
