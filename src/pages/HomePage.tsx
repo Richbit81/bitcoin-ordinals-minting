@@ -230,17 +230,6 @@ export const HomePage: React.FC = () => {
             </div>
           );
         })}
-        
-        {/* Dynamische Kollektionen */}
-        {loadingCollections ? (
-          <div className="col-span-full text-center py-8">
-            <p className="text-gray-400">Loading collections...</p>
-          </div>
-        ) : (
-          collections.map((collection) => (
-            <CollectionCard key={collection.id} collection={collection} />
-          ))
-        )}
       </div>
 
       {/* News Banner - nach den Projekten */}
