@@ -28,6 +28,15 @@ export interface BlockInfo {
   feeRange: number[];
 }
 
+export interface MempoolBlock {
+  blockSize: number;
+  blockVSize: number;
+  nTx: number;
+  medianFee: number;
+  totalFees: number;
+  feeRange: number[];
+}
+
 export interface FeeHistoryPoint {
   timestamp: number;
   avgFee: number;
@@ -35,9 +44,34 @@ export interface FeeHistoryPoint {
 
 /**
  * Fetches current recommended fees
+ * Note: The /v1/fees/recommended endpoint returns integers only!
+ * For decimal precision (e.g., 0.2 sat/vB), we fetch from /mempool/blocks
  */
 export async function getRecommendedFees(): Promise<FeeRecommendation> {
   try {
+    // Try to get precise fees from mempool blocks first
+    const blocksResponse = await fetch(`${MEMPOOL_API_BASE}/v1/fees/mempool-blocks`);
+    if (blocksResponse.ok) {
+      const blocks = await blocksResponse.json();
+      console.log('[Mempool] 📊 Mempool blocks data:', blocks);
+      
+      // Extract fee ranges from the projected blocks
+      if (blocks && blocks.length > 0) {
+        const firstBlock = blocks[0];
+        const medianBlock = blocks[Math.min(2, blocks.length - 1)];
+        const slowBlock = blocks[Math.min(5, blocks.length - 1)];
+        
+        return {
+          fastestFee: firstBlock.feeRange?.[firstBlock.feeRange.length - 1] || firstBlock.medianFee || 1,
+          halfHourFee: medianBlock.medianFee || 1,
+          hourFee: slowBlock.medianFee || 1,
+          economyFee: blocks[blocks.length - 1]?.medianFee || 1,
+          minimumFee: blocks[blocks.length - 1]?.feeRange?.[0] || 1
+        };
+      }
+    }
+    
+    // Fallback to recommended endpoint (integers only)
     const response = await fetch(`${MEMPOOL_API_BASE}/v1/fees/recommended`);
     if (!response.ok) throw new Error('Failed to fetch fees');
     return await response.json();
