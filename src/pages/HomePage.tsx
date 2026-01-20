@@ -268,9 +268,12 @@ export const HomePage: React.FC = () => {
                   - Statische Projekte: Black & Wild, Tech & Games, Point Shop
                   - Dynamische Collections (Admin Panel): NUR Titel
                   - Beschreibung wird auf Mint-Seite angezeigt
+                  - ABER: Unsichtbarer Platzhalter für gleiche Höhe der Titel
                   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-              {!project.collectionId && (
+              {!project.collectionId ? (
                 <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
+              ) : (
+                <p className="text-xs text-gray-400 opacity-0 pointer-events-none h-4">Placeholder</p>
               )}
             </div>
             </div>
