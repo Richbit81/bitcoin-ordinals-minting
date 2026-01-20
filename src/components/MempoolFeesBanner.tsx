@@ -50,10 +50,10 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   if (loading) {
     return (
-      <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 z-50">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
-          <div className="animate-pulse text-gray-400 text-sm">
-            ⚡ Loading Bitcoin network status...
+      <div className="fixed top-4 right-4 z-40">
+        <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2">
+          <div className="animate-pulse text-gray-400 text-xs">
+            ⚡ Loading...
           </div>
         </div>
       </div>
@@ -61,120 +61,42 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   }
 
   if (error || !fees) {
-    return (
-      <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 z-50">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
-          <div className="text-gray-500 text-sm">
-            ⚠️ Unable to load fee data
-          </div>
-        </div>
-      </div>
-    );
+    return null; // Hide on error - no need to show error state
   }
 
   const mainFee = fees.halfHourFee;
   const feeColor = getFeeColor(mainFee);
 
   return (
-    <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-300 z-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <div 
-          className="flex items-center justify-center gap-6 cursor-pointer group"
-          onClick={onDetailsClick}
-        >
-          {/* Title */}
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
-            <span className="text-orange-500">⚡</span>
-            <span>Bitcoin Network</span>
+    <div 
+      className="fixed top-4 right-4 z-40 cursor-pointer group"
+      onClick={onDetailsClick}
+    >
+      <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 hover:border-orange-500/50 transition-all duration-300 shadow-lg">
+        <div className="flex items-center gap-3">
+          {/* Main Fee (Half Hour) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">⚡</span>
+            <span className="text-sm font-bold" style={{ color: getFeeColor(fees.halfHourFee) }}>
+              {fees.halfHourFee}
+            </span>
+            <span className="text-xs text-gray-500">sat/vB</span>
           </div>
-
-          {/* Fee Indicators */}
-          <div className="flex items-center gap-4">
-            {/* Fastest */}
-            <div className="group/fee relative">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span>{getFeeEmoji(fees.fastestFee)}</span>
-                <span className="font-bold" style={{ color: getFeeColor(fees.fastestFee) }}>
-                  {fees.fastestFee}
-                </span>
-                <span className="text-gray-500 text-xs">sat/vB</span>
-              </div>
-              {/* Hover Tooltip */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-950 border border-gray-700 rounded-lg opacity-0 group-hover/fee:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                <div className="text-xs text-gray-300">
-                  <div className="font-semibold text-white">Schnell</div>
-                  <div>{getEstimatedTime('fastest')}</div>
-                </div>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-950"></div>
-              </div>
-            </div>
-
-            {/* Half Hour */}
-            <div className="group/fee relative">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span>{getFeeEmoji(fees.halfHourFee)}</span>
-                <span className="font-bold" style={{ color: getFeeColor(fees.halfHourFee) }}>
-                  {fees.halfHourFee}
-                </span>
-                <span className="text-gray-500 text-xs">sat/vB</span>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-950 border border-gray-700 rounded-lg opacity-0 group-hover/fee:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                <div className="text-xs text-gray-300">
-                  <div className="font-semibold text-white">Mittel</div>
-                  <div>{getEstimatedTime('halfHour')}</div>
-                </div>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-950"></div>
-              </div>
-            </div>
-
-            {/* Hour */}
-            <div className="group/fee relative">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span>{getFeeEmoji(fees.hourFee)}</span>
-                <span className="font-bold" style={{ color: getFeeColor(fees.hourFee) }}>
-                  {fees.hourFee}
-                </span>
-                <span className="text-gray-500 text-xs">sat/vB</span>
-              </div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-950 border border-gray-700 rounded-lg opacity-0 group-hover/fee:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                <div className="text-xs text-gray-300">
-                  <div className="font-semibold text-white">Langsam</div>
-                  <div>{getEstimatedTime('hour')}</div>
-                </div>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-950"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mini Sparkline Chart */}
-          {feeHistory.length > 0 && (
-            <div className="w-32 h-8">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={feeHistory}>
-                  <Line 
-                    type="monotone" 
-                    dataKey="avgFee" 
-                    stroke={feeColor}
-                    strokeWidth={2}
-                    dot={false}
-                    animationDuration={300}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Click hint */}
-          <div className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">
-            📊 Details
-          </div>
+          
+          {/* Details hint */}
+          <span className="text-xs text-gray-600 group-hover:text-gray-400">📊</span>
         </div>
-
-        {/* Last update timestamp */}
-        <div className="text-center mt-1">
-          <span className="text-[10px] text-gray-600">
-            Aktualisiert: {lastUpdate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-          </span>
+        
+        {/* Hover tooltip */}
+        <div className="absolute top-full right-0 mt-2 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+          <div className="text-xs text-gray-300 space-y-1">
+            <div>🚀 Schnell: <span className="font-bold" style={{ color: getFeeColor(fees.fastestFee) }}>{fees.fastestFee}</span> sat/vB</div>
+            <div>⚡ Mittel: <span className="font-bold" style={{ color: getFeeColor(fees.halfHourFee) }}>{fees.halfHourFee}</span> sat/vB</div>
+            <div>🐢 Langsam: <span className="font-bold" style={{ color: getFeeColor(fees.hourFee) }}>{fees.hourFee}</span> sat/vB</div>
+            <div className="text-[10px] text-gray-600 pt-1 border-t border-gray-800">
+              {lastUpdate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
