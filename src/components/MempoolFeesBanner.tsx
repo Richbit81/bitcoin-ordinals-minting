@@ -23,18 +23,22 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   // Fetch data
   const fetchData = async () => {
+    console.log('[MempoolBanner] 🔄 Fetching mempool data...');
     try {
       const [feesData, historyData] = await Promise.all([
         getRecommendedFees(),
         getFeeHistory24h()
       ]);
       
+      console.log('[MempoolBanner] ✅ Fees data:', feesData);
+      console.log('[MempoolBanner] ✅ History data points:', historyData.length);
+      
       setFees(feesData);
       setFeeHistory(historyData);
       setError(false);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('[MempoolBanner] Error fetching data:', err);
+      console.error('[MempoolBanner] ❌ Error fetching data:', err);
       setError(true);
     } finally {
       setLoading(false);
@@ -43,12 +47,17 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   // Initial fetch + auto-refresh every 60 seconds
   useEffect(() => {
+    console.log('[MempoolBanner] 🚀 Component mounted, starting fetch...');
     fetchData();
     const interval = setInterval(fetchData, 60000); // 60s
-    return () => clearInterval(interval);
+    return () => {
+      console.log('[MempoolBanner] 🛑 Component unmounted');
+      clearInterval(interval);
+    };
   }, []);
 
   if (loading) {
+    console.log('[MempoolBanner] 🔄 Rendering: LOADING state');
     return (
       <div className="fixed top-4 right-4 z-40">
         <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2">
@@ -61,8 +70,11 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   }
 
   if (error || !fees) {
+    console.log('[MempoolBanner] ❌ Rendering: ERROR state (hiding component)');
     return null; // Hide on error - no need to show error state
   }
+
+  console.log('[MempoolBanner] ✅ Rendering: SUCCESS state with fees:', fees.halfHourFee);
 
   const mainFee = fees.halfHourFee;
   const feeColor = getFeeColor(mainFee);
