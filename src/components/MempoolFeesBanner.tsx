@@ -59,7 +59,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   if (loading) {
     console.log('[MempoolBanner] 🔄 Rendering: LOADING state');
     return (
-      <div className="fixed top-4 right-4 z-40">
+      <div className="fixed top-4 right-32 md:right-40 z-40">
         <div className="bg-gradient-to-br from-orange-600 to-orange-700 border-2 border-orange-500 rounded-lg px-4 py-2.5 shadow-2xl shadow-orange-500/50">
           <div className="animate-pulse text-white text-sm font-semibold">
             ⚡ Loading...
@@ -81,7 +81,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   return (
     <div 
-      className="fixed top-4 right-4 z-40 cursor-pointer group"
+      className="fixed top-4 right-32 md:right-40 z-40 cursor-pointer group"
       onClick={onDetailsClick}
     >
       <div className="bg-gradient-to-br from-orange-600 to-orange-700 border-2 border-orange-500 rounded-lg px-4 py-2.5 hover:from-orange-500 hover:to-orange-600 transition-all duration-300 shadow-2xl shadow-orange-500/50">
