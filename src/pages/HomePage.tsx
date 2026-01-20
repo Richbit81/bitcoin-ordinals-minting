@@ -141,9 +141,9 @@ export const HomePage: React.FC = () => {
         onClose={() => setIsMempoolModalOpen(false)} 
       />
 
-      <div className="min-h-screen bg-black flex flex-col items-center p-4 md:p-8 pt-16 md:pt-20 pb-24 md:pb-8 relative">
+      <div className="min-h-screen bg-black flex flex-col items-center p-4 md:p-8 pt-28 md:pt-32 pb-24 md:pb-8 relative">
         {/* Oben links: Link Gallery + Punkte-Anzeige */}
-      <div className="fixed top-2 md:top-4 left-2 md:left-4 z-40 flex items-center gap-2 md:gap-4">
+      <div className="fixed top-20 md:top-24 left-2 md:left-4 z-40 flex items-center gap-2 md:gap-4">
         {/* Link Gallery */}
         <a
           href="/link-gallery"

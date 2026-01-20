@@ -50,7 +50,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   if (loading) {
     return (
-      <div className="w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3">
+      <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 z-50">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
           <div className="animate-pulse text-gray-400 text-sm">
             ⚡ Loading Bitcoin network status...
@@ -62,7 +62,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   if (error || !fees) {
     return (
-      <div className="w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3">
+      <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 z-50">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
           <div className="text-gray-500 text-sm">
             ⚠️ Unable to load fee data
@@ -76,7 +76,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   const feeColor = getFeeColor(mainFee);
 
   return (
-    <div className="w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-300">
+    <div className="fixed top-0 left-0 right-0 w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 py-3 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-300 z-50">
       <div className="max-w-7xl mx-auto px-4">
         <div 
           className="flex items-center justify-center gap-6 cursor-pointer group"
