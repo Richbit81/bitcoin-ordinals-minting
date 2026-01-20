@@ -61,8 +61,9 @@ export async function getRecommendedFees(): Promise<FeeRecommendation> {
         const medianBlock = blocks[Math.min(2, blocks.length - 1)];
         const slowBlock = blocks[Math.min(5, blocks.length - 1)];
         
+        // Use medianFee for all priorities (not feeRange max!)
         return {
-          fastestFee: firstBlock.feeRange?.[firstBlock.feeRange.length - 1] || firstBlock.medianFee || 1,
+          fastestFee: firstBlock.medianFee || 1,
           halfHourFee: medianBlock.medianFee || 1,
           hourFee: slowBlock.medianFee || 1,
           economyFee: blocks[blocks.length - 1]?.medianFee || 1,
