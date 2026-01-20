@@ -24,15 +24,19 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   // Fetch data
   const fetchData = async () => {
     console.log('[MempoolBanner] 🔄 Fetching mempool data...');
+    console.log('[MempoolBanner] 📡 API URL:', 'https://mempool.space/api/v1/fees/recommended');
     try {
       const [feesData, historyData] = await Promise.all([
         getRecommendedFees(),
         getFeeHistory24h()
       ]);
       
-      console.log('[MempoolBanner] ✅ Fees data:', feesData);
-      console.log('[MempoolBanner] 📊 halfHourFee:', feesData.halfHourFee, 'Type:', typeof feesData.halfHourFee);
-      console.log('[MempoolBanner] ✅ History data points:', historyData.length);
+      console.log('[MempoolBanner] ✅ RAW API Response:', JSON.stringify(feesData, null, 2));
+      console.log('[MempoolBanner] 📊 fastestFee:', feesData.fastestFee);
+      console.log('[MempoolBanner] 📊 halfHourFee:', feesData.halfHourFee);
+      console.log('[MempoolBanner] 📊 hourFee:', feesData.hourFee);
+      console.log('[MempoolBanner] 📊 economyFee:', feesData.economyFee);
+      console.log('[MempoolBanner] 📊 minimumFee:', feesData.minimumFee);
       
       setFees(feesData);
       setFeeHistory(historyData);
@@ -60,7 +64,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   if (loading) {
     console.log('[MempoolBanner] 🔄 Rendering: LOADING state');
     return (
-      <div className="fixed top-4 right-32 md:right-40 z-40">
+      <div className="fixed top-4 right-52 md:right-64 z-40">
         <div className="animate-pulse text-orange-500 text-sm font-semibold">
           ⚡ Loading...
         </div>
@@ -80,7 +84,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   return (
     <div 
-      className="fixed top-4 right-32 md:right-40 z-40 cursor-pointer group"
+      className="fixed top-4 right-52 md:right-64 z-40 cursor-pointer group"
       onClick={onDetailsClick}
     >
       {/* Dezenter Text ohne Box */}
