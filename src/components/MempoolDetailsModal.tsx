@@ -64,9 +64,9 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
   }));
 
   // Calculate domain for Y-axis to show variation better
-  const fees = chartData.map(d => d.fee);
-  const minFee = Math.min(...fees);
-  const maxFee = Math.max(...fees);
+  const feeValues = chartData.map(d => d.fee);
+  const minFee = Math.min(...feeValues);
+  const maxFee = Math.max(...feeValues);
   const padding = (maxFee - minFee) * 0.1 || 0.5; // 10% padding or 0.5 if flat
 
   return (
