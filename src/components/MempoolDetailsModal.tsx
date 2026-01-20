@@ -78,7 +78,7 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
               <span className="text-orange-500">⚡</span>
               Bitcoin Network Status
             </h2>
-            <p className="text-sm text-gray-400 mt-1">Live-Daten von mempool.space</p>
+            <p className="text-sm text-gray-400 mt-1">Live data from mempool.space</p>
           </div>
           <button
             onClick={onClose}
@@ -92,33 +92,33 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
 
         {loading ? (
           <div className="p-12 flex items-center justify-center">
-            <div className="text-gray-400 animate-pulse">Lade Netzwerk-Daten...</div>
+            <div className="text-gray-400 animate-pulse">Loading network data...</div>
           </div>
         ) : (
           <div className="p-6 space-y-6">
             {/* Fee Rates Cards */}
             {fees && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-1">🚀 Schnell</div>
+                  <div className="text-sm text-gray-400 mb-1">🚀 High Priority</div>
                   <div className="text-3xl font-bold" style={{ color: getFeeColor(fees.fastestFee) }}>
-                    {fees.fastestFee}
+                    {fees.fastestFee < 1 ? fees.fastestFee.toFixed(2) : fees.fastestFee}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">sat/vB • ~10 Min</div>
+                  <div className="text-xs text-gray-500 mt-1">sat/vB • ~10 min</div>
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-1">⚡ Mittel</div>
+                  <div className="text-sm text-gray-400 mb-1">⚡ Medium Priority</div>
                   <div className="text-3xl font-bold" style={{ color: getFeeColor(fees.halfHourFee) }}>
-                    {fees.halfHourFee}
+                    {fees.halfHourFee < 1 ? fees.halfHourFee.toFixed(2) : fees.halfHourFee}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">sat/vB • ~30 Min</div>
+                  <div className="text-xs text-gray-500 mt-1">sat/vB • ~30 min</div>
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-1">🐢 Langsam</div>
+                  <div className="text-sm text-gray-400 mb-1">🐢 Low Priority</div>
                   <div className="text-3xl font-bold" style={{ color: getFeeColor(fees.hourFee) }}>
-                    {fees.hourFee}
+                    {fees.hourFee < 1 ? fees.hourFee.toFixed(2) : fees.hourFee}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">sat/vB • ~1h</div>
                 </div>
@@ -126,9 +126,17 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">💰 Economy</div>
                   <div className="text-3xl font-bold" style={{ color: getFeeColor(fees.economyFee) }}>
-                    {fees.economyFee}
+                    {fees.economyFee < 1 ? fees.economyFee.toFixed(2) : fees.economyFee}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">sat/vB • ~2-4h</div>
+                </div>
+
+                <div className="bg-gray-800 border border-orange-500/50 rounded-lg p-4">
+                  <div className="text-sm text-gray-400 mb-1">🔻 Minimum</div>
+                  <div className="text-3xl font-bold text-orange-400">
+                    {fees.minimumFee < 1 ? fees.minimumFee.toFixed(2) : fees.minimumFee}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">sat/vB • lowest</div>
                 </div>
               </div>
             )}
@@ -136,7 +144,7 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
             {/* 24h Fee Chart */}
             {chartData.length > 0 && (
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Fee-Verlauf (24 Stunden)</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">Fee History (24 Hours)</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -169,7 +177,7 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
                       stroke="#f97316" 
                       strokeWidth={3}
                       dot={false}
-                      name="Durchschnittliche Fee"
+                      name="Average Fee"
                       animationDuration={1000}
                     />
                   </LineChart>
@@ -181,27 +189,27 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
             {mempool && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-1">📦 Unbestätigte TXs</div>
+                  <div className="text-sm text-gray-400 mb-1">📦 Unconfirmed TXs</div>
                   <div className="text-2xl font-bold text-white">
-                    {mempool.count.toLocaleString('de-DE')}
+                    {mempool.count.toLocaleString('en-US')}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">Transaktionen im Mempool</div>
+                  <div className="text-xs text-gray-500 mt-1">Transactions in mempool</div>
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-1">💾 Mempool-Größe</div>
+                  <div className="text-sm text-gray-400 mb-1">💾 Mempool Size</div>
                   <div className="text-2xl font-bold text-white">
                     {(mempool.vsize / 1000000).toFixed(1)} MB
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">Virtuelle Bytes</div>
+                  <div className="text-xs text-gray-500 mt-1">Virtual Bytes</div>
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">🏔️ Block Height</div>
                   <div className="text-2xl font-bold text-white">
-                    #{blockHeight.toLocaleString('de-DE')}
+                    #{blockHeight.toLocaleString('en-US')}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">Aktueller Block</div>
+                  <div className="text-xs text-gray-500 mt-1">Current block</div>
                 </div>
               </div>
             )}
@@ -222,17 +230,17 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
                   <div>
                     <div className="font-semibold text-white mb-1">
                       {fees.halfHourFee <= 15 
-                        ? '✅ Guter Zeitpunkt zum Minten!' 
+                        ? '✅ Great time to mint!' 
                         : fees.halfHourFee <= 30 
                           ? '⚠️ Moderate Fees' 
-                          : '🚨 Hohe Fees - Warten empfohlen'}
+                          : '🚨 High Fees - Consider waiting'}
                     </div>
                     <div className="text-sm text-gray-300">
                       {fees.halfHourFee <= 15 
-                        ? 'Die Netzwerk-Fees sind niedrig. Perfekt für Inscriptions!' 
+                        ? 'Network fees are low. Perfect for inscriptions!' 
                         : fees.halfHourFee <= 30 
-                          ? 'Die Fees sind etwas erhöht, aber noch akzeptabel.' 
-                          : 'Das Netzwerk ist momentan stark ausgelastet. Warte besser auf niedrigere Fees.'}
+                          ? 'Fees are slightly elevated but still acceptable.' 
+                          : 'The network is currently congested. Better to wait for lower fees.'}
                     </div>
                   </div>
                 </div>
@@ -241,7 +249,7 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
 
             {/* Info Footer */}
             <div className="text-center text-xs text-gray-500 pt-4 border-t border-gray-800">
-              Daten aktualisieren sich automatisch alle 60 Sekunden • Powered by mempool.space
+              Data updates automatically every 60 seconds • Powered by mempool.space
             </div>
           </div>
         )}

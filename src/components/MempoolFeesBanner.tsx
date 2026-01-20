@@ -77,9 +77,17 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
     return null; // Hide on error - no need to show error state
   }
 
-  console.log('[MempoolBanner] ✅ Rendering: SUCCESS state with fees:', fees.halfHourFee);
+  console.log('[MempoolBanner] ✅ Rendering: SUCCESS state');
+  console.log('[MempoolBanner] 📊 All Fees:', {
+    fastest: fees.fastestFee,
+    halfHour: fees.halfHourFee,
+    hour: fees.hourFee,
+    economy: fees.economyFee,
+    minimum: fees.minimumFee
+  });
 
-  const mainFee = fees.halfHourFee;
+  // Use minimum fee as main display (the lowest current fee)
+  const mainFee = fees.minimumFee;
   const feeColor = getFeeColor(mainFee);
 
   return (
@@ -91,7 +99,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
       <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <span className="text-base">⚡</span>
         <span className="text-sm font-bold text-orange-500">
-          {fees.halfHourFee < 1 ? fees.halfHourFee.toFixed(2) : Math.round(fees.halfHourFee)}
+          {fees.minimumFee < 1 ? fees.minimumFee.toFixed(2) : Math.round(fees.minimumFee)}
         </span>
         <span className="text-xs text-gray-400 font-semibold">sat/vB</span>
         <span className="text-sm group-hover:scale-110 transition-transform">📊</span>
@@ -102,27 +110,34 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
         <div className="text-sm text-white space-y-2">
           <div className="flex items-center gap-2">
             <span>🚀</span>
-            <span>Schnell:</span>
+            <span>High:</span>
             <span className="font-bold text-orange-400">
               {fees.fastestFee < 1 ? fees.fastestFee.toFixed(2) : Math.round(fees.fastestFee)} sat/vB
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span>⚡</span>
-            <span>Mittel:</span>
+            <span>Medium:</span>
             <span className="font-bold text-orange-400">
               {fees.halfHourFee < 1 ? fees.halfHourFee.toFixed(2) : Math.round(fees.halfHourFee)} sat/vB
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span>🐢</span>
-            <span>Langsam:</span>
+            <span>Low:</span>
             <span className="font-bold text-orange-400">
               {fees.hourFee < 1 ? fees.hourFee.toFixed(2) : Math.round(fees.hourFee)} sat/vB
             </span>
           </div>
+          <div className="flex items-center gap-2">
+            <span>🔻</span>
+            <span>Min:</span>
+            <span className="font-bold text-orange-400">
+              {fees.minimumFee < 1 ? fees.minimumFee.toFixed(2) : Math.round(fees.minimumFee)} sat/vB
+            </span>
+          </div>
           <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
-            Aktualisiert: {lastUpdate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+            Updated: {lastUpdate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
       </div>
