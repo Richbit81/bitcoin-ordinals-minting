@@ -6,6 +6,8 @@ import { getAllCollections, Collection } from '../services/collectionService';
 import { CollectionCard } from '../components/CollectionCard';
 import { NewsBanner } from '../components/NewsBanner';
 import { ProgressiveImage } from '../components/ProgressiveImage';
+import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
+import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ export const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
+  const [isMempoolModalOpen, setIsMempoolModalOpen] = useState(false);
 
   // Statische Projekte (immer vorhanden)
   const staticProjects = [
@@ -128,8 +131,18 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center p-4 md:p-8 pt-16 md:pt-20 pb-24 md:pb-8 relative">
-      {/* Oben links: Link Gallery + Punkte-Anzeige */}
+    <>
+      {/* Mempool Fees Banner - ganz oben */}
+      <MempoolFeesBanner onDetailsClick={() => setIsMempoolModalOpen(true)} />
+      
+      {/* Mempool Details Modal */}
+      <MempoolDetailsModal 
+        isOpen={isMempoolModalOpen} 
+        onClose={() => setIsMempoolModalOpen(false)} 
+      />
+
+      <div className="min-h-screen bg-black flex flex-col items-center p-4 md:p-8 pt-16 md:pt-20 pb-24 md:pb-8 relative">
+        {/* Oben links: Link Gallery + Punkte-Anzeige */}
       <div className="fixed top-2 md:top-4 left-2 md:left-4 z-40 flex items-center gap-2 md:gap-4">
         {/* Link Gallery */}
         <a
@@ -270,6 +283,7 @@ export const HomePage: React.FC = () => {
         <NewsBanner />
       </div>
     </div>
+    </>
   );
 };
 
