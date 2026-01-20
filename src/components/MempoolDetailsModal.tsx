@@ -54,13 +54,20 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
 
   // Format chart data
   const chartData = feeHistory.map(point => ({
-    time: new Date(point.timestamp * 1000).toLocaleTimeString('de-DE', { 
+    time: new Date(point.timestamp * 1000).toLocaleTimeString('en-US', { 
       hour: '2-digit', 
-      minute: '2-digit' 
+      minute: '2-digit',
+      hour12: false
     }),
-    fee: point.avgFee,
+    fee: Number(point.avgFee.toFixed(2)), // Round to 2 decimals for cleaner display
     timestamp: point.timestamp
   }));
+
+  // Calculate domain for Y-axis to show variation better
+  const fees = chartData.map(d => d.fee);
+  const minFee = Math.min(...fees);
+  const maxFee = Math.max(...fees);
+  const padding = (maxFee - minFee) * 0.1 || 0.5; // 10% padding or 0.5 if flat
 
   return (
     <div 
@@ -158,6 +165,8 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
                       stroke="#9ca3af"
                       tick={{ fill: '#9ca3af', fontSize: 12 }}
                       label={{ value: 'sat/vB', angle: -90, position: 'insideLeft', fill: '#9ca3af' }}
+                      domain={[minFee - padding, maxFee + padding]}
+                      tickFormatter={(value) => value.toFixed(2)}
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -167,6 +176,7 @@ export const MempoolDetailsModal: React.FC<MempoolDetailsModalProps> = ({ isOpen
                         color: '#fff'
                       }}
                       labelStyle={{ color: '#9ca3af' }}
+                      formatter={(value: number) => [`${value.toFixed(2)} sat/vB`, 'Fee']}
                     />
                     <Legend 
                       wrapperStyle={{ color: '#9ca3af' }}
