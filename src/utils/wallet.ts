@@ -1071,14 +1071,44 @@ export const signPSBTViaXverse = async (
           },
           onFinish: (response: any) => {
             console.log('[signPSBTViaXverse] ✅ signMultipleTransactions finished:', response);
+            console.log('[signPSBTViaXverse] Response type:', typeof response);
+            console.log('[signPSBTViaXverse] Response is Array:', Array.isArray(response));
             
-            // Response Format: { psbts: [signedPsbtBase64, ...] }
-            if (response && response.psbts && response.psbts.length > 0) {
-              const signedPsbtBase64 = response.psbts[0];
+            // ✅ FIX: Response kann entweder { psbts: [...] } ODER direkt ein Array sein!
+            let psbts: any[] | undefined;
+            
+            if (Array.isArray(response)) {
+              // Response ist direkt ein Array: [{ psbtBase64: "..." }]
+              console.log('[signPSBTViaXverse] Response is direct array');
+              psbts = response;
+            } else if (response && response.psbts && Array.isArray(response.psbts)) {
+              // Response ist Object mit psbts property: { psbts: [{ psbtBase64: "..." }] }
+              console.log('[signPSBTViaXverse] Response has psbts property');
+              psbts = response.psbts;
+            }
+            
+            if (psbts && psbts.length > 0) {
+              // PSBT kann entweder direkt ein String sein ODER ein Object mit psbtBase64
+              const firstPsbt = psbts[0];
+              let signedPsbtBase64: string;
+              
+              if (typeof firstPsbt === 'string') {
+                signedPsbtBase64 = firstPsbt;
+                console.log('[signPSBTViaXverse] PSBT is string');
+              } else if (firstPsbt && firstPsbt.psbtBase64) {
+                signedPsbtBase64 = firstPsbt.psbtBase64;
+                console.log('[signPSBTViaXverse] PSBT is object with psbtBase64');
+              } else {
+                console.error('[signPSBTViaXverse] Unexpected PSBT format:', firstPsbt);
+                reject(new Error('Unerwartetes PSBT-Format in Response'));
+                return;
+              }
+              
               console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
               console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
               resolve(signedPsbtBase64);
             } else {
+              console.error('[signPSBTViaXverse] No PSBTs in response:', response);
               reject(new Error('Keine signierte PSBT in Response erhalten'));
             }
           },
