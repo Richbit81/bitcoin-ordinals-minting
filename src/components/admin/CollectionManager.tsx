@@ -665,29 +665,52 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
 
             <div>
               <label className="text-xs text-gray-400 block mb-1">Thumbnail</label>
-              <div className="flex gap-4">
+              
+              {/* File Upload */}
+              <div className="mb-2">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleThumbnailChange}
                   className="text-white text-sm"
+                  id="thumbnail-upload"
                 />
-                {formData.thumbnail && (
+              </div>
+
+              {/* Preview und Remove Button */}
+              {formData.thumbnail && (
+                <div className="flex items-center gap-3 mb-2">
                   <img
                     src={formData.thumbnail}
                     alt="Thumbnail preview"
-                    className="w-20 h-20 object-cover rounded"
+                    className="w-20 h-20 object-cover rounded border border-gray-700"
                   />
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Or enter URL:</p>
-              <input
-                type="text"
-                value={formData.thumbnail}
-                onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
-                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm mt-1"
-                placeholder="https://example.com/image.png"
-              />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, thumbnail: '' })}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded text-xs font-semibold"
+                  >
+                    Remove Image
+                  </button>
+                  {formData.thumbnail.startsWith('data:') && (
+                    <span className="text-xs text-green-400">✓ Image uploaded</span>
+                  )}
+                </div>
+              )}
+
+              {/* URL Input - nur anzeigen wenn KEIN Bild per Upload hochgeladen */}
+              {!formData.thumbnail?.startsWith('data:') && (
+                <>
+                  <p className="text-xs text-gray-500 mt-2 mb-1">Or enter URL:</p>
+                  <input
+                    type="text"
+                    value={formData.thumbnail?.startsWith('data:') ? '' : formData.thumbnail}
+                    onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+                    className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                    placeholder="https://example.com/image.png"
+                  />
+                </>
+              )}
             </div>
 
             <div>
