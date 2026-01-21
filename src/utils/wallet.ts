@@ -1020,7 +1020,7 @@ export const signPSBTViaUnisat = async (
 export const signPSBTViaXverse = async (
   psbtBase64: string,
   walletAddress?: string,
-  sighashType?: number  // Optional: z.B. 0x83 für SIGHASH_SINGLE | ANYONECANPAY
+  sighashType?: number  // Optional: z.B. 0x82 für SIGHASH_NONE | ANYONECANPAY
 ): Promise<string> => {
   if (!isXverseInstalled()) {
     throw new Error('Xverse Wallet nicht gefunden');
@@ -1059,13 +1059,13 @@ export const signPSBTViaXverse = async (
         signMultipleTransactions({
           payload: {
             network: { type: 'Mainnet' },
-            message: 'Pre-Signing für Collection Item (SIGHASH_SINGLE | ANYONECANPAY)',
+            message: 'Pre-Signing für Collection Item (SIGHASH_NONE | ANYONECANPAY)',
             psbts: [{
               psbtBase64: psbtBase64,
               inputsToSign: [{
                 address: walletAddress,
                 signingIndexes: [0],  // Input 0 signieren
-                sigHash: sighashType  // 0x83 für SIGHASH_SINGLE | ANYONECANPAY
+                sigHash: sighashType  // 0x82 für SIGHASH_NONE | ANYONECANPAY
               }]
             }]
           },
@@ -1191,7 +1191,7 @@ export const signPSBT = async (
   walletType: 'unisat' | 'xverse',
   autoFinalized: boolean = false,
   walletAddress?: string,
-  sighashType?: number  // Optional: SIGHASH_SINGLE | ANYONECANPAY = 0x83
+  sighashType?: number  // Optional: SIGHASH_NONE | ANYONECANPAY = 0x82
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);

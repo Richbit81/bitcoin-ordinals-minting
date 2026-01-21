@@ -403,13 +403,14 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       console.log('   Wallet Type:', walletState.walletType);
       console.log('   PSBT Length:', item.psbtBase64.length);
       
-      // Sign with SIGHASH_SINGLE | ANYONECANPAY (0x83) for marketplace-style pre-signing
+      // Sign with SIGHASH_NONE | ANYONECANPAY (0x82) for marketplace-style pre-signing
+      // ✅ Signiert NUR den Input, erlaubt Output-Adresse Ersetzung (Placeholder → Käufer)
       const signedPsbt = await signPSBT(
         item.psbtBase64,
         walletState.walletType,
         false,  // Do not broadcast
         item.ownerAddress,  // Owner address for inputsToSign
-        0x83    // SIGHASH_SINGLE | ANYONECANPAY
+        0x82    // SIGHASH_NONE | ANYONECANPAY
       );
       
       console.log('[CollectionManager] ✅ PSBT signed successfully');

@@ -1,6 +1,6 @@
 /**
  * Collection Pre-Signing Service
- * Handles pre-signing of collection originals using SIGHASH_SINGLE | ANYONECANPAY
+ * Handles pre-signing of collection originals using SIGHASH_NONE | ANYONECANPAY
  */
 
 import { getApiUrl } from '../utils/apiUrl';
