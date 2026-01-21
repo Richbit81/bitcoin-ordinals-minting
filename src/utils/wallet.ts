@@ -1037,48 +1037,59 @@ export const signPSBTViaXverse = async (
       throw new Error('Sats Connect nicht verfügbar');
     }
 
-    console.log('[signPSBTViaXverse] Calling sats-connect request signPsbt...');
+    // ✅ NEUE IMPLEMENTIERUNG: Verwende signMultipleTransactions für custom SIGHASH
+    if (walletAddress && sighashType !== undefined) {
+      console.log('[signPSBTViaXverse] 🎯 Using signMultipleTransactions for custom SIGHASH');
+      console.log('[signPSBTViaXverse] Address:', walletAddress);
+      console.log('[signPSBTViaXverse] SigHash:', `0x${sighashType.toString(16)} (${sighashType})`);
+      
+      // Wrap in Promise für async/await Kompatibilität
+      return new Promise((resolve, reject) => {
+        satsConnect.request('signMultipleTransactions', {
+          payload: {
+            network: { type: 'Mainnet' },
+            message: 'Pre-Signing für Collection Item (SIGHASH_SINGLE | ANYONECANPAY)',
+            psbts: [{
+              psbtBase64: psbtBase64,
+              inputsToSign: [{
+                address: walletAddress,
+                signingIndexes: [0],  // Input 0 signieren
+                sigHash: sighashType  // 0x83 für SIGHASH_SINGLE | ANYONECANPAY
+              }]
+            }]
+          },
+          onFinish: (response: any) => {
+            console.log('[signPSBTViaXverse] ✅ signMultipleTransactions finished:', response);
+            
+            // Response Format: { psbts: [signedPsbtBase64, ...] }
+            if (response && response.psbts && response.psbts.length > 0) {
+              const signedPsbtBase64 = response.psbts[0];
+              console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
+              console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
+              resolve(signedPsbtBase64);
+            } else {
+              reject(new Error('Keine signierte PSBT in Response erhalten'));
+            }
+          },
+          onCancel: () => {
+            console.log('[signPSBTViaXverse] ❌ User cancelled signing');
+            reject(new Error('User rejected request to sign a psbt'));
+          }
+        });
+      });
+    }
     
-    // WICHTIG: Für Taproot-PSBTs mit Xverse gibt es zwei Optionen:
-    // 1. Xverse signiert und finalisiert (autoFinalized: true) - dann bekommen wir eine fertige Transaction
-    // 2. Xverse signiert nur (broadcast: false) - dann müssen wir im Backend finalisieren
-    // 
-    // Problem: Wenn die ownerAddress eine Admin-Adresse ist, die der Benutzer nicht kontrolliert,
-    // kann Xverse die PSBT nicht signieren. In diesem Fall müssen wir einen anderen Flow verwenden.
-    //
-    // Für jetzt: Versuchen wir, Xverse die PSBT finalisieren zu lassen (autoFinalized: true)
-    // Das funktioniert nur, wenn Xverse die Input-Adresse kontrolliert
+    // ❌ ALTE IMPLEMENTIERUNG: Fallback für normale Signierung ohne custom SIGHASH
+    console.log('[signPSBTViaXverse] Using standard signPsbt (no custom SIGHASH)');
     
     const requestParams: any = {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       },
-      broadcast: false, // Wir broadcasten selbst über Backend
-      // Versuche autoFinalized - Xverse finalisiert dann die PSBT automatisch
-      // Wenn das nicht funktioniert, müssen wir im Backend finalisieren
+      broadcast: false,
       autoFinalized: true
     };
-    
-    // Wenn walletAddress und sighashType angegeben sind, verwende signInputs
-    // Das erlaubt es, spezifische Inputs mit bestimmten SigHash-Typen zu signieren
-    if (walletAddress && sighashType !== undefined) {
-      console.log('[signPSBTViaXverse] Using signInputs with sighashType:', `0x${sighashType.toString(16)}`);
-      requestParams.signInputs = {
-        [walletAddress]: [
-          {
-            index: 0,  // Input 0 (das Ordinal)
-            sighashTypes: [sighashType]
-          }
-        ]
-      };
-      requestParams.autoFinalized = false; // Nicht finalisieren bei custom sighashTypes
-    } else {
-      // NICHT signInputs verwenden - Xverse erkennt automatisch kontrollierte Inputs
-      // Wenn die ownerAddress eine Admin-Adresse ist, wird Xverse die Signatur ablehnen
-      console.log('[signPSBTViaXverse] Requesting PSBT signing with autoFinalized: true');
-      console.log('[signPSBTViaXverse] Xverse will auto-detect controlled inputs and finalize if possible');
-    }
     
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     
@@ -1092,19 +1103,15 @@ export const signPSBTViaXverse = async (
       resultKeys: response.result ? Object.keys(response.result) : []
     });
     
-    // Debug: Logge die vollständige Response
     console.log('[signPSBTViaXverse] Full response result:', JSON.stringify(response.result, null, 2));
 
     if (response.status === 'success') {
-      // Prüfe ob Xverse eine finalisierte Transaction zurückgegeben hat (wenn autoFinalized: true)
       const finalTxHex = response.result?.tx || response.result?.txHex || response.result?.txid || response.tx || response.txHex;
       const signedPsbtBase64 = response.result?.psbt || response.psbt;
       
-      // Wenn autoFinalized: true war und eine finalisierte Transaction zurückgegeben wurde
       if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500 && /^[0-9a-fA-F]+$/.test(finalTxHex)) {
         console.log('[signPSBTViaXverse] ✅ Finalized transaction received (Hex), length:', finalTxHex.length);
         console.log('[signPSBTViaXverse] Transaction preview:', finalTxHex.substring(0, 50) + '...');
-        // Konvertiere Hex zu Base64 für Konsistenz
         const hexBytes = finalTxHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
         const binaryString = String.fromCharCode(...hexBytes);
         const finalTxBase64 = btoa(binaryString);
@@ -1119,9 +1126,6 @@ export const signPSBTViaXverse = async (
       console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
       console.log('[signPSBTViaXverse] ⚠️ PSBT is not finalized - will be finalized in backend');
       
-      // WICHTIG: Xverse gibt Base64 zurück, aber das Backend erwartet möglicherweise Base64 oder Hex
-      // Lass uns Base64 zurückgeben, da das Backend Base64 besser handhaben kann
-      // Das Backend kann dann selbst entscheiden, ob es Base64 oder Hex ist
       return signedPsbtBase64;
     } else {
       throw new Error(response.error?.message || 'Fehler beim Signieren der PSBT');
