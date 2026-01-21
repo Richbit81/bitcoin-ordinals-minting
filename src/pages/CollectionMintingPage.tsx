@@ -186,8 +186,81 @@ export const CollectionMintingPage: React.FC = () => {
 
         const prepareData = await prepareResponse.json();
 
-        // Wenn Signing erforderlich ist
-        if (prepareData.requiresSigning && prepareData.psbtBase64) {
+        // ⚡ HYBRID SYSTEM: Check if wallet signing is required (User-signed collection)
+        if (prepareData.requiresWalletSigning) {
+          console.log('🔐 User-signed collection detected - wallet signing required');
+          setMintingStatus(prev => prev ? { ...prev, progress: 50, message: 'Please sign with your wallet...' } : null);
+          
+          try {
+            let txid: string;
+            
+            if (walletState.walletType === 'xverse') {
+              // Xverse: sign & broadcast automatically
+              const { signTransaction } = await import('sats-connect');
+              
+              const signResult = await new Promise<any>((resolve, reject) => {
+                signTransaction({
+                  payload: {
+                    network: { type: 'Mainnet' },
+                    message: `Sign to mint ${itemToMint.name}`,
+                    psbtBase64: prepareData.psbtBase64,
+                    broadcast: true,
+                    inputsToSign: [{
+                      address: prepareData.ownerAddress,
+                      signingIndexes: [0],
+                    }],
+                  },
+                  onFinish: (result: any) => {
+                    console.log('✅ Transaction signed & broadcasted:', result.txid);
+                    resolve(result);
+                  },
+                  onCancel: () => {
+                    reject(new Error('User cancelled signing'));
+                  },
+                });
+              });
+              
+              txid = signResult.txid;
+              
+            } else if (walletState.walletType === 'unisat') {
+              // UniSat: sign & broadcast manually
+              const signedPsbt = await (window as any).unisat.signPsbt(prepareData.psbtBase64);
+              txid = await (window as any).unisat.pushPsbt(signedPsbt);
+              console.log('✅ Transaction broadcasted:', txid);
+            } else {
+              throw new Error('Unsupported wallet type for signing');
+            }
+            
+            // Record recent mint
+            try {
+              await fetch(`${API_URL}/api/collections/${collection.id}/record-mint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  inscriptionId: itemToMint.inscriptionId,
+                  itemName: itemToMint.name,
+                  itemType: itemToMint.type,
+                  itemImageUrl: itemToMint.imageUrl,
+                }),
+              });
+            } catch (recordError) {
+              console.warn('[CollectionMinting] Failed to record mint:', recordError);
+            }
+            
+            setMintingStatus({
+              progress: 100,
+              status: 'success',
+              message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
+              inscriptionIds: [itemToMint.inscriptionId],
+              txid: txid,
+            });
+          } catch (signError: any) {
+            console.error('❌ Wallet signing failed:', signError);
+            throw new Error(`Signing failed: ${signError.message || 'Unknown error'}`);
+          }
+        }
+        // Backend-signed collection (existing flow with requiresSigning)
+        else if (prepareData.requiresSigning && prepareData.psbtBase64) {
           // WICHTIG: ownerAddress ist die Adresse, die das Ordinal besitzt (Input-Adresse)
           // Diese Adresse muss die PSBT signieren können
           const ownerAddress = prepareData.ownerAddress;
@@ -270,7 +343,8 @@ export const CollectionMintingPage: React.FC = () => {
             txid: data.txid,
           });
         } else {
-          // Fallback: Direkter Transfer (wenn kein Signing erforderlich)
+          // Backend-signed collection: Direkter Transfer (Backend hat bereits signiert)
+          console.log('✅ Backend-signed collection - instant transfer');
           const data = prepareData;
           
           // Record recent mint
@@ -293,8 +367,8 @@ export const CollectionMintingPage: React.FC = () => {
           setMintingStatus({
             progress: 100,
             status: 'success',
-            message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''}`,
-            inscriptionIds: [data.inscriptionId],
+            message: `Successfully transferred ${itemToMint.name}!${collection.mintType === 'random' ? ' (Random)' : ''} (Instant - backend signed)`,
+            inscriptionIds: [data.inscriptionId || itemToMint.inscriptionId],
             txid: data.txid,
           });
         }
