@@ -1043,9 +1043,20 @@ export const signPSBTViaXverse = async (
       console.log('[signPSBTViaXverse] Address:', walletAddress);
       console.log('[signPSBTViaXverse] SigHash:', `0x${sighashType.toString(16)} (${sighashType})`);
       
+      // WICHTIG: signMultipleTransactions ist KEINE request() Methode!
+      // Es muss direkt aufgerufen werden
+      const { signMultipleTransactions } = satsConnect;
+      
+      if (!signMultipleTransactions || typeof signMultipleTransactions !== 'function') {
+        console.error('[signPSBTViaXverse] ❌ signMultipleTransactions not available in sats-connect');
+        throw new Error('signMultipleTransactions ist nicht verfügbar. Bitte aktualisieren Sie sats-connect.');
+      }
+      
       // Wrap in Promise für async/await Kompatibilität
       return new Promise((resolve, reject) => {
-        satsConnect.request('signMultipleTransactions', {
+        console.log('[signPSBTViaXverse] 📡 Calling signMultipleTransactions directly...');
+        
+        signMultipleTransactions({
           payload: {
             network: { type: 'Mainnet' },
             message: 'Pre-Signing für Collection Item (SIGHASH_SINGLE | ANYONECANPAY)',
