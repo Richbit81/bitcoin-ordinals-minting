@@ -24,6 +24,8 @@ export interface Collection {
   page?: string | null; // Optional: Seiten-Zuordnung (z.B. 'smile-a-bit', 'tech-games', etc.)
   mintType?: 'individual' | 'random'; // Wie werden Items gemintet: einzeln auswählbar oder zufällig
   showBanner?: boolean; // Optional: Banner mit letzten Mints anzeigen
+  isBackendSigned?: boolean; // Optional: Backend-Signed (true) oder User-Signed (false) - Default: true
+  ownerAddress?: string | null; // Optional: Owner Address für User-Signed Collections
   createdAt: string;
   updatedAt: string;
   active: boolean;

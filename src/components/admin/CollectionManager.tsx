@@ -49,6 +49,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     page: '' as string | null,
     category: 'default' as string,
     showBanner: false as boolean,
+    isBackendSigned: true as boolean,
+    ownerAddress: '' as string,
   });
 
   useEffect(() => {
@@ -461,9 +463,15 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       return;
     }
 
-    // Prüfe ob alle Original-Inskriptionen signiert sind
+    // Prüfe ob ownerAddress ausgefüllt ist für User-Signed Collections
+    if (!formData.isBackendSigned && !formData.ownerAddress) {
+      alert('Please provide an Owner Address for User-Signed Collections');
+      return;
+    }
+
+    // Prüfe ob alle Original-Inskriptionen signiert sind (NUR für Backend-Signed Collections)
     const originalItems = formData.items.filter(item => item.type === 'original');
-    if (originalItems.length > 0 && !areAllOriginalsSigned()) {
+    if (formData.isBackendSigned && originalItems.length > 0 && !areAllOriginalsSigned()) {
       if (!confirm('Not all original inscriptions are pre-signed. Do you want to continue anyway?')) {
         return;
       }
@@ -487,6 +495,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
         page: formData.page,
         mintType: formData.mintType,
         showBanner: formData.showBanner,
+        isBackendSigned: formData.isBackendSigned,
+        ownerAddress: formData.isBackendSigned ? null : formData.ownerAddress,
       };
       
       if (editingCollection) {
@@ -518,6 +528,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       mintType: collection.mintType || 'individual',
       page: collection.page || null,
       showBanner: collection.showBanner !== undefined ? collection.showBanner : false,
+      isBackendSigned: collection.isBackendSigned !== undefined ? collection.isBackendSigned : true,
+      ownerAddress: collection.ownerAddress || '',
     });
     setShowForm(true);
   };
@@ -576,6 +588,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       mintType: 'individual',
       page: null,
       showBanner: false,
+      isBackendSigned: true,
+      ownerAddress: '',
     });
     setEditingCollection(null);
     setShowForm(false);
@@ -797,6 +811,45 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
               <p className="text-xs text-gray-400 mt-1">
                 When enabled, a banner showing the last 10 minted items (or wallet items if no mints yet) will be displayed on the minting page.
               </p>
+            </div>
+
+            <div className="bg-gray-800 border border-blue-600 rounded p-4">
+              <label className="text-sm font-bold text-blue-400 block mb-2">
+                🔐 Collection Signing Type
+              </label>
+              <div className="flex items-center gap-3 mb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isBackendSigned}
+                    onChange={(e) => setFormData({ ...formData, isBackendSigned: e.target.checked })}
+                    className="w-5 h-5 text-blue-600 bg-black border-gray-700 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-sm text-white font-semibold">
+                    {formData.isBackendSigned ? '✅ Backend-Signed (Admin Collection)' : '❌ User-Signed (User Collection)'}
+                  </span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                <strong>Backend-Signed:</strong> You pre-sign originals. Instant transfer after purchase.<br />
+                <strong>User-Signed:</strong> User signs with their wallet during minting. No pre-signing needed.
+              </p>
+              
+              {!formData.isBackendSigned && (
+                <div className="mt-3">
+                  <label className="text-xs text-gray-400 block mb-1">Owner Address (for User-Signed Collections) *</label>
+                  <input
+                    type="text"
+                    value={formData.ownerAddress}
+                    onChange={(e) => setFormData({ ...formData, ownerAddress: e.target.value })}
+                    className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-white text-sm"
+                    placeholder="bc1p... (address where originals are stored)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is YOUR wallet address where the original inscriptions are stored. Users will be prompted to sign with this address during minting.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1027,8 +1080,8 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
               )}
             </div>
 
-            {/* Pre-Signing Controls für Original-Inskriptionen */}
-            {formData.items.some(item => item.type === 'original') && (
+            {/* Pre-Signing Controls für Original-Inskriptionen - NUR FÜR BACKEND-SIGNED COLLECTIONS */}
+            {formData.isBackendSigned && formData.items.some(item => item.type === 'original') && (
               <div className="bg-gray-800 border border-yellow-600 rounded p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h5 className="text-sm font-bold text-yellow-400">
