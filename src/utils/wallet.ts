@@ -1019,7 +1019,8 @@ export const signPSBTViaUnisat = async (
  */
 export const signPSBTViaXverse = async (
   psbtBase64: string,
-  walletAddress?: string
+  walletAddress?: string,
+  sighashType?: number  // Optional: z.B. 0x83 für SIGHASH_SINGLE | ANYONECANPAY
 ): Promise<string> => {
   if (!isXverseInstalled()) {
     throw new Error('Xverse Wallet nicht gefunden');
@@ -1059,10 +1060,25 @@ export const signPSBTViaXverse = async (
       autoFinalized: true
     };
     
-    // NICHT signInputs verwenden - Xverse erkennt automatisch kontrollierte Inputs
-    // Wenn die ownerAddress eine Admin-Adresse ist, wird Xverse die Signatur ablehnen
-    console.log('[signPSBTViaXverse] Requesting PSBT signing with autoFinalized: true');
-    console.log('[signPSBTViaXverse] Xverse will auto-detect controlled inputs and finalize if possible');
+    // Wenn walletAddress und sighashType angegeben sind, verwende signInputs
+    // Das erlaubt es, spezifische Inputs mit bestimmten SigHash-Typen zu signieren
+    if (walletAddress && sighashType !== undefined) {
+      console.log('[signPSBTViaXverse] Using signInputs with sighashType:', `0x${sighashType.toString(16)}`);
+      requestParams.signInputs = {
+        [walletAddress]: [
+          {
+            index: 0,  // Input 0 (das Ordinal)
+            sighashTypes: [sighashType]
+          }
+        ]
+      };
+      requestParams.autoFinalized = false; // Nicht finalisieren bei custom sighashTypes
+    } else {
+      // NICHT signInputs verwenden - Xverse erkennt automatisch kontrollierte Inputs
+      // Wenn die ownerAddress eine Admin-Adresse ist, wird Xverse die Signatur ablehnen
+      console.log('[signPSBTViaXverse] Requesting PSBT signing with autoFinalized: true');
+      console.log('[signPSBTViaXverse] Xverse will auto-detect controlled inputs and finalize if possible');
+    }
     
     console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
     
@@ -1129,13 +1145,14 @@ export const signPSBT = async (
   psbtBase64: string,
   walletType: 'unisat' | 'xverse',
   autoFinalized: boolean = false,
-  walletAddress?: string
+  walletAddress?: string,
+  sighashType?: number  // Optional: SIGHASH_SINGLE | ANYONECANPAY = 0x83
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
   } else {
-    // Für Xverse: Übergebe walletAddress für signInputs
-    return await signPSBTViaXverse(psbtBase64, walletAddress);
+    // Für Xverse: Übergebe walletAddress und sighashType
+    return await signPSBTViaXverse(psbtBase64, walletAddress, sighashType);
   }
 };
 

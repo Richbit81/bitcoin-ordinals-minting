@@ -13,7 +13,7 @@ import {
 import { InscriptionPreview } from './InscriptionPreview';
 import { useWallet } from '../../contexts/WalletContext';
 import { signPSBT } from '../../utils/wallet';
-import { createTransfer, confirmTransfer } from '../../services/pointShopService';
+import { preparePresign, savePresigned } from '../../services/collectionPresigning';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
@@ -333,22 +333,35 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
         throw new Error('Admin address is required for pre-signing');
       }
       
-      const transferData = await createTransfer(
+      // Get owner address from wallet (where the inscription is stored)
+      const ownerAddress = walletState.accounts[0]?.address;
+      if (!ownerAddress) {
+        throw new Error('Wallet not connected or address not found');
+      }
+      
+      console.log('[CollectionManager] Preparing pre-sign PSBT...');
+      console.log('   Inscription:', inscriptionId);
+      console.log('   Owner:', ownerAddress);
+      console.log('   Fee Rate:', presignFeeRate);
+      
+      const prepareData = await preparePresign(
         inscriptionId,
-        adminAddress, // Placeholder recipient (wird später ersetzt)
+        ownerAddress,
         presignFeeRate,
-        adminAddress, // Admin address für Authorization
+        adminAddress
       );
       
       setPresigningItems(prev => {
         const newMap = new Map(prev);
         newMap.set(inscriptionId, {
           status: 'ready',
-          transferId: transferData.data.transferId,
-          psbtBase64: transferData.data.psbt,
+          psbtBase64: prepareData.psbtBase64,
+          ownerAddress: prepareData.ownerAddress,
         });
         return newMap;
       });
+      
+      console.log('[CollectionManager] ✅ PSBT prepared for signing');
     } catch (error: any) {
       console.error('[CollectionManager] Error preparing PSBT:', error);
       setPresigningItems(prev => {
@@ -369,8 +382,13 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     }
     
     const item = presigningItems.get(inscriptionId);
-    if (!item?.psbtBase64 || !item.transferId) {
+    if (!item?.psbtBase64) {
       alert('PSBT not prepared yet');
+      return;
+    }
+    
+    if (!formData.name || formData.items.length === 0) {
+      alert('Please create the collection first before pre-signing');
       return;
     }
     
@@ -381,25 +399,37 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
     });
     
     try {
+      console.log('[CollectionManager] Signing PSBT with wallet...');
+      console.log('   Wallet Type:', walletState.walletType);
+      console.log('   PSBT Length:', item.psbtBase64.length);
+      
+      // Sign with SIGHASH_SINGLE | ANYONECANPAY (0x83) for marketplace-style pre-signing
       const signedPsbt = await signPSBT(
         item.psbtBase64,
         walletState.walletType,
-        false
+        false,  // Do not broadcast
+        item.ownerAddress,  // Owner address for inputsToSign
+        0x83    // SIGHASH_SINGLE | ANYONECANPAY
       );
       
-      await confirmTransfer(
-        item.transferId!,
-        signedPsbt,
-        adminAddress,
-        true,
-        `collection-${Date.now()}`
-      );
+      console.log('[CollectionManager] ✅ PSBT signed successfully');
+      console.log('   Signed PSBT Length:', signedPsbt.length);
       
+      // Save the signed PSBT to the collection
+      // We need collectionId, but collection might not exist yet
+      // So we store it temporarily in the presigningItems map
       setPresigningItems(prev => {
         const newMap = new Map(prev);
-        newMap.set(inscriptionId, { ...item, status: 'signed' });
+        newMap.set(inscriptionId, { 
+          ...item, 
+          status: 'signed',
+          signedPsbtHex: signedPsbt 
+        });
         return newMap;
       });
+      
+      console.log('[CollectionManager] ✅ Pre-signed transaction ready');
+      console.log('   Will be saved to collection after creation');
     } catch (error: any) {
       console.error('[CollectionManager] Error signing PSBT:', error);
       setPresigningItems(prev => {
@@ -485,12 +515,25 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
 
     setIsSaving(true);
     try {
+      // Add pre-signed PSBTs to items if available
+      const itemsWithPSBTs = formData.items.map(item => {
+        const presignData = presigningItems.get(item.inscriptionId);
+        if (presignData?.status === 'signed' && presignData.signedPsbtHex) {
+          return {
+            ...item,
+            signedTxHex: presignData.signedPsbtHex,
+            presignedAt: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+      
       const collectionData = {
         name: formData.name,
         description: formData.description,
         thumbnail: formData.thumbnail,
         price: parseFloat(formData.price),
-        items: formData.items,
+        items: itemsWithPSBTs,
         category: formData.category,
         page: formData.page,
         mintType: formData.mintType,
