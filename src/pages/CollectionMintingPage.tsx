@@ -181,6 +181,28 @@ export const CollectionMintingPage: React.FC = () => {
 
         if (!prepareResponse.ok) {
           const errorData = await prepareResponse.json().catch(() => ({ error: 'Unknown error' }));
+          
+          // Special handling for pre-signing required error
+          if (errorData.requiresPresigning) {
+            const instructions = errorData.instructions || 
+              '1. Go to Admin Panel\n2. Open this collection\n3. Click "Prepare All PSBTs"\n4. Click "Sign All PSBTs" (Xverse popup)\n5. Click "Save Collection"';
+            
+            setMintingStatus({
+              progress: 0,
+              status: 'error',
+              message: errorData.error || 'Pre-signing required',
+            });
+            
+            alert(
+              `⚠️ Pre-Signing Required\n\n` +
+              `${errorData.error}\n\n` +
+              `Instructions:\n${instructions}\n\n` +
+              `Please complete the pre-signing process in the Admin Panel before purchases can be made.`
+            );
+            
+            return; // Stop here, don't throw error
+          }
+          
           throw new Error(errorData.error || 'Failed to create transfer PSBT');
         }
 
