@@ -575,6 +575,27 @@ export const CollectionManager: React.FC<CollectionManagerProps> = ({ adminAddre
       isBackendSigned: collection.isBackendSigned !== undefined ? collection.isBackendSigned : true,
       ownerAddress: collection.ownerAddress || '',
     });
+    
+    // ✅ WICHTIG: Lade bereits signierte PSBTs in presigningItems State
+    // Sonst gehen sie beim Speichern verloren!
+    const existingPresigningMap = new Map();
+    collection.items.forEach(item => {
+      if (item.type === 'original' && item.signedTxHex) {
+        // Item ist bereits signiert - lade in State
+        existingPresigningMap.set(item.inscriptionId, {
+          status: 'signed' as const,
+          signedPsbtHex: item.signedTxHex,
+        });
+        console.log(`[CollectionManager] ✅ Loaded existing signed PSBT for ${item.inscriptionId.substring(0, 20)}...`);
+      } else if (item.type === 'original') {
+        // Item ist noch nicht signiert
+        existingPresigningMap.set(item.inscriptionId, {
+          status: 'pending' as const,
+        });
+      }
+    });
+    setPresigningItems(existingPresigningMap);
+    
     setShowForm(true);
   };
 
