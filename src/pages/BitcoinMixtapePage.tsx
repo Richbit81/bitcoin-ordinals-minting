@@ -239,9 +239,6 @@ export const BitcoinMixtapePage: React.FC = () => {
                   sandbox="allow-scripts allow-same-origin"
                   loading="lazy"
                 />
-                <div className="absolute -bottom-2 -right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full font-bold z-10">
-                  DELEGATE
-                </div>
               </div>
               
               {/* Price Display */}
