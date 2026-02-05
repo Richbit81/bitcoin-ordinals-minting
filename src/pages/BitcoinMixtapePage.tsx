@@ -236,8 +236,10 @@ export const BitcoinMixtapePage: React.FC = () => {
                   src={`https://ordinals.com/content/${MIXTAPE_CONFIG.originalInscriptionId}`}
                   title={MIXTAPE_CONFIG.name}
                   className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin"
-                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webgl; xr-spatial-tracking"
                 />
               </div>
               
