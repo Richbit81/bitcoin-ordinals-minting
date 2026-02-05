@@ -11,8 +11,8 @@ import { createSingleDelegate } from '../services/collectionMinting';
 const MIXTAPE_CONFIG = {
   name: 'Bitcoin Mix Tape',
   originalInscriptionId: 'a346945c962d4c9f25ca8a5bea7cfd4de3bc8665f0640d8991df6137878d2ee0i0',
-  priceInSats: 20000, // 20,000 sats
-  priceInBTC: 0.0002, // 0.0002 BTC
+  priceInSats: 2000, // 2,000 sats (TEST MODE)
+  priceInBTC: 0.00002, // 0.00002 BTC (TEST MODE)
   collection: 'Bitcoin Mix Tape',
   thumbnail: '/mixtape.png',
 };
