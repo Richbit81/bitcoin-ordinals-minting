@@ -24,6 +24,24 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: 'a346945c962d4c9f25ca8a5bea7cfd4de3bc8665f0640d8991df6137878d2ee0i0',
+    name: 'Bitcoin Mix Tape',
+    description: 'Not a static Ordinal — but a dynamic, evolving music project fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable. Features: 16 total tracks as Ordinals inscriptions, high-quality audio streamed from Bitcoin itself, 23 MB of data (5 full blocks!), interactive tracklist, multiple tape covers, Three.js-based 3D cassette player, animated cassette reels, and a dynamic day-and-night sky.',
+    price: 20000,
+    category: 'music',
+    specs: [
+      '16 total tracks as Ordinals inscriptions',
+      'High-quality audio fully stored on Bitcoin',
+      '23 MB of data directly on Bitcoin (5 full blocks!)',
+      'Interactive tracklist with title, artist, duration',
+      'Multiple tape covers + individual cover previews',
+      'Three.js-based 3D cassette player',
+      'Animated cassette reels that spin realistically',
+      'Dynamic day-and-night sky rendered on-chain',
+      'Living archive: new tracks & covers can be added',
+    ],
+  },
+  {
     inscriptionId: '94c91f823f145daf0200394433c1116781a7a669ba0b24a0d232f46838b37351i0',
     name: 'TACTICAL',
     description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.',
@@ -101,24 +119,6 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     description: 'Beta version of the RichArt Synthesizer',
     price: 0, // 0 = Test only, not for purchase
     category: 'music',
-  },
-  {
-    inscriptionId: 'a346945c962d4c9f25ca8a5bea7cfd4de3bc8665f0640d8991df6137878d2ee0i0',
-    name: 'Bitcoin Mix Tape',
-    description: 'Not a static Ordinal — but a dynamic, evolving music project fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable. Features: 16 total tracks as Ordinals inscriptions, high-quality audio streamed from Bitcoin itself, 23 MB of data (5 full blocks!), interactive tracklist, multiple tape covers, Three.js-based 3D cassette player, animated cassette reels, and a dynamic day-and-night sky.',
-    price: 20000,
-    category: 'music',
-    specs: [
-      '16 total tracks as Ordinals inscriptions',
-      'High-quality audio fully stored on Bitcoin',
-      '23 MB of data directly on Bitcoin (5 full blocks!)',
-      'Interactive tracklist with title, artist, duration',
-      'Multiple tape covers + individual cover previews',
-      'Three.js-based 3D cassette player',
-      'Animated cassette reels that spin realistically',
-      'Dynamic day-and-night sky rendered on-chain',
-      'Living archive: new tracks & covers can be added',
-    ],
   },
 ];
 
