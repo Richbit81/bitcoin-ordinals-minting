@@ -56,10 +56,10 @@ export const CardPackComponent: React.FC<CardPackProps> = ({
         </div>
       )}
 
-      {/* Verfügbarkeits-Badge */}
+      {/* Verfügbarkeits-Badge - zeigt sold/total */}
       {remaining !== null && !isSoldOut && (
         <div className="absolute top-1.5 right-1.5 bg-white text-black px-1.5 py-0.5 rounded border border-red-600 text-[10px] font-bold z-10">
-          {remaining}/{pack.totalSupply}
+          {availability?.sold ?? (pack.soldCount || 0)}/{availability?.total ?? pack.totalSupply}
         </div>
       )}
 
