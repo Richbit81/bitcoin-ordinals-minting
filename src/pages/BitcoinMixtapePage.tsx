@@ -101,7 +101,7 @@ export const BitcoinMixtapePage: React.FC = () => {
         MIXTAPE_CONFIG.collection,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        'image', // Content Type für Mixtape (zeigt Original-Inscription als Bild)
+        'html', // Content Type für Mixtape - HTML mit iframe für interaktive 3D/Audio Inscription
         MIXTAPE_CONFIG.priceInSats
       );
 
