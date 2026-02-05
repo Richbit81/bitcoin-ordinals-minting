@@ -21,11 +21,18 @@ export const HomePage: React.FC = () => {
   // Statische Projekte (immer vorhanden)
   const staticProjects = [
     {
+      id: 'bitcoin-mixtape',
+      name: 'Bitcoin Mix Tape',
+      thumbnail: '/mixtape.png',
+      description: 'On-Chain Music Experience',
+      order: 1, // Position 1 - ganz vorne!
+    },
+    {
       id: 'black-wild',
       name: 'Black & Wild',
       thumbnail: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif',
       description: 'Bitcoin Ordinals Card Game',
-      order: 1,
+      order: 2,
     },
     {
       id: 'tech-games',
@@ -40,13 +47,6 @@ export const HomePage: React.FC = () => {
       thumbnail: '/pointshop.png',
       description: 'Mint exclusive Ordinals with your points',
       order: 4,
-    },
-    {
-      id: 'bitcoin-mixtape',
-      name: 'Bitcoin Mix Tape',
-      thumbnail: '/mixtape.png',
-      description: 'Coming Soon',
-      order: 6,
     },
   ];
 
@@ -204,21 +204,22 @@ export const HomePage: React.FC = () => {
               key={project.id}
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
-              project.id === 'black-wild' ? 'md:order-1' :
-              project.order === 2 ? 'md:order-2' : // Sons of Satoshi Evolution
-              project.id === 'tech-games' ? 'md:order-3' : 
-              project.id === 'point-shop' ? 'md:order-4' :
-              project.order >= 5 ? 'md:order-5' : // Weitere dynamische Collections
-              'md:order-6'
+              project.id === 'bitcoin-mixtape' ? 'md:order-1' :
+              project.id === 'black-wild' ? 'md:order-2' :
+              project.order === 2 ? 'md:order-3' : // Sons of Satoshi Evolution
+              project.id === 'tech-games' ? 'md:order-4' : 
+              project.id === 'point-shop' ? 'md:order-5' :
+              project.order >= 5 ? 'md:order-6' : // Weitere dynamische Collections
+              'md:order-7'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
+              project.id === 'bitcoin-mixtape' ? 'md:mt-8' : // Bitcoin Mix Tape: Position 1
               project.id === 'black-wild' ? 'md:mt-16' :
               project.order === 2 ? 'md:mt-20' : // Sons of Satoshi: optimal positioning
-              project.id === 'bitcoin-mixtape' ? 'md:mt-8' : // Bitcoin Mix Tape: 30px nach unten
               project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'

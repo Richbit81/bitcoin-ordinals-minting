@@ -29,10 +29,21 @@ export const CardPackComponent: React.FC<CardPackProps> = ({
   const inscriptionFees = calculateInscriptionFees(pack.cardCount, inscriptionFeeRate);
   const totalCost = pack.price + inscriptionFees;
 
+  // Premium Pack ist vorübergehend deaktiviert
+  const isComingSoon = pack.isPremium === true;
+
   return (
     <div className="relative bg-black border border-red-600 rounded overflow-hidden hover:border-red-500 transition-all shadow-lg w-full flex flex-col h-full">
+      {/* Coming Soon Overlay für Premium Pack */}
+      {isComingSoon && (
+        <div className="absolute inset-0 bg-black/90 rounded flex flex-col items-center justify-center z-20 border border-red-600">
+          <span className="text-red-600 text-2xl font-bold tracking-wider mb-2">COMING SOON</span>
+          <span className="text-gray-400 text-sm">Premium Pack</span>
+        </div>
+      )}
+
       {/* Sold Out Overlay */}
-      {isSoldOut && (
+      {isSoldOut && !isComingSoon && (
         <div className="absolute inset-0 bg-black/90 rounded flex items-center justify-center z-20 border border-red-600">
           <span className="text-white text-xl font-bold tracking-wider">SOLD OUT</span>
         </div>
@@ -137,10 +148,10 @@ export const CardPackComponent: React.FC<CardPackProps> = ({
 
         <button
           onClick={() => onMint(pack.id)}
-          disabled={isMinting || isSoldOut}
+          disabled={isMinting || isSoldOut || isComingSoon}
           className="w-full py-1.5 text-xs bg-white text-black border border-red-600 rounded font-bold hover:bg-red-600 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isMinting ? 'Minting...' : isSoldOut ? 'Sold Out' : 'Mint Pack'}
+          {isMinting ? 'Minting...' : isComingSoon ? 'Coming Soon' : isSoldOut ? 'Sold Out' : 'Mint Pack'}
         </button>
       </div>
     </div>
