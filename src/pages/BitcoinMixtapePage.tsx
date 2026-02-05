@@ -227,8 +227,10 @@ export const BitcoinMixtapePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center">
+        {/* Main Content - Two Column Layout */}
+        <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12">
+          
+          {/* Left Side: Mint Panel */}
           <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
             {/* Mixtape Preview */}
             <div className="flex flex-col items-center mb-8">
@@ -306,18 +308,101 @@ export const BitcoinMixtapePage: React.FC = () => {
                 Connect your wallet to mint
               </p>
             )}
+
+            {/* Original Inscription Link */}
+            <div className="mt-6 text-center">
+              <a
+                href={`https://ordinals.com/inscription/${MIXTAPE_CONFIG.originalInscriptionId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-red-600 text-sm transition-colors"
+              >
+                View Original Inscription →
+              </a>
+            </div>
           </div>
 
-          {/* Original Inscription Link */}
-          <div className="mt-6 text-center">
-            <a
-              href={`https://ordinals.com/inscription/${MIXTAPE_CONFIG.originalInscriptionId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-500 hover:text-red-600 text-sm transition-colors"
-            >
-              View Original Inscription →
-            </a>
+          {/* Right Side: Description */}
+          <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 lg:p-8 max-w-xl w-full backdrop-blur-md">
+            <div className="prose prose-invert prose-sm max-w-none">
+              <p className="text-gray-300 leading-relaxed mb-6">
+                Not a static NFT — but a <span className="text-red-500 font-semibold">dynamic, evolving music project</span> fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable.
+              </p>
+
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span>🎶</span> What makes it special:
+              </h3>
+              
+              <ul className="space-y-2 text-gray-300 mb-6">
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span><strong className="text-white">16 total tracks</strong>, all as Ordinals inscriptions</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>High-quality audio fully stored and streamed from Bitcoin itself</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span><strong className="text-white">23 MB of data</strong> directly on Bitcoin (5 full blocks!)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>An interactive tracklist with title, artist, and duration</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>Multiple tape covers plus individual cover previews per track</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>A fully functional <strong className="text-white">Three.js-based 3D cassette player</strong></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>Animated cassette reels that spin realistically</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500">•</span>
+                  <span>Dynamic day-and-night sky — rendered fully on-chain</span>
+                </li>
+              </ul>
+
+              <div className="border-l-4 border-red-600 pl-4 py-2 mb-6 bg-red-600/10 rounded-r">
+                <p className="text-white font-bold mb-2">🔥 This is the key: the Mixtape is alive.</p>
+                <p className="text-gray-300 text-sm">
+                  It is not a finished artwork, but a growing archive:
+                </p>
+                <ul className="text-gray-300 text-sm mt-2 space-y-1">
+                  <li>• New tracks can be added</li>
+                  <li>• New covers can be integrated</li>
+                  <li>• The visual experience continues to evolve</li>
+                </ul>
+              </div>
+
+              <p className="text-gray-300 mb-6">
+                It's more than music — it's an <span className="text-red-500 font-semibold">evolving on-chain experience</span> with premium sound.
+              </p>
+
+              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                <p className="text-white font-semibold mb-2">
+                  👉 Want to design a cover or get your track onto the Bitcoin Mixtape?
+                </p>
+                <p className="text-gray-400 text-sm mb-3">
+                  Reach out — every contribution helps shape the project.
+                </p>
+                <a 
+                  href="mailto:bitcoinmixtape@outlook.com"
+                  className="inline-flex items-center gap-2 text-red-500 hover:text-red-400 font-semibold transition-colors"
+                >
+                  <span>📧</span> bitcoinmixtape@outlook.com
+                </a>
+              </div>
+
+              <p className="text-center text-gray-500 mt-6 text-sm italic">
+                A piece of music history — dynamically preserved on Bitcoin. 🚀
+              </p>
+            </div>
           </div>
         </div>
 
