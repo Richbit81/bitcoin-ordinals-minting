@@ -162,6 +162,7 @@ export const MintingPage: React.FC = () => {
                     inscriptionIds: finalResults.map(r => r.inscriptionId),
                     cards: cards.map((card, index) => ({
                       ...card,
+                      originalInscriptionId: card.inscriptionId, // Original-Bild-ID für CardReveal
                       inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
                     })),
                   } : null);
@@ -232,6 +233,7 @@ export const MintingPage: React.FC = () => {
               inscriptionIds: finalResults.map(r => r.inscriptionId),
               cards: cards.map((card, index) => ({
                 ...card,
+                originalInscriptionId: card.inscriptionId, // Original-Bild-ID für CardReveal
                 inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
               })),
             }
@@ -254,6 +256,7 @@ export const MintingPage: React.FC = () => {
               inscriptionIds: finalResults.map(r => r.inscriptionId),
               cards: cards.map((card, index) => ({
                 ...card,
+                originalInscriptionId: card.inscriptionId, // Original-Bild-ID für CardReveal
                 inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
               })),
             }
