@@ -75,8 +75,8 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   // Logging entfernt für Production
 
-  // Use minimum fee as main display (the lowest current fee)
-  const mainFee = fees.minimumFee;
+  // Use halfHourFee as main display (medium priority - realistic value like mempool.space)
+  const mainFee = fees.halfHourFee;
   const feeColor = getFeeColor(mainFee);
 
   return (
@@ -88,7 +88,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
       <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <span className="text-base">⚡</span>
         <span className="text-sm font-bold text-orange-500">
-          {fees.minimumFee < 1 ? fees.minimumFee.toFixed(2) : Math.round(fees.minimumFee)}
+          {mainFee < 1 ? mainFee.toFixed(1) : Math.round(mainFee)}
         </span>
         <span className="text-xs text-gray-400 font-semibold">sat/vB</span>
         <span className="text-sm group-hover:scale-110 transition-transform">📊</span>
