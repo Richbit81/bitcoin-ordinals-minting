@@ -264,6 +264,25 @@ export const TechGamesPage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
         txid: result.txid,
       });
+
+      // Log the mint to backend
+      try {
+        await fetch(`${API_URL}/api/techgames/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: userAddress,
+            itemName: item.name,
+            inscriptionId: result.inscriptionId,
+            originalInscriptionId: item.inscriptionId,
+            txid: result.txid,
+            priceSats: item.price,
+          }),
+        });
+        console.log(`[TechGames] ✅ Mint logged for ${item.name}`);
+      } catch (logError) {
+        console.warn('[TechGames] ⚠️ Failed to log mint:', logError);
+      }
     } catch (err: any) {
       console.error('Minting error:', err);
       setMintingStatus({

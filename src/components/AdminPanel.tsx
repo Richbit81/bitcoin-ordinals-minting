@@ -19,7 +19,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const { walletState } = useWallet();
-  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'cards' | 'settings' | 'pointShop' | 'collections' | 'smileABit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'cards' | 'settings' | 'pointShop' | 'collections' | 'smileABit' | 'mintingLogs'>('overview');
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [adminStats, setAdminStats] = useState<any>(null);
   const [hashlist, setHashlist] = useState<any>(null);
@@ -209,6 +209,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             }`}
           >
             SMILE A BIT
+          </button>
+          <button
+            onClick={() => setActiveTab('mintingLogs')}
+            className={`px-4 py-2 font-semibold transition ${
+              activeTab === 'mintingLogs'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            📋 Logs
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -422,6 +432,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <div className="text-white text-center py-8">
                   <p className="text-gray-400">Please connect your admin wallet to manage collections.</p>
                 </div>
+              )}
+
+              {/* Minting Logs Tab */}
+              {activeTab === 'mintingLogs' && adminAddress && (
+                <MintingLogsManagement adminAddress={adminAddress} />
               )}
 
               {/* Settings Tab */}
@@ -1716,6 +1731,262 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Minting Logs Management Component
+const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddress }) => {
+  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const [logs, setLogs] = useState<{
+    blackAndWild: { logs: any[]; totalMints: number };
+    techAndGames: { logs: any[]; totalMints: number };
+    mixtape: { logs: any[]; totalMints: number };
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape'>('blackAndWild');
+
+  useEffect(() => {
+    loadLogs();
+  }, [adminAddress]);
+
+  const loadLogs = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/logs/all?adminAddress=${encodeURIComponent(adminAddress)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setLogs(data);
+      } else {
+        console.error('Failed to load logs');
+      }
+    } catch (error) {
+      console.error('Error loading logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape') => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
+      if (response.ok) {
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${logType}-minting-logs-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading log:', error);
+      alert('Failed to download log');
+    }
+  };
+
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape') => {
+    if (!logs) return;
+    
+    const logData = logs[logType].logs;
+    if (!logData || logData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    let csvContent = '';
+    
+    if (logType === 'blackAndWild') {
+      csvContent = 'ID,Timestamp,Wallet Address,Pack ID,Pack Name,Card Count,Inscription IDs,TXIDs\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id}","${log.timestamp}","${log.walletAddress}","${log.packId}","${log.packName || ''}",${log.cardCount || 0},"${(log.inscriptionIds || []).join('; ')}","${(log.txids || []).join('; ')}"\n`;
+      });
+    } else if (logType === 'techAndGames') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,Original Inscription ID,TXID,Price (sats)\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id}","${log.timestamp}","${log.walletAddress}","${log.itemName}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceSats || 0}\n`;
+      });
+    } else if (logType === 'mixtape') {
+      csvContent = 'ID,Timestamp,Wallet Address,Inscription ID,Original Inscription ID,TXID,Price (sats)\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || log.priceSats || 0}\n`;
+      });
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${logType}-minting-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading logs...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold text-white mb-4 border-b border-red-600 pb-2">
+        📋 Minting Logs
+      </h3>
+
+      {/* Stats Overview */}
+      {logs && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-gray-900 border border-red-600 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Black & Wild</p>
+            <p className="text-3xl font-bold text-white">{logs.blackAndWild.totalMints}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-purple-600 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Tech & Games</p>
+            <p className="text-3xl font-bold text-white">{logs.techAndGames.totalMints}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-blue-600 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Bitcoin Mixtape</p>
+            <p className="text-3xl font-bold text-white">{logs.mixtape.totalMints}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+        </div>
+      )}
+
+      {/* Log Tabs */}
+      <div className="flex gap-2 border-b border-gray-700 pb-2">
+        <button
+          onClick={() => setActiveLogTab('blackAndWild')}
+          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
+            activeLogTab === 'blackAndWild'
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          🃏 Black & Wild
+        </button>
+        <button
+          onClick={() => setActiveLogTab('techAndGames')}
+          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
+            activeLogTab === 'techAndGames'
+              ? 'bg-purple-600 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          🎮 Tech & Games
+        </button>
+        <button
+          onClick={() => setActiveLogTab('mixtape')}
+          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
+            activeLogTab === 'mixtape'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          🎵 Mixtape
+        </button>
+      </div>
+
+      {/* Download Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : 'mixtape')}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
+        >
+          📥 Download JSON
+        </button>
+        <button
+          onClick={() => downloadCSV(activeLogTab)}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
+        >
+          📥 Download CSV
+        </button>
+        <button
+          onClick={loadLogs}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold"
+        >
+          🔄 Refresh
+        </button>
+      </div>
+
+      {/* Log Table */}
+      {logs && (
+        <div className="bg-gray-900 border border-gray-700 rounded overflow-hidden">
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-800 sticky top-0">
+                <tr>
+                  <th className="text-left p-3 text-gray-400">Timestamp</th>
+                  <th className="text-left p-3 text-gray-400">Wallet</th>
+                  {activeLogTab === 'blackAndWild' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Pack</th>
+                      <th className="text-left p-3 text-gray-400">Cards</th>
+                    </>
+                  )}
+                  {activeLogTab === 'techAndGames' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
+                  {activeLogTab === 'mixtape' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Inscription</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {logs[activeLogTab].logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center p-8 text-gray-500">
+                      No minting logs yet
+                    </td>
+                  </tr>
+                ) : (
+                  logs[activeLogTab].logs.slice().reverse().map((log: any, index: number) => (
+                    <tr key={log.id || index} className="border-t border-gray-800 hover:bg-gray-800/50">
+                      <td className="p-3 text-gray-300 text-xs">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td className="p-3 text-gray-300 font-mono text-xs">
+                        {log.walletAddress?.slice(0, 8)}...{log.walletAddress?.slice(-6)}
+                      </td>
+                      {activeLogTab === 'blackAndWild' && (
+                        <>
+                          <td className="p-3 text-white">{log.packName || log.packId}</td>
+                          <td className="p-3 text-gray-400">{log.cardCount || log.inscriptionIds?.length || 0}</td>
+                        </>
+                      )}
+                      {activeLogTab === 'techAndGames' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName}</td>
+                          <td className="p-3 text-gray-400">{(log.priceSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === 'mixtape' && (
+                        <>
+                          <td className="p-3 text-gray-300 font-mono text-xs">
+                            {log.inscriptionId?.slice(0, 12)}...
+                          </td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
