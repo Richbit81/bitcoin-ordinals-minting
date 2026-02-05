@@ -232,15 +232,17 @@ export const BitcoinMixtapePage: React.FC = () => {
           
           {/* Left Side: Mint Panel */}
           <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
-            {/* Mixtape Preview */}
+            {/* Mixtape Preview - Echte Inscription */}
             <div className="flex flex-col items-center mb-8">
-              <div className="relative mb-6">
-                <img
-                  src={MIXTAPE_CONFIG.thumbnail}
-                  alt={MIXTAPE_CONFIG.name}
-                  className="w-64 h-64 object-contain rounded-lg shadow-2xl shadow-red-600/30"
+              <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30">
+                <iframe
+                  src={`https://ordinals.com/content/${MIXTAPE_CONFIG.originalInscriptionId}`}
+                  title={MIXTAPE_CONFIG.name}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-same-origin"
+                  loading="lazy"
                 />
-                <div className="absolute -bottom-2 -right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full font-bold">
+                <div className="absolute -bottom-2 -right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full font-bold z-10">
                   DELEGATE
                 </div>
               </div>
@@ -309,17 +311,6 @@ export const BitcoinMixtapePage: React.FC = () => {
               </p>
             )}
 
-            {/* Original Inscription Link */}
-            <div className="mt-6 text-center">
-              <a
-                href={`https://ordinals.com/inscription/${MIXTAPE_CONFIG.originalInscriptionId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-500 hover:text-red-600 text-sm transition-colors"
-              >
-                View Original Inscription →
-              </a>
-            </div>
           </div>
 
           {/* Right Side: Description */}
