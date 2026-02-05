@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface NewsItem {
   id: string;
@@ -8,9 +9,21 @@ interface NewsItem {
   link: string;
   fullWidth?: boolean; // Spezieller Banner, der den ganzen Platz einnimmt
   images?: string[]; // Array von Bildern für Full-Width Banner
+  video?: string; // Video URL für Full-Width Banner mit Video
+  isInternal?: boolean; // Interner Link (React Router) statt externer Link
 }
 
 const NEWS_ITEMS: NewsItem[] = [
+  {
+    id: 'bitcoin-mixtape',
+    title: 'Bitcoin Mix Tape',
+    description: '16 Tracks fully on-chain - Mint Now!',
+    image: '/mixtape.png',
+    link: '/bitcoin-mixtape',
+    fullWidth: true,
+    video: '/videos/mixtape-intro.mp4',
+    isInternal: true,
+  },
   {
     id: 'no-func',
     title: 'NO_FUNC',
@@ -63,6 +76,7 @@ const NEWS_ITEMS: NewsItem[] = [
 ];
 
 export const NewsBanner: React.FC = () => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -107,8 +121,12 @@ export const NewsBanner: React.FC = () => {
 
   const [item1, item2] = getCurrentItems();
 
-  const handleClick = (link: string) => {
-    window.open(link, '_blank', 'noopener,noreferrer');
+  const handleClick = (link: string, isInternal?: boolean) => {
+    if (isInternal) {
+      navigate(link);
+    } else {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const goToSlide = (index: number) => {
@@ -130,31 +148,74 @@ export const NewsBanner: React.FC = () => {
       {/* Spezieller Full-Width Banner */}
       {isFullWidth && item1 ? (
         <div 
-          onClick={() => handleClick(item1.link)}
+          onClick={() => handleClick(item1.link, item1.isInternal)}
           className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative"
         >
-          {/* 4 Bilder nebeneinander - volle Banner-Höhe */}
-          <div className="flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
-            {item1.images?.map((img, index) => (
-              <div key={index} className="flex-shrink-0 h-full flex items-center">
-                <img
-                  src={img}
-                  alt={`${item1.title} ${index + 1}`}
-                  className="h-[100px] md:h-[120px] w-auto object-contain"
-                  onError={(e) => {
-                    console.warn(`[NewsBanner] Could not load image: ${img}`);
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+          {/* Video Banner */}
+          {item1.video ? (
+            <div className="relative min-h-[120px] md:min-h-[160px] flex items-center">
+              {/* Video im Hintergrund */}
+              <video
+                src={item1.video}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+              />
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+              {/* Content */}
+              <div className="relative z-10 flex items-center justify-between w-full px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 md:w-28 md:h-28 flex-shrink-0 rounded-lg overflow-hidden border-2 border-red-600 shadow-lg shadow-red-600/30">
+                    <img
+                      src={item1.image}
+                      alt={item1.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg">
+                      {item1.title}
+                    </h3>
+                    <p className="text-sm md:text-lg text-red-400 font-semibold mt-1">
+                      {item1.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden md:flex items-center gap-2 bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-bold text-white transition-colors">
+                  <span>🎵 MINT NOW</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
-            ))}
-            {/* Text groß - über die Bilder, rechtsbündig */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6">
-              <h3 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {item1.title}
-              </h3>
             </div>
-          </div>
+          ) : (
+            /* 4 Bilder nebeneinander - volle Banner-Höhe */
+            <div className="flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
+              {item1.images?.map((img, index) => (
+                <div key={index} className="flex-shrink-0 h-full flex items-center">
+                  <img
+                    src={img}
+                    alt={`${item1.title} ${index + 1}`}
+                    className="h-[100px] md:h-[120px] w-auto object-contain"
+                    onError={(e) => {
+                      console.warn(`[NewsBanner] Could not load image: ${img}`);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+              ))}
+              {/* Text groß - über die Bilder, rechtsbündig */}
+              <div className="absolute top-4 right-4 md:top-6 md:right-6">
+                <h3 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                  {item1.title}
+                </h3>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Normaler Banner mit 2 Items nebeneinander */
@@ -162,7 +223,7 @@ export const NewsBanner: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white">
           {/* Item 1 */}
           <div
-            onClick={() => handleClick(item1.link)}
+            onClick={() => handleClick(item1.link, item1.isInternal)}
             className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-900 transition-all group"
           >
             {/* Bild links */}
@@ -197,7 +258,7 @@ export const NewsBanner: React.FC = () => {
 
           {/* Item 2 */}
           <div
-            onClick={() => handleClick(item2.link)}
+            onClick={() => handleClick(item2.link, item2.isInternal)}
             className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-900 transition-all group"
           >
             {/* Bild links */}
