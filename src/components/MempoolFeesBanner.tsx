@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { getCurrentFeeRates, FeeRates } from '../services/bitcoinFees';
 import {
-  getRecommendedFees,
   getFeeHistory24h,
   getFeeColor,
   getFeeEmoji,
   getEstimatedTime,
-  FeeRecommendation,
   FeeHistoryPoint
 } from '../services/mempoolService';
 
@@ -15,33 +14,30 @@ interface MempoolFeesBannerProps {
 }
 
 export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsClick }) => {
-  const [fees, setFees] = useState<FeeRecommendation | null>(null);
+  const [fees, setFees] = useState<FeeRates | null>(null);
   const [feeHistory, setFeeHistory] = useState<FeeHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  // Fetch data
+  // Fetch data - verwendet jetzt denselben Service wie FeeRateSelector
   const fetchData = async () => {
     console.log('[MempoolBanner] 🔄 Fetching mempool data...');
-    console.log('[MempoolBanner] 📡 API URL:', 'https://mempool.space/api/v1/fees/recommended');
     try {
       const [feesData, historyData] = await Promise.all([
-        getRecommendedFees(),
+        getCurrentFeeRates(),
         getFeeHistory24h()
       ]);
       
-      console.log('[MempoolBanner] ✅ RAW API Response:', JSON.stringify(feesData, null, 2));
-      console.log('[MempoolBanner] 📊 fastestFee:', feesData.fastestFee);
-      console.log('[MempoolBanner] 📊 halfHourFee:', feesData.halfHourFee);
-      console.log('[MempoolBanner] 📊 hourFee:', feesData.hourFee);
-      console.log('[MempoolBanner] 📊 economyFee:', feesData.economyFee);
-      console.log('[MempoolBanner] 📊 minimumFee:', feesData.minimumFee);
-      
-      setFees(feesData);
-      setFeeHistory(historyData);
-      setError(false);
-      setLastUpdate(new Date());
+      if (feesData) {
+        console.log('[MempoolBanner] ✅ Fee Rates:', feesData);
+        setFees(feesData);
+        setFeeHistory(historyData);
+        setError(false);
+        setLastUpdate(new Date());
+      } else {
+        setError(true);
+      }
     } catch (err) {
       console.error('[MempoolBanner] ❌ Error fetching data:', err);
       setError(true);
@@ -77,14 +73,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
     return null; // Hide on error - no need to show error state
   }
 
-  console.log('[MempoolBanner] ✅ Rendering: SUCCESS state');
-  console.log('[MempoolBanner] 📊 All Fees:', {
-    fastest: fees.fastestFee,
-    halfHour: fees.halfHourFee,
-    hour: fees.hourFee,
-    economy: fees.economyFee,
-    minimum: fees.minimumFee
-  });
+  // Logging entfernt für Production
 
   // Use minimum fee as main display (the lowest current fee)
   const mainFee = fees.minimumFee;
