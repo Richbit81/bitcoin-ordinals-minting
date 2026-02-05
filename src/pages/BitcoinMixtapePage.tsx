@@ -219,11 +219,8 @@ export const BitcoinMixtapePage: React.FC = () => {
           <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white drop-shadow-2xl">
             Bitcoin Mix Tape
           </h1>
-          <p className="text-xl text-gray-300 mb-2">
-            Mint your exclusive Bitcoin Mix Tape delegate
-          </p>
-          <p className="text-sm text-gray-500">
-            {mintCount > 0 ? `${mintCount} minted so far` : 'Be the first to mint!'}
+          <p className="text-xl text-gray-300">
+            Mint your Bitcoin Mix Tape
           </p>
         </div>
 
@@ -317,7 +314,7 @@ export const BitcoinMixtapePage: React.FC = () => {
           <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 lg:p-8 max-w-xl w-full backdrop-blur-md">
             <div className="prose prose-invert prose-sm max-w-none">
               <p className="text-gray-300 leading-relaxed mb-6">
-                Not a static NFT — but a <span className="text-red-500 font-semibold">dynamic, evolving music project</span> fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable.
+                Not a static Ordinal — but a <span className="text-red-500 font-semibold">dynamic, evolving music project</span> fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable.
               </p>
 
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
