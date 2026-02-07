@@ -16,6 +16,7 @@ const ITEMS_1984 = [
     priceInSats: 6000,
     priceInBTC: 0.00006,
     description: 'WAR IS PEACE — an Ordinal inspired by George Orwell\'s 1984.',
+    contentType: 'image' as const,
   },
   {
     id: 'its-1984-oclock',
@@ -24,6 +25,7 @@ const ITEMS_1984 = [
     priceInSats: 10000,
     priceInBTC: 0.0001,
     description: "It's 1984 o'clock! — a tribute to Orwell's dystopian masterpiece, inscribed on Bitcoin.",
+    contentType: 'video' as const,
   },
 ];
 
@@ -41,6 +43,11 @@ export const Orwell1984Page: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [mutedVideos, setMutedVideos] = useState<Record<string, boolean>>({ 'its-1984-oclock': true });
+
+  const toggleMute = (itemId: string) => {
+    setMutedVideos(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
 
   const handleMint = async (item: typeof ITEMS_1984[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -157,37 +164,64 @@ export const Orwell1984Page: React.FC = () => {
         <div className="flex-1 flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-12 max-w-5xl mx-auto w-full">
           {ITEMS_1984.map((item) => (
             <div key={item.id} className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 max-w-lg w-full backdrop-blur-md hover:border-red-600 transition-colors duration-300">
-              {/* Inscription Preview - scaled iframe to prevent scrollbars */}
-              <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
-                style={{ paddingBottom: '100%' }}
-              >
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '300%',
-                    height: '300%',
-                    transform: 'translate(-50%, -50%) scale(0.333)',
-                    transformOrigin: 'center center',
-                  }}
-                >
-                  <iframe
+              {/* Inscription Preview */}
+              {item.contentType === 'video' ? (
+                /* Video Preview - autoplay muted with toggle */
+                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
+                  <video
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
-                    title={item.name}
-                    className="border-0"
-                    sandbox="allow-scripts allow-same-origin"
-                    scrolling="no"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      overflow: 'hidden',
-                    }}
+                    autoPlay
+                    loop
+                    muted={mutedVideos[item.id] !== false}
+                    playsInline
+                    className="w-full h-auto rounded-lg"
                   />
+                  {/* Mute/Unmute Button */}
+                  <button
+                    onClick={() => toggleMute(item.id)}
+                    className="absolute bottom-3 right-3 bg-black/70 hover:bg-black/90 border border-white/20 rounded-full w-10 h-10 flex items-center justify-center transition-all z-10"
+                    title={mutedVideos[item.id] !== false ? 'Unmute' : 'Mute'}
+                  >
+                    {mutedVideos[item.id] !== false ? (
+                      <span className="text-lg">🔇</span>
+                    ) : (
+                      <span className="text-lg">🔊</span>
+                    )}
+                  </button>
                 </div>
-              </div>
+              ) : (
+                /* Image Preview - scaled iframe to prevent scrollbars */
+                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
+                  style={{ paddingBottom: '100%' }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      width: '300%',
+                      height: '300%',
+                      transform: 'translate(-50%, -50%) scale(0.333)',
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    <iframe
+                      src={`https://ordinals.com/content/${item.inscriptionId}`}
+                      title={item.name}
+                      className="border-0"
+                      sandbox="allow-scripts allow-same-origin"
+                      scrolling="no"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        overflow: 'hidden',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Item Info */}
               <h2 className="text-2xl font-black text-white mb-2">{item.name}</h2>
