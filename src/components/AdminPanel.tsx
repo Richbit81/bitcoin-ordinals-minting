@@ -1745,9 +1745,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     blackAndWild: { logs: any[]; totalMints: number };
     techAndGames: { logs: any[]; totalMints: number };
     mixtape: { logs: any[]; totalMints: number };
+    '1984': { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984'>('blackAndWild');
 
   useEffect(() => {
     loadLogs();
@@ -1770,7 +1771,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape') => {
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       if (response.ok) {
@@ -1791,7 +1792,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -1816,6 +1817,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       csvContent = 'ID,Timestamp,Wallet Address,Inscription ID,Original Inscription ID,TXID,Price (sats)\n';
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || log.priceSats || 0}\n`;
+      });
+    } else if (logType === '1984') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,Original Inscription ID,TXID,Price (sats)\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || ''}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || 0}\n`;
       });
     }
 
@@ -1842,7 +1848,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
       {/* Stats Overview */}
       {logs && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gray-900 border border-red-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Black & Wild</p>
             <p className="text-3xl font-bold text-white">{logs.blackAndWild.totalMints}</p>
@@ -1856,6 +1862,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <div className="bg-gray-900 border border-blue-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Bitcoin Mixtape</p>
             <p className="text-3xl font-bold text-white">{logs.mixtape.totalMints}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-yellow-600 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">1984</p>
+            <p className="text-3xl font-bold text-white">{logs['1984']?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
         </div>
@@ -1893,12 +1904,22 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         >
           🎵 Mixtape
         </button>
+        <button
+          onClick={() => setActiveLogTab('1984')}
+          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
+            activeLogTab === '1984'
+              ? 'bg-yellow-600 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          📕 1984
+        </button>
       </div>
 
       {/* Download Buttons */}
       <div className="flex gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : 'mixtape')}
           className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
         >
           📥 Download JSON
@@ -1944,10 +1965,16 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       <th className="text-left p-3 text-gray-400">Price</th>
                     </>
                   )}
+                  {activeLogTab === '1984' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {logs[activeLogTab].logs.length === 0 ? (
+                {(!logs[activeLogTab]?.logs || logs[activeLogTab].logs.length === 0) ? (
                   <tr>
                     <td colSpan={4} className="text-center p-8 text-gray-500">
                       No minting logs yet
@@ -1980,6 +2007,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                             {log.inscriptionId?.slice(0, 12)}...
                           </td>
                           <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === '1984' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName || 'N/A'}</td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || 0).toLocaleString()} sats</td>
                         </>
                       )}
                     </tr>
