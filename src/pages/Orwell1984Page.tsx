@@ -43,11 +43,6 @@ export const Orwell1984Page: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [mutedVideos, setMutedVideos] = useState<Record<string, boolean>>({ 'its-1984-oclock': true });
-
-  const toggleMute = (itemId: string) => {
-    setMutedVideos(prev => ({ ...prev, [itemId]: !prev[itemId] }));
-  };
 
   const handleMint = async (item: typeof ITEMS_1984[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -166,28 +161,20 @@ export const Orwell1984Page: React.FC = () => {
             <div key={item.id} className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 max-w-lg w-full backdrop-blur-md hover:border-red-600 transition-colors duration-300">
               {/* Inscription Preview */}
               {item.contentType === 'video' ? (
-                /* Video Preview - autoplay muted with toggle */
-                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
-                  <video
+                /* Video Preview - iframe with autoplay permissions */
+                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
+                  style={{ paddingBottom: '56.25%' /* 16:9 aspect ratio */ }}
+                >
+                  <iframe
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
-                    autoPlay
-                    loop
-                    muted={mutedVideos[item.id] !== false}
-                    playsInline
-                    className="w-full h-auto rounded-lg"
+                    title={item.name}
+                    className="absolute inset-0 w-full h-full border-0 rounded-lg"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                    allow="autoplay; fullscreen"
+                    scrolling="no"
+                    loading="eager"
+                    referrerPolicy="no-referrer"
                   />
-                  {/* Mute/Unmute Button */}
-                  <button
-                    onClick={() => toggleMute(item.id)}
-                    className="absolute bottom-3 right-3 bg-black/70 hover:bg-black/90 border border-white/20 rounded-full w-10 h-10 flex items-center justify-center transition-all z-10"
-                    title={mutedVideos[item.id] !== false ? 'Unmute' : 'Mute'}
-                  >
-                    {mutedVideos[item.id] !== false ? (
-                      <span className="text-lg">🔇</span>
-                    ) : (
-                      <span className="text-lg">🔊</span>
-                    )}
-                  </button>
                 </div>
               ) : (
                 /* Image Preview - direct img tag */
