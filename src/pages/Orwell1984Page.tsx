@@ -20,7 +20,7 @@ const ITEMS_1984 = [
   {
     id: 'its-1984-oclock',
     name: "It's 1984 o'clock!",
-    inscriptionId: '7616be6e7437b9401ca0e7baa25764e05e0c6dc3d5811b81e8f48b9333a78f40i0',
+    inscriptionId: '48bdab5d74516e534ad7bda60e527a1eb788e90745e54ff902947ebbd905c678i0',
     priceInSats: 10000,
     priceInBTC: 0.0001,
     description: "It's 1984 o'clock! — a tribute to Orwell's dystopian masterpiece, inscribed on Bitcoin.",
@@ -157,16 +157,36 @@ export const Orwell1984Page: React.FC = () => {
         <div className="flex-1 flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-12 max-w-5xl mx-auto w-full">
           {ITEMS_1984.map((item) => (
             <div key={item.id} className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 max-w-lg w-full backdrop-blur-md hover:border-red-600 transition-colors duration-300">
-              {/* Inscription Preview */}
-              <div className="relative mb-6 w-full aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
-                <iframe
-                  src={`https://ordinals.com/content/${item.inscriptionId}`}
-                  title={item.name}
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
+              {/* Inscription Preview - scaled iframe to prevent scrollbars */}
+              <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
+                style={{ paddingBottom: '100%' }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    width: '300%',
+                    height: '300%',
+                    transform: 'translate(-50%, -50%) scale(0.333)',
+                    transformOrigin: 'center center',
+                  }}
+                >
+                  <iframe
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    title={item.name}
+                    className="border-0"
+                    sandbox="allow-scripts allow-same-origin"
+                    scrolling="no"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      overflow: 'hidden',
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Item Info */}
