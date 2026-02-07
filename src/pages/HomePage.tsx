@@ -48,6 +48,13 @@ export const HomePage: React.FC = () => {
       description: 'Mint exclusive Ordinals with your points',
       order: 4,
     },
+    {
+      id: '1984',
+      name: '1984',
+      thumbnail: `https://ordinals.com/content/5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0`,
+      description: 'Orwell on Bitcoin',
+      order: 5,
+    },
   ];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
