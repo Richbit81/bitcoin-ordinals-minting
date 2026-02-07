@@ -190,36 +190,14 @@ export const Orwell1984Page: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                /* Image Preview - scaled iframe to prevent scrollbars */
-                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
-                  style={{ paddingBottom: '100%' }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      width: '300%',
-                      height: '300%',
-                      transform: 'translate(-50%, -50%) scale(0.333)',
-                      transformOrigin: 'center center',
-                    }}
-                  >
-                    <iframe
-                      src={`https://ordinals.com/content/${item.inscriptionId}`}
-                      title={item.name}
-                      className="border-0"
-                      sandbox="allow-scripts allow-same-origin"
-                      scrolling="no"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        overflow: 'hidden',
-                      }}
-                    />
-                  </div>
+                /* Image Preview - direct img tag */
+                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
+                  <img
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    alt={item.name}
+                    className="w-full h-auto rounded-lg"
+                    loading="lazy"
+                  />
                 </div>
               )}
 
