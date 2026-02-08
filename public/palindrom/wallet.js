@@ -23,15 +23,25 @@ class WalletManager {
     detectAvailableWallets() {
         const wallets = [];
 
-        // Xverse
-        if (typeof window.BitcoinProvider !== 'undefined' || typeof window.XverseProviders !== 'undefined') {
-            wallets.push('xverse');
+        // Xverse - auch in parent/top prüfen (iframe-Support)
+        let hasXverse = typeof window.BitcoinProvider !== 'undefined' || typeof window.XverseProviders !== 'undefined';
+        if (!hasXverse) {
+            try { hasXverse = typeof window.top?.BitcoinProvider !== 'undefined' || typeof window.top?.XverseProviders !== 'undefined'; } catch (e) {}
         }
+        if (!hasXverse) {
+            try { hasXverse = typeof window.parent?.BitcoinProvider !== 'undefined' || typeof window.parent?.XverseProviders !== 'undefined'; } catch (e) {}
+        }
+        if (hasXverse) wallets.push('xverse');
 
-        // UniSat
-        if (typeof window.unisat !== 'undefined') {
-            wallets.push('unisat');
+        // UniSat - auch in parent/top prüfen (iframe-Support)
+        let hasUnisat = typeof window.unisat !== 'undefined';
+        if (!hasUnisat) {
+            try { hasUnisat = typeof window.top?.unisat !== 'undefined'; } catch (e) {}
         }
+        if (!hasUnisat) {
+            try { hasUnisat = typeof window.parent?.unisat !== 'undefined'; } catch (e) {}
+        }
+        if (hasUnisat) wallets.push('unisat');
 
         return wallets;
     }
@@ -59,7 +69,20 @@ class WalletManager {
 
     async connectXverse() {
         // Xverse Wallet - Prüfe auf Provider
-        const provider = window.BitcoinProvider || window.XverseProviders?.BitcoinProvider;
+        // In iframes: Wallet-Extensions injizieren Provider nur ins Top-Level-Fenster
+        // Deshalb auch window.top und window.parent prüfen (same-origin)
+        let provider = window.BitcoinProvider || window.XverseProviders?.BitcoinProvider;
+        
+        if (!provider) {
+            try {
+                provider = window.top?.BitcoinProvider || window.top?.XverseProviders?.BitcoinProvider;
+            } catch (e) { /* cross-origin, ignore */ }
+        }
+        if (!provider) {
+            try {
+                provider = window.parent?.BitcoinProvider || window.parent?.XverseProviders?.BitcoinProvider;
+            } catch (e) { /* cross-origin, ignore */ }
+        }
 
         if (!provider) {
             throw new Error(
@@ -221,14 +244,22 @@ class WalletManager {
     }
 
     async connectUnisat() {
-        if (typeof window.unisat === 'undefined') {
+        // In iframes: auch window.top und window.parent prüfen
+        let unisat = window.unisat;
+        if (!unisat) {
+            try { unisat = window.top?.unisat; } catch (e) { /* cross-origin */ }
+        }
+        if (!unisat) {
+            try { unisat = window.parent?.unisat; } catch (e) { /* cross-origin */ }
+        }
+        if (!unisat) {
             throw new Error(
                 'UniSat Wallet not found! Please install the UniSat browser extension: https://unisat.io/'
             );
         }
 
         try {
-            const accounts = await window.unisat.requestAccounts();
+            const accounts = await unisat.requestAccounts();
 
             if (!accounts || accounts.length === 0) {
                 throw new Error('No accounts received from UniSat');
