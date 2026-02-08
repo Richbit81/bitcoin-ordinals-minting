@@ -296,6 +296,27 @@ export const HomePage: React.FC = () => {
         })}
       </div>
 
+      {/* Palindrom Sound Box - NUR sichtbar für bestimmte Wallets */}
+      {walletState.connected && walletState.accounts?.some(acc =>
+        ['bc1p8mex3g66tsrqlura04ts6xgxlfwhf23adrxpc5g6c0zmqdgqtq3syq0elu',
+         'bc1p9j4g6r27yqhmp4c403vn33mz7uug439sthqngkkrylu7d7uq7d6qvz39jj'
+        ].includes(acc.address)
+      ) && (
+        <div className="mt-8 flex justify-center">
+          <div
+            onClick={() => navigate('/palindrom-sound-box')}
+            className="cursor-pointer transition-all duration-300 hover:scale-105 hover:drop-shadow-lg hover:drop-shadow-purple-500/50"
+          >
+            <img
+              src="/images/palindrom-link.png"
+              alt="Palindrom Sound Box"
+              className="max-w-xs h-auto rounded-lg"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
+
       {/* News Banner - nach den Projekten */}
       <div className="mt-12 w-full">
         <NewsBanner />

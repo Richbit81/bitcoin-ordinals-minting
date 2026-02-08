@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palindrom Sound Box</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- UI Toggle Button -->
+        <button id="uiToggle" class="ui-toggle" title="Toggle UI">
+            <img src="butterfly-icon.png" alt="Toggle" class="toggle-icon-img">
+        </button>
+
+        <!-- Main UI Panel -->
+        <div id="mainUI" class="main-ui">
+            <h1 class="title">PALINDROM SOUND BOX</h1>
+
+            <!-- Wallet Connection Section -->
+            <div class="section wallet-section">
+                <h2>Wallet Connection</h2>
+                <div class="wallet-controls">
+                    <div class="wallet-row">
+                        <select id="walletType" class="select">
+                            <option value="xverse">Xverse</option>
+                            <option value="unisat">Unisat</option>
+                        </select>
+                        <button id="connectWallet" class="btn btn-primary">Connect</button>
+                        <button id="disconnectWallet" class="btn btn-disconnect" style="display: none;">✕</button>
+                    </div>
+                    <div id="walletStatus" class="wallet-status">Not connected</div>
+                </div>
+
+                <!-- Ord Server Status -->
+                <div id="ordServerStatus" class="ord-status" style="display: none;">
+                    <span id="ordStatusIcon">●</span>
+                    <span id="ordStatusText">APIs: Checking...</span>
+                </div>
+
+                <!-- Scan Button -->
+                <div id="scanSection" style="display: none;">
+                    <button id="scanBtn" class="btn btn-scan">🔍 Scan for Palindrom SATs</button>
+                    <div id="scanProgress" class="scan-progress" style="display: none;">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="progressText" class="progress-text">Scanning...</div>
+                    </div>
+                </div>
+
+                <!-- Found Palindrom SATs -->
+                <div id="palindromResults" class="palindrom-results" style="display: none;">
+                    <h3>
+                        Palindrom Rare SATs 
+                        <span id="palindromCount" class="palindrom-count">(0)</span>
+                    </h3>
+                    <div class="palindrom-hint">Select 1-5 palindromes for the Sound Box</div>
+                    <div id="palindromList" class="palindrom-list"></div>
+                </div>
+
+                <!-- Selected Palindromes -->
+                <div id="selectedSection" class="selected-section" style="display: none;">
+                    <h3>Selected: <span id="selectedCount">0</span>/5</h3>
+                    <div id="selectedList" class="selected-list"></div>
+                    <button id="loadSelectedBtn" class="btn btn-primary btn-small">▶ Load into Sequences</button>
+                </div>
+            </div>
+
+            <!-- Sequence Input Section -->
+            <div class="section sequences-section">
+                <h2>Sequences</h2>
+                <div class="sequences-container">
+                    <div class="sequence-item" data-seq="0">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="seq-checkbox" data-seq="0">
+                            <span>Sequence 1</span>
+                        </label>
+                        <input type="text" class="seq-input" data-seq="0" placeholder="Load from wallet" readonly>
+                    </div>
+                    <div class="sequence-item" data-seq="1">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="seq-checkbox" data-seq="1">
+                            <span>Sequence 2</span>
+                        </label>
+                        <input type="text" class="seq-input" data-seq="1" placeholder="Load from wallet" readonly>
+                    </div>
+                    <div class="sequence-item" data-seq="2">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="seq-checkbox" data-seq="2">
+                            <span>Sequence 3</span>
+                        </label>
+                        <input type="text" class="seq-input" data-seq="2" placeholder="Load from wallet" readonly>
+                    </div>
+                    <div class="sequence-item" data-seq="3">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="seq-checkbox" data-seq="3">
+                            <span>Sequence 4</span>
+                        </label>
+                        <input type="text" class="seq-input" data-seq="3" placeholder="Load from wallet" readonly>
+                    </div>
+                    <div class="sequence-item" data-seq="4">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="seq-checkbox" data-seq="4">
+                            <span>Sequence 5</span>
+                        </label>
+                        <input type="text" class="seq-input" data-seq="4" placeholder="Load from wallet" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="section controls-section">
+                <div class="playback-controls">
+                    <button id="playBtn" class="btn btn-play">▶ Play</button>
+                    <button id="stopBtn" class="btn btn-stop">■ Stop</button>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="loopCheckbox">
+                        <span>Loop</span>
+                    </label>
+                </div>
+                <div id="currentNumber" class="current-number">-</div>
+            </div>
+
+            <!-- Audio Settings (collapsible, default collapsed) -->
+            <div class="section audio-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Audio Settings</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label>Instrument</label>
+                            <select id="instrumentSelect" class="select">
+                                <option value="piano">Piano</option>
+                                <option value="strings">Strings</option>
+                                <option value="brass">Brass</option>
+                                <option value="flute">Flute</option>
+                                <option value="organ">Organ</option>
+                                <option value="bell">Bell</option>
+                                <option value="synth">Synth</option>
+                                <option value="guitar">Guitar</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>Key</label>
+                            <select id="keySelect" class="select">
+                                <option value="C">C Major</option>
+                                <option value="C#">C# Major</option>
+                                <option value="D">D Major</option>
+                                <option value="D#">D# Major</option>
+                                <option value="E">E Major</option>
+                                <option value="F">F Major</option>
+                                <option value="F#">F# Major</option>
+                                <option value="G">G Major</option>
+                                <option value="G#">G# Major</option>
+                                <option value="A">A Major</option>
+                                <option value="A#">A# Major</option>
+                                <option value="B">B Major</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>Speed: <span id="speedValue">5</span></label>
+                            <input type="range" id="speedSlider" min="1" max="10" value="5" class="slider">
+                        </div>
+                        <div class="setting-item">
+                            <label>Volume: <span id="volumeValue">50</span>%</label>
+                            <input type="range" id="volumeSlider" min="0" max="100" value="50" class="slider">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Effects (collapsible, default collapsed) -->
+            <div class="section effects-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Audio Effects</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                    <div class="effects-grid">
+                        <div class="effect-item">
+                            <label>Vibrato: <span id="vibratoValue">0</span>%</label>
+                            <input type="range" id="vibratoSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Delay: <span id="delayValue">0</span>%</label>
+                            <input type="range" id="delaySlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Filter: <span id="filterValue">0</span>%</label>
+                            <input type="range" id="filterSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Distortion: <span id="distortionValue">0</span>%</label>
+                            <input type="range" id="distortionSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Reverb: <span id="reverbValue">0</span>%</label>
+                            <input type="range" id="reverbSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Sustain: <span id="sustainValue">50</span>%</label>
+                            <input type="range" id="sustainSlider" min="0" max="100" value="50" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Smoothness: <span id="smoothnessValue">50</span>%</label>
+                            <input type="range" id="smoothnessSlider" min="0" max="100" value="50" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Chorus: <span id="chorusValue">0</span>%</label>
+                            <input type="range" id="chorusSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Phaser: <span id="phaserValue">0</span>%</label>
+                            <input type="range" id="phaserSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Tremolo: <span id="tremoloValue">0</span>%</label>
+                            <input type="range" id="tremoloSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Compression: <span id="compressionValue">0</span>%</label>
+                            <input type="range" id="compressionSlider" min="0" max="100" value="0" class="slider">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EQ Section (collapsible, default collapsed) -->
+            <div class="section eq-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Equalizer</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                    <div class="effects-grid">
+                        <div class="effect-item">
+                            <label>Low (Bass): <span id="eqLowValue">0</span>dB</label>
+                            <input type="range" id="eqLowSlider" min="-12" max="12" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>Mid: <span id="eqMidValue">0</span>dB</label>
+                            <input type="range" id="eqMidSlider" min="-12" max="12" value="0" class="slider">
+                        </div>
+                        <div class="effect-item">
+                            <label>High (Treble): <span id="eqHighValue">0</span>dB</label>
+                            <input type="range" id="eqHighSlider" min="-12" max="12" value="0" class="slider">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beat System (collapsible, default collapsed) -->
+            <div class="section beat-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Beat System</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                <div class="beat-controls">
+                    <div class="setting-item">
+                        <label>Beat Style</label>
+                        <select id="beatStyleSelect" class="select">
+                            <option value="none">None</option>
+                            <option value="house">House</option>
+                            <option value="hiphop">HipHop</option>
+                            <option value="techno">Techno</option>
+                            <option value="trap">Trap</option>
+                            <option value="rock">Rock</option>
+                            <option value="dubstep">Dubstep</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>BPM: <span id="bpmValue">120</span></label>
+                        <input type="range" id="bpmSlider" min="60" max="200" value="120" class="slider">
+                    </div>
+                    <div class="setting-item">
+                        <label>Beat Volume: <span id="beatVolumeValue">50</span>%</label>
+                        <input type="range" id="beatVolumeSlider" min="0" max="100" value="50" class="slider">
+                    </div>
+                    <div class="setting-item">
+                        <label>Melody Tempo</label>
+                        <select id="sequenceTempoSelect" class="select">
+                            <option value="0.25">¼x (very slow)</option>
+                            <option value="0.5">½x (slow)</option>
+                            <option value="1" selected>1x (normal)</option>
+                            <option value="2">2x (fast)</option>
+                        </select>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Visualization Settings (collapsible, default collapsed) -->
+            <div class="section viz-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Visualization</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                <div class="viz-controls">
+                    <div class="setting-item">
+                        <label>Pattern</label>
+                        <select id="patternModeSelect" class="select">
+                            <option value="butterfly">Butterfly Attractor</option>
+                            <option value="clifford">Clifford Attractor</option>
+                            <option value="dejong">De Jong Attractor</option>
+                            <option value="lorenz">Lorenz Projection</option>
+                            <option value="spiral">Spiral Galaxy</option>
+                            <option value="flower">Flower of Life</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Color Mode</label>
+                        <select id="colorModeSelect" class="select">
+                            <option value="butterfly">Butterfly</option>
+                            <option value="monarch">Monarch</option>
+                            <option value="blue">Blue</option>
+                            <option value="rainbow">Rainbow</option>
+                            <option value="fire">Fire</option>
+                            <option value="ocean">Ocean</option>
+                            <option value="neon">Neon</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Particles: <span id="particleValue">25000</span></label>
+                        <input type="range" id="particleSlider" min="5000" max="50000" value="25000" step="1000" class="slider">
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas for Butterfly Animation -->
+        <canvas id="butterflyCanvas"></canvas>
+    </div>
+
+    <script src="wallet.js"></script>
+    <script src="palindrom-scanner.js"></script>
+    <script src="audio.js"></script>
+    <script src="visualization.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

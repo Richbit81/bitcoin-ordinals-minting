@@ -16,6 +16,7 @@ import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
 import { Orwell1984Page } from './pages/Orwell1984Page';
 // NftMintingPage moved into RandomStuffPage
 import { RandomStuffPage } from './pages/RandomStuffPage';
+import { PalindromSoundBoxPage } from './pages/PalindromSoundBoxPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -52,6 +53,7 @@ function AppContent() {
         <Route path="/play" element={<GamePage />} />
         <Route path="/link-gallery" element={<LinkGalleryPage />} />
         <Route path="/smile-a-bit" element={<SmilePage />} />
+        <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

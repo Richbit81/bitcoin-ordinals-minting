@@ -5,6 +5,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/palindrom/(.*)",
+      "destination": "/palindrom/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
