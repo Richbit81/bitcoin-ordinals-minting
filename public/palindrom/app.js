@@ -167,6 +167,12 @@ class PalindromSoundBox {
             randomizeBtn.addEventListener('click', () => this.randomizeSound());
         }
 
+        // Reset Button
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetSound());
+        }
+
         // Audio-Einstellungen
         const instrumentSelect = document.getElementById('instrumentSelect');
         const keySelect = document.getElementById('keySelect');
@@ -590,6 +596,69 @@ class PalindromSoundBox {
         if (tempoEl) { tempoEl.value = tempo; audioSystem.setSequenceTempo(parseFloat(tempo)); }
 
         console.log(`[App] 🎲 Randomized: ${instrument} in ${key}, speed ${speed}, volume ${volume}`);
+    }
+
+    // ========================================
+    // Reset Sound Settings (Standardwerte)
+    // ========================================
+
+    resetSound() {
+        const setSlider = (id, labelId, value) => {
+            const slider = document.getElementById(id);
+            const label = document.getElementById(labelId);
+            if (slider) slider.value = value;
+            if (label) label.textContent = value;
+        };
+
+        // Instrument: Piano
+        const instrumentEl = document.getElementById('instrumentSelect');
+        if (instrumentEl) { instrumentEl.value = 'piano'; audioSystem.setInstrument('piano'); }
+
+        // Key: C Major
+        const keyEl = document.getElementById('keySelect');
+        if (keyEl) { keyEl.value = 'C'; audioSystem.setKey('C'); }
+
+        // Speed: 5
+        setSlider('speedSlider', 'speedValue', 5); audioSystem.setSpeed(5);
+
+        // Volume: 50
+        setSlider('volumeSlider', 'volumeValue', 50); audioSystem.setVolume(50);
+
+        // Alle Effekte auf 0 (außer Sustain & Smoothness auf 50)
+        const defaults = [
+            ['vibratoSlider', 'vibratoValue', 0, 'setVibrato'],
+            ['delaySlider', 'delayValue', 0, 'setDelay'],
+            ['filterSlider', 'filterValue', 0, 'setFilter'],
+            ['distortionSlider', 'distortionValue', 0, 'setDistortion'],
+            ['reverbSlider', 'reverbValue', 0, 'setReverb'],
+            ['sustainSlider', 'sustainValue', 50, 'setSustain'],
+            ['smoothnessSlider', 'smoothnessValue', 50, 'setSmoothness'],
+            ['chorusSlider', 'chorusValue', 0, 'setChorus'],
+            ['phaserSlider', 'phaserValue', 0, 'setPhaser'],
+            ['tremoloSlider', 'tremoloValue', 0, 'setTremolo'],
+            ['compressionSlider', 'compressionValue', 0, 'setCompression'],
+        ];
+        for (const [sliderId, labelId, val, fn] of defaults) {
+            setSlider(sliderId, labelId, val);
+            if (audioSystem[fn]) audioSystem[fn](val);
+        }
+
+        // EQ: alles auf 0
+        setSlider('eqLowSlider', 'eqLowValue', 0); audioSystem.setEQLow(0);
+        setSlider('eqMidSlider', 'eqMidValue', 0); audioSystem.setEQMid(0);
+        setSlider('eqHighSlider', 'eqHighValue', 0); audioSystem.setEQHigh(0);
+
+        // Beat: None
+        const beatEl = document.getElementById('beatStyleSelect');
+        if (beatEl) { beatEl.value = 'none'; audioSystem.setBeatStyle('none'); }
+        setSlider('bpmSlider', 'bpmValue', 120); audioSystem.setBPM(120);
+        setSlider('beatVolumeSlider', 'beatVolumeValue', 50); audioSystem.setBeatVolume(50);
+
+        // Melody Tempo: 1x
+        const tempoEl = document.getElementById('sequenceTempoSelect');
+        if (tempoEl) { tempoEl.value = '1'; audioSystem.setSequenceTempo(1); }
+
+        console.log('[App] ↺ Reset to defaults');
     }
 
     // ========================================

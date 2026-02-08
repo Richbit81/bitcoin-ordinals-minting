@@ -360,8 +360,13 @@ body {
     padding: 8px 15px;
 }
 
+.randomize-row {
+    display: flex;
+    gap: 8px;
+}
+
 .btn-randomize {
-    width: 100%;
+    flex: 1;
     background: linear-gradient(135deg, #ff6b35, #ff3366, #aa00ff, #00ccff);
     background-size: 300% 300%;
     animation: gradientShift 4s ease infinite;
@@ -390,6 +395,26 @@ body {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+}
+
+.btn-reset {
+    flex: 0 0 auto;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 12px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-reset:hover {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+    box-shadow: 0 0 10px var(--accent-orange-glow);
 }
 
 /* Scan Overlay */
