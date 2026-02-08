@@ -509,6 +509,8 @@ class PalindromSoundBox {
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
         const palindromResults = document.getElementById('palindromResults');
+        const scanOverlay = document.getElementById('scanOverlay');
+        const scanOverlayStatus = document.getElementById('scanOverlayStatus');
 
         if (!walletManager.isConnected) {
             alert('Please connect your wallet first!');
@@ -518,11 +520,16 @@ class PalindromSoundBox {
         try {
             if (scanBtn) scanBtn.disabled = true;
             if (scanProgress) scanProgress.style.display = 'block';
+            
+            // Overlay mit drehendem Schmetterling anzeigen
+            if (scanOverlay) scanOverlay.classList.add('active');
+            if (scanOverlayStatus) scanOverlayStatus.textContent = '';
 
             // Scan starten mit Progress-Callback
             const palindromes = await walletManager.scanForPalindromSATs((progress) => {
                 // Progress-UI aktualisieren
                 if (progressText) progressText.textContent = progress.status;
+                if (scanOverlayStatus) scanOverlayStatus.textContent = progress.status;
                 if (progressFill && progress.total > 0) {
                     const percent = (progress.current / progress.total) * 100;
                     progressFill.style.width = percent + '%';
@@ -535,9 +542,12 @@ class PalindromSoundBox {
 
         } catch (error) {
             if (progressText) progressText.textContent = `Error: ${error.message}`;
+            if (scanOverlayStatus) scanOverlayStatus.textContent = `Error: ${error.message}`;
             console.error('Scan-Fehler:', error);
         } finally {
             if (scanBtn) scanBtn.disabled = false;
+            // Overlay ausblenden
+            if (scanOverlay) scanOverlay.classList.remove('active');
         }
     }
 

@@ -338,6 +338,14 @@
 
         <!-- Canvas for Butterfly Animation -->
         <canvas id="butterflyCanvas"></canvas>
+
+        <!-- Scan Overlay -->
+        <div id="scanOverlay" class="scan-overlay">
+            <img src="butterfly-icon.png" alt="Scanning..." class="spinner-icon">
+            <div class="scan-message">Scanning your wallet for Palindrom SATs...</div>
+            <div class="scan-submessage">This may take a moment depending on the number of UTXOs in your wallet.</div>
+            <div id="scanOverlayStatus" class="scan-status"></div>
+        </div>
     </div>
 
     <script src="wallet.js"></script>
