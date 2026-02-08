@@ -20,6 +20,7 @@ interface TechGameItem {
   category: Category;
   specs?: string[]; // Für Specs (z.B. SEQUENCER)
   features?: string[]; // Für Features (z.B. TACTICAL)
+  mintable?: boolean; // true = mintbar auch bei price 0 (nur Fees)
 }
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
@@ -119,13 +120,15 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     description: "Ordinal News is a small project to test the effectiveness of displaying news on an ordinal grid. It's dynamic and updatable.",
     price: 0,
     category: 'tool',
+    mintable: true, // Mintbar für 0 sats (nur Inscription-Fees)
   },
   {
     inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
     name: 'RichArt Synthesizer',
     description: 'Beta version of the RichArt Synthesizer',
-    price: 0, // 0 = Test only, not for purchase
+    price: 0,
     category: 'music',
+    mintable: false, // Nur Test, nicht mintbar
   },
 ];
 
@@ -316,10 +319,12 @@ export const TechGamesPage: React.FC = () => {
     return badges[category];
   };
 
-  const getPriceBadge = (price: number) => {
-    if (price === 0) {
+  const getPriceBadge = (item: TechGameItem) => {
+    if (item.price === 0 && item.mintable) {
+      return { label: 'FREE MINT', color: 'bg-green-600 text-white' };
+    } else if (item.price === 0) {
       return { label: 'FREE', color: 'bg-gray-600 text-white' };
-    } else if (price >= 8000) {
+    } else if (item.price >= 8000) {
       return { label: 'PREMIUM', color: 'bg-yellow-600 text-white' };
     } else {
       return { label: 'STANDARD', color: 'bg-gray-700 text-white' };
@@ -408,8 +413,8 @@ export const TechGamesPage: React.FC = () => {
               <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getCategoryBadge(item.category).color} shadow-sm`}>
                 {getCategoryBadge(item.category).label}
               </span>
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getPriceBadge(item.price).color} shadow-sm`}>
-                {getPriceBadge(item.price).label}
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getPriceBadge(item).color} shadow-sm`}>
+                {getPriceBadge(item).label}
               </span>
             </div>
 
@@ -537,24 +542,28 @@ export const TechGamesPage: React.FC = () => {
               </div>
             )}
 
-            {/* Price Info - nur anzeigen wenn price > 0 */}
-            {item.price > 0 && (
+            {/* Price Info */}
+            {item.price > 0 ? (
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-1">Price: {formatPrice(item.price)}</p>
                 <p className="text-sm text-gray-400">+ inscription fees</p>
               </div>
-            )}
+            ) : item.mintable ? (
+              <div className="mb-4">
+                <p className="text-xs text-green-400 font-semibold mb-1">FREE — only inscription fees</p>
+              </div>
+            ) : null}
 
             {/* Mint oder Test Button - mt-auto schiebt ihn nach unten */}
             <div className="mt-auto space-y-2">
-              {item.price > 0 ? (
+              {(item.price > 0 || item.mintable) ? (
                 <>
                   <button
                     onClick={() => handleMint(item)}
                     disabled={mintingStatus?.status === 'in-progress'}
                     className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all duration-300 text-sm font-semibold hover:shadow-lg hover:shadow-red-600/30 hover:scale-[1.02]"
                   >
-                    {mintingStatus?.status === 'in-progress' ? 'Minting...' : '🎯 Mint Now'}
+                    {mintingStatus?.status === 'in-progress' ? 'Minting...' : item.price === 0 ? '🎯 Mint Free' : '🎯 Mint Now'}
                   </button>
                   <button
                     onClick={() => setSelectedItem(item)}
@@ -640,8 +649,8 @@ export const TechGamesPage: React.FC = () => {
           <div className="flex justify-between items-center p-4 border-b-2 border-red-600 bg-gray-900">
             <h2 className="text-2xl font-bold text-white">{selectedItem.name}</h2>
             <div className="flex items-center gap-4">
-              {/* Mint Button - nur anzeigen wenn price > 0 */}
-              {selectedItem.price > 0 && (
+              {/* Mint Button - anzeigen wenn price > 0 oder mintable */}
+              {(selectedItem.price > 0 || selectedItem.mintable) && (
                 <button
                   onClick={() => {
                     setSelectedItem(null);
@@ -758,8 +767,8 @@ export const TechGamesPage: React.FC = () => {
                 </div>
               )}
               
-              {/* Price Info - nur anzeigen wenn price > 0 */}
-              {selectedItem.price > 0 && (
+              {/* Price Info */}
+              {selectedItem.price > 0 ? (
                 <div className="flex justify-between items-center border-t border-gray-700 pt-4">
                   <div className="flex-1" />
                   <div className="text-right">
@@ -768,7 +777,16 @@ export const TechGamesPage: React.FC = () => {
                     <p className="text-xs text-gray-500">+ inscription fees</p>
                   </div>
                 </div>
-              )}
+              ) : selectedItem.mintable ? (
+                <div className="flex justify-between items-center border-t border-gray-700 pt-4">
+                  <div className="flex-1" />
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Price</p>
+                    <p className="text-lg font-bold text-green-400">FREE</p>
+                    <p className="text-xs text-gray-500">only inscription fees</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
