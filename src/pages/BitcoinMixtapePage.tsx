@@ -323,7 +323,7 @@ export const BitcoinMixtapePage: React.FC = () => {
               <ul className="space-y-2 text-gray-300 mb-6">
                 <li className="flex items-start gap-2">
                   <span className="text-red-500">•</span>
-                  <span><strong className="text-white">16 total tracks</strong>, all as Ordinals inscriptions</span>
+                  <span><strong className="text-white">17 total tracks</strong>, all as Ordinals inscriptions</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500">•</span>
@@ -331,7 +331,7 @@ export const BitcoinMixtapePage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500">•</span>
-                  <span><strong className="text-white">23 MB of data</strong> directly on Bitcoin (5 full blocks!)</span>
+                  <span><strong className="text-white">24 MB of data</strong> directly on Bitcoin (5 full blocks!)</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500">•</span>

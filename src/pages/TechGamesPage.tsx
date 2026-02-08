@@ -27,13 +27,13 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
     inscriptionId: 'a346945c962d4c9f25ca8a5bea7cfd4de3bc8665f0640d8991df6137878d2ee0i0',
     name: 'Bitcoin Mix Tape',
-    description: 'Not a static Ordinal — but a dynamic, evolving music project fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable. Features: 16 total tracks as Ordinals inscriptions, high-quality audio streamed from Bitcoin itself, 23 MB of data (5 full blocks!), interactive tracklist, multiple tape covers, Three.js-based 3D cassette player, animated cassette reels, and a dynamic day-and-night sky.',
+    description: 'Not a static Ordinal — but a dynamic, evolving music project fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable. Features: 17 total tracks as Ordinals inscriptions, high-quality audio streamed from Bitcoin itself, 24 MB of data (5 full blocks!), interactive tracklist, multiple tape covers, Three.js-based 3D cassette player, animated cassette reels, and a dynamic day-and-night sky.',
     price: 20000,
     category: 'music',
     specs: [
-      '16 total tracks as Ordinals inscriptions',
+      '17 total tracks as Ordinals inscriptions',
       'High-quality audio fully stored on Bitcoin',
-      '23 MB of data directly on Bitcoin (5 full blocks!)',
+      '24 MB of data directly on Bitcoin (5 full blocks!)',
       'Interactive tracklist with title, artist, duration',
       'Multiple tape covers + individual cover previews',
       'Three.js-based 3D cassette player',

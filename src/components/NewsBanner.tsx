@@ -28,7 +28,7 @@ const NEWS_ITEMS: NewsItem[] = [
   {
     id: 'bitcoin-mixtape',
     title: 'Bitcoin Mix Tape',
-    description: '16 Tracks fully on-chain - Mint Now!',
+    description: '17 Tracks fully on-chain - Mint Now!',
     image: '/mixtape.png',
     link: '/bitcoin-mixtape',
     fullWidth: true,
