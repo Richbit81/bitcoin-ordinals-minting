@@ -305,12 +305,10 @@ class WalletManager {
             palindromScanner.onProgress = onProgress;
         }
 
-        // Scanne BEIDE Adressen (Taproot + Payment) für Palindrome
+        // Scanne NUR die Taproot-Adresse (bc1p...) für Palindrome
+        // Payment-Adresse enthält keine relevanten SATs für Ordinals
         const allPalindromes = [];
         const addressesToScan = [this.taprootAddress];
-        if (this.paymentAddress) {
-            addressesToScan.push(this.paymentAddress);
-        }
 
         for (const addr of addressesToScan) {
             console.log(`[Wallet] Starte Palindrom-Scan für ${addr}`);
