@@ -114,6 +114,13 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     category: 'game',
   },
   {
+    inscriptionId: '560bcca79de23708561dca74745900797b1f0c30f4a22b4262b46b4a0950cf3ei0',
+    name: 'Ordinal News',
+    description: "Ordinal News is a small project to test the effectiveness of displaying news on an ordinal grid. It's dynamic and updatable.",
+    price: 0,
+    category: 'tool',
+  },
+  {
     inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
     name: 'RichArt Synthesizer',
     description: 'Beta version of the RichArt Synthesizer',
