@@ -179,14 +179,6 @@ export const RandomStuffPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Fee Rate Selector - shared for all items */}
-        <div className="max-w-md mx-auto w-full mb-8">
-          <FeeRateSelector
-            selectedFeeRate={inscriptionFeeRate}
-            onFeeRateChange={setInscriptionFeeRate}
-          />
-        </div>
-
         {/* Items Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
           {RANDOM_ITEMS.map((item) => (
@@ -205,6 +197,14 @@ export const RandomStuffPage: React.FC = () => {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">{item.name}</h2>
                 <span className="text-cyan-400 font-bold text-sm">{item.priceInSats.toLocaleString()} sats</span>
+              </div>
+
+              {/* Fee Rate Selector */}
+              <div className="mb-3">
+                <FeeRateSelector
+                  selectedFeeRate={inscriptionFeeRate}
+                  onFeeRateChange={setInscriptionFeeRate}
+                />
               </div>
 
               {/* Minting Status (only for this item) */}
