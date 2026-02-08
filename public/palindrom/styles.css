@@ -353,14 +353,18 @@ body {
 .scan-overlay .spinner-icon {
     width: 80px;
     height: 80px;
-    animation: spinButterfly 2s linear infinite;
+    animation: spinButterfly3D 3s ease-in-out infinite;
     filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.6));
+    transform-style: preserve-3d;
+    perspective: 400px;
 }
 
-@keyframes spinButterfly {
-    0% { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(1.1); }
-    100% { transform: rotate(360deg) scale(1); }
+@keyframes spinButterfly3D {
+    0%   { transform: perspective(400px) rotateY(0deg) rotateX(0deg) scale(1); }
+    25%  { transform: perspective(400px) rotateY(90deg) rotateX(15deg) scale(1.05); }
+    50%  { transform: perspective(400px) rotateY(180deg) rotateX(0deg) scale(1.1); }
+    75%  { transform: perspective(400px) rotateY(270deg) rotateX(-15deg) scale(1.05); }
+    100% { transform: perspective(400px) rotateY(360deg) rotateX(0deg) scale(1); }
 }
 
 .scan-overlay .scan-message {
