@@ -55,6 +55,13 @@ export const HomePage: React.FC = () => {
       description: 'Orwell on Bitcoin',
       order: 5,
     },
+    {
+      id: 'nft',
+      name: 'NFT',
+      thumbnail: `https://ordinals.com/content/1151d32019503a91b2495d2900f86c7b7d8922a6583c61b6dec657812091fc59i0`,
+      description: 'only Ordinals are real NFTs',
+      order: 6,
+    },
   ];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
