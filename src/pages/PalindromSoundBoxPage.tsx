@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 const ALLOWED_WALLETS = [
   'bc1p8mex3g66tsrqlura04ts6xgxlfwhf23adrxpc5g6c0zmqdgqtq3syq0elu',
   'bc1p9j4g6r27yqhmp4c403vn33mz7uug439sthqngkkrylu7d7uq7d6qvz39jj',
+  'bc1p6aqn6ckr44m8w3czwetudesnpraqt8n73xcchqe90cep9xvjfx0sllxkn7',
 ];
 
 export const PalindromSoundBoxPage: React.FC = () => {
