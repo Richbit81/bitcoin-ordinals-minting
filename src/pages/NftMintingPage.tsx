@@ -140,19 +140,14 @@ export const NftMintingPage: React.FC = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col items-center justify-start max-w-lg mx-auto w-full">
           <div className="bg-black/80 border-2 border-purple-600/50 rounded-xl p-6 w-full backdrop-blur-md hover:border-purple-500 transition-colors duration-300">
-            {/* Inscription Preview - animated AVIF */}
+            {/* Inscription Preview - animated AVIF, direct img tag like WAR IS PEACE */}
             <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-purple-600/20 border border-purple-600/30 bg-gray-900">
-              <div className="relative w-full" style={{ paddingBottom: '100%' }}>
-                <iframe
-                  src={`https://ordinals.com/content/${NFT_ITEM.inscriptionId}`}
-                  title={NFT_ITEM.name}
-                  className="absolute inset-0 w-full h-full border-0 rounded-lg"
-                  sandbox="allow-scripts allow-same-origin"
-                  scrolling="no"
-                  loading="eager"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+              <img
+                src={`https://ordinals.com/content/${NFT_ITEM.inscriptionId}`}
+                alt={NFT_ITEM.name}
+                className="w-full h-auto rounded-lg"
+                loading="eager"
+              />
             </div>
 
             {/* Item Info */}
