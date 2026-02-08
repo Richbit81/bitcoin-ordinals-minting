@@ -579,24 +579,9 @@ class PalindromSoundBox {
             if (audioSystem[eq.fn]) audioSystem[eq.fn](value);
         }
 
-        // Beat System (50% Chance für Beat)
-        if (Math.random() < 0.5) {
-            const beatStyles = ['house', 'hiphop', 'techno', 'trap', 'rock', 'dubstep'];
-            const beatStyle = pickRandom(beatStyles);
-            const beatEl = document.getElementById('beatStyleSelect');
-            if (beatEl) { beatEl.value = beatStyle; audioSystem.setBeatStyle(beatStyle); }
-
-            const bpm = rand(80, 160);
-            const bpmEl = document.getElementById('bpmSlider');
-            if (bpmEl) { bpmEl.value = bpm; document.getElementById('bpmValue').textContent = bpm; audioSystem.setBPM(bpm); }
-
-            const beatVol = rand(20, 70);
-            const beatVolEl = document.getElementById('beatVolumeSlider');
-            if (beatVolEl) { beatVolEl.value = beatVol; document.getElementById('beatVolumeValue').textContent = beatVol; audioSystem.setBeatVolume(beatVol); }
-        } else {
-            const beatEl = document.getElementById('beatStyleSelect');
-            if (beatEl) { beatEl.value = 'none'; audioSystem.setBeatStyle('none'); }
-        }
+        // Beat System: Bei Randomize immer AUS lassen
+        const beatEl = document.getElementById('beatStyleSelect');
+        if (beatEl) { beatEl.value = 'none'; audioSystem.setBeatStyle('none'); }
 
         // Melody Tempo
         const tempos = ['0.25', '0.5', '1', '2'];
