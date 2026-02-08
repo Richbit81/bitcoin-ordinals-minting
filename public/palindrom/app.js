@@ -418,6 +418,10 @@ class PalindromSoundBox {
 
                 // Ord Server Status prüfen
                 this.checkOrdServerStatus();
+
+                // AUTO-SCAN: Sofort im Hintergrund starten!
+                // Ergebnisse sind fertig wenn User "Scan" klickt
+                this.backgroundScan();
             }
 
         } catch (error) {
@@ -500,7 +504,34 @@ class PalindromSoundBox {
     }
 
     // ========================================
-    // Palindrom Scan
+    // Background Pre-Scan (startet sofort nach Wallet-Connect)
+    // ========================================
+
+    async backgroundScan() {
+        if (!walletManager.isConnected) return;
+        console.log('[App] Background scan starting...');
+        try {
+            this._backgroundScanPromise = walletManager.scanForPalindromSATs((progress) => {
+                console.log(`[App] Background scan: ${progress.status}`);
+            });
+            const results = await this._backgroundScanPromise;
+            this._backgroundScanResults = results;
+            console.log(`[App] Background scan complete: ${results.length} palindromes ready!`);
+            
+            // Scan-Button Text aktualisieren
+            const scanBtn = document.getElementById('scanBtn');
+            if (scanBtn && !scanBtn.disabled) {
+                scanBtn.textContent = `🔍 Show ${results.length} Palindromes`;
+            }
+        } catch (e) {
+            console.warn('[App] Background scan failed:', e.message);
+            this._backgroundScanResults = null;
+        }
+        this._backgroundScanPromise = null;
+    }
+
+    // ========================================
+    // Palindrom Scan (nutzt Background-Ergebnisse wenn verfügbar)
     // ========================================
 
     async handleScanPalindromes() {
@@ -517,6 +548,32 @@ class PalindromSoundBox {
             return;
         }
 
+        // FAST PATH: Background-Scan ist bereits fertig → sofort anzeigen!
+        if (this._backgroundScanResults) {
+            console.log('[App] Using pre-cached background scan results!');
+            if (progressFill) progressFill.style.width = '100%';
+            this.displayPalindroms(this._backgroundScanResults);
+            this._backgroundScanResults = null; // Einmal verwenden
+            return;
+        }
+
+        // Background-Scan läuft noch → darauf warten
+        if (this._backgroundScanPromise) {
+            console.log('[App] Waiting for background scan to finish...');
+            if (scanOverlay) scanOverlay.classList.add('active');
+            if (scanOverlayStatus) scanOverlayStatus.textContent = 'Almost ready...';
+            try {
+                const results = await this._backgroundScanPromise;
+                if (scanOverlay) scanOverlay.classList.remove('active');
+                if (progressFill) progressFill.style.width = '100%';
+                this.displayPalindroms(results);
+                this._backgroundScanResults = null;
+                return;
+            } catch (e) { /* fall through to normal scan */ }
+            if (scanOverlay) scanOverlay.classList.remove('active');
+        }
+
+        // NORMAL PATH: Kein Background-Scan → normaler Scan mit Overlay
         try {
             if (scanBtn) scanBtn.disabled = true;
             if (scanProgress) scanProgress.style.display = 'block';
