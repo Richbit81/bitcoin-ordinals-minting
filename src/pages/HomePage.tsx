@@ -62,6 +62,13 @@ export const HomePage: React.FC = () => {
       description: 'only Ordinals are real NFTs',
       order: 6,
     },
+    {
+      id: 'random-stuff',
+      name: 'Random Stuff',
+      thumbnail: `https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0`,
+      description: 'Random Ordinals Collection',
+      order: 7,
+    },
   ];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -15,6 +15,7 @@ import { SmilePage } from './pages/SmilePage';
 import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
 import { Orwell1984Page } from './pages/Orwell1984Page';
 import { NftMintingPage } from './pages/NftMintingPage';
+import { RandomStuffPage } from './pages/RandomStuffPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -44,6 +45,7 @@ function AppContent() {
         <Route path="/bitcoin-mixtape" element={<BitcoinMixtapePage />} />
         <Route path="/1984" element={<Orwell1984Page />} />
         <Route path="/nft" element={<NftMintingPage />} />
+        <Route path="/random-stuff" element={<RandomStuffPage />} />
         <Route path="/collection/:id" element={<CollectionMintingPage />} />
         <Route path="/trade" element={<TradingPage />} />
         <Route path="/history" element={<HistoryPage />} />
