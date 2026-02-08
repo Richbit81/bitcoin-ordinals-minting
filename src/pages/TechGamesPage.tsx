@@ -67,6 +67,14 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     category: 'game',
   },
   {
+    inscriptionId: '560bcca79de23708561dca74745900797b1f0c30f4a22b4262b46b4a0950cf3ei0',
+    name: 'Ordinal News',
+    description: "Ordinal News is a small project to test the effectiveness of displaying news on an ordinal grid. It's dynamic and updatable.",
+    price: 0,
+    category: 'tool',
+    mintable: true,
+  },
+  {
     inscriptionId: 'f90df6134b4d171c5b1f9c85884c3e1075ef7fb32fa404a58004e28a0db274d1i0',
     name: 'SEQUENCER',
     description: 'Welcome to the S3QU3NC3R. An audio system completely as a standalone ordinal. It consists of over 8,000 lines of code. Mint Live on Lunalauncher.io',
@@ -113,14 +121,6 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     description: 'Tetris Clone in Bitmap/Memepool style',
     price: 2000,
     category: 'game',
-  },
-  {
-    inscriptionId: '560bcca79de23708561dca74745900797b1f0c30f4a22b4262b46b4a0950cf3ei0',
-    name: 'Ordinal News',
-    description: "Ordinal News is a small project to test the effectiveness of displaying news on an ordinal grid. It's dynamic and updatable.",
-    price: 0,
-    category: 'tool',
-    mintable: true, // Mintbar für 0 sats (nur Inscription-Fees)
   },
   {
     inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
