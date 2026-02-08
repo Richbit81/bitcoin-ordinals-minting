@@ -52,13 +52,26 @@ class ButterflyVisualization {
         this.breathingPhase = 0;
         this.frameSkip = 0;
         
-        // Audio-Reaktivität
+        // Audio-Reaktivität (erweitert)
         this.audioReactivity = {
             volume: 0,
+            smoothVolume: 0,        // Geglätteter Volume-Wert
             beat: 0,
+            beatDecay: 0,           // Langsam abklingender Beat-Impuls
+            prevVolume: 0,          // Für Beat-Detection
+            beatThreshold: 0.15,    // Schwellwert für Beat-Erkennung
             distortion: 0,
+            bassEnergy: 0,          // Tiefe Frequenzen (20-200Hz)
+            midEnergy: 0,           // Mittlere Frequenzen (200-2kHz)
+            highEnergy: 0,          // Hohe Frequenzen (2k-20kHz)
             frequency: new Array(32).fill(0)
         };
+        
+        // Audio-reactive Visualisierungs-Multiplikatoren
+        this.audioScalePulse = 0;       // Pulsieren mit Volume
+        this.audioWingFlap = 0;         // Flügelschlag mit Beat
+        this.audioParticleSize = 0;     // Partikelgröße mit Frequenzen
+        this.audioRotation = 0;         // Leichte Rotation
         
         this.animationId = null;
         this.isRunning = false;
@@ -555,12 +568,32 @@ class ButterflyVisualization {
         // Der palindromHue verschiebt das gesamte Farbspektrum
         h = (h + this.palindromHue) % 360;
         
-        // Audio-Reaktivität auf Farben anwenden
-        const audioIntensity = this.audioReactivity.volume + this.audioReactivity.distortion * 0.5;
-        l += audioIntensity * 30;
-        s += this.audioReactivity.beat * 20;
+        // === AUDIO-REACTIVE: Frequenzband-basierte Farbänderungen ===
+        const ar = this.audioReactivity;
         
-        return { h, s, l, a };
+        // Bass → wärmere Farbtöne (Hue Shift Richtung Rot/Orange)
+        h += ar.bassEnergy * -30; // Shift Richtung wärmere Töne
+        
+        // Mids → mehr Sättigung
+        s += ar.midEnergy * 25;
+        
+        // Highs → mehr Helligkeit (Glitzer-Effekt)
+        l += ar.highEnergy * 20;
+        
+        // Volume → allgemeine Aufhellung
+        l += ar.smoothVolume * 25;
+        
+        // Beat → Sättigungs-Boost (knalligere Farben bei Beats)
+        s += ar.beatDecay * 20;
+        
+        // Distortion → Farbverschiebung (psychedelischer Effekt)
+        h += ar.distortion * 40;
+        
+        // Clamp-Werte
+        s = Math.min(100, Math.max(0, s));
+        l = Math.min(80, Math.max(10, l));
+        
+        return { h: h % 360, s, l, a };
     }
 
     hslToRgba(h, s, l, a) {
@@ -634,28 +667,81 @@ class ButterflyVisualization {
     updateAudioReactivity() {
         if (!audioSystem.audioContext) return;
         
-        // Volume-Level
-        this.audioReactivity.volume = audioSystem.getVolumeLevel();
+        const ar = this.audioReactivity;
         
-        // Beat-Detection
-        const beatStyle = audioSystem.beatStyle;
-        this.audioReactivity.beat = beatStyle !== 'none' ? 0.5 : 0;
+        // Volume-Level (roh)
+        ar.prevVolume = ar.volume;
+        ar.volume = audioSystem.getVolumeLevel();
+        
+        // Geglätteter Volume (für sanftes Pulsieren)
+        ar.smoothVolume += (ar.volume - ar.smoothVolume) * 0.15;
+        
+        // === BEAT-DETECTION ===
+        // Erkennt plötzliche Lautstärke-Anstiege als "Beats"
+        const volumeJump = ar.volume - ar.prevVolume;
+        if (volumeJump > ar.beatThreshold) {
+            ar.beat = Math.min(1.0, volumeJump * 4);
+            ar.beatDecay = 1.0;
+        } else {
+            ar.beat *= 0.85; // Schneller Abfall
+        }
+        // Beat-Decay klingt langsamer ab (für Flügelschlag-Animation)
+        ar.beatDecay *= 0.92;
+        
+        // Auch Beat-Style berücksichtigen
+        if (audioSystem.beatStyle !== 'none') {
+            ar.beat = Math.max(ar.beat, 0.3);
+            ar.beatDecay = Math.max(ar.beatDecay, 0.2);
+        }
         
         // Distortion-Level
-        this.audioReactivity.distortion = audioSystem.distortion / 100;
+        ar.distortion = audioSystem.distortion / 100;
         
-        // Frequenz-Daten
+        // === FREQUENZBAND-ANALYSE ===
         const freqData = audioSystem.getFrequencyData();
         if (freqData) {
-            const bucketSize = Math.floor(freqData.length / 32);
+            const binCount = freqData.length;
+            const bucketSize = Math.floor(binCount / 32);
+            
+            // 32 Buckets füllen
             for (let i = 0; i < 32; i++) {
                 let sum = 0;
                 for (let j = 0; j < bucketSize; j++) {
                     sum += freqData[i * bucketSize + j] || 0;
                 }
-                this.audioReactivity.frequency[i] = sum / (bucketSize * 255);
+                ar.frequency[i] = sum / (bucketSize * 255);
             }
+            
+            // Bass (Buckets 0-3, ~20-200Hz)
+            ar.bassEnergy = (ar.frequency[0] + ar.frequency[1] + ar.frequency[2] + ar.frequency[3]) / 4;
+            
+            // Mids (Buckets 4-15, ~200-2kHz)
+            let midSum = 0;
+            for (let i = 4; i < 16; i++) midSum += ar.frequency[i];
+            ar.midEnergy = midSum / 12;
+            
+            // Highs (Buckets 16-31, ~2k-20kHz)
+            let highSum = 0;
+            for (let i = 16; i < 32; i++) highSum += ar.frequency[i];
+            ar.highEnergy = highSum / 16;
         }
+        
+        // === AUDIO-REACTIVE PARAMETER BERECHNEN ===
+        
+        // 1. Pulsieren: Volume → Scale (sanft, max ±15%)
+        const targetPulse = ar.smoothVolume * 0.15 + ar.bassEnergy * 0.1;
+        this.audioScalePulse += (targetPulse - this.audioScalePulse) * 0.2;
+        
+        // 2. Flügelschlag: Beat → Wing Ratio Modulation
+        const targetFlap = ar.beatDecay * 0.25;
+        this.audioWingFlap += (targetFlap - this.audioWingFlap) * 0.3;
+        
+        // 3. Partikelgröße: Mid+High Energie → größere Partikel
+        const targetSize = (ar.midEnergy + ar.highEnergy) * 0.5;
+        this.audioParticleSize += (targetSize - this.audioParticleSize) * 0.2;
+        
+        // 4. Rotation: Distortion + Volume → leichte Drehung
+        this.audioRotation += (ar.smoothVolume * 0.02 + ar.distortion * 0.01);
     }
 
     drawButterfly() {
@@ -677,9 +763,11 @@ class ButterflyVisualization {
         // Atmungseffekt
         this.breathingPhase += 0.015;
         
-        // Fade-Out (langsameres Ausfaden)
+        // === AUDIO-REACTIVE: Fade-Out reagiert auf Sound ===
+        // Bei Sound bleibt mehr stehen → intensivere, leuchtendere Trails
+        const audioFade = Math.min(0.998, this.fadeFactor + this.audioReactivity.smoothVolume * 0.003);
         for (let i = 3; i < this.pixels.length; i += 4) {
-            this.pixels[i] = this.pixels[i] * this.fadeFactor | 0;
+            this.pixels[i] = this.pixels[i] * audioFade | 0;
         }
         
         // Verfügbare Dimensionen verwenden (falls gesetzt, sonst volle Größe)
@@ -698,16 +786,24 @@ class ButterflyVisualization {
         // Dynamische Skalierung für "Atmung" (subtil)
         const breathing = 1 + Math.sin(this.breathingPhase) * 0.05;
         
+        // === AUDIO-REACTIVE: Pulsieren mit Lautstärke ===
+        // Der Schmetterling "atmet" stärker bei Sound
+        const audioPulse = 1.0 + this.audioScalePulse;
+        
+        // === AUDIO-REACTIVE: Flügelschlag mit Beat ===
+        // wingRatio wird bei Beats moduliert → Flügel "schlagen"
+        const flapEffect = Math.sin(this.breathingPhase * 3) * this.audioWingFlap;
+        const dynamicWingRatio = this.wingRatio + flapEffect;
+        
         // Pattern-spezifische Skalierung
         let patternScaleFactor = 1.0;
         if (this.patternMode === 'lorenz') patternScaleFactor = 0.07;
         else if (this.patternMode === 'spiral') patternScaleFactor = 0.8;
         else if (this.patternMode === 'flower') patternScaleFactor = 1.2;
         
-        // Palindrom-spezifische Flügelform:
-        // wingRatio (1.0 = rund, 1.8 = breit) → jedes Palindrom hat andere Proportionen
-        const wingScaleX = baseScale * breathing * this.wingRatio * patternScaleFactor;
-        const wingScaleY = baseScale * breathing * (2.3 - this.wingRatio) * patternScaleFactor;
+        // Palindrom-spezifische Flügelform + Audio-Reaktivität:
+        const wingScaleX = baseScale * breathing * audioPulse * dynamicWingRatio * patternScaleFactor;
+        const wingScaleY = baseScale * breathing * audioPulse * (2.3 - dynamicWingRatio) * patternScaleFactor;
         
         // Render Partikel - Batch-Verarbeitung
         this.frameSkip = (this.frameSkip + 1) % 2;
@@ -754,6 +850,10 @@ class ButterflyVisualization {
                 const youngFactor = Math.min(1, p.age / 300);
                 a = a * ageFactor * youngFactor;
                 
+                // === AUDIO-REACTIVE: Farbintensität verstärkt bei Sound ===
+                const audioBoost = 1.0 + this.audioReactivity.smoothVolume * 1.5 + this.audioReactivity.bassEnergy * 0.8;
+                a = a * audioBoost;
+                
                 // Sicherstellen, dass Alpha nicht zu klein ist
                 if (a < 0.001) continue;
                 
@@ -767,8 +867,10 @@ class ButterflyVisualization {
                 const mirroredX = (cx - (x - cx)) | 0;
                 const mirroredY = (cy - (y - cy)) | 0;
                 
-                // Größere Partikel rendern (2x2 Pixel statt 1 Pixel)
-                const particleSize = this.particleSize;
+                // === AUDIO-REACTIVE: Partikelgröße reagiert auf Frequenzen ===
+                // Mid+High Energie → größere Partikel (2-4px)
+                const audioSizeBoost = Math.floor(this.audioParticleSize * 3);
+                const particleSize = Math.max(this.particleSize, this.particleSize + audioSizeBoost);
                 
                 // Original-Position (oberer linker Flügel)
                 this.setButterflyPixelArea(xInt, yInt, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
