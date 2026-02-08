@@ -10,10 +10,21 @@ interface NewsItem {
   fullWidth?: boolean; // Spezieller Banner, der den ganzen Platz einnimmt
   images?: string[]; // Array von Bildern für Full-Width Banner
   video?: string; // Video URL für Full-Width Banner mit Video
+  iframeUrl?: string; // Live HTML Ordinal preview via iframe
   isInternal?: boolean; // Interner Link (React Router) statt externer Link
 }
 
 const NEWS_ITEMS: NewsItem[] = [
+  {
+    id: 'ordinal-news',
+    title: 'Ordinal News',
+    description: 'Dynamic & updatable news grid — fully on-chain. Free Mint!',
+    image: '',
+    link: '/tech-games',
+    fullWidth: true,
+    iframeUrl: 'https://ordinals.com/content/560bcca79de23708561dca74745900797b1f0c30f4a22b4262b46b4a0950cf3ei0',
+    isInternal: true,
+  },
   {
     id: 'bitcoin-mixtape',
     title: 'Bitcoin Mix Tape',
@@ -151,8 +162,44 @@ export const NewsBanner: React.FC = () => {
           onClick={() => handleClick(item1.link, item1.isInternal)}
           className="bg-black border-2 border-white rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative"
         >
-          {/* Video Banner */}
-          {item1.video ? (
+          {/* Iframe Banner - Live HTML Ordinal Preview */}
+          {item1.iframeUrl ? (
+            <div className="relative min-h-[200px] md:min-h-[280px] flex items-stretch overflow-hidden">
+              {/* Live iframe im Hintergrund */}
+              <iframe
+                src={item1.iframeUrl}
+                className="absolute inset-0 w-full h-full border-0"
+                title={item1.title}
+                sandbox="allow-scripts allow-same-origin"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                style={{
+                  pointerEvents: 'none',
+                  transform: 'scale(1)',
+                  transformOrigin: 'top left',
+                }}
+              />
+              {/* Gradient Overlay für Lesbarkeit */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30 pointer-events-none" />
+              {/* Content unten */}
+              <div className="relative z-10 flex items-end justify-between w-full px-6 py-4 mt-auto">
+                <div>
+                  <h3 className="text-2xl md:text-4xl font-bold text-white drop-shadow-lg">
+                    {item1.title}
+                  </h3>
+                  <p className="text-sm md:text-lg text-green-400 font-semibold mt-1">
+                    {item1.description}
+                  </p>
+                </div>
+                <div className="hidden md:flex items-center gap-2 bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-bold text-white transition-colors flex-shrink-0">
+                  <span>🎯 FREE MINT</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          ) : item1.video ? (
             <div className="relative min-h-[120px] md:min-h-[160px] flex items-center">
               {/* Video im Hintergrund */}
               <video
