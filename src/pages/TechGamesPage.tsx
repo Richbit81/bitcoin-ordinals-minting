@@ -452,7 +452,7 @@ export const TechGamesPage: React.FC = () => {
                     sandbox="allow-scripts allow-same-origin"
                     loading="lazy"
                     referrerPolicy="no-referrer"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     style={{
                       transform: 'translateZ(0)',
                       willChange: 'auto',
