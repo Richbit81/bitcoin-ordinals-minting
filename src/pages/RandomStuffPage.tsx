@@ -58,6 +58,13 @@ const RANDOM_ITEMS = [
     priceInSats: 5000,
     priceInBTC: 0.00005,
   },
+  {
+    id: 'nft',
+    name: 'NFT',
+    inscriptionId: '1151d32019503a91b2495d2900f86c7b7d8922a6583c61b6dec657812091fc59i0',
+    priceInSats: 5000,
+    priceInBTC: 0.00005,
+  },
 ];
 
 const COLLECTION_NAME = 'Random Stuff';
