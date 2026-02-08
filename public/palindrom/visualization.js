@@ -319,18 +319,19 @@ class ButterflyVisualization {
     }
     
     updateParams() {
-        // Sanfte Zeit-Variation — REDUZIERT damit Palindrom-Muster erkennbar bleibt
-        // Vorher: ±0.15 (zu viel, überschrieb das Palindrom-Muster)
-        // Jetzt: ±0.03 (subtiler Lebenseffekt ohne das Muster zu zerstören)
+        // Sanfte Zeit-Variation + Audio-Wobble
+        // Basis: ±0.03 (subtiler Atem), Audio: bis ±0.15 zusätzlich bei Bass!
         const t = this.breathingPhase;
+        const wobble = this.audioAttrWobble || 0;
+        
         if (!this.cachedParams) {
             this.cachedParams = { a: this.a, b: this.b, c: this.c, d: this.d, k: this.k };
         }
-        this.cachedParams.a = this.a + Math.sin(t) * 0.03;
-        this.cachedParams.b = this.b + Math.cos(t * 0.7) * 0.025;
-        this.cachedParams.c = this.c + Math.sin(t * 1.3) * 0.025;
-        this.cachedParams.d = this.d + Math.cos(t * 0.9) * 0.03;
-        this.cachedParams.k = this.k + Math.sin(t * 0.5) * 0.015;
+        this.cachedParams.a = this.a + Math.sin(t) * 0.03 + Math.sin(t * 2.3) * wobble;
+        this.cachedParams.b = this.b + Math.cos(t * 0.7) * 0.025 + Math.cos(t * 1.7) * wobble;
+        this.cachedParams.c = this.c + Math.sin(t * 1.3) * 0.025 + Math.sin(t * 3.1) * wobble;
+        this.cachedParams.d = this.d + Math.cos(t * 0.9) * 0.03 + Math.cos(t * 2.7) * wobble;
+        this.cachedParams.k = this.k + Math.sin(t * 0.5) * 0.015 + Math.sin(t * 1.9) * wobble * 0.5;
     }
 
     particleStep(particle) {
@@ -728,20 +729,35 @@ class ButterflyVisualization {
         
         // === AUDIO-REACTIVE PARAMETER BERECHNEN ===
         
-        // 1. Pulsieren: Volume → Scale (sanft, max ±15%)
-        const targetPulse = ar.smoothVolume * 0.15 + ar.bassEnergy * 0.1;
-        this.audioScalePulse += (targetPulse - this.audioScalePulse) * 0.2;
+        // 1. Pulsieren: Volume → Scale (stärker! max ±35%)
+        const targetPulse = ar.smoothVolume * 0.35 + ar.bassEnergy * 0.25;
+        this.audioScalePulse += (targetPulse - this.audioScalePulse) * 0.25;
         
-        // 2. Flügelschlag: Beat → Wing Ratio Modulation
-        const targetFlap = ar.beatDecay * 0.25;
-        this.audioWingFlap += (targetFlap - this.audioWingFlap) * 0.3;
+        // 2. Flügelschlag: Beat → Wing Ratio Modulation (stärker!)
+        const targetFlap = ar.beatDecay * 0.5 + ar.bassEnergy * 0.2;
+        this.audioWingFlap += (targetFlap - this.audioWingFlap) * 0.35;
         
         // 3. Partikelgröße: Mid+High Energie → größere Partikel
-        const targetSize = (ar.midEnergy + ar.highEnergy) * 0.5;
-        this.audioParticleSize += (targetSize - this.audioParticleSize) * 0.2;
+        const targetSize = (ar.midEnergy + ar.highEnergy) * 0.8;
+        this.audioParticleSize += (targetSize - this.audioParticleSize) * 0.25;
         
-        // 4. Rotation: Distortion + Volume → leichte Drehung
-        this.audioRotation += (ar.smoothVolume * 0.02 + ar.distortion * 0.01);
+        // 4. Rotation: Volume + Bass → Drehung
+        this.audioRotation += (ar.smoothVolume * 0.03 + ar.bassEnergy * 0.02 + ar.distortion * 0.015);
+        
+        // 5. NEU: Wellen-Amplitude (Bass + Mid → Wellenbewegung)
+        const targetWave = ar.bassEnergy * 0.6 + ar.midEnergy * 0.4 + ar.smoothVolume * 0.3;
+        this.audioWaveAmp = this.audioWaveAmp || 0;
+        this.audioWaveAmp += (targetWave - this.audioWaveAmp) * 0.3;
+        
+        // 6. NEU: Wellen-Frequenz (Higher notes → schnellere Wellen)
+        this.audioWaveFreq = this.audioWaveFreq || 3;
+        const targetWaveFreq = 3 + ar.highEnergy * 8 + ar.midEnergy * 4;
+        this.audioWaveFreq += (targetWaveFreq - this.audioWaveFreq) * 0.15;
+        
+        // 7. NEU: Attraktor-Wobble (Bass moduliert die Form selbst!)
+        this.audioAttrWobble = this.audioAttrWobble || 0;
+        const targetWobble = ar.bassEnergy * 0.15 + ar.beatDecay * 0.1;
+        this.audioAttrWobble += (targetWobble - this.audioAttrWobble) * 0.2;
     }
 
     drawButterfly() {
@@ -760,8 +776,9 @@ class ButterflyVisualization {
         // Audio-Reaktivität aktualisieren
         this.updateAudioReactivity();
         
-        // Atmungseffekt
-        this.breathingPhase += 0.015;
+        // Atmungseffekt — beschleunigt sich bei Audio!
+        const audioSpeedBoost = 1 + (this.audioReactivity.smoothVolume || 0) * 2 + (this.audioReactivity.bassEnergy || 0) * 1.5;
+        this.breathingPhase += 0.015 * audioSpeedBoost;
         
         // === AUDIO-REACTIVE: Fade-Out reagiert auf Sound ===
         // Bei Sound bleibt mehr stehen → intensivere, leuchtendere Trails
@@ -783,17 +800,26 @@ class ButterflyVisualization {
         // Skalierung basierend auf verfügbarem Platz
         const baseScale = Math.min(availWidth, availHeight) * 0.22 * this.patternScale;
         
-        // Dynamische Skalierung für "Atmung" (subtil)
-        const breathing = 1 + Math.sin(this.breathingPhase) * 0.05;
+        // Dynamische Skalierung für "Atmung" — stärker bei Sound!
+        const breathSpeed = 1 + (this.audioReactivity.smoothVolume || 0) * 3;
+        const breathing = 1 + Math.sin(this.breathingPhase * breathSpeed) * 0.05;
         
         // === AUDIO-REACTIVE: Pulsieren mit Lautstärke ===
-        // Der Schmetterling "atmet" stärker bei Sound
         const audioPulse = 1.0 + this.audioScalePulse;
         
         // === AUDIO-REACTIVE: Flügelschlag mit Beat ===
-        // wingRatio wird bei Beats moduliert → Flügel "schlagen"
-        const flapEffect = Math.sin(this.breathingPhase * 3) * this.audioWingFlap;
+        const flapEffect = Math.sin(this.breathingPhase * 4) * this.audioWingFlap;
         const dynamicWingRatio = this.wingRatio + flapEffect;
+        
+        // === AUDIO-REACTIVE: Rotation ===
+        const rot = this.audioRotation || 0;
+        const cosRot = Math.cos(rot);
+        const sinRot = Math.sin(rot);
+        
+        // === AUDIO-REACTIVE: Wellen-Parameter ===
+        const waveAmp = (this.audioWaveAmp || 0) * baseScale * 0.15;
+        const waveFreq = this.audioWaveFreq || 3;
+        const wavePhase = this.breathingPhase * 2;
         
         // Pattern-spezifische Skalierung
         let patternScaleFactor = 1.0;
@@ -817,9 +843,29 @@ class ButterflyVisualization {
             // Partikel-Schritt
             this.particleStep(p);
             
-            // Koordinaten auf Canvas umrechnen
-            const x = cx + p.x * wingScaleX;
-            const y = cy + p.y * wingScaleY;
+            // Koordinaten auf Canvas umrechnen + Wellen + Rotation
+            let px = p.x * wingScaleX;
+            let py = p.y * wingScaleY;
+            
+            // Wellen-Verzerrung: Sinuswelle verzerrt Positionen
+            if (waveAmp > 0.5) {
+                const dist = Math.sqrt(px * px + py * py);
+                const waveOffset = Math.sin(dist * 0.008 * waveFreq + wavePhase) * waveAmp;
+                const waveOffsetY = Math.cos(dist * 0.006 * waveFreq + wavePhase * 0.7) * waveAmp * 0.7;
+                px += waveOffset;
+                py += waveOffsetY;
+            }
+            
+            // Leichte Rotation bei Audio
+            if (rot > 0.001) {
+                const rx = px * cosRot - py * sinRot;
+                const ry = px * sinRot + py * cosRot;
+                px = rx;
+                py = ry;
+            }
+            
+            const x = cx + px;
+            const y = cy + py;
             
             // Nur rendern wenn im sichtbaren Bereich
             const xInt = x | 0;
