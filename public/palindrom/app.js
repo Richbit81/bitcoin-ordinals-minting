@@ -161,6 +161,12 @@ class PalindromSoundBox {
             });
         }
         
+        // Randomize Button
+        const randomizeBtn = document.getElementById('randomizeBtn');
+        if (randomizeBtn) {
+            randomizeBtn.addEventListener('click', () => this.randomizeSound());
+        }
+
         // Audio-Einstellungen
         const instrumentSelect = document.getElementById('instrumentSelect');
         const keySelect = document.getElementById('keySelect');
@@ -501,6 +507,104 @@ class PalindromSoundBox {
             if (ordIcon) ordIcon.className = 'offline';
             if (ordText) ordText.textContent = 'APIs: Connection error';
         }
+    }
+
+    // ========================================
+    // Randomize Sound Settings
+    // ========================================
+
+    randomizeSound() {
+        const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        // Instrument
+        const instruments = ['piano', 'strings', 'brass', 'flute', 'organ', 'bell', 'synth', 'guitar'];
+        const instrument = pickRandom(instruments);
+        const instrumentEl = document.getElementById('instrumentSelect');
+        if (instrumentEl) { instrumentEl.value = instrument; audioSystem.setInstrument(instrument); }
+
+        // Key
+        const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const key = pickRandom(keys);
+        const keyEl = document.getElementById('keySelect');
+        if (keyEl) { keyEl.value = key; audioSystem.setKey(key); }
+
+        // Speed (2-9)
+        const speed = rand(2, 9);
+        const speedEl = document.getElementById('speedSlider');
+        if (speedEl) { speedEl.value = speed; document.getElementById('speedValue').textContent = speed; audioSystem.setSpeed(speed); }
+
+        // Volume (30-80)
+        const volume = rand(30, 80);
+        const volEl = document.getElementById('volumeSlider');
+        if (volEl) { volEl.value = volume; document.getElementById('volumeValue').textContent = volume; audioSystem.setVolume(volume); }
+
+        // Effekte (mit Wahrscheinlichkeit – nicht alle auf einmal)
+        const effects = [
+            { id: 'vibrato', label: 'vibratoValue', fn: 'setVibrato', max: 80 },
+            { id: 'delay', label: 'delayValue', fn: 'setDelay', max: 70 },
+            { id: 'filter', label: 'filterValue', fn: 'setFilter', max: 90 },
+            { id: 'distortion', label: 'distortionValue', fn: 'setDistortion', max: 50 },
+            { id: 'reverb', label: 'reverbValue', fn: 'setReverb', max: 80 },
+            { id: 'sustain', label: 'sustainValue', fn: 'setSustain', max: 100 },
+            { id: 'smoothness', label: 'smoothnessValue', fn: 'setSmoothness', max: 100 },
+            { id: 'chorus', label: 'chorusValue', fn: 'setChorus', max: 60 },
+            { id: 'phaser', label: 'phaserValue', fn: 'setPhaser', max: 60 },
+            { id: 'tremolo', label: 'tremoloValue', fn: 'setTremolo', max: 60 },
+            { id: 'compression', label: 'compressionValue', fn: 'setCompression', max: 70 },
+        ];
+
+        for (const effect of effects) {
+            // 60% Chance dass ein Effekt aktiv wird
+            const value = Math.random() < 0.6 ? rand(5, effect.max) : 0;
+            const slider = document.getElementById(effect.id + 'Slider');
+            const label = document.getElementById(effect.label);
+            if (slider) slider.value = value;
+            if (label) label.textContent = value;
+            if (audioSystem[effect.fn]) audioSystem[effect.fn](value);
+        }
+
+        // EQ (-8 bis +8)
+        const eqBands = [
+            { id: 'eqLow', label: 'eqLowValue', fn: 'setEQLow' },
+            { id: 'eqMid', label: 'eqMidValue', fn: 'setEQMid' },
+            { id: 'eqHigh', label: 'eqHighValue', fn: 'setEQHigh' },
+        ];
+        for (const eq of eqBands) {
+            const value = rand(-8, 8);
+            const slider = document.getElementById(eq.id + 'Slider');
+            const label = document.getElementById(eq.label);
+            if (slider) slider.value = value;
+            if (label) label.textContent = value;
+            if (audioSystem[eq.fn]) audioSystem[eq.fn](value);
+        }
+
+        // Beat System (50% Chance für Beat)
+        if (Math.random() < 0.5) {
+            const beatStyles = ['house', 'hiphop', 'techno', 'trap', 'rock', 'dubstep'];
+            const beatStyle = pickRandom(beatStyles);
+            const beatEl = document.getElementById('beatStyleSelect');
+            if (beatEl) { beatEl.value = beatStyle; audioSystem.setBeatStyle(beatStyle); }
+
+            const bpm = rand(80, 160);
+            const bpmEl = document.getElementById('bpmSlider');
+            if (bpmEl) { bpmEl.value = bpm; document.getElementById('bpmValue').textContent = bpm; audioSystem.setBPM(bpm); }
+
+            const beatVol = rand(20, 70);
+            const beatVolEl = document.getElementById('beatVolumeSlider');
+            if (beatVolEl) { beatVolEl.value = beatVol; document.getElementById('beatVolumeValue').textContent = beatVol; audioSystem.setBeatVolume(beatVol); }
+        } else {
+            const beatEl = document.getElementById('beatStyleSelect');
+            if (beatEl) { beatEl.value = 'none'; audioSystem.setBeatStyle('none'); }
+        }
+
+        // Melody Tempo
+        const tempos = ['0.25', '0.5', '1', '2'];
+        const tempo = pickRandom(tempos);
+        const tempoEl = document.getElementById('sequenceTempoSelect');
+        if (tempoEl) { tempoEl.value = tempo; audioSystem.setSequenceTempo(parseFloat(tempo)); }
+
+        console.log(`[App] 🎲 Randomized: ${instrument} in ${key}, speed ${speed}, volume ${volume}`);
     }
 
     // ========================================
