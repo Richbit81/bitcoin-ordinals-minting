@@ -65,7 +65,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'random-stuff',
       name: 'Random Stuff',
-      thumbnail: `https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0`,
+      thumbnail: `https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0`,
       description: 'Random Ordinals Collection',
       order: 7,
     },
