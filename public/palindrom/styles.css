@@ -31,6 +31,32 @@ body {
     flex-direction: column;
 }
 
+/* Back to Home Button */
+.back-home-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: rgba(10, 10, 15, 0.85);
+    border: 1px solid var(--accent-orange);
+    color: var(--accent-orange);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px var(--accent-orange-glow);
+}
+
+.back-home-btn:hover {
+    background: var(--accent-orange);
+    color: #000;
+    box-shadow: var(--neon-glow);
+    transform: translateX(-2px);
+}
+
 /* UI Toggle Button */
 .ui-toggle {
     position: fixed;

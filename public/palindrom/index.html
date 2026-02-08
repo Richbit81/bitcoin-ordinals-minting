@@ -11,6 +11,11 @@
 </head>
 <body>
     <div class="container">
+        <!-- Back to Home Button -->
+        <a id="backToHome" class="back-home-btn" href="/" title="Back to richart.app" onclick="if(window.top!==window.self){event.preventDefault();window.top.location.href='/';}">
+            ← richart.app
+        </a>
+
         <!-- UI Toggle Button -->
         <button id="uiToggle" class="ui-toggle" title="Toggle UI">
             <img src="butterfly-icon.png" alt="Toggle" class="toggle-icon-img">
