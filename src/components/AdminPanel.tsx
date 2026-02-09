@@ -1748,9 +1748,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     '1984': { logs: any[]; totalMints: number };
     nft: { logs: any[]; totalMints: number };
     randomStuff: { logs: any[]; totalMints: number };
+    freeStuff: { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff'>('blackAndWild');
 
   useEffect(() => {
     loadLogs();
@@ -1773,7 +1774,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff') => {
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       if (response.ok) {
@@ -1794,7 +1795,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -1835,6 +1836,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || ''}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || 0}\n`;
       });
+    } else if (logType === 'freeStuff') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,Original Inscription ID,TXID,Price (sats)\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || ''}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || 0}\n`;
+      });
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1860,7 +1866,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
       {/* Stats Overview */}
       {logs && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           <div className="bg-gray-900 border border-red-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Black & Wild</p>
             <p className="text-3xl font-bold text-white">{logs.blackAndWild.totalMints}</p>
@@ -1889,6 +1895,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <div className="bg-gray-900 border border-pink-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Random Stuff</p>
             <p className="text-3xl font-bold text-white">{logs.randomStuff?.totalMints || 0}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-emerald-600 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Free Stuff</p>
+            <p className="text-3xl font-bold text-white">{logs.freeStuff?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
         </div>
@@ -1956,12 +1967,22 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         >
           🎲 Random Stuff
         </button>
+        <button
+          onClick={() => setActiveLogTab('freeStuff')}
+          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
+            activeLogTab === 'freeStuff'
+              ? 'bg-emerald-600 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'
+          }`}
+        >
+          🎁 Free Stuff
+        </button>
       </div>
 
       {/* Download Buttons */}
       <div className="flex gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : 'mixtape')}
           className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
         >
           📥 Download JSON
