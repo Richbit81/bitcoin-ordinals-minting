@@ -40,6 +40,21 @@ const NEWS_ITEMS: NewsItem[] = [
     ],
   },
   {
+    id: 'scanmode',
+    title: 'SCANMODE',
+    description: 'Check out on Magic Eden',
+    image: 'https://ordinals.com/content/fb6c2e54a61b392ad5699091e68a2d2bfac7af4fe5b2505a25011a7ae4b92be7i0',
+    link: 'https://magiceden.io/ordinals/marketplace/scanmode',
+    fullWidth: true,
+    images: [
+      'https://ordinals.com/content/fb6c2e54a61b392ad5699091e68a2d2bfac7af4fe5b2505a25011a7ae4b92be7i0',
+      'https://ordinals.com/content/1d70ccfb759800d81ddbc83b7ce1b83b340e76e3d1b99292ef5ea518f06c8b03i0',
+      'https://ordinals.com/content/cf3082beecdfff7b004c65b4375be319dd13c2cf9b5ce33e36c615b52ac8c52ei0',
+      'https://ordinals.com/content/7f3b75cd161cc196b8cc9b5acf8e84323582c1fc7b1b916ecaf210c0e6e9c788i0',
+      'https://ordinals.com/content/877316e6bb31b76389bd33fe4c94f136c3770eb9a080b40a3cbc6cfc1311fa4ai0',
+    ],
+  },
+  {
     id: 'santas-revenge',
     title: "Santas Revenge",
     description: 'Mint on Trio',
