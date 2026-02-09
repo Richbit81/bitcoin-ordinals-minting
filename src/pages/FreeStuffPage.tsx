@@ -16,6 +16,13 @@ const FREE_ITEMS = [
     priceInSats: 0,
     priceInBTC: 0,
   },
+  {
+    id: '369',
+    name: '369',
+    inscriptionId: '5c5b7974b1774f773ccf79f486546d523e82ef162e3a08e771fe9bf39c047ef7i0',
+    priceInSats: 0,
+    priceInBTC: 0,
+  },
 ];
 
 const COLLECTION_NAME = 'Free Stuff';
