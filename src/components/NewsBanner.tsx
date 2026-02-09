@@ -16,16 +16,6 @@ interface NewsItem {
 
 const NEWS_ITEMS: NewsItem[] = [
   {
-    id: 'ordinal-news',
-    title: 'Ordinal News',
-    description: 'Dynamic & updatable news grid — fully on-chain. Free Mint!',
-    image: '',
-    link: '/tech-games',
-    fullWidth: true,
-    iframeUrl: 'https://ordinals.com/content/560bcca79de23708561dca74745900797b1f0c30f4a22b4262b46b4a0950cf3ei0',
-    isInternal: true,
-  },
-  {
     id: 'bitcoin-mixtape',
     title: 'Bitcoin Mix Tape',
     description: '17 Tracks fully on-chain - Mint Now!',
