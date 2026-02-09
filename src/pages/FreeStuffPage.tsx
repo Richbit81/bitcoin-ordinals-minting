@@ -153,7 +153,10 @@ export const FreeStuffPage: React.FC = () => {
 
               {/* Name & Price */}
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">{item.name}</h2>
+                <div>
+                  <h2 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">{item.name}</h2>
+                  <span className="text-xs text-gray-500 italic">Delegate</span>
+                </div>
                 <span className="text-emerald-400 font-bold text-sm">FREE</span>
               </div>
 
