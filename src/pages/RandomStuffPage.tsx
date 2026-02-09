@@ -71,6 +71,7 @@ const RANDOM_ITEMS = [
     inscriptionId: 'bccedf4befa8aa377c2dbae11ceebab9d15b17e3dc57021e545863e69b60a6a4i0',
     priceInSats: 5000,
     priceInBTC: 0.00005,
+    contentType: 'html' as const,
   },
 ];
 
@@ -197,14 +198,27 @@ export const RandomStuffPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
           {RANDOM_ITEMS.map((item) => (
             <div key={item.id} className="bg-black/80 border-2 border-cyan-600/30 rounded-xl p-4 backdrop-blur-md hover:border-cyan-500 transition-all duration-300 group">
-              {/* Preview Image */}
+              {/* Preview */}
               <div className="relative mb-4 w-full rounded-lg overflow-hidden shadow-lg shadow-cyan-600/10 border border-cyan-600/20 bg-gray-900">
-                <img
-                  src={`https://ordinals.com/content/${item.inscriptionId}`}
-                  alt={item.name}
-                  className="w-full h-auto rounded-lg"
-                  loading="lazy"
-                />
+                {item.contentType === 'html' ? (
+                  <div className="w-full aspect-square">
+                    <iframe
+                      src={`https://ordinals.com/content/${item.inscriptionId}`}
+                      title={item.name}
+                      className="w-full h-full border-0 rounded-lg"
+                      sandbox="allow-scripts allow-same-origin"
+                      loading="lazy"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  </div>
+                ) : (
+                  <img
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    alt={item.name}
+                    className="w-full h-auto rounded-lg"
+                    loading="lazy"
+                  />
+                )}
               </div>
 
               {/* Name & Price */}
