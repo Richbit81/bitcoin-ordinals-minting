@@ -16,6 +16,7 @@ import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
 import { Orwell1984Page } from './pages/Orwell1984Page';
 // NftMintingPage moved into RandomStuffPage
 import { RandomStuffPage } from './pages/RandomStuffPage';
+import { FreeStuffPage } from './pages/FreeStuffPage';
 import { PalindromSoundBoxPage } from './pages/PalindromSoundBoxPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
@@ -46,6 +47,7 @@ function AppContent() {
         <Route path="/bitcoin-mixtape" element={<BitcoinMixtapePage />} />
         <Route path="/1984" element={<Orwell1984Page />} />
         {/* NFT moved into /random-stuff */}
+        <Route path="/free-stuff" element={<FreeStuffPage />} />
         <Route path="/random-stuff" element={<RandomStuffPage />} />
         <Route path="/collection/:id" element={<CollectionMintingPage />} />
         <Route path="/trade" element={<TradingPage />} />

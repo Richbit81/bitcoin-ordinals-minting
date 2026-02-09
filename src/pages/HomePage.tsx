@@ -56,11 +56,18 @@ export const HomePage: React.FC = () => {
       order: 5,
     },
     {
+      id: 'free-stuff',
+      name: 'Free Stuff',
+      thumbnail: `https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0`,
+      description: 'Free Ordinals Mints',
+      order: 6,
+    },
+    {
       id: 'random-stuff',
       name: 'Random Stuff',
       thumbnail: `https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0`,
       description: 'Random Ordinals Collection',
-      order: 6,
+      order: 7,
     },
   ];
 
@@ -223,8 +230,10 @@ export const HomePage: React.FC = () => {
               project.order === 2 ? 'md:order-3' : // Sons of Satoshi Evolution
               project.id === 'tech-games' ? 'md:order-4' : 
               project.id === 'point-shop' ? 'md:order-5' :
-              project.order >= 5 ? 'md:order-6' : // Weitere dynamische Collections
-              'md:order-7'
+              project.id === 'free-stuff' ? 'md:order-6' :
+              project.id === 'random-stuff' ? 'md:order-7' :
+              project.order >= 5 ? 'md:order-8' : // Weitere dynamische Collections
+              'md:order-9'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
