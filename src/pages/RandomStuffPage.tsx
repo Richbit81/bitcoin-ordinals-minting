@@ -208,6 +208,8 @@ export const RandomStuffPage: React.FC = () => {
                       className="w-full h-full border-0 rounded-lg"
                       sandbox="allow-scripts allow-same-origin"
                       loading="lazy"
+                      referrerPolicy="no-referrer"
+                      scrolling="no"
                       style={{ pointerEvents: 'none' }}
                     />
                   </div>
