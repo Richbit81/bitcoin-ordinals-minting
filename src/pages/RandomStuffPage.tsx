@@ -52,9 +52,16 @@ const RANDOM_ITEMS = [
     priceInBTC: 0.00005,
   },
   {
+    id: 'nft-tv',
+    name: 'NFT TV',
+    inscriptionId: '1151d32019503a91b2495d2900f86c7b7d8922a6583c61b6dec657812091fc59i0',
+    priceInSats: 5000,
+    priceInBTC: 0.00005,
+  },
+  {
     id: 'nft',
     name: 'NFT',
-    inscriptionId: '1151d32019503a91b2495d2900f86c7b7d8922a6583c61b6dec657812091fc59i0',
+    inscriptionId: 'cfce0acba29652bf48f7f050c0a242de299df85532b2f0c0082fee343a8a0050i0',
     priceInSats: 5000,
     priceInBTC: 0.00005,
   },
