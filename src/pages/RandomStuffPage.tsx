@@ -65,6 +65,13 @@ const RANDOM_ITEMS = [
     priceInSats: 5000,
     priceInBTC: 0.00005,
   },
+  {
+    id: 'al-yen',
+    name: 'AL YEN',
+    inscriptionId: 'bccedf4befa8aa377c2dbae11ceebab9d15b17e3dc57021e545863e69b60a6a4i0',
+    priceInSats: 5000,
+    priceInBTC: 0.00005,
+  },
 ];
 
 const COLLECTION_NAME = 'Random Stuff';
