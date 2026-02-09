@@ -86,18 +86,20 @@ iframe {
 ${JSON.stringify(delegateContent)}
 </script>
 <style>
-body {
+html, body {
   margin: 0;
   padding: 0;
-  background: transparent;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
 }
 img {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100vh;
   object-fit: contain;
   display: block;
 }
