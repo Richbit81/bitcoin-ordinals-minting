@@ -109,6 +109,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [revealing, setRevealing] = useState(false);
+  const [sendingPayment, setSendingPayment] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ---- CACHED INSCRIPTION OPTIONS (for reveal) ----
@@ -385,6 +386,53 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   }, [session]);
 
   // ============================================================
+  // PAY WITH WALLET
+  // ============================================================
+
+  const handlePayWithWallet = useCallback(async () => {
+    if (!session || session.status !== 'created') return;
+
+    try {
+      setSendingPayment(true);
+      setError('');
+      setStatusMessage('💳 Öffne Wallet...');
+
+      const satsConnect = await import('sats-connect');
+      if (!satsConnect?.request) {
+        throw new Error('sats-connect nicht verfügbar');
+      }
+
+      const amountSats = session.requiredAmount;
+      console.log(`[InscriptionTool] Sende ${amountSats} sats an ${session.commitAddress}`);
+
+      const response = await satsConnect.request('sendTransfer', {
+        recipients: [{
+          address: session.commitAddress,
+          amount: amountSats,
+        }],
+      });
+
+      console.log('[InscriptionTool] Wallet response:', response);
+
+      if (response.status === 'success') {
+        const txid = response.result?.txid || response.result;
+        setStatusMessage(`✅ Zahlung gesendet! TXID: ${typeof txid === 'string' ? txid.substring(0, 16) + '...' : 'pending'}. Warte auf Bestätigung...`);
+      } else {
+        throw new Error(response.error?.message || 'Zahlung vom Wallet abgelehnt');
+      }
+    } catch (err: any) {
+      if (err.message?.includes('rejected') || err.message?.includes('cancelled') || err.message?.includes('denied')) {
+        setError('Zahlung abgebrochen.');
+      } else {
+        setError(`Wallet-Fehler: ${err.message}`);
+      }
+      setStatusMessage('');
+    } finally {
+      setSendingPayment(false);
+    }
+  }, [session]);
+
+  // ============================================================
   // REVEAL
   // ============================================================
 
@@ -559,6 +607,16 @@ export const GalleryInscriptionToolPage: React.FC = () => {
               <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 mb-4 text-sm text-yellow-300">
                 ⚠️ Reinscription auf {reinscribeId.substring(0, 20)}... – Sende den UTXO der diese Inscription enthält an die Commit-Adresse!
               </div>
+            )}
+
+            {session.status === 'created' && (
+              <button
+                onClick={handlePayWithWallet}
+                disabled={sendingPayment}
+                className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 disabled:opacity-50 text-lg mb-4"
+              >
+                {sendingPayment ? '⏳ Wallet öffnet sich...' : `💳 Mit Wallet bezahlen (${session.requiredAmount.toLocaleString()} sats)`}
+              </button>
             )}
 
             {polling && <div className="flex items-center gap-2 text-yellow-400 text-sm mb-4"><div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />Überprüfe alle 5s...</div>}
