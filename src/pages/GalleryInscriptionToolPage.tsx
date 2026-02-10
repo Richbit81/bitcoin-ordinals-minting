@@ -439,22 +439,19 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   const handleReveal = useCallback(async () => {
     if (!session || session.status !== 'funded') { setError('Nicht funded!'); return; }
     if (!session.commitTxid || session.commitVout === undefined) { setError('Commit UTXO fehlt!'); return; }
+    if (!session.inscriptionScriptHex) { setError('Inscription Script fehlt! Session ist veraltet - bitte zurücksetzen und neu erstellen.'); return; }
 
     try {
       setRevealing(true);
       setError('');
       setStatusMessage('🔨 Baue Reveal-Transaktion...');
 
-      // Rebuild inscription options
-      let opts = inscriptionOptsRef.current;
-      if (!opts || opts.length === 0) {
-        opts = await buildInscriptionOptionsList();
-      }
-
+      // Get the actual funded amount from the UTXO
       const funding = await checkCommitFunding(session.commitAddress);
       const commitAmount = funding.amount || session.requiredAmount;
 
-      const rawTxHex = buildRevealTransaction(session, session.commitTxid, session.commitVout, commitAmount, opts);
+      // Build reveal using the EXACT script stored in session (no rebuild needed)
+      const rawTxHex = buildRevealTransaction(session, session.commitTxid, session.commitVout, commitAmount);
 
       setStatusMessage('📡 Broadcaste Reveal...');
       const revealTxid = await broadcastTransaction(rawTxHex);
@@ -470,7 +467,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     } finally {
       setRevealing(false);
     }
-  }, [session, buildInscriptionOptionsList]);
+  }, [session]);
 
   // ============================================================
   // RESET

@@ -52,6 +52,7 @@ export interface InscriptionSession {
   publicKeyHex: string;
   commitAddress: string;
   commitScriptHex: string;
+  inscriptionScriptHex: string; // The actual tapscript (needed for reveal)
   destinationAddress: string;
   requiredAmount: number;
   feeRate: number;
@@ -501,6 +502,7 @@ export function createInscriptionCommit(
     publicKeyHex: bytesToHex(publicKey),
     commitAddress: commitPayment.address,
     commitScriptHex: bytesToHex(commitPayment.script),
+    inscriptionScriptHex: bytesToHex(inscriptionScript),
     destinationAddress,
     requiredAmount,
     feeRate,
@@ -516,28 +518,32 @@ export function createInscriptionCommit(
 
 /**
  * Build and sign the reveal transaction (single or batch)
+ * Uses the EXACT script stored in the session to avoid any mismatch
  */
 export function buildRevealTransaction(
   session: InscriptionSession,
   commitTxid: string,
   commitVout: number,
   commitAmount: number,
-  inscriptions: InscriptionOptions[],
 ): string {
   const privateKey = hexToBytes(session.privateKeyHex);
   const publicKey = hexToBytes(session.publicKeyHex);
 
-  const isBatch = inscriptions.length > 1;
-  const inscriptionScript = isBatch
-    ? buildBatchInscriptionScript(publicKey, inscriptions)
-    : buildInscriptionScript(publicKey, inscriptions[0]);
+  // Use the EXACT same script that was used to create the commit address
+  const inscriptionScript = hexToBytes(session.inscriptionScriptHex);
 
+  // Recreate the P2TR payment from the stored script
   const commitPayment = btc.p2tr(
     publicKey,
     { script: inscriptionScript, leafVersion: 0xc0 },
     undefined,
     true,
   );
+
+  // Verify the address matches
+  if (commitPayment.address !== session.commitAddress) {
+    throw new Error(`Address mismatch! Expected ${session.commitAddress} but got ${commitPayment.address}. Session may be corrupted.`);
+  }
 
   const tx = new btc.Transaction({ allowUnknownOutputs: true });
 
@@ -552,8 +558,9 @@ export function buildRevealTransaction(
     tapLeafScript: commitPayment.tapLeafScript,
   });
 
-  // One output per inscription
-  for (let i = 0; i < inscriptions.length; i++) {
+  // One output per inscription (batch or single)
+  const numOutputs = session.batchCount || 1;
+  for (let i = 0; i < numOutputs; i++) {
     tx.addOutputAddress(session.destinationAddress, POSTAGE);
   }
 
