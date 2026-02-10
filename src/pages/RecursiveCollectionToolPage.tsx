@@ -140,6 +140,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
+  const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -380,12 +382,60 @@ const RecursiveCollectionToolPage: React.FC = () => {
   }, [selectedIds, walletInscriptions]);
 
   // ============================================================
+  // DRAG & DROP
+  // ============================================================
+  const handleDragStart = useCallback((e: React.DragEvent, inscId: string) => {
+    // If dragging a selected item, drag ALL selected items
+    // If dragging an unselected item, drag only that one
+    const ids = selectedIds.has(inscId) ? Array.from(selectedIds) : [inscId];
+    e.dataTransfer.setData('text/plain', JSON.stringify(ids));
+    e.dataTransfer.effectAllowed = 'move';
+  }, [selectedIds]);
+
+  const handleLayerDragOver = useCallback((e: React.DragEvent, layerId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverLayerId(layerId);
+  }, []);
+
+  const handleLayerDragLeave = useCallback(() => {
+    setDragOverLayerId(null);
+  }, []);
+
+  const handleLayerDrop = useCallback((e: React.DragEvent, layerId: string) => {
+    e.preventDefault();
+    setDragOverLayerId(null);
+    try {
+      const ids: string[] = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (!Array.isArray(ids) || ids.length === 0) return;
+
+      setLayers(prev => prev.map(l => {
+        if (l.id !== layerId) return l;
+        const newTraits: TraitItem[] = [];
+        for (const insId of ids) {
+          if (!l.traits.some(t => t.inscriptionId === insId)) {
+            const insc = walletInscriptions.find(w => w.id === insId);
+            newTraits.push({
+              inscriptionId: insId,
+              name: '',
+              rarity: 50,
+              contentType: insc?.contentType,
+            });
+          }
+        }
+        return { ...l, traits: [...l.traits, ...newTraits] };
+      }));
+      setSelectedIds(new Set());
+    } catch { /* ignore parse errors */ }
+  }, [walletInscriptions]);
+
+  // ============================================================
   // LAYER MANAGEMENT
   // ============================================================
   const addLayer = useCallback(() => {
     const newLayer: Layer = { id: uid(), name: '', traitType: '', traits: [], expanded: true };
     setLayers(prev => [...prev, newLayer]);
-    setTargetLayerId(newLayer.id);
+    // Don't auto-set targetLayerId - user should choose explicitly
   }, []);
 
   const removeLayer = useCallback((layerId: string) => {
@@ -752,23 +802,26 @@ const RecursiveCollectionToolPage: React.FC = () => {
                 <button onClick={deselectAll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">Keine</button>
 
                 {selectedIds.size > 0 && layers.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">→</span>
+                  <div className="flex items-center gap-1 bg-purple-900/30 border border-purple-700 rounded-lg px-2 py-1">
+                    <span className="text-xs text-purple-300 font-bold">→ In Layer:</span>
                     <select value={targetLayerId || ''} onChange={e => setTargetLayerId(e.target.value || null)}
-                      className="px-2 py-1 bg-gray-800 border border-purple-600 rounded text-xs text-white">
-                      <option value="">Layer wählen...</option>
+                      className="px-2 py-1 bg-gray-900 border border-purple-500 rounded text-xs text-white font-bold min-w-[140px]">
+                      <option value="">-- Layer wählen --</option>
                       {layers.map((l, i) => (
-                        <option key={l.id} value={l.id}>#{i + 1} {l.name || '(unnamed)'}</option>
+                        <option key={l.id} value={l.id}>#{i + 1} {l.name || '(unnamed)'} ({l.traits.length} Traits)</option>
                       ))}
                     </select>
                     <button onClick={() => targetLayerId && moveSelectedToLayer(targetLayerId)} disabled={!targetLayerId}
-                      className="px-3 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500 disabled:opacity-30">
+                      className="px-3 py-1.5 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500 disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap">
                       ↓ Verschieben ({selectedIds.size})
                     </button>
                   </div>
                 )}
                 {selectedIds.size > 0 && layers.length === 0 && (
                   <span className="text-xs text-yellow-400">⚠️ Erst einen Layer erstellen!</span>
+                )}
+                {selectedIds.size > 0 && layers.length > 0 && (
+                  <span className="text-[10px] text-gray-600">oder per Drag & Drop in Layer ziehen</span>
                 )}
               </div>
 
@@ -778,7 +831,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   const isSelected = selectedIds.has(insc.id);
                   const isUsed = usedInscriptionIds.has(insc.id);
                   return (
-                    <div key={insc.id} onClick={() => !isUsed && toggleSelect(insc.id)}
+                    <div key={insc.id}
+                      onClick={() => !isUsed && toggleSelect(insc.id)}
+                      draggable={!isUsed}
+                      onDragStart={e => handleDragStart(e, insc.id)}
                       className={`aspect-square rounded-lg border-2 cursor-pointer relative overflow-hidden transition-all ${
                         isUsed ? 'border-green-600 opacity-40 cursor-not-allowed'
                           : isSelected ? 'border-purple-500 ring-2 ring-purple-500/50 scale-[1.02]'
@@ -849,9 +905,21 @@ const RecursiveCollectionToolPage: React.FC = () => {
           <p className="text-xs text-gray-500 mb-3">Layer werden von unten nach oben gestapelt. #1 = Hintergrund.</p>
 
           {layers.map((layer, layerIdx) => (
-            <div key={layer.id} className={`bg-gray-900 border rounded-xl mb-3 overflow-hidden ${targetLayerId === layer.id ? 'border-purple-500 shadow-lg shadow-purple-500/20' : 'border-gray-700'}`}>
+            <div key={layer.id}
+              onDragOver={e => handleLayerDragOver(e, layer.id)}
+              onDragLeave={handleLayerDragLeave}
+              onDrop={e => handleLayerDrop(e, layer.id)}
+              className={`bg-gray-900 border-2 rounded-xl mb-3 overflow-hidden transition-all ${
+                dragOverLayerId === layer.id
+                  ? 'border-purple-400 shadow-lg shadow-purple-500/40 scale-[1.01] bg-purple-900/20'
+                  : targetLayerId === layer.id
+                    ? 'border-purple-500 shadow-lg shadow-purple-500/20'
+                    : 'border-gray-700'
+              }`}>
               {/* Layer Header */}
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 cursor-pointer" onClick={() => toggleLayer(layer.id)}>
+              <div className={`flex items-center gap-2 px-4 py-3 cursor-pointer transition-colors ${
+                dragOverLayerId === layer.id ? 'bg-purple-900/40' : 'bg-gray-800'
+              }`} onClick={() => toggleLayer(layer.id)}>
                 <span className="text-purple-400 font-bold text-sm w-8">#{layerIdx + 1}</span>
                 <span className="text-white font-semibold flex-1">{layer.name || '(Unnamed Layer)'}</span>
                 <span className="text-xs text-gray-500">{layer.traits.length} Traits</span>
@@ -889,9 +957,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   </div>
 
                   {layer.traits.length === 0 ? (
-                    <div className="text-center py-6 text-gray-600 border border-dashed border-gray-700 rounded-lg">
-                      <p className="text-sm mb-1">Keine Traits</p>
-                      <p className="text-xs">Wähle Inscriptions oben aus und verschiebe sie hierher</p>
+                    <div className={`text-center py-6 border border-dashed rounded-lg transition-colors ${
+                      dragOverLayerId === layer.id ? 'border-purple-400 bg-purple-900/20 text-purple-300' : 'border-gray-700 text-gray-600'
+                    }`}>
+                      <p className="text-sm mb-1">{dragOverLayerId === layer.id ? '⬇️ Hier ablegen!' : 'Keine Traits'}</p>
+                      <p className="text-xs">Inscriptions oben auswählen und hierher ziehen (Drag & Drop)</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
