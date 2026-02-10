@@ -1,4 +1,4 @@
-import{a as p,s as l,b as c}from"./index-D5m2HFdm.js";const g=async(e,a,r=1,s=null,m)=>{console.log(`[PointShopMinting] Creating delegate inscription for Point Shop item: ${e}`);const d=`<!DOCTYPE html>
+import{a as p,s as l,b as c}from"./index-CxMLUjj4.js";const g=async(e,a,r=1,s=null,m)=>{console.log(`[PointShopMinting] Creating delegate inscription for Point Shop item: ${e}`);const d=`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">

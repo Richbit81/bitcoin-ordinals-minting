@@ -576,8 +576,21 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
   const handleGenerate = useCallback(() => {
     setError('');
+
+    if (layers.length === 0) { setError('Kein Layer definiert! Erstelle mindestens einen Layer.'); return; }
+
+    // Check what's missing per layer
+    const issues: string[] = [];
+    for (let i = 0; i < layers.length; i++) {
+      const l = layers[i];
+      const label = `Layer #${i + 1}${l.name ? ` "${l.name}"` : ''}`;
+      if (!l.name) issues.push(`${label}: Layer Name fehlt`);
+      if (!l.traitType) issues.push(`${label}: trait_type fehlt`);
+      if (l.traits.length === 0) issues.push(`${label}: Keine Traits`);
+    }
+    if (issues.length > 0) { setError(issues.join(' | ')); return; }
+
     const validLayers = layers.filter(l => l.name && l.traitType && l.traits.length > 0);
-    if (validLayers.length === 0) { setError('Mindestens ein Layer mit Traits definieren!'); return; }
     if (validLayers.some(l => l.traits.some(t => !t.name))) { setError('Alle Traits brauchen einen Namen!'); return; }
     if (validLayers.some(l => l.traits.some(t => !t.inscriptionId))) { setError('Alle Traits brauchen eine Inscription ID!'); return; }
 
