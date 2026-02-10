@@ -140,6 +140,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [generated, setGenerated] = useState<GeneratedItem[]>([]);
   const [hashlist, setHashlist] = useState<HashlistEntry[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [editingItem, setEditingItem] = useState(false);
   const [selectedLayerPreview, setSelectedLayerPreview] = useState<{ layerId: string; traitIdx: number } | null>(null);
   const [livePreviewTraits, setLivePreviewTraits] = useState<Record<string, number>>({}); // layerId -> traitIdx
   const [error, setError] = useState('');
@@ -630,6 +631,61 @@ const RecursiveCollectionToolPage: React.FC = () => {
       },
     })));
   }, [layers, totalCount, collectionName, viewBox, weightedRandom]);
+
+  // ============================================================
+  // EDIT SINGLE GENERATED ITEM
+  // ============================================================
+  const updateGeneratedItemTrait = useCallback((itemIdx: number, layerIdx: number, newTraitIdx: number) => {
+    setGenerated(prev => {
+      const updated = [...prev];
+      const item = { ...updated[itemIdx] };
+      const layersCopy = [...item.layers];
+      const layerEntry = { ...layersCopy[layerIdx] };
+
+      // Find the matching layer definition to get the trait
+      const matchingLayer = layers.find(l => l.traitType === layerEntry.traitType && l.name === layerEntry.layerName);
+      if (!matchingLayer || newTraitIdx >= matchingLayer.traits.length) return prev;
+
+      layerEntry.trait = matchingLayer.traits[newTraitIdx];
+      layersCopy[layerIdx] = layerEntry;
+      item.layers = layersCopy;
+
+      // Rebuild SVG
+      const svgImages = layersCopy.map(l => `  <image href="/content/${l.trait.inscriptionId}" />`).join('\n');
+      item.svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+
+      updated[itemIdx] = item;
+      return updated;
+    });
+
+    // Also update hashlist
+    setHashlist(prev => {
+      const updated = [...prev];
+      if (!updated[itemIdx]) return prev;
+      const entry = { ...updated[itemIdx] };
+      const genItem = generated[itemIdx];
+      if (!genItem) return prev;
+
+      // We need the updated layers — get from generated after setState
+      // Instead, compute from current layers
+      const matchingLayer = layers.find(l => {
+        const gl = genItem.layers[layerIdx];
+        return gl && l.traitType === gl.traitType && l.name === gl.layerName;
+      });
+      if (!matchingLayer) return prev;
+
+      const newTrait = matchingLayer.traits[newTraitIdx];
+      if (!newTrait) return prev;
+
+      const attrs = [...(entry.meta?.attributes || [])];
+      if (attrs[layerIdx]) {
+        attrs[layerIdx] = { ...attrs[layerIdx], value: newTrait.name };
+      }
+      entry.meta = { ...entry.meta, attributes: attrs };
+      updated[itemIdx] = entry;
+      return updated;
+    });
+  }, [layers, viewBox, generated]);
 
   // ============================================================
   // LIVE PREVIEW (random trait per layer)
@@ -1346,9 +1402,19 @@ const RecursiveCollectionToolPage: React.FC = () => {
               </div>
             )}
 
-            {/* Preview */}
+            {/* Preview & Edit */}
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
-              <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">👀</span> Vorschau</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold"><span className="text-purple-400">👀</span> Vorschau</h2>
+                <button onClick={() => setEditingItem(!editingItem)}
+                  className={`px-3 py-1.5 rounded text-sm font-bold transition ${
+                    editingItem
+                      ? 'bg-yellow-600 text-white hover:bg-yellow-500'
+                      : 'bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700'
+                  }`}>
+                  {editingItem ? '✏️ Bearbeiten AN' : '✏️ Bearbeiten'}
+                </button>
+              </div>
               <div className="flex items-center gap-3 mb-4">
                 <button onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0}
                   className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">◀</button>
@@ -1357,6 +1423,16 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">▶</button>
                 <button onClick={() => setPreviewIndex(Math.floor(Math.random() * generated.length))}
                   className="px-3 py-1.5 bg-purple-900 border border-purple-600 rounded text-sm text-purple-300 hover:bg-purple-800">🎲</button>
+                <div className="flex items-center gap-2 ml-2">
+                  <label className="text-xs text-gray-500">Gehe zu #</label>
+                  <input type="number" min={1} max={generated.length}
+                    value={previewIndex + 1}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (v >= 1 && v <= generated.length) setPreviewIndex(v - 1);
+                    }}
+                    className="w-16 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-white text-center" />
+                </div>
                 <button onClick={() => downloadSVG(previewIndex)}
                   className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 hover:bg-gray-700 ml-auto">⬇️ SVG</button>
               </div>
@@ -1365,7 +1441,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
                 <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
                   <div className="w-full aspect-square relative">
                     {generated[previewIndex]?.layers.map((layer, i) => (
-                      <img key={i} src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                      <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
+                        src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
                         alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
                         style={{ zIndex: i }} loading="lazy" />
                     ))}
@@ -1374,17 +1451,59 @@ const RecursiveCollectionToolPage: React.FC = () => {
                 <div>
                   <h3 className="text-white font-bold mb-2">{collectionName} #{previewIndex + 1}</h3>
                   <div className="space-y-2 mb-4">
-                    {generated[previewIndex]?.layers.map((layer, i) => (
-                      <div key={i} className="flex items-center gap-2 bg-black/50 rounded p-2 border border-gray-800">
-                        <img src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                          alt="" className="w-8 h-8 object-contain rounded border border-gray-700" loading="lazy" />
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500">{layer.traitType}</p>
-                          <p className="text-sm text-white">{layer.trait.name}</p>
+                    {generated[previewIndex]?.layers.map((layer, i) => {
+                      // Find matching layer definition for dropdown
+                      const matchingLayer = layers.find(l => l.traitType === layer.traitType && l.name === layer.layerName);
+                      const currentTraitIdx = matchingLayer?.traits.findIndex(t => t.inscriptionId === layer.trait.inscriptionId) ?? -1;
+
+                      return (
+                        <div key={i} className={`flex items-center gap-2 rounded p-2 border ${
+                          editingItem ? 'bg-yellow-900/20 border-yellow-700/50' : 'bg-black/50 border-gray-800'
+                        }`}>
+                          <img src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                            alt="" className="w-8 h-8 object-contain rounded border border-gray-700 flex-shrink-0" loading="lazy" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500">{layer.traitType}</p>
+                            {editingItem && matchingLayer && matchingLayer.traits.length > 1 ? (
+                              <select
+                                value={currentTraitIdx >= 0 ? currentTraitIdx : 0}
+                                onChange={e => updateGeneratedItemTrait(previewIndex, i, parseInt(e.target.value))}
+                                className="w-full px-2 py-1 bg-gray-900 border border-yellow-600 rounded text-sm text-white mt-0.5 cursor-pointer">
+                                {matchingLayer.traits.map((t, tIdx) => (
+                                  <option key={tIdx} value={tIdx}>
+                                    {t.name || `Trait ${tIdx + 1}`} (Rarity: {t.rarity})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <p className="text-sm text-white truncate">{layer.trait.name}</p>
+                            )}
+                          </div>
+                          {editingItem && matchingLayer && matchingLayer.traits.length > 1 && (
+                            <div className="flex gap-0.5 flex-shrink-0">
+                              <button
+                                onClick={() => {
+                                  const newIdx = (currentTraitIdx - 1 + matchingLayer.traits.length) % matchingLayer.traits.length;
+                                  updateGeneratedItemTrait(previewIndex, i, newIdx);
+                                }}
+                                className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">◀</button>
+                              <button
+                                onClick={() => {
+                                  const newIdx = (currentTraitIdx + 1) % matchingLayer.traits.length;
+                                  updateGeneratedItemTrait(previewIndex, i, newIdx);
+                                }}
+                                className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">▶</button>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
+                  {editingItem && (
+                    <p className="text-xs text-yellow-500/70 mb-2">
+                      💡 Ändere Traits per Dropdown oder Pfeiltasten. Wird automatisch gespeichert.
+                    </p>
+                  )}
                   <details className="mt-3">
                     <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300">SVG Code</summary>
                     <pre className="mt-2 p-3 bg-black rounded-lg text-xs text-green-400 font-mono overflow-x-auto border border-gray-800 whitespace-pre-wrap break-all">
