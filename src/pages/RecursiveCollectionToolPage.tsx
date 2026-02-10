@@ -2,6 +2,8 @@
  * Recursive Collection Generator Tool (Admin Only)
  * 
  * Features:
+ * - Projekt-Management: Erstellen, Speichern, Laden, Löschen, Duplizieren
+ * - Auto-Save: Projekte werden automatisch in localStorage gespeichert
  * - Wallet Scanner: Lade Inscriptions von einer Taproot-Adresse
  * - Multi-Select: Wähle mehrere Inscriptions aus und schiebe sie in Layer
  * - Layer-System mit Traits, Namen und Rarity
@@ -9,7 +11,7 @@
  * - Hashlist JSON Export
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 
@@ -52,19 +54,65 @@ interface HashlistEntry {
   };
 }
 
-// ============================================================
-const HIRO_API = 'https://api.hiro.so/ordinals/v1';
-let idCounter = 0;
-function uid() { return `layer_${Date.now()}_${idCounter++}`; }
+interface SavedProject {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  collectionName: string;
+  totalCount: number;
+  viewBox: string;
+  layers: Layer[];
+  scanAddress: string;
+  walletInscriptions: WalletInscription[];
+  generated: GeneratedItem[];
+  hashlist: HashlistEntry[];
+}
 
 // ============================================================
-// COMPONENT
+const HIRO_API = 'https://api.hiro.so/ordinals/v1';
+const STORAGE_KEY = 'recursive_collection_projects';
+
+let idCounter = 0;
+function uid() { return `layer_${Date.now()}_${idCounter++}`; }
+function projectId() { return `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+
+function loadProjects(): SavedProject[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveProjects(projects: SavedProject[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  } catch (e) {
+    console.error('Save error:', e);
+  }
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  } catch { return iso; }
+}
+
+// ============================================================
+// MAIN COMPONENT
 // ============================================================
 const RecursiveCollectionToolPage: React.FC = () => {
   const { walletState } = useWallet();
   const ordinalsAccount = walletState.accounts?.find((a: any) => a.purpose === 'ordinals');
   const connectedAddress = ordinalsAccount?.address || walletState.accounts?.[0]?.address;
   const isAdmin = walletState.connected && isAdminAddress(connectedAddress);
+
+  // ---- PROJECT MANAGEMENT ----
+  const [projects, setProjects] = useState<SavedProject[]>(() => loadProjects());
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // ---- WALLET SCANNER ----
   const [scanAddress, setScanAddress] = useState('');
@@ -90,8 +138,129 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [selectedLayerPreview, setSelectedLayerPreview] = useState<{ layerId: string; traitIdx: number } | null>(null);
   const [error, setError] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ============================================================
+  // PROJECT MANAGEMENT
+  // ============================================================
+  const loadProjectIntoState = useCallback((project: SavedProject) => {
+    setCollectionName(project.collectionName || 'My Collection');
+    setTotalCount(project.totalCount || 100);
+    setViewBox(project.viewBox || '0 0 1000 1000');
+    setLayers(project.layers || []);
+    setScanAddress(project.scanAddress || '');
+    setWalletInscriptions(project.walletInscriptions || []);
+    setGenerated(project.generated || []);
+    setHashlist(project.hashlist || []);
+    setPreviewIndex(0);
+    setSelectedIds(new Set());
+    setFilterText('');
+    setTargetLayerId(null);
+    setError('');
+  }, []);
+
+  const createNewProject = useCallback((name?: string) => {
+    const id = projectId();
+    const now = new Date().toISOString();
+    const newProject: SavedProject = {
+      id,
+      name: name || 'Neues Projekt',
+      createdAt: now,
+      updatedAt: now,
+      collectionName: name || 'My Collection',
+      totalCount: 100,
+      viewBox: '0 0 1000 1000',
+      layers: [],
+      scanAddress: '',
+      walletInscriptions: [],
+      generated: [],
+      hashlist: [],
+    };
+    const updated = [newProject, ...projects];
+    setProjects(updated);
+    saveProjects(updated);
+    setActiveProjectId(id);
+    loadProjectIntoState(newProject);
+  }, [projects, loadProjectIntoState]);
+
+  const openProject = useCallback((id: string) => {
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    setActiveProjectId(id);
+    loadProjectIntoState(project);
+  }, [projects, loadProjectIntoState]);
+
+  const saveCurrentProject = useCallback(() => {
+    if (!activeProjectId) return;
+    const now = new Date().toISOString();
+    const updated = projects.map(p => {
+      if (p.id !== activeProjectId) return p;
+      return {
+        ...p,
+        updatedAt: now,
+        name: collectionName || p.name,
+        collectionName,
+        totalCount,
+        viewBox,
+        layers,
+        scanAddress,
+        walletInscriptions,
+        generated,
+        hashlist,
+      };
+    });
+    setProjects(updated);
+    saveProjects(updated);
+    setSaveStatus('✅ Gespeichert');
+    setTimeout(() => setSaveStatus(''), 2000);
+  }, [activeProjectId, projects, collectionName, totalCount, viewBox, layers, scanAddress, walletInscriptions, generated, hashlist]);
+
+  const deleteProject = useCallback((id: string) => {
+    const updated = projects.filter(p => p.id !== id);
+    setProjects(updated);
+    saveProjects(updated);
+    if (activeProjectId === id) {
+      setActiveProjectId(null);
+    }
+    setConfirmDelete(null);
+  }, [projects, activeProjectId]);
+
+  const duplicateProject = useCallback((id: string) => {
+    const source = projects.find(p => p.id === id);
+    if (!source) return;
+    const now = new Date().toISOString();
+    const newProj: SavedProject = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: projectId(),
+      name: `${source.name} (Kopie)`,
+      collectionName: `${source.collectionName} (Kopie)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const updated = [newProj, ...projects];
+    setProjects(updated);
+    saveProjects(updated);
+  }, [projects]);
+
+  const closeProject = useCallback(() => {
+    saveCurrentProject();
+    setActiveProjectId(null);
+  }, [saveCurrentProject]);
+
+  // ---- AUTO-SAVE (debounced) ----
+  useEffect(() => {
+    if (!activeProjectId) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveCurrentProject();
+    }, 3000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [layers, collectionName, totalCount, viewBox, scanAddress, walletInscriptions, generated, hashlist]);
 
   // ============================================================
   // WALLET SCANNER
@@ -135,7 +304,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
         offset += limit;
 
         if (items.length < limit) break;
-        // Small delay to be nice to API
         await new Promise(r => setTimeout(r, 200));
       } while (offset < total);
 
@@ -160,8 +328,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   }, []);
 
   const selectAll = useCallback(() => {
-    const filtered = filteredInscriptions;
-    setSelectedIds(new Set(filtered.map(i => i.id)));
+    setSelectedIds(new Set(filteredInscriptions.map(i => i.id)));
   }, [walletInscriptions, filterText]);
 
   const deselectAll = useCallback(() => {
@@ -178,7 +345,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
     );
   }, [walletInscriptions, filterText]);
 
-  // Already in a layer?
   const usedInscriptionIds = useMemo(() => {
     const set = new Set<string>();
     for (const layer of layers) {
@@ -194,7 +360,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // ============================================================
   const moveSelectedToLayer = useCallback((layerId: string) => {
     if (selectedIds.size === 0) return;
-
     setLayers(prev => prev.map(l => {
       if (l.id !== layerId) return l;
       const newTraits: TraitItem[] = [];
@@ -203,7 +368,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
           const insc = walletInscriptions.find(w => w.id === insId);
           newTraits.push({
             inscriptionId: insId,
-            name: '', // User fills in later
+            name: '',
             rarity: 50,
             contentType: insc?.contentType,
           });
@@ -211,8 +376,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
       }
       return { ...l, traits: [...l.traits, ...newTraits] };
     }));
-
-    // Remove from wallet list (moved to layer)
     setSelectedIds(new Set());
   }, [selectedIds, walletInscriptions]);
 
@@ -220,13 +383,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // LAYER MANAGEMENT
   // ============================================================
   const addLayer = useCallback(() => {
-    const newLayer: Layer = {
-      id: uid(),
-      name: '',
-      traitType: '',
-      traits: [],
-      expanded: true,
-    };
+    const newLayer: Layer = { id: uid(), name: '', traitType: '', traits: [], expanded: true };
     setLayers(prev => [...prev, newLayer]);
     setTargetLayerId(newLayer.id);
   }, []);
@@ -256,7 +413,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setLayers(prev => prev.map(l => l.id === layerId ? { ...l, expanded: !l.expanded } : l));
   }, []);
 
-  // ---- TRAIT MANAGEMENT ----
   const addTraitManually = useCallback((layerId: string) => {
     setLayers(prev => prev.map(l =>
       l.id === layerId ? { ...l, traits: [...l.traits, { inscriptionId: '', name: '', rarity: 50 }] } : l
@@ -271,10 +427,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
   const updateTrait = useCallback((layerId: string, traitIdx: number, updates: Partial<TraitItem>) => {
     setLayers(prev => prev.map(l =>
-      l.id === layerId ? {
-        ...l,
-        traits: l.traits.map((t, i) => i === traitIdx ? { ...t, ...updates } : t),
-      } : l
+      l.id === layerId ? { ...l, traits: l.traits.map((t, i) => i === traitIdx ? { ...t, ...updates } : t) } : l
     ));
   }, []);
 
@@ -293,24 +446,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
   const handleGenerate = useCallback(() => {
     setError('');
-
     const validLayers = layers.filter(l => l.name && l.traitType && l.traits.length > 0);
-    if (validLayers.length === 0) {
-      setError('Mindestens ein Layer mit Traits definieren!');
-      return;
-    }
-
-    const missingNames = validLayers.some(l => l.traits.some(t => !t.name));
-    if (missingNames) {
-      setError('Alle Traits brauchen einen Namen!');
-      return;
-    }
-
-    const missingIds = validLayers.some(l => l.traits.some(t => !t.inscriptionId));
-    if (missingIds) {
-      setError('Alle Traits brauchen eine Inscription ID!');
-      return;
-    }
+    if (validLayers.length === 0) { setError('Mindestens ein Layer mit Traits definieren!'); return; }
+    if (validLayers.some(l => l.traits.some(t => !t.name))) { setError('Alle Traits brauchen einen Namen!'); return; }
+    if (validLayers.some(l => l.traits.some(t => !t.inscriptionId))) { setError('Alle Traits brauchen eine Inscription ID!'); return; }
 
     const items: GeneratedItem[] = [];
     const seenCombos = new Set<string>();
@@ -324,16 +463,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
         traitType: layer.traitType,
         trait: weightedRandom(layer.traits),
       }));
-
       const comboKey = selectedLayers.map(l => l.trait.inscriptionId).join('|');
       if (seenCombos.has(comboKey) && attempts < maxAttempts - totalCount) continue;
       seenCombos.add(comboKey);
 
       const index = items.length + 1;
-      const svgImages = selectedLayers
-        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
-        .join('\n');
-
+      const svgImages = selectedLayers.map(l => `  <image href="/content/${l.trait.inscriptionId}" />`).join('\n');
       items.push({
         index,
         layers: selectedLayers,
@@ -343,15 +478,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
     setGenerated(items);
     setPreviewIndex(0);
-
     setHashlist(items.map((item, idx) => ({
       id: `PLACEHOLDER_${idx + 1}`,
       meta: {
         name: `${collectionName} #${idx + 1}`,
-        attributes: item.layers.map(l => ({
-          trait_type: l.traitType,
-          value: l.trait.name,
-        })),
+        attributes: item.layers.map(l => ({ trait_type: l.traitType, value: l.trait.name })),
       },
     })));
   }, [layers, totalCount, collectionName, viewBox, weightedRandom]);
@@ -377,8 +508,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const downloadJSON = useCallback((data: any, filename: string) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }, []);
 
@@ -388,14 +518,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const blob = new Blob([item.svg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}.svg`;
-    a.click();
+    a.href = url; a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}.svg`; a.click();
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
   // ============================================================
-  // IMPORT / EXPORT CONFIG
+  // IMPORT / EXPORT CONFIG (file-based)
   // ============================================================
   const exportConfig = useCallback(() => {
     downloadJSON({ collectionName, totalCount, viewBox, layers },
@@ -443,19 +571,142 @@ const RecursiveCollectionToolPage: React.FC = () => {
     );
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
+  // ════════════════════════════════════════════════════════════
+  // RENDER: PROJECT LIST (no project open)
+  // ════════════════════════════════════════════════════════════
+  if (!activeProjectId) {
+    return (
+      <div className="min-h-screen bg-black text-white pt-16 pb-12">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+              🎨 Recursive Collection Generator
+            </h1>
+            <p className="text-gray-400 text-sm mt-2">Projekte verwalten – erstellen, speichern, weiterbearbeiten</p>
+          </div>
+
+          {/* NEW PROJECT */}
+          <div className="mb-6">
+            <button
+              onClick={() => createNewProject()}
+              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 text-lg shadow-lg flex items-center justify-center gap-3"
+            >
+              <span className="text-2xl">+</span>
+              <span>Neues Projekt erstellen</span>
+            </button>
+          </div>
+
+          {/* PROJECT LIST */}
+          {projects.length > 0 ? (
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-gray-300 mb-2">📂 Gespeicherte Projekte ({projects.length})</h2>
+              {projects.map(project => (
+                <div key={project.id} className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden hover:border-purple-600 transition-colors">
+                  <div className="flex items-stretch">
+                    {/* Thumbnail: first trait from first layer */}
+                    <div className="w-20 h-20 flex-shrink-0 bg-black flex items-center justify-center border-r border-gray-800">
+                      {project.layers?.[0]?.traits?.[0]?.inscriptionId ? (
+                        <img
+                          src={`https://ordinals.com/content/${project.layers[0].traits[0].inscriptionId}`}
+                          alt="" className="w-full h-full object-contain" loading="lazy"
+                        />
+                      ) : (
+                        <span className="text-3xl text-gray-700">🎨</span>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 p-3 min-w-0">
+                      <h3 className="text-white font-bold truncate">{project.name || project.collectionName || 'Unnamed'}</h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500 mt-1">
+                        <span>{project.layers?.length || 0} Layer</span>
+                        <span>{project.layers?.reduce((s, l) => s + (l.traits?.length || 0), 0) || 0} Traits</span>
+                        <span>{project.generated?.length || 0} generiert</span>
+                        <span>{project.walletInscriptions?.length || 0} Inscriptions</span>
+                      </div>
+                      <div className="flex gap-x-4 text-[10px] text-gray-600 mt-1">
+                        <span>Erstellt: {formatDate(project.createdAt)}</span>
+                        <span>Zuletzt: {formatDate(project.updatedAt)}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col justify-center gap-1 p-3 border-l border-gray-800">
+                      <button
+                        onClick={() => openProject(project.id)}
+                        className="px-4 py-1.5 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500"
+                      >
+                        Öffnen
+                      </button>
+                      <button
+                        onClick={() => duplicateProject(project.id)}
+                        className="px-4 py-1.5 bg-gray-800 text-gray-300 rounded text-xs hover:bg-gray-700"
+                      >
+                        Duplizieren
+                      </button>
+                      {confirmDelete === project.id ? (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => deleteProject(project.id)}
+                            className="px-2 py-1.5 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-500"
+                          >
+                            Ja!
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600"
+                          >
+                            Nein
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDelete(project.id)}
+                          className="px-4 py-1.5 bg-gray-800 text-red-400 rounded text-xs hover:bg-red-900/30"
+                        >
+                          Löschen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 text-gray-600 border border-dashed border-gray-700 rounded-xl">
+              <p className="text-4xl mb-4">📂</p>
+              <p className="text-lg">Keine Projekte vorhanden</p>
+              <p className="text-sm mt-1">Erstelle dein erstes Projekt!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // RENDER: PROJECT EDITOR (project open)
+  // ════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-black text-white pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4">
 
-        {/* HEADER */}
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-            🎨 Recursive Collection Generator
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">Inscriptions laden → Layer zuweisen → Collection generieren</p>
+        {/* PROJECT HEADER BAR */}
+        <div className="flex items-center gap-3 mb-4 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 sticky top-14 z-40">
+          <button onClick={closeProject}
+            className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-1">
+            ◀ Projekte
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 truncate">
+              🎨 {collectionName || 'Unnamed'}
+            </h1>
+          </div>
+          <button onClick={saveCurrentProject}
+            className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-500 flex items-center gap-1">
+            💾 Speichern
+          </button>
+          {saveStatus && <span className="text-xs text-emerald-400 animate-pulse">{saveStatus}</span>}
         </div>
 
         {error && (
@@ -470,15 +721,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
             ════════════════════════════════════════════════ */}
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-4">
           <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🔍</span> Wallet Scanner</h2>
-
           <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={scanAddress}
-              onChange={e => setScanAddress(e.target.value.trim())}
+            <input type="text" value={scanAddress} onChange={e => setScanAddress(e.target.value.trim())}
               placeholder="bc1p... (Taproot-Adresse)"
-              className="flex-1 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono"
-            />
+              className="flex-1 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
             {connectedAddress && (
               <button onClick={() => setScanAddress(connectedAddress)}
                 className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-300 hover:bg-gray-700 whitespace-nowrap">
@@ -493,42 +739,30 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
           {scanProgress && <p className="text-xs text-gray-400 mb-3">{scanProgress}</p>}
 
-          {/* Inscription Grid */}
           {walletInscriptions.length > 0 && (
             <div>
               {/* Toolbar */}
               <div className="flex flex-wrap items-center gap-2 mb-3 p-2 bg-black/50 rounded-lg border border-gray-800">
-                <input
-                  type="text"
-                  value={filterText}
-                  onChange={e => setFilterText(e.target.value)}
+                <input type="text" value={filterText} onChange={e => setFilterText(e.target.value)}
                   placeholder="🔎 Filter (ID, Typ, Nummer)..."
-                  className="flex-1 min-w-[180px] px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white"
-                />
+                  className="flex-1 min-w-[180px] px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white" />
                 <span className="text-xs text-gray-500">{filteredInscriptions.length} angezeigt</span>
                 <span className="text-xs text-purple-400 font-bold">{selectedIds.size} ausgewählt</span>
-                <button onClick={selectAll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">Alle auswählen</button>
-                <button onClick={deselectAll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">Auswahl aufheben</button>
+                <button onClick={selectAll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">Alle</button>
+                <button onClick={deselectAll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">Keine</button>
 
-                {/* Move to Layer dropdown */}
                 {selectedIds.size > 0 && layers.length > 0 && (
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-gray-400">→</span>
-                    <select
-                      value={targetLayerId || ''}
-                      onChange={e => setTargetLayerId(e.target.value || null)}
-                      className="px-2 py-1 bg-gray-800 border border-purple-600 rounded text-xs text-white"
-                    >
+                    <select value={targetLayerId || ''} onChange={e => setTargetLayerId(e.target.value || null)}
+                      className="px-2 py-1 bg-gray-800 border border-purple-600 rounded text-xs text-white">
                       <option value="">Layer wählen...</option>
-                      {layers.map(l => (
-                        <option key={l.id} value={l.id}>#{layers.indexOf(l) + 1} {l.name || '(unnamed)'}</option>
+                      {layers.map((l, i) => (
+                        <option key={l.id} value={l.id}>#{i + 1} {l.name || '(unnamed)'}</option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => targetLayerId && moveSelectedToLayer(targetLayerId)}
-                      disabled={!targetLayerId}
-                      className="px-3 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500 disabled:opacity-30"
-                    >
+                    <button onClick={() => targetLayerId && moveSelectedToLayer(targetLayerId)} disabled={!targetLayerId}
+                      className="px-3 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500 disabled:opacity-30">
                       ↓ Verschieben ({selectedIds.size})
                     </button>
                   </div>
@@ -544,24 +778,15 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   const isSelected = selectedIds.has(insc.id);
                   const isUsed = usedInscriptionIds.has(insc.id);
                   return (
-                    <div
-                      key={insc.id}
-                      onClick={() => !isUsed && toggleSelect(insc.id)}
+                    <div key={insc.id} onClick={() => !isUsed && toggleSelect(insc.id)}
                       className={`aspect-square rounded-lg border-2 cursor-pointer relative overflow-hidden transition-all ${
-                        isUsed
-                          ? 'border-green-600 opacity-40 cursor-not-allowed'
-                          : isSelected
-                            ? 'border-purple-500 ring-2 ring-purple-500/50 scale-[1.02]'
-                            : 'border-gray-800 hover:border-gray-500'
+                        isUsed ? 'border-green-600 opacity-40 cursor-not-allowed'
+                          : isSelected ? 'border-purple-500 ring-2 ring-purple-500/50 scale-[1.02]'
+                          : 'border-gray-800 hover:border-gray-500'
                       }`}
-                      title={`${insc.id}\n#${insc.number || '?'}\n${insc.contentType || '?'}`}
-                    >
-                      <img
-                        src={`https://ordinals.com/content/${insc.id}`}
-                        alt=""
-                        className="w-full h-full object-contain bg-black"
-                        loading="lazy"
-                      />
+                      title={`${insc.id}\n#${insc.number || '?'}\n${insc.contentType || '?'}`}>
+                      <img src={`https://ordinals.com/content/${insc.id}`} alt=""
+                        className="w-full h-full object-contain bg-black" loading="lazy" />
                       {isSelected && (
                         <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
                           <span className="text-white text-[8px] font-bold">✓</span>
@@ -621,23 +846,19 @@ const RecursiveCollectionToolPage: React.FC = () => {
             <button onClick={addLayer} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-bold">+ Layer hinzufügen</button>
           </div>
 
-          <p className="text-xs text-gray-500 mb-3">Layer werden von unten nach oben gestapelt. #1 = Hintergrund. Inscriptions oben auswählen und in Layer verschieben.</p>
+          <p className="text-xs text-gray-500 mb-3">Layer werden von unten nach oben gestapelt. #1 = Hintergrund.</p>
 
           {layers.map((layer, layerIdx) => (
             <div key={layer.id} className={`bg-gray-900 border rounded-xl mb-3 overflow-hidden ${targetLayerId === layer.id ? 'border-purple-500 shadow-lg shadow-purple-500/20' : 'border-gray-700'}`}>
               {/* Layer Header */}
-              <div
-                className="flex items-center gap-2 px-4 py-3 bg-gray-800 cursor-pointer"
-                onClick={() => toggleLayer(layer.id)}
-              >
+              <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 cursor-pointer" onClick={() => toggleLayer(layer.id)}>
                 <span className="text-purple-400 font-bold text-sm w-8">#{layerIdx + 1}</span>
                 <span className="text-white font-semibold flex-1">{layer.name || '(Unnamed Layer)'}</span>
                 <span className="text-xs text-gray-500">{layer.traits.length} Traits</span>
                 <button
                   onClick={e => { e.stopPropagation(); setTargetLayerId(layer.id === targetLayerId ? null : layer.id); }}
                   className={`px-2 py-0.5 rounded text-xs font-bold ${targetLayerId === layer.id ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-purple-900 hover:text-purple-300'}`}
-                  title="Als Ziel-Layer für Inscriptions setzen"
-                >
+                  title="Als Ziel-Layer für Inscriptions setzen">
                   🎯 Ziel
                 </button>
                 <button onClick={e => { e.stopPropagation(); moveLayer(layer.id, -1); }} disabled={layerIdx === 0}
@@ -667,24 +888,20 @@ const RecursiveCollectionToolPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Traits */}
                   {layer.traits.length === 0 ? (
                     <div className="text-center py-6 text-gray-600 border border-dashed border-gray-700 rounded-lg">
                       <p className="text-sm mb-1">Keine Traits</p>
-                      <p className="text-xs">Wähle Inscriptions oben aus und klicke "🎯 Ziel" bei diesem Layer</p>
+                      <p className="text-xs">Wähle Inscriptions oben aus und verschiebe sie hierher</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {layer.traits.map((trait, traitIdx) => (
                         <div key={traitIdx} className="flex gap-2 items-start bg-black/50 p-3 rounded-lg border border-gray-800">
-                          {/* Preview */}
-                          <div
-                            className="flex-shrink-0 w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
+                          <div className="flex-shrink-0 w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
                             onClick={() => setSelectedLayerPreview(
                               selectedLayerPreview?.layerId === layer.id && selectedLayerPreview?.traitIdx === traitIdx
                                 ? null : { layerId: layer.id, traitIdx }
-                            )}
-                          >
+                            )}>
                             {trait.inscriptionId ? (
                               <img src={`https://ordinals.com/content/${trait.inscriptionId}`} alt={trait.name}
                                 className="w-full h-full object-contain" loading="lazy" />
@@ -692,8 +909,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
                               <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">?</div>
                             )}
                           </div>
-
-                          {/* Fields */}
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
                             <div>
                               <label className="block text-xs text-gray-500">Inscription ID</label>
@@ -714,8 +929,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                                 <label className="block text-xs text-gray-500">Rarity ({trait.rarity})</label>
                                 <input type="range" value={trait.rarity}
                                   onChange={e => updateTrait(layer.id, traitIdx, { rarity: parseInt(e.target.value) })}
-                                  min={1} max={100}
-                                  className="w-full accent-purple-500" />
+                                  min={1} max={100} className="w-full accent-purple-500" />
                               </div>
                               <button onClick={() => removeTrait(layer.id, traitIdx)}
                                 className="p-1.5 text-red-500 hover:text-red-400 text-xs">✕</button>
