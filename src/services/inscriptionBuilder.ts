@@ -59,6 +59,7 @@ export interface InscriptionSession {
   status: 'created' | 'funded' | 'revealed' | 'error';
   commitTxid?: string;
   commitVout?: number;
+  commitAmount?: number;  // Actual funded amount from UTXO
   revealTxid?: string;
   inscriptionId?: string;
   createdAt: number;
@@ -462,6 +463,10 @@ export function buildBatchInscriptionScript(
 
 /**
  * Create inscription commit (single or batch)
+ * 
+ * IMPORTANT: Uses TAPROOT_UNSPENDABLE_KEY as internal key to ensure
+ * script-path spend (not key-path). This is required for inscriptions
+ * because the inscription data must appear in the witness.
  */
 export function createInscriptionCommit(
   inscriptions: InscriptionOptions[],
@@ -476,8 +481,12 @@ export function createInscriptionCommit(
     ? buildBatchInscriptionScript(publicKey, inscriptions)
     : buildInscriptionScript(publicKey, inscriptions[0]);
 
+  // Use UNSPENDABLE internal key to force script-path spend
+  // The script itself contains OP_CHECKSIG with the real pubKey
+  const internalKey = btc.TAPROOT_UNSPENDABLE_KEY;
+
   const commitPayment = btc.p2tr(
-    publicKey,
+    internalKey,
     { script: inscriptionScript, leafVersion: 0xc0 },
     undefined,
     true,
@@ -487,8 +496,9 @@ export function createInscriptionCommit(
     throw new Error('Failed to generate commit address');
   }
 
-  // Fee calculation
-  const witnessSize = inscriptionScript.length + 64 + 33 + 10;
+  // Fee calculation: witness includes signature + full script + control block
+  const controlBlockSize = 33; // 1 byte version + 32 bytes internal key
+  const witnessSize = inscriptionScript.length + 64 + controlBlockSize + 10;
   const numOutputs = inscriptions.length;
   const nonWitnessSize = 10 + 41 + (numOutputs * 43); // version+locktime + 1 input + N outputs
   const weight = nonWitnessSize * 4 + witnessSize;
@@ -496,6 +506,13 @@ export function createInscriptionCommit(
   const revealFee = BigInt(Math.ceil(vsize * feeRate));
   const totalPostage = POSTAGE * BigInt(numOutputs);
   const requiredAmount = Number(revealFee + totalPostage);
+
+  console.log('[Commit] Script size:', inscriptionScript.length, 'bytes');
+  console.log('[Commit] Witness size:', witnessSize, 'bytes');
+  console.log('[Commit] vSize:', vsize, 'bytes');
+  console.log('[Commit] Fee:', Number(revealFee), 'sats (at', feeRate, 'sat/vB)');
+  console.log('[Commit] Required amount:', requiredAmount, 'sats');
+  console.log('[Commit] Address:', commitPayment.address);
 
   return {
     privateKeyHex: bytesToHex(privateKey),
@@ -528,24 +545,39 @@ export function buildRevealTransaction(
 ): string {
   const privateKey = hexToBytes(session.privateKeyHex);
   const publicKey = hexToBytes(session.publicKeyHex);
+  const internalKey = btc.TAPROOT_UNSPENDABLE_KEY;
+
+  console.log('[Reveal] === Building Reveal Transaction ===');
+  console.log('[Reveal] commitTxid:', commitTxid);
+  console.log('[Reveal] commitVout:', commitVout);
+  console.log('[Reveal] commitAmount:', commitAmount, 'sats');
+  console.log('[Reveal] requiredAmount:', session.requiredAmount, 'sats');
+  console.log('[Reveal] inscriptionScript length:', session.inscriptionScriptHex.length / 2, 'bytes');
+  console.log('[Reveal] destination:', session.destinationAddress);
+  console.log('[Reveal] batchCount:', session.batchCount);
 
   // Use the EXACT same script that was used to create the commit address
   const inscriptionScript = hexToBytes(session.inscriptionScriptHex);
 
-  // Recreate the P2TR payment from the stored script
+  // Recreate the P2TR payment using UNSPENDABLE internal key (same as commit)
   const commitPayment = btc.p2tr(
-    publicKey,
+    internalKey,
     { script: inscriptionScript, leafVersion: 0xc0 },
     undefined,
     true,
   );
+
+  console.log('[Reveal] derived address:', commitPayment.address);
+  console.log('[Reveal] expected address:', session.commitAddress);
+  console.log('[Reveal] address match:', commitPayment.address === session.commitAddress);
 
   // Verify the address matches
   if (commitPayment.address !== session.commitAddress) {
     throw new Error(`Address mismatch! Expected ${session.commitAddress} but got ${commitPayment.address}. Session may be corrupted.`);
   }
 
-  const tx = new btc.Transaction({ allowUnknownOutputs: true });
+  // CRITICAL: allowUnknownInputs forces script-path spend for custom scripts
+  const tx = new btc.Transaction({ allowUnknownOutputs: true, allowUnknownInputs: true });
 
   tx.addInput({
     txid: commitTxid,
@@ -554,20 +586,37 @@ export function buildRevealTransaction(
       script: commitPayment.script,
       amount: BigInt(commitAmount),
     },
-    tapInternalKey: publicKey,
+    // NO tapInternalKey here - we don't want key-path spend
     tapLeafScript: commitPayment.tapLeafScript,
   });
 
   // One output per inscription (batch or single)
   const numOutputs = session.batchCount || 1;
+  const totalPostage = POSTAGE * BigInt(numOutputs);
+  const fee = BigInt(commitAmount) - totalPostage;
+  console.log('[Reveal] outputs:', numOutputs, 'x', Number(POSTAGE), 'sats');
+  console.log('[Reveal] total postage:', Number(totalPostage), 'sats');
+  console.log('[Reveal] fee:', Number(fee), 'sats');
+
   for (let i = 0; i < numOutputs; i++) {
     tx.addOutputAddress(session.destinationAddress, POSTAGE);
   }
 
   tx.sign(privateKey);
-  tx.finalize();
+  console.log('[Reveal] ✅ Signed (script-path)');
 
-  return bytesToHex(tx.extract());
+  tx.finalize();
+  console.log('[Reveal] ✅ Finalized');
+
+  const rawTx = tx.extract();
+  console.log('[Reveal] Raw tx size:', rawTx.length, 'bytes');
+
+  // Sanity check: script-path tx should be much larger than 200 bytes
+  if (rawTx.length < 200) {
+    throw new Error(`Transaction too small (${rawTx.length} bytes) - likely key-path instead of script-path spend!`);
+  }
+
+  return bytesToHex(rawTx);
 }
 
 /**

@@ -375,7 +375,8 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       if (result.funded && result.txid) {
         if (pollingRef.current) clearInterval(pollingRef.current);
         setPolling(false);
-        const updated: InscriptionSession = { ...session, status: 'funded', commitTxid: result.txid, commitVout: result.vout };
+        const updated: InscriptionSession = { ...session, status: 'funded', commitTxid: result.txid, commitVout: result.vout, commitAmount: result.amount };
+        console.log('[Funding] Detected! txid:', result.txid, 'vout:', result.vout, 'amount:', result.amount);
         setSession(updated);
         saveSession(updated);
         setStatusMessage(`✅ Commit funded! TXID: ${result.txid?.substring(0, 16)}... (${result.amount?.toLocaleString()} sats)`);
@@ -446,12 +447,17 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       setError('');
       setStatusMessage('🔨 Baue Reveal-Transaktion...');
 
-      // Get the actual funded amount from the UTXO
-      const funding = await checkCommitFunding(session.commitAddress);
-      const commitAmount = funding.amount || session.requiredAmount;
+      // Get the actual funded amount - prefer stored amount, then re-fetch, then fallback
+      let commitAmount = session.commitAmount;
+      if (!commitAmount) {
+        console.log('[Reveal] No stored amount, re-fetching from API...');
+        const funding = await checkCommitFunding(session.commitAddress);
+        commitAmount = funding.amount || session.requiredAmount;
+      }
+      console.log('[Reveal] Using commitAmount:', commitAmount, 'sats');
 
       // Build reveal using the EXACT script stored in session (no rebuild needed)
-      const rawTxHex = buildRevealTransaction(session, session.commitTxid, session.commitVout, commitAmount);
+      const rawTxHex = buildRevealTransaction(session, session.commitTxid, session.commitVout!, commitAmount);
 
       setStatusMessage('📡 Broadcaste Reveal...');
       const revealTxid = await broadcastTransaction(rawTxHex);
