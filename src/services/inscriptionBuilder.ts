@@ -549,10 +549,7 @@ export function buildRevealTransaction(
       amount: BigInt(commitAmount),
     },
     tapInternalKey: publicKey,
-    tapLeafScript: [{
-      version: 0xc0,
-      script: inscriptionScript,
-    }],
+    tapLeafScript: commitPayment.tapLeafScript,
   });
 
   // One output per inscription
