@@ -60,7 +60,11 @@ const FeatureToggle: React.FC<{
 // ============================================================
 export const GalleryInscriptionToolPage: React.FC = () => {
   const { walletState } = useWallet();
-  const connectedAddress = walletState.accounts?.[0]?.address;
+  // Prefer Taproot (ordinals) address for inscriptions, fallback to first account
+  const ordinalsAccount = walletState.accounts?.find((a: any) => a.purpose === 'ordinals');
+  const connectedAddress = ordinalsAccount?.address || walletState.accounts?.[0]?.address;
+  const paymentAccount = walletState.accounts?.find((a: any) => a.purpose === 'payment');
+  const paymentAddress = paymentAccount?.address || walletState.accounts?.[0]?.address;
   const isAdmin = walletState.connected && isAdminAddress(connectedAddress);
 
   // ---- FILE STATE ----
@@ -142,6 +146,13 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       setStatusMessage(saved.status === 'funded' ? '✅ Commit funded! Bereit für Reveal.' : '⏳ Warte auf Funding...');
     }
   }, []);
+
+  // Auto-fill destination with Taproot address when wallet connects
+  useEffect(() => {
+    if (connectedAddress && connectedAddress.startsWith('bc1p') && !destinationAddress && !session) {
+      setDestinationAddress(connectedAddress);
+    }
+  }, [connectedAddress]);
 
   // Polling
   useEffect(() => {
@@ -337,7 +348,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   const handleCreateCommit = useCallback(async () => {
     if (!enableBatch && !imageData) { setError('Bild muss geladen sein!'); return; }
     if (enableBatch && batchFiles.length === 0) { setError('Batch-Dateien müssen geladen sein!'); return; }
-    if (!destinationAddress || !destinationAddress.startsWith('bc1')) { setError('Gültige Bitcoin-Adresse eingeben!'); return; }
+    if (!destinationAddress || !destinationAddress.startsWith('bc1p')) { setError('Taproot-Adresse (bc1p...) eingeben! Inscriptions müssen an Taproot-Adressen gehen.'); return; }
     if (feeRate < 0.1) { setError('Fee Rate muss mindestens 0.1 sein!'); return; }
 
     try {
@@ -844,10 +855,13 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                 </div>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-300 mb-1">Ziel-Adresse</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-1">Ziel-Adresse (Taproot / Ordinals)</label>
                 <input type="text" value={destinationAddress} onChange={e => setDestinationAddress(e.target.value.trim())} placeholder="bc1p..." className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
-                {connectedAddress && (
-                  <button onClick={() => setDestinationAddress(connectedAddress)} className="mt-1 text-xs text-emerald-400 hover:text-emerald-300">→ Verbundene Adresse ({connectedAddress.substring(0, 12)}...)</button>
+                {connectedAddress && connectedAddress.startsWith('bc1p') && (
+                  <button onClick={() => setDestinationAddress(connectedAddress)} className="mt-1 text-xs text-emerald-400 hover:text-emerald-300">→ Taproot-Adresse verwenden ({connectedAddress.substring(0, 16)}...)</button>
+                )}
+                {destinationAddress && !destinationAddress.startsWith('bc1p') && (
+                  <p className="mt-1 text-xs text-yellow-400">⚠️ Keine Taproot-Adresse! Inscriptions sollten an bc1p...-Adressen gehen.</p>
                 )}
               </div>
             </div>
