@@ -114,6 +114,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  // ---- INSCRIPTION LOADING ----
+  const [loadMode, setLoadMode] = useState<'wallet' | 'idlist'>('wallet');
+  const [idListText, setIdListText] = useState('');
+
   // ---- WALLET SCANNER ----
   const [scanAddress, setScanAddress] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -317,6 +321,82 @@ const RecursiveCollectionToolPage: React.FC = () => {
       setScanning(false);
     }
   }, [scanAddress]);
+
+  // ============================================================
+  // ID LIST LOADING
+  // ============================================================
+  const parseIdList = useCallback((text: string): string[] => {
+    // Split by newlines, commas, semicolons, spaces, tabs
+    const raw = text.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean);
+    // Keep only valid inscription IDs (hex + i + number)
+    return raw.filter(id => /^[a-f0-9]{64}i\d+$/i.test(id));
+  }, []);
+
+  const loadFromIdList = useCallback(() => {
+    const ids = parseIdList(idListText);
+    if (ids.length === 0) {
+      setError('Keine gültigen Inscription IDs gefunden! Format: abc123...i0');
+      return;
+    }
+
+    const inscriptions: WalletInscription[] = ids.map(id => ({ id }));
+    // Merge with existing (don't add duplicates)
+    const existingIds = new Set(walletInscriptions.map(w => w.id));
+    const newOnes = inscriptions.filter(i => !existingIds.has(i.id));
+    const merged = [...walletInscriptions, ...newOnes];
+    setWalletInscriptions(merged);
+    setScanProgress(`✅ ${newOnes.length} neue IDs geladen (${merged.length} gesamt)`);
+    setError('');
+  }, [idListText, walletInscriptions, parseIdList]);
+
+  const loadIdsFromFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        // Try JSON array first
+        try {
+          const json = JSON.parse(text);
+          let ids: string[] = [];
+          if (Array.isArray(json)) {
+            // Could be array of strings or array of objects with id field
+            ids = json.map((item: any) => {
+              if (typeof item === 'string') return item.trim();
+              if (item.id) return item.id.trim();
+              if (item.inscriptionId) return item.inscriptionId.trim();
+              return '';
+            }).filter(Boolean);
+          }
+          if (ids.length > 0) {
+            setIdListText(ids.join('\n'));
+            // Auto-load
+            const valid = ids.filter(id => /^[a-f0-9]{64}i\d+$/i.test(id));
+            const existingIds = new Set(walletInscriptions.map(w => w.id));
+            const newOnes = valid.filter(id => !existingIds.has(id)).map(id => ({ id } as WalletInscription));
+            setWalletInscriptions(prev => [...prev, ...newOnes]);
+            setScanProgress(`✅ ${newOnes.length} IDs aus Datei geladen (${walletInscriptions.length + newOnes.length} gesamt)`);
+            return;
+          }
+        } catch { /* not JSON, treat as plain text */ }
+
+        // Plain text – put it in the textarea
+        setIdListText(text);
+        const ids = parseIdList(text);
+        if (ids.length > 0) {
+          const existingIds = new Set(walletInscriptions.map(w => w.id));
+          const newOnes = ids.filter(id => !existingIds.has(id)).map(id => ({ id } as WalletInscription));
+          setWalletInscriptions(prev => [...prev, ...newOnes]);
+          setScanProgress(`✅ ${newOnes.length} IDs aus Datei geladen (${walletInscriptions.length + newOnes.length} gesamt)`);
+        } else {
+          setError('Keine gültigen Inscription IDs in der Datei gefunden!');
+        }
+      } catch { setError('Fehler beim Lesen der Datei!'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [walletInscriptions, parseIdList]);
 
   // ============================================================
   // SELECTION
@@ -770,22 +850,65 @@ const RecursiveCollectionToolPage: React.FC = () => {
             SECTION 1: WALLET SCANNER
             ════════════════════════════════════════════════ */}
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-4">
-          <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🔍</span> Wallet Scanner</h2>
-          <div className="flex gap-2 mb-3">
-            <input type="text" value={scanAddress} onChange={e => setScanAddress(e.target.value.trim())}
-              placeholder="bc1p... (Taproot-Adresse)"
-              className="flex-1 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
-            {connectedAddress && (
-              <button onClick={() => setScanAddress(connectedAddress)}
-                className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-300 hover:bg-gray-700 whitespace-nowrap">
-                Meine Adresse
-              </button>
-            )}
-            <button onClick={scanWallet} disabled={scanning}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 text-sm font-bold whitespace-nowrap">
-              {scanning ? '⏳ Scanne...' : '🔍 Scannen'}
+          <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🔍</span> Inscriptions laden</h2>
+
+          {/* Tab Toggle */}
+          <div className="flex gap-1 mb-3 bg-black/50 rounded-lg p-1 border border-gray-800 w-fit">
+            <button onClick={() => setLoadMode('wallet')}
+              className={`px-3 py-1.5 rounded text-xs font-bold transition ${loadMode === 'wallet' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              🔍 Wallet scannen
+            </button>
+            <button onClick={() => setLoadMode('idlist')}
+              className={`px-3 py-1.5 rounded text-xs font-bold transition ${loadMode === 'idlist' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              📋 ID-Liste einfügen
             </button>
           </div>
+
+          {/* Mode: Wallet Scanner */}
+          {loadMode === 'wallet' && (
+            <div className="flex gap-2 mb-3">
+              <input type="text" value={scanAddress} onChange={e => setScanAddress(e.target.value.trim())}
+                placeholder="bc1p... (Taproot-Adresse)"
+                className="flex-1 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
+              {connectedAddress && (
+                <button onClick={() => setScanAddress(connectedAddress)}
+                  className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-300 hover:bg-gray-700 whitespace-nowrap">
+                  Meine Adresse
+                </button>
+              )}
+              <button onClick={scanWallet} disabled={scanning}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 text-sm font-bold whitespace-nowrap">
+                {scanning ? '⏳ Scanne...' : '🔍 Scannen'}
+              </button>
+            </div>
+          )}
+
+          {/* Mode: ID List */}
+          {loadMode === 'idlist' && (
+            <div className="mb-3">
+              <textarea
+                value={idListText}
+                onChange={e => setIdListText(e.target.value)}
+                placeholder={"Inscription IDs eingeben (eine pro Zeile oder komma-getrennt):\n\nabc123...i0\ndef456...i0\nghi789...i0"}
+                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-xs font-mono h-32 resize-y"
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <button onClick={loadFromIdList}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-bold">
+                  📋 IDs laden
+                </button>
+                <label className="px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-300 hover:bg-gray-700 cursor-pointer">
+                  📂 JSON/TXT Datei laden
+                  <input type="file" accept=".json,.txt,.csv" onChange={loadIdsFromFile} className="hidden" />
+                </label>
+                {idListText.trim() && (
+                  <span className="text-xs text-gray-500">
+                    {parseIdList(idListText).length} IDs erkannt
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {scanProgress && <p className="text-xs text-gray-400 mb-3">{scanProgress}</p>}
 
