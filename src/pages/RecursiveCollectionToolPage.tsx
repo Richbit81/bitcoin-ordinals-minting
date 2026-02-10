@@ -1,0 +1,688 @@
+/**
+ * Recursive Collection Generator Tool (Admin Only)
+ * 
+ * Erstellt recursive SVG Ordinals Collections aus Layer-basierten Traits.
+ * Jeder Layer hat eine Inscription ID und wird per /content/{id} referenziert.
+ * Generiert:
+ * 1. SVG-Dateien für jede Kombination (rekursive Inscriptions)
+ * 2. Hashlist JSON für Indexierung (id + meta mit attributes)
+ */
+
+import React, { useState, useCallback, useMemo } from 'react';
+import { useWallet } from '../contexts/WalletContext';
+import { isAdminAddress } from '../config/admin';
+
+// ============================================================
+// TYPES
+// ============================================================
+interface TraitItem {
+  inscriptionId: string;
+  name: string;
+  rarity: number; // 0-100 weight
+}
+
+interface Layer {
+  id: string;
+  name: string;        // z.B. "background", "eyes", "head"
+  traitType: string;   // trait_type für die hashlist
+  traits: TraitItem[];
+  expanded: boolean;
+}
+
+interface GeneratedItem {
+  index: number;
+  layers: { layerName: string; traitType: string; trait: TraitItem }[];
+  svg: string;
+}
+
+interface HashlistEntry {
+  id: string;
+  meta: {
+    name: string;
+    attributes: { trait_type: string; value: string }[];
+  };
+}
+
+// ============================================================
+// HELPER: Generate unique ID
+// ============================================================
+let idCounter = 0;
+function uid() { return `layer_${Date.now()}_${idCounter++}`; }
+
+// ============================================================
+// COMPONENT
+// ============================================================
+const RecursiveCollectionToolPage: React.FC = () => {
+  const { walletState } = useWallet();
+  const connectedAddress = walletState.accounts?.find((a: any) => a.purpose === 'ordinals')?.address || walletState.accounts?.[0]?.address;
+  const isAdmin = walletState.connected && isAdminAddress(connectedAddress);
+
+  // ---- STATE ----
+  const [collectionName, setCollectionName] = useState('My Collection');
+  const [totalCount, setTotalCount] = useState(100);
+  const [viewBox, setViewBox] = useState('0 0 1000 1000');
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [generated, setGenerated] = useState<GeneratedItem[]>([]);
+  const [hashlist, setHashlist] = useState<HashlistEntry[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [selectedLayerPreview, setSelectedLayerPreview] = useState<{ layerId: string; traitIdx: number } | null>(null);
+  const [error, setError] = useState('');
+
+  // ============================================================
+  // LAYER MANAGEMENT
+  // ============================================================
+  const addLayer = useCallback(() => {
+    setLayers(prev => [...prev, {
+      id: uid(),
+      name: '',
+      traitType: '',
+      traits: [{ inscriptionId: '', name: '', rarity: 50 }],
+      expanded: true,
+    }]);
+  }, []);
+
+  const removeLayer = useCallback((layerId: string) => {
+    setLayers(prev => prev.filter(l => l.id !== layerId));
+  }, []);
+
+  const moveLayer = useCallback((layerId: string, dir: -1 | 1) => {
+    setLayers(prev => {
+      const idx = prev.findIndex(l => l.id === layerId);
+      if (idx < 0) return prev;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
+      return copy;
+    });
+  }, []);
+
+  const updateLayer = useCallback((layerId: string, updates: Partial<Layer>) => {
+    setLayers(prev => prev.map(l => l.id === layerId ? { ...l, ...updates } : l));
+  }, []);
+
+  const toggleLayer = useCallback((layerId: string) => {
+    setLayers(prev => prev.map(l => l.id === layerId ? { ...l, expanded: !l.expanded } : l));
+  }, []);
+
+  // ---- TRAIT MANAGEMENT ----
+  const addTrait = useCallback((layerId: string) => {
+    setLayers(prev => prev.map(l =>
+      l.id === layerId ? { ...l, traits: [...l.traits, { inscriptionId: '', name: '', rarity: 50 }] } : l
+    ));
+  }, []);
+
+  const removeTrait = useCallback((layerId: string, traitIdx: number) => {
+    setLayers(prev => prev.map(l =>
+      l.id === layerId ? { ...l, traits: l.traits.filter((_, i) => i !== traitIdx) } : l
+    ));
+  }, []);
+
+  const updateTrait = useCallback((layerId: string, traitIdx: number, updates: Partial<TraitItem>) => {
+    setLayers(prev => prev.map(l =>
+      l.id === layerId ? {
+        ...l,
+        traits: l.traits.map((t, i) => i === traitIdx ? { ...t, ...updates } : t),
+      } : l
+    ));
+  }, []);
+
+  // ============================================================
+  // WEIGHTED RANDOM SELECTION
+  // ============================================================
+  const weightedRandom = useCallback((traits: TraitItem[]): TraitItem => {
+    const totalWeight = traits.reduce((sum, t) => sum + (t.rarity || 1), 0);
+    let rand = Math.random() * totalWeight;
+    for (const trait of traits) {
+      rand -= (trait.rarity || 1);
+      if (rand <= 0) return trait;
+    }
+    return traits[traits.length - 1];
+  }, []);
+
+  // ============================================================
+  // GENERATE COLLECTION
+  // ============================================================
+  const handleGenerate = useCallback(() => {
+    setError('');
+
+    // Validation
+    const emptyLayers = layers.filter(l => !l.name || !l.traitType);
+    if (emptyLayers.length > 0) {
+      setError('Alle Layer müssen einen Namen und trait_type haben!');
+      return;
+    }
+
+    const emptyTraits = layers.some(l => l.traits.some(t => !t.inscriptionId || !t.name));
+    if (emptyTraits) {
+      setError('Alle Traits brauchen eine Inscription ID und einen Namen!');
+      return;
+    }
+
+    if (layers.length === 0) {
+      setError('Mindestens ein Layer hinzufügen!');
+      return;
+    }
+
+    if (totalCount < 1 || totalCount > 10000) {
+      setError('Anzahl muss zwischen 1 und 10000 sein!');
+      return;
+    }
+
+    // Generate items with unique combinations (try to avoid duplicates)
+    const items: GeneratedItem[] = [];
+    const seenCombos = new Set<string>();
+    const maxAttempts = totalCount * 10;
+    let attempts = 0;
+
+    while (items.length < totalCount && attempts < maxAttempts) {
+      attempts++;
+
+      const selectedLayers = layers.map(layer => ({
+        layerName: layer.name,
+        traitType: layer.traitType,
+        trait: weightedRandom(layer.traits),
+      }));
+
+      const comboKey = selectedLayers.map(l => l.trait.inscriptionId).join('|');
+      if (seenCombos.has(comboKey) && attempts < maxAttempts - totalCount) continue;
+      seenCombos.add(comboKey);
+
+      const index = items.length + 1;
+      const svgImages = selectedLayers
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
+        .join('\n');
+
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+
+      items.push({ index, layers: selectedLayers, svg });
+    }
+
+    setGenerated(items);
+    setPreviewIndex(0);
+
+    // Generate hashlist (IDs will be filled after inscription - for now use placeholder)
+    const hl: HashlistEntry[] = items.map((item, idx) => ({
+      id: `PLACEHOLDER_${idx + 1}`,
+      meta: {
+        name: `${collectionName} #${idx + 1}`,
+        attributes: item.layers.map(l => ({
+          trait_type: l.traitType,
+          value: l.trait.name,
+        })),
+      },
+    }));
+
+    setHashlist(hl);
+  }, [layers, totalCount, collectionName, viewBox, weightedRandom]);
+
+  // ============================================================
+  // RARITY STATS
+  // ============================================================
+  const rarityStats = useMemo(() => {
+    if (generated.length === 0) return null;
+    const stats: Record<string, Record<string, number>> = {};
+
+    for (const item of generated) {
+      for (const layer of item.layers) {
+        if (!stats[layer.traitType]) stats[layer.traitType] = {};
+        stats[layer.traitType][layer.trait.name] = (stats[layer.traitType][layer.trait.name] || 0) + 1;
+      }
+    }
+
+    return stats;
+  }, [generated]);
+
+  // ============================================================
+  // DOWNLOADS
+  // ============================================================
+  const downloadHashlist = useCallback(() => {
+    const blob = new Blob([JSON.stringify(hashlist, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_hashlist.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [hashlist, collectionName]);
+
+  const downloadSVGs = useCallback(() => {
+    const data = generated.map((item, idx) => ({
+      filename: `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}.svg`,
+      svg: item.svg,
+      traits: item.layers.map(l => ({ trait_type: l.traitType, value: l.trait.name })),
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_svgs.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [generated, collectionName]);
+
+  const downloadSingleSVG = useCallback((idx: number) => {
+    const item = generated[idx];
+    if (!item) return;
+    const blob = new Blob([item.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [generated, collectionName]);
+
+  // ============================================================
+  // IMPORT / EXPORT LAYER CONFIG
+  // ============================================================
+  const exportConfig = useCallback(() => {
+    const config = { collectionName, totalCount, viewBox, layers };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_config.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [collectionName, totalCount, viewBox, layers]);
+
+  const importConfig = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const config = JSON.parse(ev.target?.result as string);
+        if (config.collectionName) setCollectionName(config.collectionName);
+        if (config.totalCount) setTotalCount(config.totalCount);
+        if (config.viewBox) setViewBox(config.viewBox);
+        if (config.layers) setLayers(config.layers);
+      } catch {
+        setError('Ungültige Config-Datei!');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, []);
+
+  // ============================================================
+  // RENDER: ACCESS CHECK
+  // ============================================================
+  if (!walletState.connected) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">🔒 Wallet verbinden</h1>
+          <p className="text-gray-400">Verbinde dein Wallet um das Tool zu nutzen.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">⛔ Kein Zugang</h1>
+          <p className="text-gray-400">Dieses Tool ist nur für Admins verfügbar.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // RENDER: MAIN
+  // ============================================================
+  return (
+    <div className="min-h-screen bg-black text-white pt-16 pb-12">
+      <div className="max-w-6xl mx-auto px-4">
+
+        {/* HEADER */}
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+            🎨 Recursive Collection Generator
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">Layer-basierte SVG Ordinals mit Rarity-System</p>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">{error}</div>
+        )}
+
+        {/* ════════════════ SETTINGS ════════════════ */}
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-4">
+          <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">⚙️</span> Einstellungen</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Collection Name</label>
+              <input type="text" value={collectionName} onChange={e => setCollectionName(e.target.value)}
+                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Anzahl generieren</label>
+              <input type="number" value={totalCount} onChange={e => setTotalCount(Math.max(1, parseInt(e.target.value) || 1))}
+                min={1} max={10000}
+                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">SVG viewBox</label>
+              <input type="text" value={viewBox} onChange={e => setViewBox(e.target.value)}
+                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={exportConfig} className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">💾 Config exportieren</button>
+            <label className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700 cursor-pointer">
+              📂 Config importieren
+              <input type="file" accept=".json" onChange={importConfig} className="hidden" />
+            </label>
+          </div>
+        </div>
+
+        {/* ════════════════ LAYERS ════════════════ */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold"><span className="text-purple-400">📚</span> Layer ({layers.length})</h2>
+            <button onClick={addLayer} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-bold">+ Layer hinzufügen</button>
+          </div>
+
+          <p className="text-xs text-gray-500 mb-3">Layer werden von unten nach oben gestapelt. Der erste Layer ist der Hintergrund.</p>
+
+          {layers.map((layer, layerIdx) => (
+            <div key={layer.id} className="bg-gray-900 border border-gray-700 rounded-xl mb-3 overflow-hidden">
+              {/* Layer Header */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 cursor-pointer" onClick={() => toggleLayer(layer.id)}>
+                <span className="text-purple-400 font-bold text-sm w-8">#{layerIdx + 1}</span>
+                <span className="text-white font-semibold flex-1">{layer.name || '(Unnamed Layer)'}</span>
+                <span className="text-xs text-gray-500">{layer.traits.length} Traits</span>
+                <button onClick={e => { e.stopPropagation(); moveLayer(layer.id, -1); }} disabled={layerIdx === 0}
+                  className="p-1 text-gray-500 hover:text-white disabled:opacity-30" title="Nach oben">▲</button>
+                <button onClick={e => { e.stopPropagation(); moveLayer(layer.id, 1); }} disabled={layerIdx === layers.length - 1}
+                  className="p-1 text-gray-500 hover:text-white disabled:opacity-30" title="Nach unten">▼</button>
+                <button onClick={e => { e.stopPropagation(); removeLayer(layer.id); }}
+                  className="p-1 text-red-500 hover:text-red-400" title="Löschen">✕</button>
+                <span className="text-gray-500 text-sm">{layer.expanded ? '▾' : '▸'}</span>
+              </div>
+
+              {/* Layer Body */}
+              {layer.expanded && (
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Layer Name</label>
+                      <input type="text" value={layer.name} onChange={e => updateLayer(layer.id, { name: e.target.value })}
+                        placeholder="z.B. background, eyes, head..."
+                        className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">trait_type (für Hashlist)</label>
+                      <input type="text" value={layer.traitType} onChange={e => updateLayer(layer.id, { traitType: e.target.value })}
+                        placeholder="z.B. background, eyes, head..."
+                        className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
+                    </div>
+                  </div>
+
+                  {/* Traits */}
+                  <div className="space-y-2">
+                    {layer.traits.map((trait, traitIdx) => (
+                      <div key={traitIdx} className="flex gap-2 items-start bg-black/50 p-3 rounded-lg border border-gray-800">
+                        {/* Preview */}
+                        <div className="flex-shrink-0 w-16 h-16 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
+                          onClick={() => setSelectedLayerPreview(
+                            selectedLayerPreview?.layerId === layer.id && selectedLayerPreview?.traitIdx === traitIdx
+                              ? null : { layerId: layer.id, traitIdx }
+                          )}>
+                          {trait.inscriptionId ? (
+                            <img
+                              src={`https://ordinals.com/content/${trait.inscriptionId}`}
+                              alt={trait.name}
+                              className="w-full h-full object-contain"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">No ID</div>
+                          )}
+                        </div>
+
+                        {/* Fields */}
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-500">Inscription ID</label>
+                            <input type="text" value={trait.inscriptionId}
+                              onChange={e => updateTrait(layer.id, traitIdx, { inscriptionId: e.target.value.trim() })}
+                              placeholder="abc...i0"
+                              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white font-mono" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500">Name</label>
+                            <input type="text" value={trait.name}
+                              onChange={e => updateTrait(layer.id, traitIdx, { name: e.target.value })}
+                              placeholder="z.B. blue gradient"
+                              className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white" />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-xs text-gray-500">Rarity ({trait.rarity})</label>
+                              <input type="range" value={trait.rarity}
+                                onChange={e => updateTrait(layer.id, traitIdx, { rarity: parseInt(e.target.value) })}
+                                min={1} max={100}
+                                className="w-full accent-purple-500" />
+                            </div>
+                            <button onClick={() => removeTrait(layer.id, traitIdx)}
+                              className="p-1.5 text-red-500 hover:text-red-400 text-xs" title="Trait entfernen">✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button onClick={() => addTrait(layer.id)}
+                    className="mt-3 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">
+                    + Trait hinzufügen
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {layers.length === 0 && (
+            <div className="text-center py-12 text-gray-600">
+              <p className="text-lg mb-2">Keine Layer definiert</p>
+              <p className="text-sm">Klicke "Layer hinzufügen" um zu beginnen.</p>
+            </div>
+          )}
+        </div>
+
+        {/* ════════════════ LARGE PREVIEW ════════════════ */}
+        {selectedLayerPreview && (() => {
+          const layer = layers.find(l => l.id === selectedLayerPreview.layerId);
+          const trait = layer?.traits[selectedLayerPreview.traitIdx];
+          if (!layer || !trait || !trait.inscriptionId) return null;
+          return (
+            <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setSelectedLayerPreview(null)}>
+              <div className="bg-gray-900 border border-purple-500 rounded-xl p-4 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <p className="text-white font-bold">{trait.name}</p>
+                    <p className="text-xs text-gray-400">Layer: {layer.name} | Rarity: {trait.rarity}</p>
+                  </div>
+                  <button onClick={() => setSelectedLayerPreview(null)} className="text-gray-400 hover:text-white text-xl">✕</button>
+                </div>
+                <div className="w-full aspect-square bg-black rounded-lg overflow-hidden">
+                  <img
+                    src={`https://ordinals.com/content/${trait.inscriptionId}`}
+                    alt={trait.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 font-mono mt-2 break-all">{trait.inscriptionId}</p>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ════════════════ GENERATE BUTTON ════════════════ */}
+        <div className="text-center mb-6">
+          <button onClick={handleGenerate}
+            disabled={layers.length === 0}
+            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 disabled:opacity-30 text-lg shadow-lg">
+            🎲 {totalCount} Items generieren
+          </button>
+          {layers.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Mögliche Kombinationen: {layers.reduce((acc, l) => acc * Math.max(l.traits.length, 1), 1).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        {/* ════════════════ RESULTS ════════════════ */}
+        {generated.length > 0 && (
+          <div className="space-y-4">
+            {/* Download Buttons */}
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">📥</span> Downloads</h2>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={downloadHashlist}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 text-sm font-bold">
+                  📋 Hashlist JSON ({generated.length} Items)
+                </button>
+                <button onClick={downloadSVGs}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm font-bold">
+                  🖼️ Alle SVGs als JSON ({generated.length} Items)
+                </button>
+              </div>
+            </div>
+
+            {/* Rarity Statistics */}
+            {rarityStats && (
+              <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+                <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">📊</span> Rarity Statistik</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(rarityStats).map(([traitType, values]) => (
+                    <div key={traitType} className="bg-black/50 rounded-lg p-3 border border-gray-800">
+                      <h3 className="text-sm font-bold text-purple-400 mb-2">{traitType}</h3>
+                      <div className="space-y-1">
+                        {Object.entries(values)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([name, count]) => {
+                            const pct = ((count / generated.length) * 100).toFixed(1);
+                            return (
+                              <div key={name} className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-300 flex-1 truncate">{name}</span>
+                                <div className="w-20 bg-gray-800 rounded-full h-1.5">
+                                  <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-gray-500 w-16 text-right">{count}x ({pct}%)</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SVG Preview */}
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">👀</span> Vorschau</h2>
+
+              {/* Navigation */}
+              <div className="flex items-center gap-3 mb-4">
+                <button onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0}
+                  className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">◀ Zurück</button>
+                <span className="text-sm text-gray-400">
+                  #{previewIndex + 1} von {generated.length}
+                </span>
+                <button onClick={() => setPreviewIndex(Math.min(generated.length - 1, previewIndex + 1))} disabled={previewIndex >= generated.length - 1}
+                  className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">Weiter ▶</button>
+                <button onClick={() => setPreviewIndex(Math.floor(Math.random() * generated.length))}
+                  className="px-3 py-1.5 bg-purple-900 border border-purple-600 rounded text-sm text-purple-300 hover:bg-purple-800">🎲 Zufällig</button>
+                <button onClick={() => downloadSingleSVG(previewIndex)}
+                  className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 hover:bg-gray-700 ml-auto">⬇️ SVG</button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* SVG Visual Preview */}
+                <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
+                  <div className="w-full aspect-square relative">
+                    {generated[previewIndex]?.layers.map((layer, i) => (
+                      <img
+                        key={i}
+                        src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                        alt={layer.trait.name}
+                        className="absolute inset-0 w-full h-full object-contain"
+                        style={{ zIndex: i }}
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Item Details */}
+                <div>
+                  <h3 className="text-white font-bold mb-2">{collectionName} #{previewIndex + 1}</h3>
+                  <div className="space-y-2 mb-4">
+                    {generated[previewIndex]?.layers.map((layer, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-black/50 rounded p-2 border border-gray-800">
+                        <img
+                          src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                          alt={layer.trait.name}
+                          className="w-8 h-8 object-contain rounded border border-gray-700"
+                          loading="lazy"
+                        />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500">{layer.traitType}</p>
+                          <p className="text-sm text-white">{layer.trait.name}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Raw SVG */}
+                  <details className="mt-3">
+                    <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300">SVG Code anzeigen</summary>
+                    <pre className="mt-2 p-3 bg-black rounded-lg text-xs text-green-400 font-mono overflow-x-auto border border-gray-800 whitespace-pre-wrap break-all">
+                      {generated[previewIndex]?.svg}
+                    </pre>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid Preview of all items */}
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🖼️</span> Alle Items ({generated.length})</h2>
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-[600px] overflow-y-auto">
+                {generated.map((item, idx) => (
+                  <div key={idx}
+                    onClick={() => setPreviewIndex(idx)}
+                    className={`aspect-square bg-black rounded-lg border cursor-pointer relative overflow-hidden ${
+                      idx === previewIndex ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-gray-800 hover:border-gray-600'
+                    }`}>
+                    {item.layers.map((layer, i) => (
+                      <img
+                        key={i}
+                        src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-contain"
+                        style={{ zIndex: i }}
+                        loading="lazy"
+                      />
+                    ))}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-center">
+                      <span className="text-[10px] text-gray-400">#{idx + 1}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default RecursiveCollectionToolPage;
