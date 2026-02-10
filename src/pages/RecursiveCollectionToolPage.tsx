@@ -786,7 +786,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                       }`}
                       title={`${insc.id}\n#${insc.number || '?'}\n${insc.contentType || '?'}`}>
                       <img src={`https://ordinals.com/content/${insc.id}`} alt=""
-                        className="w-full h-full object-contain bg-black" loading="lazy" />
+                        className="w-full h-full object-contain bg-white" loading="lazy" />
                       {isSelected && (
                         <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
                           <span className="text-white text-[8px] font-bold">✓</span>
