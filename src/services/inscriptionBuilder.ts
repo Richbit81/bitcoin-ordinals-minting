@@ -1,17 +1,17 @@
 /**
  * Gallery Inscription Builder
  * 
- * Erstellt Bitcoin Ordinals Gallery Inscriptions ohne externen Service.
+ * Erstellt Bitcoin Ordinals Inscriptions ohne externen Service.
  * Nutzt das Commit+Reveal Transaktionsmuster.
  * 
- * Technische Details:
- * - Inscription Envelope: OP_FALSE OP_IF "ord" [tags] OP_0 [body] OP_ENDIF
- * - Tag 1 = Content-Type
- * - Tag 3 = Parent Inscription ID
- * - Tag 17 = Gallery/Properties (CBOR-encoded)
- * - Body = Image data (split in 520-byte chunks)
- * - Commit: P2TR Adresse aus Internal Key + Inscription Script
- * - Reveal: Script-Path Spend der Commit UTXO
+ * Inscription Envelope Tags:
+ * - Tag 1  = Content-Type
+ * - Tag 2  = Pointer (SAT offset in outputs, for batch)
+ * - Tag 3  = Parent Inscription ID
+ * - Tag 5  = Metadata (CBOR-encoded: title, traits)
+ * - Tag 9  = Content-Encoding ("br" for brotli)
+ * - Tag 11 = Delegate
+ * - Tag 17 = Properties/Gallery (CBOR-encoded)
  */
 
 import * as btc from '@scure/btc-signer';
@@ -21,19 +21,30 @@ import { schnorr } from '@noble/curves/secp256k1.js';
 // ============================================================
 // CONSTANTS
 // ============================================================
-const POSTAGE = 546n; // Minimum dust limit in sats
-const MAX_CHUNK_SIZE = 520; // Max bytes per script push
+const POSTAGE = 546n;
+const MAX_CHUNK_SIZE = 520;
 const MEMPOOL_API = 'https://mempool.space/api';
 
 // ============================================================
 // TYPES
 // ============================================================
 export interface GalleryItem {
-  id: string; // Full inscription ID (e.g., "abc123...i0")
+  id: string;
   meta: {
     name: string;
     attributes: Array<{ trait_type: string; value: string }>;
   };
+}
+
+export interface InscriptionOptions {
+  contentType: string;
+  body: Uint8Array;
+  galleryData?: Uint8Array | null;
+  parentIds?: string[];
+  metadata?: Uint8Array | null;      // CBOR-encoded metadata (title + traits)
+  contentEncoding?: string | null;   // "br" for brotli
+  pointer?: number | null;           // SAT offset for batch mode
+  reinscribeId?: string | null;      // Inscription ID to reinscribe on
 }
 
 export interface InscriptionSession {
@@ -53,6 +64,15 @@ export interface InscriptionSession {
   imageContentType: string;
   galleryItemCount: number;
   totalScriptSize: number;
+  batchCount: number;           // Number of inscriptions (1 for single)
+  contentEncoding?: string;     // "br" if brotli used
+}
+
+export interface BatchFileEntry {
+  fileName: string;
+  data: Uint8Array;
+  contentType: string;
+  sizeKB: number;
 }
 
 // ============================================================
@@ -114,48 +134,57 @@ class CBOREncoder {
 }
 
 // ============================================================
-// HELPER FUNCTIONS
+// HELPERS
 // ============================================================
 
-/** Hex string to Uint8Array */
 function hexToBytes(hex: string): Uint8Array {
   return hexCodec.decode(hex);
 }
 
-/** Uint8Array to hex string */
 function bytesToHex(bytes: Uint8Array): string {
   return hexCodec.encode(bytes);
 }
 
-/** Parse inscription ID into txid bytes + index */
 function parseInscriptionId(id: string): { txidBytes: Uint8Array; index: number } {
   const parts = id.split('i');
   const txidHex = parts[0];
   const index = parseInt(parts[1] || '0', 10);
-  // Store txid in display order (as shown in the inscription ID)
   const txidBytes = hexToBytes(txidHex);
   return { txidBytes, index };
 }
 
-/** Push data onto a Bitcoin script with proper opcodes */
+function encodeInscriptionIdBytes(id: string): Uint8Array {
+  const { txidBytes, index } = parseInscriptionId(id);
+  if (index > 0) {
+    const result = new Uint8Array(txidBytes.length + 4);
+    result.set(txidBytes);
+    result[txidBytes.length] = index & 0xff;
+    result[txidBytes.length + 1] = (index >> 8) & 0xff;
+    result[txidBytes.length + 2] = (index >> 16) & 0xff;
+    result[txidBytes.length + 3] = (index >> 24) & 0xff;
+    return result;
+  }
+  return txidBytes;
+}
+
 function scriptPushData(data: Uint8Array): number[] {
   const result: number[] = [];
   if (data.length === 0) {
-    result.push(0x00); // OP_0
+    result.push(0x00);
   } else if (data.length <= 75) {
-    result.push(data.length); // OP_PUSHBYTES_N
+    result.push(data.length);
     result.push(...data);
   } else if (data.length <= 255) {
-    result.push(0x4c); // OP_PUSHDATA1
+    result.push(0x4c);
     result.push(data.length);
     result.push(...data);
   } else if (data.length <= 65535) {
-    result.push(0x4d); // OP_PUSHDATA2
+    result.push(0x4d);
     result.push(data.length & 0xff);
     result.push((data.length >> 8) & 0xff);
     result.push(...data);
   } else {
-    result.push(0x4e); // OP_PUSHDATA4
+    result.push(0x4e);
     result.push(data.length & 0xff);
     result.push((data.length >> 8) & 0xff);
     result.push((data.length >> 16) & 0xff);
@@ -165,68 +194,101 @@ function scriptPushData(data: Uint8Array): number[] {
   return result;
 }
 
+/** Push chunked data with a tag prefix per chunk */
+function scriptPushTaggedChunks(script: number[], tagByte: number, data: Uint8Array) {
+  for (let i = 0; i < data.length; i += MAX_CHUNK_SIZE) {
+    const end = Math.min(i + MAX_CHUNK_SIZE, data.length);
+    const chunk = data.slice(i, end);
+    script.push(...scriptPushData(new Uint8Array([tagByte])));
+    script.push(...scriptPushData(chunk));
+  }
+}
+
+/** Push body data as chunks (no tag prefix) */
+function scriptPushBodyChunks(script: number[], data: Uint8Array) {
+  for (let i = 0; i < data.length; i += MAX_CHUNK_SIZE) {
+    const end = Math.min(i + MAX_CHUNK_SIZE, data.length);
+    script.push(...scriptPushData(data.slice(i, end)));
+  }
+}
+
+/** Encode a pointer value as little-endian bytes (trimmed) */
+function encodePointerBytes(pointer: number): Uint8Array {
+  if (pointer === 0) return new Uint8Array([0]);
+  const bytes: number[] = [];
+  let val = pointer;
+  while (val > 0) {
+    bytes.push(val & 0xff);
+    val = val >>> 8;
+  }
+  return new Uint8Array(bytes);
+}
+
 // ============================================================
-// CORE FUNCTIONS
+// BROTLI COMPRESSION
+// ============================================================
+
+let _brotliModule: any = null;
+
+/**
+ * Initialize and cache the brotli-wasm module
+ */
+async function getBrotli(): Promise<any> {
+  if (_brotliModule) return _brotliModule;
+  try {
+    const brotliPromise = (await import('brotli-wasm')).default;
+    _brotliModule = await brotliPromise;
+    return _brotliModule;
+  } catch (e) {
+    console.error('Failed to load brotli-wasm:', e);
+    throw new Error('Brotli compression not available. Install brotli-wasm.');
+  }
+}
+
+/**
+ * Compress data with Brotli (quality 11 = max compression)
+ */
+export async function compressWithBrotli(data: Uint8Array): Promise<Uint8Array> {
+  const brotli = await getBrotli();
+  return brotli.compress(data, { quality: 11 });
+}
+
+/**
+ * Check if Brotli is available
+ */
+export async function isBrotliAvailable(): Promise<boolean> {
+  try {
+    await getBrotli();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================
+// CBOR ENCODING
 // ============================================================
 
 /**
- * Encode gallery items as CBOR
- * 
- * Format (based on analysis of existing gallery inscriptions):
- * {
- *   0: [
- *     {
- *       0: <inscription_id_bytes>,     // 32 bytes (txid) or 36 bytes (txid + index)
- *       1: {
- *         0: "Item Name",
- *         1: { "TraitType": "TraitValue", ... }
- *       }
- *     },
- *     ...
- *   ]
- * }
+ * Encode gallery items as CBOR (Tag 17 / Properties)
  */
 export function encodeGalleryAsCBOR(items: GalleryItem[]): Uint8Array {
   const encoder = new CBOREncoder();
-
-  // Outer map with 1 entry
   encoder.encodeMapHeader(1);
-  encoder.encodeUint(0); // key 0
-
-  // Array of gallery items
+  encoder.encodeUint(0);
   encoder.encodeArrayHeader(items.length);
 
   for (const item of items) {
-    const { txidBytes, index } = parseInscriptionId(item.id);
-
-    // Item map: {0: id_bytes, 1: metadata}
+    const idBytes = encodeInscriptionIdBytes(item.id);
     encoder.encodeMapHeader(2);
-
-    // Key 0: inscription ID bytes
     encoder.encodeUint(0);
-    if (index > 0) {
-      // Append 4-byte LE index
-      const idBytes = new Uint8Array(txidBytes.length + 4);
-      idBytes.set(txidBytes);
-      idBytes[txidBytes.length] = index & 0xff;
-      idBytes[txidBytes.length + 1] = (index >> 8) & 0xff;
-      idBytes[txidBytes.length + 2] = (index >> 16) & 0xff;
-      idBytes[txidBytes.length + 3] = (index >> 24) & 0xff;
-      encoder.encodeBytes(idBytes);
-    } else {
-      encoder.encodeBytes(txidBytes);
-    }
-
-    // Key 1: metadata
+    encoder.encodeBytes(idBytes);
     encoder.encodeUint(1);
+
     const attrs = item.meta.attributes;
     encoder.encodeMapHeader(2);
-
-    // Metadata key 0: name
     encoder.encodeUint(0);
     encoder.encodeText(item.meta.name);
-
-    // Metadata key 1: attributes as flat map {trait_type: value}
     encoder.encodeUint(1);
     encoder.encodeMapHeader(attrs.length);
     for (const attr of attrs) {
@@ -239,134 +301,202 @@ export function encodeGalleryAsCBOR(items: GalleryItem[]): Uint8Array {
 }
 
 /**
- * Build the inscription script (Tapscript leaf)
+ * Encode inscription metadata as CBOR (Tag 5)
  * 
- * Format:
- * <pubkey> OP_CHECKSIG
- * OP_FALSE OP_IF
- *   OP_PUSH "ord"
- *   OP_PUSH <tag1_byte> OP_PUSH <content-type>
- *   [OP_PUSH <tag3_byte> OP_PUSH <parent_id>]...
- *   [OP_PUSH <tag17_byte> OP_PUSH <gallery_chunk>]...
- *   OP_0
- *   OP_PUSH <body_chunk_1>
- *   OP_PUSH <body_chunk_2>
- *   ...
- * OP_ENDIF
+ * Format: {
+ *   "name": "Title",
+ *   "attributes": [
+ *     {"trait_type": "Key", "value": "Value"},
+ *     ...
+ *   ]
+ * }
  */
-export function buildInscriptionScript(
-  pubkey: Uint8Array,
-  contentType: string,
-  body: Uint8Array,
-  galleryData: Uint8Array | null = null,
-  parentIds: string[] = [],
-): Uint8Array {
-  const script: number[] = [];
+export function encodeMetadataAsCBOR(
+  title?: string,
+  traits?: Array<{ key: string; value: string }>,
+): Uint8Array | null {
+  if (!title && (!traits || traits.length === 0)) return null;
 
-  // <pubkey> OP_CHECKSIG
-  script.push(...scriptPushData(pubkey));
-  script.push(0xac); // OP_CHECKSIG
+  const encoder = new CBOREncoder();
+  let mapSize = 0;
+  if (title) mapSize++;
+  if (traits && traits.length > 0) mapSize++;
+
+  encoder.encodeMapHeader(mapSize);
+
+  if (title) {
+    encoder.encodeText('name');
+    encoder.encodeText(title);
+  }
+
+  if (traits && traits.length > 0) {
+    encoder.encodeText('attributes');
+    encoder.encodeArrayHeader(traits.length);
+    for (const trait of traits) {
+      encoder.encodeMapHeader(2);
+      encoder.encodeText('trait_type');
+      encoder.encodeText(trait.key);
+      encoder.encodeText('value');
+      encoder.encodeText(trait.value);
+    }
+  }
+
+  return encoder.getResult();
+}
+
+// ============================================================
+// INSCRIPTION SCRIPT BUILDING
+// ============================================================
+
+/**
+ * Build a single inscription envelope (OP_FALSE OP_IF ... OP_ENDIF)
+ * Does NOT include the leading <pubkey> OP_CHECKSIG (added separately for batch)
+ */
+function buildInscriptionEnvelope(opts: InscriptionOptions): number[] {
+  const script: number[] = [];
 
   // OP_FALSE OP_IF
   script.push(0x00); // OP_FALSE
   script.push(0x63); // OP_IF
 
-  // Push "ord"
+  // "ord"
   script.push(...scriptPushData(new TextEncoder().encode('ord')));
 
   // Tag 1: content-type
   script.push(...scriptPushData(new Uint8Array([0x01])));
-  script.push(...scriptPushData(new TextEncoder().encode(contentType)));
+  script.push(...scriptPushData(new TextEncoder().encode(opts.contentType)));
 
-  // Tag 3: parent inscription IDs (optional)
-  for (const parentId of parentIds) {
-    const { txidBytes, index } = parseInscriptionId(parentId);
-    script.push(...scriptPushData(new Uint8Array([0x03])));
-    if (index > 0) {
-      const idBytes = new Uint8Array(txidBytes.length + 4);
-      idBytes.set(txidBytes);
-      idBytes[txidBytes.length] = index & 0xff;
-      idBytes[txidBytes.length + 1] = (index >> 8) & 0xff;
-      idBytes[txidBytes.length + 2] = (index >> 16) & 0xff;
-      idBytes[txidBytes.length + 3] = (index >> 24) & 0xff;
-      script.push(...scriptPushData(idBytes));
-    } else {
-      script.push(...scriptPushData(txidBytes));
+  // Tag 2: pointer (for batch mode - SAT offset)
+  if (opts.pointer != null && opts.pointer > 0) {
+    script.push(...scriptPushData(new Uint8Array([0x02])));
+    script.push(...scriptPushData(encodePointerBytes(opts.pointer)));
+  }
+
+  // Tag 3: parent inscription IDs
+  if (opts.parentIds) {
+    for (const parentId of opts.parentIds) {
+      script.push(...scriptPushData(new Uint8Array([0x03])));
+      script.push(...scriptPushData(encodeInscriptionIdBytes(parentId)));
     }
   }
 
-  // Tag 17: gallery/properties data (split into MAX_CHUNK_SIZE chunks)
-  if (galleryData && galleryData.length > 0) {
-    for (let i = 0; i < galleryData.length; i += MAX_CHUNK_SIZE) {
-      const end = Math.min(i + MAX_CHUNK_SIZE, galleryData.length);
-      const chunk = galleryData.slice(i, end);
-      script.push(...scriptPushData(new Uint8Array([0x11]))); // tag 17
-      script.push(...scriptPushData(chunk));
-    }
+  // Tag 5: metadata (title + traits as CBOR)
+  if (opts.metadata && opts.metadata.length > 0) {
+    scriptPushTaggedChunks(script, 0x05, opts.metadata);
+  }
+
+  // Tag 9: content-encoding ("br" for brotli)
+  if (opts.contentEncoding) {
+    script.push(...scriptPushData(new Uint8Array([0x09])));
+    script.push(...scriptPushData(new TextEncoder().encode(opts.contentEncoding)));
+  }
+
+  // Tag 17: gallery/properties (CBOR, chunked)
+  if (opts.galleryData && opts.galleryData.length > 0) {
+    scriptPushTaggedChunks(script, 0x11, opts.galleryData);
   }
 
   // OP_0 (body separator)
   script.push(0x00);
 
   // Body data chunks
-  for (let i = 0; i < body.length; i += MAX_CHUNK_SIZE) {
-    const end = Math.min(i + MAX_CHUNK_SIZE, body.length);
-    const chunk = body.slice(i, end);
-    script.push(...scriptPushData(chunk));
-  }
+  scriptPushBodyChunks(script, opts.body);
 
   // OP_ENDIF
   script.push(0x68);
+
+  return script;
+}
+
+/**
+ * Build inscription script for a SINGLE inscription
+ */
+export function buildInscriptionScript(
+  pubkey: Uint8Array,
+  opts: InscriptionOptions,
+): Uint8Array {
+  const script: number[] = [];
+
+  // <pubkey> OP_CHECKSIG
+  script.push(...scriptPushData(pubkey));
+  script.push(0xac);
+
+  // Single envelope
+  script.push(...buildInscriptionEnvelope(opts));
 
   return new Uint8Array(script);
 }
 
 /**
- * Generate a new inscription keypair and derive the commit address
+ * Build inscription script for BATCH inscriptions (multiple envelopes)
+ * Each inscription gets its own OP_FALSE OP_IF...OP_ENDIF block
+ * Use pointer tag to assign each to a different output
+ */
+export function buildBatchInscriptionScript(
+  pubkey: Uint8Array,
+  inscriptions: InscriptionOptions[],
+): Uint8Array {
+  const script: number[] = [];
+
+  // <pubkey> OP_CHECKSIG (only once at the start)
+  script.push(...scriptPushData(pubkey));
+  script.push(0xac);
+
+  // One envelope per inscription
+  for (let i = 0; i < inscriptions.length; i++) {
+    const opts = { ...inscriptions[i] };
+    // Set pointer for inscriptions after the first
+    if (i > 0) {
+      opts.pointer = i * Number(POSTAGE); // SAT offset
+    }
+    script.push(...buildInscriptionEnvelope(opts));
+  }
+
+  return new Uint8Array(script);
+}
+
+// ============================================================
+// COMMIT & REVEAL
+// ============================================================
+
+/**
+ * Create inscription commit (single or batch)
  */
 export function createInscriptionCommit(
-  contentType: string,
-  imageData: Uint8Array,
-  galleryData: Uint8Array | null,
+  inscriptions: InscriptionOptions[],
   feeRate: number,
   destinationAddress: string,
-  parentIds: string[] = [],
 ): InscriptionSession {
-  // Generate random keypair
   const privateKey = schnorr.utils.randomPrivateKey();
   const publicKey = schnorr.getPublicKey(privateKey);
 
-  // Build inscription script
-  const inscriptionScript = buildInscriptionScript(
-    publicKey,
-    contentType,
-    imageData,
-    galleryData,
-    parentIds,
-  );
+  const isBatch = inscriptions.length > 1;
+  const inscriptionScript = isBatch
+    ? buildBatchInscriptionScript(publicKey, inscriptions)
+    : buildInscriptionScript(publicKey, inscriptions[0]);
 
-  // Create P2TR commit address
   const commitPayment = btc.p2tr(
     publicKey,
     { script: inscriptionScript, leafVersion: 0xc0 },
-    undefined, // mainnet
-    true, // allowUnknownOutputs
+    undefined,
+    true,
   );
 
   if (!commitPayment.address) {
     throw new Error('Failed to generate commit address');
   }
 
-  // Calculate required amount
-  // Reveal tx: non-witness ~94 bytes, witness = script + signature + control block
-  const witnessSize = inscriptionScript.length + 64 + 33 + 10; // script + sig + control + overhead
-  const nonWitnessSize = 94;
+  // Fee calculation
+  const witnessSize = inscriptionScript.length + 64 + 33 + 10;
+  const numOutputs = inscriptions.length;
+  const nonWitnessSize = 10 + 41 + (numOutputs * 43); // version+locktime + 1 input + N outputs
   const weight = nonWitnessSize * 4 + witnessSize;
   const vsize = Math.ceil(weight / 4);
   const revealFee = BigInt(Math.ceil(vsize * feeRate));
-  const requiredAmount = Number(revealFee + POSTAGE);
+  const totalPostage = POSTAGE * BigInt(numOutputs);
+  const requiredAmount = Number(revealFee + totalPostage);
 
-  const session: InscriptionSession = {
+  return {
     privateKeyHex: bytesToHex(privateKey),
     publicKeyHex: bytesToHex(publicKey),
     commitAddress: commitPayment.address,
@@ -376,12 +506,64 @@ export function createInscriptionCommit(
     feeRate,
     status: 'created',
     createdAt: Date.now(),
-    imageContentType: contentType,
+    imageContentType: inscriptions[0].contentType,
     galleryItemCount: 0,
     totalScriptSize: inscriptionScript.length,
+    batchCount: inscriptions.length,
+    contentEncoding: inscriptions[0].contentEncoding || undefined,
   };
+}
 
-  return session;
+/**
+ * Build and sign the reveal transaction (single or batch)
+ */
+export function buildRevealTransaction(
+  session: InscriptionSession,
+  commitTxid: string,
+  commitVout: number,
+  commitAmount: number,
+  inscriptions: InscriptionOptions[],
+): string {
+  const privateKey = hexToBytes(session.privateKeyHex);
+  const publicKey = hexToBytes(session.publicKeyHex);
+
+  const isBatch = inscriptions.length > 1;
+  const inscriptionScript = isBatch
+    ? buildBatchInscriptionScript(publicKey, inscriptions)
+    : buildInscriptionScript(publicKey, inscriptions[0]);
+
+  const commitPayment = btc.p2tr(
+    publicKey,
+    { script: inscriptionScript, leafVersion: 0xc0 },
+    undefined,
+    true,
+  );
+
+  const tx = new btc.Transaction({ allowUnknownOutputs: true });
+
+  tx.addInput({
+    txid: commitTxid,
+    index: commitVout,
+    witnessUtxo: {
+      script: commitPayment.script,
+      amount: BigInt(commitAmount),
+    },
+    tapInternalKey: publicKey,
+    tapLeafScript: [{
+      version: 0xc0,
+      script: inscriptionScript,
+    }],
+  });
+
+  // One output per inscription
+  for (let i = 0; i < inscriptions.length; i++) {
+    tx.addOutputAddress(session.destinationAddress, POSTAGE);
+  }
+
+  tx.sign(privateKey);
+  tx.finalize();
+
+  return bytesToHex(tx.extract());
 }
 
 /**
@@ -399,16 +581,9 @@ export async function checkCommitFunding(commitAddress: string): Promise<{
 
     const utxos = await response.json();
     if (utxos.length > 0) {
-      // Use the first (and hopefully only) UTXO
       const utxo = utxos[0];
-      return {
-        funded: true,
-        txid: utxo.txid,
-        vout: utxo.vout,
-        amount: utxo.value,
-      };
+      return { funded: true, txid: utxo.txid, vout: utxo.vout, amount: utxo.value };
     }
-
     return { funded: false };
   } catch (error) {
     console.error('Error checking commit funding:', error);
@@ -417,66 +592,7 @@ export async function checkCommitFunding(commitAddress: string): Promise<{
 }
 
 /**
- * Build and sign the reveal transaction
- */
-export function buildRevealTransaction(
-  session: InscriptionSession,
-  commitTxid: string,
-  commitVout: number,
-  commitAmount: number,
-  imageData: Uint8Array,
-  galleryData: Uint8Array | null,
-  parentIds: string[] = [],
-): string {
-  const privateKey = hexToBytes(session.privateKeyHex);
-  const publicKey = hexToBytes(session.publicKeyHex);
-
-  // Rebuild the inscription script
-  const inscriptionScript = buildInscriptionScript(
-    publicKey,
-    session.imageContentType,
-    imageData,
-    galleryData,
-    parentIds,
-  );
-
-  // Recreate the commit payment to get the output script
-  const commitPayment = btc.p2tr(
-    publicKey,
-    { script: inscriptionScript, leafVersion: 0xc0 },
-    undefined,
-    true,
-  );
-
-  // Build the reveal transaction
-  const tx = new btc.Transaction({ allowUnknownOutputs: true });
-
-  tx.addInput({
-    txid: commitTxid,
-    index: commitVout,
-    witnessUtxo: {
-      script: commitPayment.script,
-      amount: BigInt(commitAmount),
-    },
-    tapInternalKey: publicKey,
-    tapLeafScript: [{
-      version: 0xc0,
-      script: inscriptionScript,
-    }],
-  });
-
-  // Output to destination address with postage
-  tx.addOutputAddress(session.destinationAddress, POSTAGE);
-
-  // Sign with the inscription private key
-  tx.sign(privateKey);
-  tx.finalize();
-
-  return bytesToHex(tx.extract());
-}
-
-/**
- * Broadcast a raw transaction via mempool.space API
+ * Broadcast a raw transaction
  */
 export async function broadcastTransaction(rawTxHex: string): Promise<string> {
   const response = await fetch(`${MEMPOOL_API}/tx`, {
@@ -484,18 +600,15 @@ export async function broadcastTransaction(rawTxHex: string): Promise<string> {
     body: rawTxHex,
     headers: { 'Content-Type': 'text/plain' },
   });
-
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Broadcast failed: ${errorText}`);
   }
-
-  const txid = await response.text();
-  return txid.trim();
+  return (await response.text()).trim();
 }
 
 /**
- * Get current recommended fee rates from mempool.space
+ * Get recommended fee rates
  */
 export async function getRecommendedFees(): Promise<{
   fastest: number;
@@ -516,91 +629,16 @@ export async function getRecommendedFees(): Promise<{
 }
 
 // ============================================================
-// SESSION PERSISTENCE (localStorage)
+// ESTIMATION
 // ============================================================
-const SESSION_KEY = 'gallery_inscription_session';
-
-export function saveSession(session: InscriptionSession) {
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } catch (e) {
-    console.error('Failed to save session:', e);
-  }
-}
-
-export function loadSession(): InscriptionSession | null {
-  try {
-    const data = localStorage.getItem(SESSION_KEY);
-    if (!data) return null;
-    return JSON.parse(data);
-  } catch (e) {
-    console.error('Failed to load session:', e);
-    return null;
-  }
-}
-
-export function clearSession() {
-  try {
-    localStorage.removeItem(SESSION_KEY);
-  } catch (e) {
-    console.error('Failed to clear session:', e);
-  }
-}
-
-// ============================================================
-// IMAGE DATA PERSISTENCE (localStorage for recovery)
-// ============================================================
-const IMAGE_KEY = 'gallery_inscription_image';
-const GALLERY_KEY = 'gallery_inscription_gallery';
-
-export function saveImageData(imageDataHex: string) {
-  try {
-    localStorage.setItem(IMAGE_KEY, imageDataHex);
-  } catch (e) {
-    console.error('Failed to save image data (too large for localStorage?):', e);
-  }
-}
-
-export function loadImageData(): string | null {
-  try {
-    return localStorage.getItem(IMAGE_KEY);
-  } catch (e) {
-    return null;
-  }
-}
-
-export function saveGalleryDataHex(galleryDataHex: string) {
-  try {
-    localStorage.setItem(GALLERY_KEY, galleryDataHex);
-  } catch (e) {
-    console.error('Failed to save gallery data:', e);
-  }
-}
-
-export function loadGalleryDataHex(): string | null {
-  try {
-    return localStorage.getItem(GALLERY_KEY);
-  } catch (e) {
-    return null;
-  }
-}
-
-export function clearAllData() {
-  clearSession();
-  try {
-    localStorage.removeItem(IMAGE_KEY);
-    localStorage.removeItem(GALLERY_KEY);
-  } catch (e) {
-    // ignore
-  }
-}
 
 /**
- * Estimate the total size and cost of an inscription
+ * Estimate inscription size and cost
  */
 export function estimateInscription(
-  imageSize: number,
+  bodySizes: number[],
   galleryDataSize: number,
+  metadataSize: number,
   feeRate: number,
 ): {
   totalScriptSize: number;
@@ -608,63 +646,113 @@ export function estimateInscription(
   fee: number;
   commitAmount: number;
 } {
-  // Rough script overhead per chunk: tag (2 bytes) + push opcode (3 bytes) = 5 bytes
-  const galleryChunks = Math.ceil(galleryDataSize / MAX_CHUNK_SIZE);
-  const bodyChunks = Math.ceil(imageSize / MAX_CHUNK_SIZE);
-  const overhead = 32 + 1 + 1 + 1 + 4 + 3 + 30 + 1 + 1; // pubkey + opcodes + "ord" + tag1 + content-type
-  const tagOverhead = galleryChunks * 5; // per-chunk tag + push overhead
-  const bodyOverhead = bodyChunks * 3; // per-chunk push overhead
+  const numInscriptions = bodySizes.length;
+  let totalBodySize = 0;
+  let totalChunkOverhead = 0;
 
-  const totalScriptSize = overhead + tagOverhead + galleryDataSize + bodyOverhead + imageSize;
+  for (const size of bodySizes) {
+    totalBodySize += size;
+    totalChunkOverhead += Math.ceil(size / MAX_CHUNK_SIZE) * 3;
+  }
 
-  // Weight: non-witness * 4 + witness * 1
-  const nonWitnessSize = 94;
-  const witnessSize = totalScriptSize + 64 + 33 + 10; // script + sig + control + varints
+  const envelopeOverhead = numInscriptions * 15; // OP_FALSE OP_IF "ord" tag1 ct OP_0 OP_ENDIF per envelope
+  const galleryChunkOverhead = galleryDataSize > 0 ? Math.ceil(galleryDataSize / MAX_CHUNK_SIZE) * 5 : 0;
+  const metadataChunkOverhead = metadataSize > 0 ? Math.ceil(metadataSize / MAX_CHUNK_SIZE) * 5 : 0;
+  const pubkeyOverhead = 34; // 32-byte pubkey + OP_CHECKSIG + push opcode
+
+  const totalScriptSize = pubkeyOverhead + envelopeOverhead +
+    galleryDataSize + galleryChunkOverhead +
+    metadataSize + metadataChunkOverhead +
+    totalBodySize + totalChunkOverhead;
+
+  const nonWitnessSize = 10 + 41 + (numInscriptions * 43);
+  const witnessSize = totalScriptSize + 64 + 33 + 10;
   const weight = nonWitnessSize * 4 + witnessSize;
   const virtualSize = Math.ceil(weight / 4);
   const fee = Math.ceil(virtualSize * feeRate);
-  const commitAmount = fee + Number(POSTAGE);
+  const commitAmount = fee + Number(POSTAGE) * numInscriptions;
 
   return { totalScriptSize, virtualSize, fee, commitAmount };
 }
 
-/**
- * Detect MIME type from file extension or magic bytes
- */
+// ============================================================
+// CONTENT TYPE DETECTION
+// ============================================================
+
 export function detectContentType(fileName: string, data: Uint8Array): string {
-  // Check magic bytes first
-  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) {
-    return 'image/png';
-  }
-  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
-    return 'image/jpeg';
-  }
-  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) {
-    return 'image/gif';
-  }
-  if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46) {
-    return 'image/webp';
-  }
-  // Check AVIF
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return 'image/png';
+  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'image/jpeg';
+  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) return 'image/gif';
+  if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46) return 'image/webp';
   if (data.length > 8) {
     const ftypCheck = new TextDecoder().decode(data.slice(4, 8));
     if (ftypCheck === 'ftyp') return 'image/avif';
   }
 
-  // Fallback to file extension
   const ext = fileName.split('.').pop()?.toLowerCase();
   const mimeMap: Record<string, string> = {
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-    'avif': 'image/avif',
-    'svg': 'image/svg+xml',
-    'html': 'text/html;charset=utf-8',
-    'json': 'application/json',
-    'txt': 'text/plain;charset=utf-8',
+    'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+    'gif': 'image/gif', 'webp': 'image/webp', 'avif': 'image/avif',
+    'svg': 'image/svg+xml', 'html': 'text/html;charset=utf-8',
+    'json': 'application/json', 'txt': 'text/plain;charset=utf-8',
+    'js': 'application/javascript', 'css': 'text/css',
   };
-
   return mimeMap[ext || ''] || 'application/octet-stream';
+}
+
+/** Check if content type is text-based (benefits from brotli) */
+export function isTextBasedContent(contentType: string): boolean {
+  return contentType.startsWith('text/') ||
+    contentType.includes('json') ||
+    contentType.includes('javascript') ||
+    contentType.includes('xml') ||
+    contentType.includes('svg');
+}
+
+// ============================================================
+// SESSION PERSISTENCE
+// ============================================================
+const SESSION_KEY = 'gallery_inscription_session';
+const IMAGE_KEY = 'gallery_inscription_image';
+const GALLERY_KEY = 'gallery_inscription_gallery';
+const BATCH_KEY = 'gallery_inscription_batch';
+
+export function saveSession(session: InscriptionSession) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (e) { console.error('Save session error:', e); }
+}
+export function loadSession(): InscriptionSession | null {
+  try { const d = localStorage.getItem(SESSION_KEY); return d ? JSON.parse(d) : null; } catch { return null; }
+}
+export function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch { /* */ }
+}
+
+export function saveImageData(hex: string) {
+  try { localStorage.setItem(IMAGE_KEY, hex); } catch (e) { console.error('Save image error:', e); }
+}
+export function loadImageData(): string | null {
+  try { return localStorage.getItem(IMAGE_KEY); } catch { return null; }
+}
+
+export function saveGalleryDataHex(hex: string) {
+  try { localStorage.setItem(GALLERY_KEY, hex); } catch (e) { console.error('Save gallery error:', e); }
+}
+export function loadGalleryDataHex(): string | null {
+  try { return localStorage.getItem(GALLERY_KEY); } catch { return null; }
+}
+
+export function saveBatchDataHex(hex: string) {
+  try { localStorage.setItem(BATCH_KEY, hex); } catch (e) { console.error('Save batch error:', e); }
+}
+export function loadBatchDataHex(): string | null {
+  try { return localStorage.getItem(BATCH_KEY); } catch { return null; }
+}
+
+export function clearAllData() {
+  clearSession();
+  try {
+    localStorage.removeItem(IMAGE_KEY);
+    localStorage.removeItem(GALLERY_KEY);
+    localStorage.removeItem(BATCH_KEY);
+  } catch { /* */ }
 }
