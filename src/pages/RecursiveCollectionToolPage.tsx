@@ -141,6 +141,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [hashlist, setHashlist] = useState<HashlistEntry[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [selectedLayerPreview, setSelectedLayerPreview] = useState<{ layerId: string; traitIdx: number } | null>(null);
+  const [livePreviewTraits, setLivePreviewTraits] = useState<Record<string, number>>({}); // layerId -> traitIdx
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
@@ -629,6 +630,31 @@ const RecursiveCollectionToolPage: React.FC = () => {
       },
     })));
   }, [layers, totalCount, collectionName, viewBox, weightedRandom]);
+
+  // ============================================================
+  // LIVE PREVIEW (random trait per layer)
+  // ============================================================
+  const randomizeLivePreview = useCallback(() => {
+    const newPreview: Record<string, number> = {};
+    for (const layer of layers) {
+      if (layer.traits.length > 0) {
+        newPreview[layer.id] = Math.floor(Math.random() * layer.traits.length);
+      }
+    }
+    setLivePreviewTraits(newPreview);
+  }, [layers]);
+
+  // Computed: get the current preview traits (use random selection or first trait)
+  const livePreviewLayers = useMemo(() => {
+    return layers
+      .filter(l => l.traits.length > 0)
+      .map(l => {
+        const idx = livePreviewTraits[l.id] ?? 0;
+        const trait = l.traits[Math.min(idx, l.traits.length - 1)];
+        return { layerName: l.name, traitType: l.traitType, trait, layerId: l.id };
+      })
+      .filter(l => l.trait?.inscriptionId);
+  }, [layers, livePreviewTraits]);
 
   // ============================================================
   // RARITY STATS
@@ -1187,6 +1213,69 @@ const RecursiveCollectionToolPage: React.FC = () => {
             </div>
           );
         })()}
+
+        {/* ════════════════ LIVE LAYER PREVIEW ════════════════ */}
+        {livePreviewLayers.length > 0 && (
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold"><span className="text-purple-400">👁️</span> Layer-Vorschau</h2>
+              <button onClick={randomizeLivePreview}
+                className="px-4 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-500 text-sm font-bold">
+                🎲 Zufällig mischen
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
+              {/* Stacked Preview */}
+              <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
+                <div className="w-full aspect-square relative">
+                  {livePreviewLayers.map((lp, i) => (
+                    <img key={lp.layerId} src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
+                      alt={lp.trait.name} className="absolute inset-0 w-full h-full object-contain"
+                      style={{ zIndex: i }} loading="lazy" />
+                  ))}
+                </div>
+              </div>
+              {/* Layer Breakdown */}
+              <div className="space-y-2">
+                {livePreviewLayers.map((lp, i) => {
+                  const layer = layers.find(l => l.id === lp.layerId);
+                  const currentIdx = livePreviewTraits[lp.layerId] ?? 0;
+                  return (
+                    <div key={lp.layerId} className="flex items-center gap-2 bg-black/50 rounded-lg p-2 border border-gray-800">
+                      <span className="text-purple-400 font-bold text-xs w-6 text-center">#{i + 1}</span>
+                      <div className="flex-shrink-0 w-10 h-10 bg-gray-900 border border-gray-700 rounded overflow-hidden">
+                        <img src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
+                          alt="" className="w-full h-full object-contain" loading="lazy" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500">{lp.layerName || lp.traitType}</p>
+                        <p className="text-sm text-white truncate">{lp.trait.name || '(kein Name)'}</p>
+                      </div>
+                      {/* Quick-switch trait per layer */}
+                      {layer && layer.traits.length > 1 && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setLivePreviewTraits(prev => ({
+                              ...prev, [lp.layerId]: (currentIdx - 1 + layer.traits.length) % layer.traits.length
+                            }))}
+                            className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">◀</button>
+                          <span className="text-[10px] text-gray-500 w-10 text-center">
+                            {currentIdx + 1}/{layer.traits.length}
+                          </span>
+                          <button
+                            onClick={() => setLivePreviewTraits(prev => ({
+                              ...prev, [lp.layerId]: (currentIdx + 1) % layer.traits.length
+                            }))}
+                            className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">▶</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ════════════════ GENERATE BUTTON ════════════════ */}
         <div className="text-center mb-6">
