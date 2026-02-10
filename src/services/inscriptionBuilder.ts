@@ -147,23 +147,45 @@ function bytesToHex(bytes: Uint8Array): string {
   return hexCodec.encode(bytes);
 }
 
+/**
+ * Parse inscription ID into txid bytes (little-endian / internal order) and index.
+ * 
+ * IMPORTANT: Bitcoin displays txids in REVERSED byte order (big-endian).
+ * The Ordinals protocol stores them in natural/internal order (little-endian).
+ * So we must REVERSE the bytes after hex decoding.
+ */
 function parseInscriptionId(id: string): { txidBytes: Uint8Array; index: number } {
   const parts = id.split('i');
   const txidHex = parts[0];
   const index = parseInt(parts[1] || '0', 10);
-  const txidBytes = hexToBytes(txidHex);
+  // Convert display format to internal byte order (REVERSE!)
+  const txidBytes = new Uint8Array(hexToBytes(txidHex).reverse());
   return { txidBytes, index };
 }
 
+/**
+ * Encode inscription ID as bytes for use in inscription envelope.
+ * Format matches ord's InscriptionId::value():
+ * - txid in little-endian (internal) byte order
+ * - index as little-endian bytes with trailing zeros trimmed
+ * - index omitted entirely if 0
+ */
 function encodeInscriptionIdBytes(id: string): Uint8Array {
   const { txidBytes, index } = parseInscriptionId(id);
   if (index > 0) {
-    const result = new Uint8Array(txidBytes.length + 4);
+    // Encode index as LE u32, then trim trailing zero bytes
+    const indexBytes = [
+      index & 0xff,
+      (index >> 8) & 0xff,
+      (index >> 16) & 0xff,
+      (index >> 24) & 0xff,
+    ];
+    while (indexBytes.length > 0 && indexBytes[indexBytes.length - 1] === 0) {
+      indexBytes.pop();
+    }
+    const result = new Uint8Array(txidBytes.length + indexBytes.length);
     result.set(txidBytes);
-    result[txidBytes.length] = index & 0xff;
-    result[txidBytes.length + 1] = (index >> 8) & 0xff;
-    result[txidBytes.length + 2] = (index >> 16) & 0xff;
-    result[txidBytes.length + 3] = (index >> 24) & 0xff;
+    result.set(indexBytes, txidBytes.length);
     return result;
   }
   return txidBytes;
