@@ -467,7 +467,7 @@ export function createInscriptionCommit(
   feeRate: number,
   destinationAddress: string,
 ): InscriptionSession {
-  const privateKey = schnorr.utils.randomPrivateKey();
+  const privateKey = schnorr.utils.randomSecretKey();
   const publicKey = schnorr.getPublicKey(privateKey);
 
   const isBatch = inscriptions.length > 1;
