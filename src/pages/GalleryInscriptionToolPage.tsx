@@ -99,6 +99,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
 
   // ---- SETTINGS ----
   const [feeRate, setFeeRate] = useState<number>(2);
+  const [galleryPreviewExpanded, setGalleryPreviewExpanded] = useState(false);
   const [destinationAddress, setDestinationAddress] = useState<string>('');
   const [recommendedFees, setRecommendedFees] = useState<any>(null);
 
@@ -336,7 +337,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     if (!enableBatch && !imageData) { setError('Bild muss geladen sein!'); return; }
     if (enableBatch && batchFiles.length === 0) { setError('Batch-Dateien müssen geladen sein!'); return; }
     if (!destinationAddress || !destinationAddress.startsWith('bc1')) { setError('Gültige Bitcoin-Adresse eingeben!'); return; }
-    if (feeRate < 1) { setError('Fee Rate muss mindestens 1 sein!'); return; }
+    if (feeRate < 0.1) { setError('Fee Rate muss mindestens 0.1 sein!'); return; }
 
     try {
       setError('');
@@ -622,9 +623,74 @@ export const GalleryInscriptionToolPage: React.FC = () => {
               <h2 className="text-lg font-bold text-white mb-3"><span className="text-emerald-400">2.</span> Gallery JSON <span className="text-gray-500 text-sm font-normal">(optional)</span></h2>
               <input type="file" accept=".json" onChange={handleGalleryUpload} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer" />
               {galleryItems.length > 0 && (
-                <div className="mt-3 text-sm text-gray-400">
-                  <p><strong>{galleryItems.length}</strong> Items · <strong>{galleryCborData ? `${(galleryCborData.length / 1024).toFixed(1)} KB` : '...'}</strong> CBOR</p>
-                  <p className="text-xs text-gray-500 mt-1">Erstes: {galleryItems[0]?.meta.name}</p>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-gray-400">
+                      <strong className="text-white">{galleryItems.length}</strong> Items · <strong className="text-white">{galleryCborData ? `${(galleryCborData.length / 1024).toFixed(1)} KB` : '...'}</strong> CBOR
+                    </p>
+                    <button
+                      onClick={() => setGalleryPreviewExpanded(!galleryPreviewExpanded)}
+                      className="text-xs text-emerald-400 hover:text-emerald-300"
+                    >
+                      {galleryPreviewExpanded ? '▲ Zuklappen' : '▼ Vorschau'}
+                    </button>
+                  </div>
+
+                  {galleryPreviewExpanded && (
+                    <div className="bg-black rounded-lg border border-gray-700 max-h-80 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-gray-800">
+                          <tr>
+                            <th className="text-left text-gray-400 px-3 py-2 font-semibold">#</th>
+                            <th className="text-left text-gray-400 px-3 py-2 font-semibold">Name</th>
+                            <th className="text-left text-gray-400 px-3 py-2 font-semibold">Inscription ID</th>
+                            <th className="text-left text-gray-400 px-3 py-2 font-semibold">Traits</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {galleryItems.map((item, i) => (
+                            <tr key={i} className="border-t border-gray-800 hover:bg-gray-900/50">
+                              <td className="px-3 py-1.5 text-gray-500">{i + 1}</td>
+                              <td className="px-3 py-1.5 text-white font-medium truncate max-w-[140px]">{item.meta.name}</td>
+                              <td className="px-3 py-1.5 text-gray-400 font-mono">
+                                <a
+                                  href={`https://ordinals.com/inscription/${item.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-blue-400"
+                                  title={item.id}
+                                >
+                                  {item.id.substring(0, 10)}...{item.id.slice(-4)}
+                                </a>
+                              </td>
+                              <td className="px-3 py-1.5 text-gray-500">
+                                {item.meta.attributes.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.meta.attributes.slice(0, 3).map((attr, j) => (
+                                      <span key={j} className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400" title={`${attr.trait_type}: ${attr.value}`}>
+                                        {attr.trait_type}: {attr.value.length > 12 ? attr.value.substring(0, 12) + '…' : attr.value}
+                                      </span>
+                                    ))}
+                                    {item.meta.attributes.length > 3 && (
+                                      <span className="px-1.5 py-0.5 text-gray-600">+{item.meta.attributes.length - 3}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-600">–</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {!galleryPreviewExpanded && (
+                    <p className="text-xs text-gray-500">
+                      Erstes Item: {galleryItems[0]?.meta.name} · Letztes: {galleryItems[galleryItems.length - 1]?.meta.name}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -706,7 +772,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-300 mb-1">Fee Rate (sat/vB)</label>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <input type="number" value={feeRate} onChange={e => setFeeRate(Math.max(1, parseInt(e.target.value) || 1))} min={1} className="w-24 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
+                  <input type="number" value={feeRate} onChange={e => setFeeRate(Math.max(0.1, parseFloat(e.target.value) || 0.1))} min={0.1} step={0.1} className="w-24 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm" />
                   {recommendedFees && (
                     <div className="flex gap-2 text-xs flex-wrap">
                       <button onClick={() => setFeeRate(recommendedFees.economy)} className="px-2 py-1 bg-green-900 text-green-300 rounded hover:bg-green-800">Eco: {recommendedFees.economy}</button>
