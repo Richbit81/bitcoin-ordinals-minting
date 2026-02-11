@@ -174,7 +174,7 @@ export const SmilePage: React.FC = () => {
             SMILE A BIT
           </h1>
           <p className="text-xl text-gray-300">
-            100 Unique Bitcoin Smiley Ordinals
+            222 Unique Bitcoin Smiley Ordinals
           </p>
         </div>
 
