@@ -13,8 +13,16 @@ import {
 } from '../services/smileMintService';
 
 const SMILE_PRICE_SATS = 8000;
-const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection.
-Infinite good vibes on chain. 100 unique smileys. Random mint – you don't see which one you get until it's yours.`;
+const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
+Infinite good vibes.
+
+Say hello to the smiley with the Bitcoin look – rocking the iconic ₿-shaped glasses and spreading nothing but positivity, energy, and real crypto emotion. Born from an idea back in 2021, this expressive icon first lit up the Ethereum blockchain… and now it's smiling its way onto Bitcoin with a limited Ordinals collection.
+
+Each smiley reflects a different mood – from pure joy to crypto chaos – capturing the rollercoaster of Web3 life. But no matter the emotion, the message stays the same:
+Life is better with a smile. 😎
+
+Let's turn frowns into ₿rowns.
+Let's smile a bit – on-chain`;
 
 export const SmilePage: React.FC = () => {
   const navigate = useNavigate();
