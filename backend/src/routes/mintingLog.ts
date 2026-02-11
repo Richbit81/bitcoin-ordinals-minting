@@ -1,5 +1,5 @@
 import express from 'express';
-import { saveMintingLog, getWalletLogs } from '../services/mintingLog';
+import { saveMintingLog, getWalletLogs, getAllLogs } from '../services/mintingLog';
 
 const router = express.Router();
 
@@ -30,6 +30,23 @@ router.get('/logs/:address', async (req, res) => {
   } catch (error: any) {
     console.error('Fehler beim Laden der Minting-Logs:', error);
     res.status(500).json({ error: error.message || 'Fehler beim Laden der Logs' });
+  }
+});
+
+/**
+ * GET /api/minting/export
+ * Exportiert ALLE Logs als JSON-Download (Backup vor Deploy!)
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const logs = await getAllLogs();
+    const filename = `minting-logs-${new Date().toISOString().split('T')[0]}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(logs);
+  } catch (error: any) {
+    console.error('Fehler beim Export der Minting-Logs:', error);
+    res.status(500).json({ error: error.message || 'Fehler beim Export' });
   }
 });
 

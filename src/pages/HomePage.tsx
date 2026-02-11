@@ -69,6 +69,13 @@ export const HomePage: React.FC = () => {
       description: 'Random Ordinals Collection',
       order: 7,
     },
+    {
+      id: 'smile-a-bit',
+      name: 'SMILE A BIT',
+      thumbnail: '/images/SmileaBittt.png',
+      description: '100 Unique Bitcoin Smiley Ordinals',
+      order: 8,
+    },
   ];
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -232,8 +239,9 @@ export const HomePage: React.FC = () => {
               project.id === 'point-shop' ? 'md:order-5' :
               project.id === 'free-stuff' ? 'md:order-6' :
               project.id === 'random-stuff' ? 'md:order-7' :
-              project.order >= 5 ? 'md:order-8' : // Weitere dynamische Collections
-              'md:order-9'
+              project.id === 'smile-a-bit' ? 'md:order-8' :
+              project.order >= 5 ? 'md:order-9' : // Weitere dynamische Collections
+              'md:order-10'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}

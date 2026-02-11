@@ -5,7 +5,14 @@ import fs from 'fs/promises';
 import path from 'path';
 import { MintingLogEntry } from '../../types/mintingLog';
 
-const LOG_FILE_PATH = path.join(process.cwd(), 'data', 'minting-logs.json');
+// MINTING_LOG_PATH env variable setzen für persistenten Speicher (z.B. /var/data/minting-logs.json)
+// Ohne env variable: Standard-Pfad im Projekt-Ordner (wird bei Deploy gelöscht!)
+const LOG_FILE_PATH = process.env.MINTING_LOG_PATH
+  ? path.resolve(process.env.MINTING_LOG_PATH)
+  : path.join(process.cwd(), 'data', 'minting-logs.json');
+
+console.log(`[MintingLog] Log-Pfad: ${LOG_FILE_PATH} ${process.env.MINTING_LOG_PATH ? '(persistent via env)' : '(Standard - NICHT persistent!)'}`);
+
 
 // Stelle sicher, dass das data-Verzeichnis existiert
 const ensureDataDirectory = async () => {
