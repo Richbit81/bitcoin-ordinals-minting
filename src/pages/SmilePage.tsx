@@ -297,37 +297,37 @@ export const SmilePage: React.FC = () => {
             </div>
 
             {/* Right Side: Description */}
-            <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 lg:p-8 max-w-xl w-full backdrop-blur-md">
+            <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-4 lg:p-6 max-w-xl w-full backdrop-blur-md">
               <div className="prose prose-invert prose-sm max-w-none">
-                <h2 className="text-2xl font-bold text-white mb-2">
+                <h2 className="text-lg font-bold text-white mb-1">
                   SMILE A BIT
                 </h2>
-                <p className="text-red-500 font-semibold text-lg mb-4">
+                <p className="text-red-500 font-semibold text-sm mb-2">
                   Bitcoin Smiley Ordinals Collection
                 </p>
-                <p className="text-gray-300 text-lg italic mb-6">
+                <p className="text-gray-300 text-sm italic mb-4">
                   Infinite good vibes.
                 </p>
 
-                <p className="text-gray-300 leading-relaxed mb-6">
+                <p className="text-gray-300 text-xs leading-relaxed mb-4">
                   Say hello to the smiley with the Bitcoin look – rocking the iconic <span className="text-red-500 font-semibold">₿-shaped glasses</span> and spreading nothing but positivity, energy, and real crypto emotion. Born from an idea back in 2021, this expressive icon first lit up the Ethereum blockchain… and now it's smiling its way onto Bitcoin with a limited Ordinals collection.
                 </p>
 
-                <p className="text-gray-300 leading-relaxed mb-6">
+                <p className="text-gray-300 text-xs leading-relaxed mb-4">
                   Each smiley reflects a different mood – from pure joy to crypto chaos – capturing the rollercoaster of Web3 life. But no matter the emotion, the message stays the same:
                 </p>
 
-                <div className="border-l-4 border-red-600 pl-4 py-2 mb-6 bg-red-600/10 rounded-r">
-                  <p className="text-white font-bold text-lg">
+                <div className="border-l-4 border-red-600 pl-3 py-1 mb-4 bg-red-600/10 rounded-r">
+                  <p className="text-white font-bold text-sm">
                     Life is better with a smile. 😎
                   </p>
                 </div>
 
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                   <span>🎲</span> How it works:
                 </h3>
 
-                <ul className="space-y-2 text-gray-300 mb-6">
+                <ul className="space-y-1 text-gray-300 text-xs mb-4">
                   <li className="flex items-start gap-2">
                     <span className="text-red-500">•</span>
                     <span><strong className="text-white">{SMILE_TOTAL_SUPPLY} unique smileys</strong> – each one different</span>
@@ -350,11 +350,11 @@ export const SmilePage: React.FC = () => {
                   </li>
                 </ul>
 
-                <div className="text-center mt-8 space-y-1">
-                  <p className="text-white font-bold text-lg">
+                <div className="text-center mt-4 space-y-1">
+                  <p className="text-white font-bold text-sm">
                     Let's turn frowns into ₿rowns.
                   </p>
-                  <p className="text-red-500 font-bold text-lg italic">
+                  <p className="text-red-500 font-bold text-sm italic">
                     Let's smile a bit – on-chain
                   </p>
                 </div>
