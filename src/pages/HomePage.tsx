@@ -253,7 +253,8 @@ export const HomePage: React.FC = () => {
               project.order === 2 ? 'md:mt-20' : // Sons of Satoshi: optimal positioning
               project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
             } ${
-              project.id === 'black-wild' ? 'max-w-32' : 'max-w-48'
+              project.id === 'black-wild' ? 'max-w-32' :
+              project.id === 'smile-a-bit' ? 'max-w-[210px]' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.thumbnail ? (
