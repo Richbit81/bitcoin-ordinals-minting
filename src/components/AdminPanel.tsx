@@ -1751,9 +1751,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     nft: { logs: any[]; totalMints: number };
     randomStuff: { logs: any[]; totalMints: number };
     freeStuff: { logs: any[]; totalMints: number };
+    smileABit: { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit'>('blackAndWild');
 
   useEffect(() => {
     loadLogs();
@@ -1797,7 +1798,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -1843,6 +1844,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || ''}","${log.inscriptionId}","${log.originalInscriptionId || ''}","${log.txid || ''}",${log.priceInSats || 0}\n`;
       });
+    } else if (logType === 'smileABit') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 8000},"${log.paymentTxid || ''}"\n`;
+      });
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1868,7 +1874,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
       {/* Stats Overview */}
       {logs && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-4 mb-6">
           <div className="bg-gray-900 border border-red-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Black & Wild</p>
             <p className="text-3xl font-bold text-white">{logs.blackAndWild.totalMints}</p>
@@ -1902,6 +1908,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <div className="bg-gray-900 border border-emerald-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Free Stuff</p>
             <p className="text-3xl font-bold text-white">{logs.freeStuff?.totalMints || 0}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-orange-500 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Smile A Bit</p>
+            <p className="text-3xl font-bold text-white">{logs.smileABit?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
         </div>
@@ -1980,13 +1991,23 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           >
             🎁 Free
           </button>
+          <button
+            onClick={() => setActiveLogTab('smileABit')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'smileABit'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            😊 Smile
+          </button>
         </div>
       </div>
 
       {/* Download Buttons */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : 'mixtape')}
           className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
           📥 JSON
@@ -2050,6 +2071,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       <th className="text-left p-3 text-gray-400">Price</th>
                     </>
                   )}
+                  {activeLogTab === 'smileABit' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -2104,6 +2131,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                         <>
                           <td className="p-3 text-white">{log.itemName || 'Random'}</td>
                           <td className="p-3 text-gray-400">{(log.priceInSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === 'smileABit' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName || log.packName || 'Smile A Bit'}</td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 8000).toLocaleString()} sats</td>
                         </>
                       )}
                     </tr>
