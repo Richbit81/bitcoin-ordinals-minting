@@ -29,7 +29,7 @@ export const HomePage: React.FC = () => {
     },
     {
       id: 'smile-a-bit',
-      name: 'SMILE A BIT',
+      name: 'SMILE A ₿IT',
       thumbnail: '/images/smile-collection.png',
       description: '222 Unique Bitcoin Smiley Ordinals',
       order: 2, // Position 2

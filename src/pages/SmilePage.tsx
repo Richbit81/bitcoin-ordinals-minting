@@ -17,7 +17,7 @@ const SMILE_PRICE_SATS = 10000;
 const SMILE_TOTAL_SUPPLY = 222;
 const SMILE_MINT_OFFSET = 44; // Bereits gemintete Items vor dem Logging-System
 const API_URL = getApiUrl();
-const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
+const SMILE_DESCRIPTION = `SMILE A ₿IT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
 
 Say hello to the smiley with the Bitcoin look – rocking the iconic ₿-shaped glasses and spreading nothing but positivity, energy, and real crypto emotion. Born from an idea back in 2021, this expressive icon first lit up the Ethereum blockchain… and now it's smiling its way onto Bitcoin with a limited Ordinals collection.
@@ -173,7 +173,7 @@ export const SmilePage: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white drop-shadow-2xl">
-            SMILE A BIT
+            SMILE A ₿IT
           </h1>
           <p className="text-xl text-gray-300">
             222 Unique Bitcoin Smiley Ordinals
@@ -306,7 +306,7 @@ export const SmilePage: React.FC = () => {
             <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-4 lg:p-6 max-w-xl w-full backdrop-blur-md">
               <div className="prose prose-invert prose-sm max-w-none">
                 <h2 className="text-lg font-bold text-white mb-1">
-                  SMILE A BIT
+                  SMILE A ₿IT
                 </h2>
                 <p className="text-red-500 font-semibold text-sm mb-2">
                   Bitcoin Smiley Ordinals Collection

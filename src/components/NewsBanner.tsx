@@ -17,7 +17,7 @@ interface NewsItem {
 const NEWS_ITEMS: NewsItem[] = [
   {
     id: 'smile-a-bit-banner',
-    title: 'SMILE A BIT',
+    title: 'SMILE A ₿IT',
     description: 'Mint the lost Smile A Bit Ordinals',
     image: '/images/smile-collection.png',
     link: '/smile-a-bit',
