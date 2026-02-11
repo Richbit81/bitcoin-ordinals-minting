@@ -362,7 +362,7 @@ export const SmilePage: React.FC = () => {
                 {/* Announcement */}
                 <div className="mt-6 bg-yellow-400 text-black rounded-lg p-4 border-2 border-yellow-500 shadow-lg">
                   <p className="font-bold text-sm leading-relaxed">
-                    ⚠️ Due to an unfortunate error by me, 177 Smile A Bits Ordinals were accidentally sent to an unknown address. 🙈🥲 I tried contacting them, but unfortunately, there was no response — so they appear to be lost. This way, the missing ones can be reminted here to restore the collection to its correct state.
+                    ⚠️ Due to an unfortunate error by me, 177 Smile A Bit Ordinals were accidentally sent to an unknown address. 🙈🥲 I tried contacting them, but unfortunately, there was no response — so they appear to be lost. This way, the missing ones can be reminted here to restore the collection to its correct state.
                   </p>
                   <p className="mt-2 text-sm">
                     📢 Announcement on Twitter:{' '}
