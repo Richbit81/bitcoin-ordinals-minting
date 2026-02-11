@@ -14,6 +14,7 @@ import {
 
 const SMILE_PRICE_SATS = 10000;
 const SMILE_TOTAL_SUPPLY = 222;
+const SMILE_MINT_OFFSET = 44; // Bereits gemintete Items vor dem Logging-System
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
@@ -31,7 +32,7 @@ export const SmilePage: React.FC = () => {
   const { walletState } = useWallet();
   const [collectionReady, setCollectionReady] = useState<boolean | null>(null);
   const [totalItems, setTotalItems] = useState(100);
-  const [mintCount, setMintCount] = useState(44);
+  const [mintCount, setMintCount] = useState(SMILE_MINT_OFFSET);
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -56,7 +57,7 @@ export const SmilePage: React.FC = () => {
       const res = await fetch(`${API_URL}/api/smile-a-bit/logs?adminAddress=public-count`);
       if (res.ok) {
         const data = await res.json();
-        setMintCount(data.totalMints || 0);
+        setMintCount(SMILE_MINT_OFFSET + (data.totalMints || 0));
       }
     } catch {
       console.warn('[SmilePage] Could not load mint count');
