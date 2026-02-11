@@ -54,7 +54,10 @@ const CollectionDataToolPage: React.FC = () => {
     while (true) {
       const url = `${getCollectionDataUrl()}/collections?sort_by=median_number&order=desc&offset=${offset}&count=${count}`;
       const res = await fetchApi(url);
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `Backend Fehler ${res.status}`);
+      }
       const json = await res.json();
       const data = json.data as BisCollection[] | undefined;
       if (!data || data.length === 0) break;
@@ -77,7 +80,10 @@ const CollectionDataToolPage: React.FC = () => {
     while (true) {
       const url = `${getCollectionDataUrl()}/holders?slug=${encodeURIComponent(slug)}&offset=${offset}&count=${count}`;
       const res = await fetchApi(url);
-      if (!res.ok) throw new Error('Holders-API fehlgeschlagen');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `Holders-API Fehler ${res.status}`);
+      }
       const json = await res.json();
       const data = json.data as BisHolder[] | undefined;
       if (!data || data.length === 0) break;
@@ -239,7 +245,7 @@ const CollectionDataToolPage: React.FC = () => {
           {progress && <p className="text-xs text-amber-400 mt-2">{progress}</p>}
           {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           <p className="text-xs text-gray-500 mt-2">
-            Nutzt Backend (UniSat-Setup) + BestInSlot API. Optional: <code className="bg-gray-800 px-1 rounded">BIS_API_KEY</code> in Railway für höhere Limits.
+            Nutzt BestInSlot API. <strong className="text-amber-400">BIS_API_KEY</strong> in Railway (Variables) setzen – sonst 403/500!
           </p>
         </div>
 
