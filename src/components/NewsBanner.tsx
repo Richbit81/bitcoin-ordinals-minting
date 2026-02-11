@@ -260,13 +260,13 @@ export const NewsBanner: React.FC = () => {
             </div>
           ) : (
             /* Bilder nebeneinander - volle Banner-Höhe */
-            <div className="relative flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
+            <div className="relative flex gap-4 justify-start items-center p-4 pl-6 min-h-[120px] md:min-h-[140px]">
               {item1.images?.map((img, index) => (
-                <div key={index} className="flex-shrink-0 h-full flex items-center">
+                <div key={index} className="flex-shrink-0 h-full flex items-center overflow-hidden">
                   <img
                     src={img}
                     alt={`${item1.title} ${index + 1}`}
-                    className="h-[100px] md:h-[120px] w-auto object-contain"
+                    className="h-[100px] md:h-[120px] w-auto object-contain scale-[1.05]"
                     onError={(e) => {
                       console.warn(`[NewsBanner] Could not load image: ${img}`);
                       e.currentTarget.style.display = 'none';
