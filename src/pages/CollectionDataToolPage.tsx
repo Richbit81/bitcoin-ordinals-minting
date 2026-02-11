@@ -245,7 +245,7 @@ const CollectionDataToolPage: React.FC = () => {
           {progress && <p className="text-xs text-amber-400 mt-2">{progress}</p>}
           {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           <p className="text-xs text-gray-500 mt-2">
-            Nutzt BestInSlot API. <strong className="text-amber-400">BIS_API_KEY</strong> in Railway (Variables) setzen – sonst 403/500!
+            Nutzt <strong>UNISAT_API_KEY</strong> (bereits in Railway) → UniSat Collection API. Fallback: BIS_API_KEY falls nötig.
           </p>
         </div>
 
