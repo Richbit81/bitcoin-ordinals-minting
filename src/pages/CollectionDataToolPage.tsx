@@ -8,8 +8,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
-
-const BIS_PROXY = '/api/bis-proxy';
+import { getApiUrl } from '../utils/apiUrl';
 
 interface BisCollection {
   name: string;
@@ -43,6 +42,8 @@ const CollectionDataToolPage: React.FC = () => {
   const [resolvedName, setResolvedName] = useState('');
   const [allInscriptionIds, setAllInscriptionIds] = useState<string[]>([]);
 
+  const getCollectionDataUrl = () => getApiUrl() + '/api/collection-data';
+
   const fetchApi = useCallback((url: string) => fetch(url, { headers: { Accept: 'application/json' } }), []);
 
   const searchCollections = useCallback(async (query: string): Promise<BisCollection | null> => {
@@ -51,7 +52,7 @@ const CollectionDataToolPage: React.FC = () => {
     let offset = 0;
     const count = 100;
     while (true) {
-      const url = `${BIS_PROXY}?endpoint=collections&sort_by=median_number&order=desc&offset=${offset}&count=${count}`;
+      const url = `${getCollectionDataUrl()}/collections?sort_by=median_number&order=desc&offset=${offset}&count=${count}`;
       const res = await fetchApi(url);
       if (!res.ok) return null;
       const json = await res.json();
@@ -74,7 +75,7 @@ const CollectionDataToolPage: React.FC = () => {
     let offset = 0;
     const count = 100;
     while (true) {
-      const url = `${BIS_PROXY}?endpoint=holders&slug=${encodeURIComponent(slug)}&offset=${offset}&count=${count}`;
+      const url = `${getCollectionDataUrl()}/holders?slug=${encodeURIComponent(slug)}&offset=${offset}&count=${count}`;
       const res = await fetchApi(url);
       if (!res.ok) throw new Error('Holders-API fehlgeschlagen');
       const json = await res.json();
@@ -238,7 +239,7 @@ const CollectionDataToolPage: React.FC = () => {
           {progress && <p className="text-xs text-amber-400 mt-2">{progress}</p>}
           {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           <p className="text-xs text-gray-500 mt-2">
-            Nutzt BestInSlot API über Proxy. Optional: <code className="bg-gray-800 px-1 rounded">BIS_API_KEY</code> in Vercel für höhere Limits.
+            Nutzt Backend (UniSat-Setup) + BestInSlot API. Optional: <code className="bg-gray-800 px-1 rounded">BIS_API_KEY</code> in Railway für höhere Limits.
           </p>
         </div>
 

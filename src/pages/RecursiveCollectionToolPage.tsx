@@ -25,6 +25,11 @@ interface TraitItem {
   contentType?: string;
 }
 
+/** Leerer Layer = Name "none" – wird im SVG übersprungen (kein image-Tag) */
+function isNoneTrait(t: TraitItem): boolean {
+  return t.name === 'none';
+}
+
 interface Layer {
   id: string;
   name: string;
@@ -72,6 +77,7 @@ interface SavedProject {
 // ============================================================
 const HIRO_API = 'https://api.hiro.so/ordinals/v1';
 const STORAGE_KEY = 'recursive_collection_projects';
+const LAST_PROJECT_KEY = 'recursive_collection_last_project';
 
 let idCounter = 0;
 function uid() { return `layer_${Date.now()}_${idCounter++}`; }
@@ -90,6 +96,19 @@ function saveProjects(projects: SavedProject[]) {
   } catch (e) {
     console.error('Save error:', e);
   }
+}
+
+function getLastProjectId(): string | null {
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY);
+  } catch { return null; }
+}
+
+function setLastProjectId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LAST_PROJECT_KEY, id);
+    else localStorage.removeItem(LAST_PROJECT_KEY);
+  } catch {}
 }
 
 function formatDate(iso: string): string {
@@ -150,6 +169,18 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRef = useRef<{
+    activeProjectId: string | null;
+    projects: SavedProject[];
+    collectionName: string;
+    totalCount: number;
+    viewBox: string;
+    layers: Layer[];
+    scanAddress: string;
+    walletInscriptions: WalletInscription[];
+    generated: GeneratedItem[];
+    hashlist: HashlistEntry[];
+  }>({ activeProjectId: null, projects: [], collectionName: '', totalCount: 100, viewBox: '', layers: [], scanAddress: '', walletInscriptions: [], generated: [], hashlist: [] });
 
   // ============================================================
   // PROJECT MANAGEMENT
@@ -256,19 +287,79 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const closeProject = useCallback(() => {
     saveCurrentProject();
     setActiveProjectId(null);
+    setLastProjectId(null);
   }, [saveCurrentProject]);
 
-  // ---- AUTO-SAVE (debounced) ----
+  // Ref für beforeunload-Save (hält immer aktuellen State)
+  useEffect(() => {
+    stateRef.current = {
+      activeProjectId,
+      projects,
+      collectionName,
+      totalCount,
+      viewBox,
+      layers,
+      scanAddress,
+      walletInscriptions,
+      generated,
+      hashlist,
+    };
+  });
+
+  // Speichern bei Tab/Browser-Schließen (damit nichts verloren geht!)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const s = stateRef.current;
+      if (!s.activeProjectId) return;
+      const updated = s.projects.map(p => {
+        if (p.id !== s.activeProjectId) return p;
+        return {
+          ...p,
+          updatedAt: new Date().toISOString(),
+          name: s.collectionName || p.name,
+          collectionName: s.collectionName,
+          totalCount: s.totalCount,
+          viewBox: s.viewBox,
+          layers: s.layers,
+          scanAddress: s.scanAddress,
+          walletInscriptions: s.walletInscriptions,
+          generated: s.generated,
+          hashlist: s.hashlist,
+        };
+      });
+      saveProjects(updated);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Beim Zurückkehren: letztes Projekt wieder öffnen
+  useEffect(() => {
+    if (projects.length === 0) return;
+    const lastId = getLastProjectId();
+    if (lastId && projects.some(p => p.id === lastId) && !activeProjectId) {
+      setActiveProjectId(lastId);
+      const proj = projects.find(p => p.id === lastId);
+      if (proj) loadProjectIntoState(proj);
+    }
+  }, []); // Nur einmal beim Mount
+
+  // lastProjectId merken wenn Projekt gewechselt wird
+  useEffect(() => {
+    if (activeProjectId) setLastProjectId(activeProjectId);
+  }, [activeProjectId]);
+
+  // ---- AUTO-SAVE (1 Sekunde Debounce – schneller als vorher!) ----
   useEffect(() => {
     if (!activeProjectId) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
       saveCurrentProject();
-    }, 3000);
+    }, 1000);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [layers, collectionName, totalCount, viewBox, scanAddress, walletInscriptions, generated, hashlist]);
+  }, [layers, collectionName, totalCount, viewBox, scanAddress, walletInscriptions, generated, hashlist, activeProjectId, saveCurrentProject]);
 
   // ============================================================
   // WALLET SCANNER
@@ -433,7 +524,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const set = new Set<string>();
     for (const layer of layers) {
       for (const trait of layer.traits) {
-        if (trait.inscriptionId) set.add(trait.inscriptionId);
+        if (trait.inscriptionId && !isNoneTrait(trait)) set.add(trait.inscriptionId);
       }
     }
     return set;
@@ -551,6 +642,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
     ));
   }, []);
 
+  /** Leeres Layer "none" hinzufügen – kein Bild im SVG */
+  const addTraitNone = useCallback((layerId: string) => {
+    setLayers(prev => prev.map(l =>
+      l.id === layerId ? { ...l, traits: [...l.traits, { inscriptionId: '', name: 'none', rarity: 50 }] } : l
+    ));
+  }, []);
+
   const removeTrait = useCallback((layerId: string, traitIdx: number) => {
     setLayers(prev => prev.map(l =>
       l.id === layerId ? { ...l, traits: l.traits.filter((_, i) => i !== traitIdx) } : l
@@ -594,7 +692,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
     const validLayers = layers.filter(l => l.name && l.traitType && l.traits.length > 0);
     if (validLayers.some(l => l.traits.some(t => !t.name))) { setError('Alle Traits brauchen einen Namen!'); return; }
-    if (validLayers.some(l => l.traits.some(t => !t.inscriptionId))) { setError('Alle Traits brauchen eine Inscription ID!'); return; }
+    if (validLayers.some(l => l.traits.some(t => !isNoneTrait(t) && !t.inscriptionId))) { setError('Alle Traits (außer "none") brauchen eine Inscription ID!'); return; }
 
     const items: GeneratedItem[] = [];
     const seenCombos = new Set<string>();
@@ -608,12 +706,15 @@ const RecursiveCollectionToolPage: React.FC = () => {
         traitType: layer.traitType,
         trait: weightedRandom(layer.traits),
       }));
-      const comboKey = selectedLayers.map(l => l.trait.inscriptionId).join('|');
+      const comboKey = selectedLayers.map(l => isNoneTrait(l.trait) ? 'none' : l.trait.inscriptionId).join('|');
       if (seenCombos.has(comboKey) && attempts < maxAttempts - totalCount) continue;
       seenCombos.add(comboKey);
 
       const index = items.length + 1;
-      const svgImages = selectedLayers.map(l => `  <image href="/content/${l.trait.inscriptionId}" />`).join('\n');
+      const svgImages = selectedLayers
+        .filter(l => !isNoneTrait(l.trait))
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
+        .join('\n');
       items.push({
         index,
         layers: selectedLayers,
@@ -650,8 +751,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
       layersCopy[layerIdx] = layerEntry;
       item.layers = layersCopy;
 
-      // Rebuild SVG
-      const svgImages = layersCopy.map(l => `  <image href="/content/${l.trait.inscriptionId}" />`).join('\n');
+      // Rebuild SVG (none-Traits überspringen)
+      const svgImages = layersCopy
+        .filter(l => !isNoneTrait(l.trait))
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
+        .join('\n');
       item.svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
 
       updated[itemIdx] = item;
@@ -708,8 +812,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
         const idx = livePreviewTraits[l.id] ?? 0;
         const trait = l.traits[Math.min(idx, l.traits.length - 1)];
         return { layerName: l.name, traitType: l.traitType, trait, layerId: l.id };
-      })
-      .filter(l => l.trait?.inscriptionId);
+      });
   }, [layers, livePreviewTraits]);
 
   // ============================================================
@@ -754,6 +857,79 @@ const RecursiveCollectionToolPage: React.FC = () => {
     downloadJSON({ collectionName, totalCount, viewBox, layers },
       `${collectionName.replace(/\s+/g, '_').toLowerCase()}_config.json`);
   }, [collectionName, totalCount, viewBox, layers, downloadJSON]);
+
+  /** Vollständiges Projekt als JSON extern speichern (Backup – unabhängig von localStorage) */
+  const exportProjectToFile = useCallback(() => {
+    if (!activeProjectId) return;
+    const proj = projects.find(p => p.id === activeProjectId);
+    const full: SavedProject = proj ? {
+      ...proj,
+      updatedAt: new Date().toISOString(),
+      name: collectionName || proj.name,
+      collectionName,
+      totalCount,
+      viewBox,
+      layers,
+      scanAddress,
+      walletInscriptions,
+      generated,
+      hashlist,
+    } : {
+      id: activeProjectId,
+      name: collectionName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      collectionName,
+      totalCount,
+      viewBox,
+      layers,
+      scanAddress,
+      walletInscriptions,
+      generated,
+      hashlist,
+    };
+    const slug = (collectionName || 'projekt').replace(/\s+/g, '_').replace(/[^\w\-]/g, '') || 'projekt';
+    downloadJSON(full, `${slug}_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  }, [activeProjectId, projects, collectionName, totalCount, viewBox, layers, scanAddress, walletInscriptions, generated, hashlist, downloadJSON]);
+
+  /** Projekt aus externer JSON-Datei importieren */
+  const importProjectFromFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = ev.target?.result as string;
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== 'object') throw new Error('Ungültiges Format');
+        const hasLayers = Array.isArray(data.layers);
+        const full: SavedProject = {
+          id: projectId(),
+          name: data.name || data.collectionName || file.name.replace(/\.[^.]+$/, '') || 'Import',
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          collectionName: data.collectionName || data.name || 'Import',
+          totalCount: data.totalCount ?? 100,
+          viewBox: data.viewBox || '0 0 1000 1000',
+          layers: hasLayers ? data.layers : [],
+          scanAddress: data.scanAddress || '',
+          walletInscriptions: Array.isArray(data.walletInscriptions) ? data.walletInscriptions : [],
+          generated: Array.isArray(data.generated) ? data.generated : [],
+          hashlist: Array.isArray(data.hashlist) ? data.hashlist : [],
+        };
+        const updated = [full, ...projects];
+        setProjects(updated);
+        saveProjects(updated);
+        setActiveProjectId(full.id);
+        loadProjectIntoState(full);
+        setError('');
+      } catch (err: any) {
+        setError(err?.message || 'Ungültige Projekt-Datei!');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [projects, loadProjectIntoState]);
 
   const importConfig = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -810,16 +986,21 @@ const RecursiveCollectionToolPage: React.FC = () => {
             <p className="text-gray-400 text-sm mt-2">Projekte verwalten – erstellen, speichern, weiterbearbeiten</p>
           </div>
 
-          {/* NEW PROJECT */}
-          <div className="mb-6">
+          {/* NEW / IMPORT */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => createNewProject()}
-              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 text-lg shadow-lg flex items-center justify-center gap-3"
+              className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-500 hover:to-pink-500 text-lg shadow-lg flex items-center justify-center gap-3"
             >
               <span className="text-2xl">+</span>
               <span>Neues Projekt erstellen</span>
             </button>
+            <label className="px-6 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl cursor-pointer text-lg shadow-lg flex items-center justify-center gap-2 transition-colors">
+              📂 Projekt importieren
+              <input type="file" accept=".json" onChange={importProjectFromFile} className="hidden" />
+            </label>
           </div>
+          <p className="text-xs text-gray-500 mb-6 -mt-2">Import: JSON-Datei von Export oder Backup – unabhängig von localStorage</p>
 
           {/* PROJECT LIST */}
           {projects.length > 0 ? (
@@ -862,6 +1043,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
                         className="px-4 py-1.5 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-500"
                       >
                         Öffnen
+                      </button>
+                      <button
+                        onClick={() => { downloadJSON(project, `${(project.collectionName || project.name || 'projekt').replace(/\s+/g, '_')}_backup.json`); }}
+                        className="px-4 py-1.5 bg-amber-700 text-amber-100 rounded text-xs hover:bg-amber-600"
+                        title="Projekt als JSON extern speichern"
+                      >
+                        📥 Export
                       </button>
                       <button
                         onClick={() => duplicateProject(project.id)}
@@ -927,6 +1115,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
               🎨 {collectionName || 'Unnamed'}
             </h1>
           </div>
+          <button onClick={exportProjectToFile}
+            className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-bold hover:bg-amber-500 flex items-center gap-1"
+            title="Projekt als JSON-Datei speichern (externer Backup)">
+            📥 Export
+          </button>
           <button onClick={saveCurrentProject}
             className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-500 flex items-center gap-1">
             💾 Speichern
@@ -1186,11 +1379,16 @@ const RecursiveCollectionToolPage: React.FC = () => {
                       {layer.traits.map((trait, traitIdx) => (
                         <div key={traitIdx} className="flex gap-2 items-start bg-black/50 p-3 rounded-lg border border-gray-800">
                           <div className="flex-shrink-0 w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
-                            onClick={() => setSelectedLayerPreview(
+                            onClick={() => !isNoneTrait(trait) && setSelectedLayerPreview(
                               selectedLayerPreview?.layerId === layer.id && selectedLayerPreview?.traitIdx === traitIdx
                                 ? null : { layerId: layer.id, traitIdx }
                             )}>
-                            {trait.inscriptionId ? (
+                            {isNoneTrait(trait) ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-purple-400 text-[10px] font-bold border-2 border-dashed border-purple-600/50 rounded">
+                                <span>none</span>
+                                <span className="text-gray-600 text-[8px]">leer</span>
+                              </div>
+                            ) : trait.inscriptionId ? (
                               <img src={`https://ordinals.com/content/${trait.inscriptionId}`} alt={trait.name}
                                 className="w-full h-full object-contain" loading="lazy" />
                             ) : (
@@ -1228,10 +1426,18 @@ const RecursiveCollectionToolPage: React.FC = () => {
                     </div>
                   )}
 
-                  <button onClick={() => addTraitManually(layer.id)}
-                    className="mt-3 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">
-                    + Trait manuell hinzufügen
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2 items-center">
+                    <button onClick={() => addTraitNone(layer.id)}
+                      className="px-3 py-1.5 bg-purple-900/70 border-2 border-purple-500 rounded text-xs font-bold text-purple-200 hover:bg-purple-800/70 hover:border-purple-400"
+                      title="Leerer Layer – wird im SVG als leer gerendert (kein Bild)">
+                      + Leer (none)
+                    </button>
+                    <button onClick={() => addTraitManually(layer.id)}
+                      className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">
+                      + Trait manuell hinzufügen
+                    </button>
+                    <span className="text-[10px] text-gray-500">Leer = optionaler Layer ohne Bild</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -1284,11 +1490,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
               {/* Stacked Preview */}
               <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
                 <div className="w-full aspect-square relative">
-                  {livePreviewLayers.map((lp, i) => (
-                    <img key={lp.layerId} src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
-                      alt={lp.trait.name} className="absolute inset-0 w-full h-full object-contain"
-                      style={{ zIndex: i }} loading="lazy" />
-                  ))}
+                  {livePreviewLayers
+                    .filter(lp => !isNoneTrait(lp.trait))
+                    .map((lp, i) => (
+                      <img key={lp.layerId} src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
+                        alt={lp.trait.name} className="absolute inset-0 w-full h-full object-contain"
+                        style={{ zIndex: i }} loading="lazy" />
+                    ))}
                 </div>
               </div>
               {/* Layer Breakdown */}
@@ -1300,8 +1508,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
                     <div key={lp.layerId} className="flex items-center gap-2 bg-black/50 rounded-lg p-2 border border-gray-800">
                       <span className="text-purple-400 font-bold text-xs w-6 text-center">#{i + 1}</span>
                       <div className="flex-shrink-0 w-10 h-10 bg-gray-900 border border-gray-700 rounded overflow-hidden">
-                        <img src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
-                          alt="" className="w-full h-full object-contain" loading="lazy" />
+                        {isNoneTrait(lp.trait) ? (
+                          <div className="w-full h-full flex items-center justify-center text-purple-400 text-[10px] font-bold">none</div>
+                        ) : (
+                          <img src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
+                            alt="" className="w-full h-full object-contain" loading="lazy" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-500">{lp.layerName || lp.traitType}</p>
@@ -1440,12 +1652,14 @@ const RecursiveCollectionToolPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
                   <div className="w-full aspect-square relative">
-                    {generated[previewIndex]?.layers.map((layer, i) => (
-                      <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
-                        src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                        alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
-                        style={{ zIndex: i }} loading="lazy" />
-                    ))}
+                    {generated[previewIndex]?.layers
+                      .filter(l => !isNoneTrait(l.trait))
+                      .map((layer, i) => (
+                        <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
+                          src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                          alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
+                          style={{ zIndex: i }} loading="lazy" />
+                      ))}
                   </div>
                 </div>
                 <div>
@@ -1460,8 +1674,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
                         <div key={i} className={`flex items-center gap-2 rounded p-2 border ${
                           editingItem ? 'bg-yellow-900/20 border-yellow-700/50' : 'bg-black/50 border-gray-800'
                         }`}>
-                          <img src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                            alt="" className="w-8 h-8 object-contain rounded border border-gray-700 flex-shrink-0" loading="lazy" />
+                          {isNoneTrait(layer.trait) ? (
+                            <div className="w-8 h-8 flex items-center justify-center rounded border border-purple-600/50 flex-shrink-0 text-[10px] text-purple-400 font-bold">none</div>
+                          ) : (
+                            <img src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                              alt="" className="w-8 h-8 object-contain rounded border border-gray-700 flex-shrink-0" loading="lazy" />
+                          )}
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-gray-500">{layer.traitType}</p>
                             {editingItem && matchingLayer && matchingLayer.traits.length > 1 ? (
@@ -1518,12 +1736,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🖼️</span> Alle Items ({generated.length})</h2>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-[600px] overflow-y-auto">
-                {generated.map((item, idx) => (
+                    {generated.map((item, idx) => (
                   <div key={idx} onClick={() => setPreviewIndex(idx)}
                     className={`aspect-square bg-black rounded-lg border cursor-pointer relative overflow-hidden ${
                       idx === previewIndex ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-gray-800 hover:border-gray-600'
                     }`}>
-                    {item.layers.map((layer, i) => (
+                    {item.layers.filter(l => !isNoneTrait(l.trait)).map((layer, i) => (
                       <img key={i} src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
                         alt="" className="absolute inset-0 w-full h-full object-contain"
                         style={{ zIndex: i }} loading="lazy" />
