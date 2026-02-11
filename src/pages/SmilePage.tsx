@@ -13,7 +13,7 @@ import {
 } from '../services/smileMintService';
 
 const SMILE_PRICE_SATS = 1000;
-const SMILE_TOTAL_SUPPLY = 177;
+const SMILE_TOTAL_SUPPLY = 222;
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
@@ -31,7 +31,7 @@ export const SmilePage: React.FC = () => {
   const { walletState } = useWallet();
   const [collectionReady, setCollectionReady] = useState<boolean | null>(null);
   const [totalItems, setTotalItems] = useState(100);
-  const [mintCount, setMintCount] = useState(0);
+  const [mintCount, setMintCount] = useState(44);
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);

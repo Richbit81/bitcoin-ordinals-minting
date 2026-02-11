@@ -31,7 +31,7 @@ export const HomePage: React.FC = () => {
       id: 'smile-a-bit',
       name: 'SMILE A BIT',
       thumbnail: '/images/smile-collection.png',
-      description: '177 Unique Bitcoin Smiley Ordinals',
+      description: '222 Unique Bitcoin Smiley Ordinals',
       order: 2, // Position 2
     },
     {
