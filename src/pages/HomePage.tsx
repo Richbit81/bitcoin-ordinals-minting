@@ -249,6 +249,7 @@ export const HomePage: React.FC = () => {
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
               project.id === 'bitcoin-mixtape' ? 'md:mt-8' : // Bitcoin Mix Tape: Position 1
+              project.id === 'smile-a-bit' ? 'md:-mt-2' : // Smile A Bit: etwas höher
               project.id === 'black-wild' ? 'md:mt-16' :
               project.order === 2 ? 'md:mt-20' : // Sons of Satoshi: optimal positioning
               project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
