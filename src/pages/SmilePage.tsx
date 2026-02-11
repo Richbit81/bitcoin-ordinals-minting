@@ -359,6 +359,17 @@ export const SmilePage: React.FC = () => {
                   </p>
                 </div>
 
+                <div className="text-center mt-4">
+                  <a
+                    href="https://magiceden.io/ordinals/marketplace/smile"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-bold text-purple-400 hover:text-purple-300 underline transition-colors"
+                  >
+                    🛒 Marketplace
+                  </a>
+                </div>
+
                 {/* Announcement */}
                 <div className="mt-6 bg-yellow-400 text-black rounded-lg p-4 border-2 border-yellow-500 shadow-lg">
                   <p className="font-bold text-sm leading-relaxed">
