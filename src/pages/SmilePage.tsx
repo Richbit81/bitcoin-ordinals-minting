@@ -13,6 +13,8 @@ import {
 } from '../services/smileMintService';
 
 const SMILE_PRICE_SATS = 1000;
+const SMILE_TOTAL_SUPPLY = 177;
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
 
@@ -29,6 +31,7 @@ export const SmilePage: React.FC = () => {
   const { walletState } = useWallet();
   const [collectionReady, setCollectionReady] = useState<boolean | null>(null);
   const [totalItems, setTotalItems] = useState(100);
+  const [mintCount, setMintCount] = useState(0);
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -45,7 +48,20 @@ export const SmilePage: React.FC = () => {
         console.warn('[SmilePage] Collection nicht gefunden');
       }
     });
+    loadMintCount();
   }, []);
+
+  const loadMintCount = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/smile-a-bit/logs?adminAddress=public-count`);
+      if (res.ok) {
+        const data = await res.json();
+        setMintCount(data.totalMints || 0);
+      }
+    } catch {
+      console.warn('[SmilePage] Could not load mint count');
+    }
+  };
 
   const handleMint = async () => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -111,6 +127,7 @@ export const SmilePage: React.FC = () => {
         progress: 100,
         inscriptionIds: [result.inscriptionId],
       });
+      setMintCount(prev => prev + 1);
     } catch (error: any) {
       console.error('[SmilePage] Mint-Fehler:', error);
       setMintingStatus({
@@ -191,6 +208,23 @@ export const SmilePage: React.FC = () => {
                   />
                 </div>
 
+                {/* Mint Counter */}
+                <div className="w-full mb-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-400">Minted</span>
+                    <span className="text-white font-bold">{mintCount} / {SMILE_TOTAL_SUPPLY}</span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+                    <div
+                      className="h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min((mintCount / SMILE_TOTAL_SUPPLY) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 text-center">
+                    {SMILE_TOTAL_SUPPLY - mintCount} remaining
+                  </p>
+                </div>
+
                 {/* Price Display */}
                 <div className="text-center">
                   <p className="text-3xl font-bold text-red-600 mb-1">
@@ -221,10 +255,12 @@ export const SmilePage: React.FC = () => {
               {!mintingStatus || mintingStatus.status === 'failed' ? (
                 <button
                   onClick={handleMint}
-                  disabled={isMinting || !walletState.connected}
+                  disabled={isMinting || !walletState.connected || mintCount >= SMILE_TOTAL_SUPPLY}
                   className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
                 >
-                  {isMinting ? (
+                  {mintCount >= SMILE_TOTAL_SUPPLY ? (
+                    'SOLD OUT'
+                  ) : isMinting ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -256,7 +292,7 @@ export const SmilePage: React.FC = () => {
               )}
 
               <p className="text-xs text-gray-500 text-center mt-4">
-                {totalItems} unique smileys · Sent to your Taproot address (bc1p...)
+{SMILE_TOTAL_SUPPLY} unique smileys · Sent to your Taproot address (bc1p...)
               </p>
             </div>
 
@@ -294,7 +330,7 @@ export const SmilePage: React.FC = () => {
                 <ul className="space-y-2 text-gray-300 mb-6">
                   <li className="flex items-start gap-2">
                     <span className="text-red-500">•</span>
-                    <span><strong className="text-white">100 unique smileys</strong> – each one different</span>
+                    <span><strong className="text-white">{SMILE_TOTAL_SUPPLY} unique smileys</strong> – each one different</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-red-500">•</span>
