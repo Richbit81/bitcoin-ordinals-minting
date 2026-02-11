@@ -133,11 +133,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-      <div className="bg-black border-2 border-red-600 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-1 sm:p-4">
+      <div className="bg-black border-2 border-red-600 rounded-lg max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b-2 border-red-600">
-          <h2 className="text-2xl font-bold text-white">Admin Panel</h2>
+        <div className="flex justify-between items-center p-3 sm:p-4 border-b-2 border-red-600">
+          <h2 className="text-lg sm:text-2xl font-bold text-white">Admin Panel</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white"
@@ -149,91 +149,93 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 px-4 pt-4 border-b-2 border-gray-800">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'overview'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('trades')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'trades'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Trade Offers ({tradeOffers.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('cards')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'cards'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Cards ({ALL_CARDS.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('pointShop')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'pointShop'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Point Shop
-          </button>
-          <button
-            onClick={() => setActiveTab('collections')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'collections'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Collections
-          </button>
-          <button
-            onClick={() => setActiveTab('smileABit')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'smileABit'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            SMILE A BIT
-          </button>
-          <button
-            onClick={() => setActiveTab('mintingLogs')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'mintingLogs'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            📋 Logs
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 font-semibold transition ${
-              activeTab === 'settings'
-                ? 'text-red-600 border-b-2 border-red-600'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Settings
-          </button>
+        <div className="overflow-x-auto px-4 pt-4 border-b-2 border-gray-800 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="flex gap-1 sm:gap-2 min-w-max">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'overview'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('trades')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'trades'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Trades ({tradeOffers.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('cards')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'cards'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Cards
+            </button>
+            <button
+              onClick={() => setActiveTab('pointShop')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'pointShop'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Shop
+            </button>
+            <button
+              onClick={() => setActiveTab('collections')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'collections'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Collections
+            </button>
+            <button
+              onClick={() => setActiveTab('smileABit')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'smileABit'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              SMILE
+            </button>
+            <button
+              onClick={() => setActiveTab('mintingLogs')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'mintingLogs'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              📋 Logs
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-3 sm:px-4 py-2 font-semibold transition text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'settings'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
           {loading ? (
             <div className="text-white text-center py-8">Loading...</div>
           ) : error ? (
@@ -1097,7 +1099,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
         <div className="space-y-3">
           <div>
             <label className="text-xs text-gray-400 block mb-1">Create Mode *</label>
-            <div className="flex gap-4 flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 flex-wrap">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -1593,8 +1595,8 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
 
       {/* Pre-Signing Modal */}
       {showPresignModal && presignItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-red-600 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-1 sm:p-4">
+          <div className="bg-gray-900 border border-red-600 rounded-lg p-3 sm:p-6 max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-white">Pre-Signing: {presignItem.title}</h3>
               <button
@@ -1615,7 +1617,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
                 Beim Kauf wird dann nur noch die bereits signierte Transaktion gebroadcastet.
               </p>
               
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">Fee Rate (sat/vB)</label>
                   <input
@@ -1866,7 +1868,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
       {/* Stats Overview */}
       {logs && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-4 mb-6">
           <div className="bg-gray-900 border border-red-600 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Black & Wild</p>
             <p className="text-3xl font-bold text-white">{logs.blackAndWild.totalMints}</p>
@@ -1906,106 +1908,108 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       )}
 
       {/* Log Tabs */}
-      <div className="flex gap-2 border-b border-gray-700 pb-2">
-        <button
-          onClick={() => setActiveLogTab('blackAndWild')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'blackAndWild'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🃏 Black & Wild
-        </button>
-        <button
-          onClick={() => setActiveLogTab('techAndGames')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'techAndGames'
-              ? 'bg-purple-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🎮 Tech & Games
-        </button>
-        <button
-          onClick={() => setActiveLogTab('mixtape')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'mixtape'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🎵 Mixtape
-        </button>
-        <button
-          onClick={() => setActiveLogTab('1984')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === '1984'
-              ? 'bg-yellow-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          📕 1984
-        </button>
-        <button
-          onClick={() => setActiveLogTab('nft')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'nft'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🖼️ NFT
-        </button>
-        <button
-          onClick={() => setActiveLogTab('randomStuff')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'randomStuff'
-              ? 'bg-pink-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🎲 Random Stuff
-        </button>
-        <button
-          onClick={() => setActiveLogTab('freeStuff')}
-          className={`px-4 py-2 rounded-t text-sm font-semibold transition ${
-            activeLogTab === 'freeStuff'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🎁 Free Stuff
-        </button>
+      <div className="overflow-x-auto border-b border-gray-700 pb-2 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex gap-1 sm:gap-2 min-w-max">
+          <button
+            onClick={() => setActiveLogTab('blackAndWild')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'blackAndWild'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🃏 B&W
+          </button>
+          <button
+            onClick={() => setActiveLogTab('techAndGames')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'techAndGames'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🎮 T&G
+          </button>
+          <button
+            onClick={() => setActiveLogTab('mixtape')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'mixtape'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🎵 Tape
+          </button>
+          <button
+            onClick={() => setActiveLogTab('1984')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === '1984'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            📕 1984
+          </button>
+          <button
+            onClick={() => setActiveLogTab('nft')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'nft'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🖼️ NFT
+          </button>
+          <button
+            onClick={() => setActiveLogTab('randomStuff')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'randomStuff'
+                ? 'bg-pink-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🎲 Random
+          </button>
+          <button
+            onClick={() => setActiveLogTab('freeStuff')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'freeStuff'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🎁 Free
+          </button>
+        </div>
       </div>
 
       {/* Download Buttons */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : 'mixtape')}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
+          className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
-          📥 Download JSON
+          📥 JSON
         </button>
         <button
           onClick={() => downloadCSV(activeLogTab)}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
+          className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
-          📥 Download CSV
+          📥 CSV
         </button>
         <button
           onClick={loadLogs}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-semibold"
+          className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-xs sm:text-sm font-semibold"
         >
-          🔄 Refresh
+          🔄
         </button>
       </div>
 
       {/* Log Table */}
       {logs && (
         <div className="bg-gray-900 border border-gray-700 rounded overflow-hidden">
-          <div className="max-h-96 overflow-y-auto">
-            <table className="w-full text-sm">
+          <div className="max-h-96 overflow-y-auto overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm min-w-[400px]">
               <thead className="bg-gray-800 sticky top-0">
                 <tr>
                   <th className="text-left p-3 text-gray-400">Timestamp</th>
