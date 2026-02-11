@@ -12,7 +12,7 @@ import {
   isTaprootAddress,
 } from '../services/smileMintService';
 
-const SMILE_PRICE_SATS = 1000;
+const SMILE_PRICE_SATS = 10000;
 const SMILE_TOTAL_SUPPLY = 222;
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
@@ -206,6 +206,10 @@ export const SmilePage: React.FC = () => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
+                  {/* 50% OFF Banner */}
+                  <div className="absolute top-4 -right-8 rotate-45 bg-red-600 text-white font-bold text-xs px-10 py-1 shadow-lg z-10">
+                    50% OFF!
+                  </div>
                 </div>
 
                 {/* Mint Counter */}
