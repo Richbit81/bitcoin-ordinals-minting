@@ -56,7 +56,8 @@ const CollectionDataToolPage: React.FC = () => {
       const res = await fetchApi(url);
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody?.error || `Backend Fehler ${res.status}`);
+        const msg = errBody?.error || `Backend Fehler ${res.status}`;
+        throw new Error(errBody?.hint ? `${msg} – ${errBody.hint}` : msg);
       }
       const json = await res.json();
       const data = json.data as BisCollection[] | undefined;
@@ -82,7 +83,8 @@ const CollectionDataToolPage: React.FC = () => {
       const res = await fetchApi(url);
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody?.error || `Holders-API Fehler ${res.status}`);
+        const msg = errBody?.error || `Holders-API Fehler ${res.status}`;
+        throw new Error(errBody?.hint ? `${msg} – ${errBody.hint}` : msg);
       }
       const json = await res.json();
       const data = json.data as BisHolder[] | undefined;
@@ -245,7 +247,7 @@ const CollectionDataToolPage: React.FC = () => {
           {progress && <p className="text-xs text-amber-400 mt-2">{progress}</p>}
           {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           <p className="text-xs text-gray-500 mt-2">
-            Nutzt <strong>UNISAT_API_KEY</strong> (bereits in Railway) → UniSat Collection API. Fallback: BIS_API_KEY falls nötig.
+            Nutzt BestInSlot API. <strong className="text-amber-400">BIS_API_KEY</strong> in Railway setzen (bestinslot.xyz → API Key holen).
           </p>
         </div>
 
