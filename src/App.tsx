@@ -20,6 +20,7 @@ import { FreeStuffPage } from './pages/FreeStuffPage';
 import { PalindromSoundBoxPage } from './pages/PalindromSoundBoxPage';
 import { GalleryInscriptionToolPage } from './pages/GalleryInscriptionToolPage';
 import RecursiveCollectionToolPage from './pages/RecursiveCollectionToolPage';
+import CollectionDataToolPage from './pages/CollectionDataToolPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -60,6 +61,7 @@ function AppContent() {
         <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
         <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
         <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
+        <Route path="/admin/collection-data" element={<CollectionDataToolPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
