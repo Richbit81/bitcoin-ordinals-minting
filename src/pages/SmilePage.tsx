@@ -54,7 +54,7 @@ export const SmilePage: React.FC = () => {
 
   const loadMintCount = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/smile-a-bit/logs?adminAddress=public-count`);
+      const res = await fetch(`${API_URL}/api/smile-a-bit/count`);
       if (res.ok) {
         const data = await res.json();
         setMintCount(SMILE_MINT_OFFSET + (data.totalMints || 0));
