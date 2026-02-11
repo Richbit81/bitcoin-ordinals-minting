@@ -11,11 +11,12 @@ import {
   loadSmileCollection,
   isTaprootAddress,
 } from '../services/smileMintService';
+import { getApiUrl } from '../utils/apiUrl';
 
 const SMILE_PRICE_SATS = 10000;
 const SMILE_TOTAL_SUPPLY = 222;
 const SMILE_MINT_OFFSET = 44; // Bereits gemintete Items vor dem Logging-System
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = getApiUrl();
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
 

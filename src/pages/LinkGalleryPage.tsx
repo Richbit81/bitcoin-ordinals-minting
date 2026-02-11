@@ -192,7 +192,7 @@ const LINK_ITEMS: LinkItem[] = [
   {
     id: 'smile-a-bit',
     title: 'SMILE A BIT',
-    description: 'Mint on Gamma & RUNES on Magic Eden',
+    description: 'Mint on richart.app & sell on Magic Eden',
     url: 'https://magiceden.io/ordinals/marketplace/smile',
     category: 'collection',
     image: '/images/SmileaBittt.png',
