@@ -28,52 +28,52 @@ export const HomePage: React.FC = () => {
       order: 1, // Position 1 - ganz vorne!
     },
     {
+      id: 'smile-a-bit',
+      name: 'SMILE A BIT',
+      thumbnail: '/images/smile-collection.png',
+      description: '177 Unique Bitcoin Smiley Ordinals',
+      order: 2, // Position 2
+    },
+    {
       id: 'black-wild',
       name: 'Black & Wild',
       thumbnail: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif',
       description: 'Bitcoin Ordinals Card Game',
-      order: 2,
+      order: 3,
     },
     {
       id: 'tech-games',
       name: 'TECH & GAMES',
       thumbnail: '/techgame.png',
       description: 'Interactive games and tech tools',
-      order: 3,
+      order: 4,
     },
     {
       id: 'point-shop',
       name: 'Point Shop',
       thumbnail: '/pointshop.png',
       description: 'Mint exclusive Ordinals with your points',
-      order: 4,
+      order: 5,
     },
     {
       id: '1984',
       name: '1984',
       thumbnail: `https://ordinals.com/content/5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0`,
       description: 'Orwell on Bitcoin',
-      order: 5,
+      order: 6,
     },
     {
       id: 'free-stuff',
       name: 'Free Stuff',
       thumbnail: `https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0`,
       description: 'Free Ordinals Mints',
-      order: 6,
+      order: 7,
     },
     {
       id: 'random-stuff',
       name: 'Random Stuff',
       thumbnail: `https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0`,
       description: 'Random Ordinals Collection',
-      order: 7,
-    },
-    {
-      id: 'smile-a-bit',
-      name: 'SMILE A BIT',
-      thumbnail: '/images/SmileaBittt.png',
-      description: '177 Unique Bitcoin Smiley Ordinals',
       order: 8,
     },
   ];
@@ -233,14 +233,14 @@ export const HomePage: React.FC = () => {
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'bitcoin-mixtape' ? 'md:order-1' :
-              project.id === 'black-wild' ? 'md:order-2' :
-              project.order === 2 ? 'md:order-3' : // Sons of Satoshi Evolution
-              project.id === 'tech-games' ? 'md:order-4' : 
-              project.id === 'point-shop' ? 'md:order-5' :
-              project.id === 'free-stuff' ? 'md:order-6' :
-              project.id === 'random-stuff' ? 'md:order-7' :
-              project.id === 'smile-a-bit' ? 'md:order-8' :
-              project.order >= 5 ? 'md:order-9' : // Weitere dynamische Collections
+              project.id === 'smile-a-bit' ? 'md:order-2' :
+              project.id === 'black-wild' ? 'md:order-3' :
+              project.order === 2 ? 'md:order-4' : // Sons of Satoshi Evolution
+              project.id === 'tech-games' ? 'md:order-5' : 
+              project.id === 'point-shop' ? 'md:order-6' :
+              project.id === 'free-stuff' ? 'md:order-7' :
+              project.id === 'random-stuff' ? 'md:order-8' :
+              project.order >= 6 ? 'md:order-9' : // Weitere dynamische Collections
               'md:order-10'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >

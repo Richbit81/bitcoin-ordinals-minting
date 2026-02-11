@@ -16,6 +16,20 @@ interface NewsItem {
 
 const NEWS_ITEMS: NewsItem[] = [
   {
+    id: 'smile-a-bit-banner',
+    title: 'SMILE A BIT',
+    description: 'Mint the lost Smile A Bit Ordinals',
+    image: '/images/smile-collection.png',
+    link: '/smile-a-bit',
+    fullWidth: true,
+    images: [
+      '/images/SmileaBittt.png',
+      '/images/smile-preview-1.png',
+      '/images/smile-preview-2.png',
+    ],
+    isInternal: true,
+  },
+  {
     id: 'bitcoin-mixtape',
     title: 'Bitcoin Mix Tape',
     description: '17 Tracks fully on-chain - Mint Now!',
@@ -245,8 +259,8 @@ export const NewsBanner: React.FC = () => {
               </div>
             </div>
           ) : (
-            /* 4 Bilder nebeneinander - volle Banner-Höhe */
-            <div className="flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
+            /* Bilder nebeneinander - volle Banner-Höhe */
+            <div className="relative flex gap-4 justify-center items-center p-4 min-h-[120px] md:min-h-[140px]">
               {item1.images?.map((img, index) => (
                 <div key={index} className="flex-shrink-0 h-full flex items-center">
                   <img
@@ -260,11 +274,24 @@ export const NewsBanner: React.FC = () => {
                   />
                 </div>
               ))}
-              {/* Text groß - über die Bilder, rechtsbündig */}
-              <div className="absolute top-4 right-4 md:top-6 md:right-6">
+              {/* Text + CTA - über die Bilder */}
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right">
                 <h3 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
                   {item1.title}
                 </h3>
+                {item1.description && (
+                  <p className="text-sm md:text-base text-yellow-400 font-semibold mt-1 drop-shadow-lg">
+                    {item1.description}
+                  </p>
+                )}
+                {item1.isInternal && (
+                  <div className="mt-2 inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold text-white text-sm transition-colors">
+                    <span>MINT NOW</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
               </div>
             </div>
           )}

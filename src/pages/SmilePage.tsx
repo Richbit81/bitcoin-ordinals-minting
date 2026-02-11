@@ -199,7 +199,7 @@ export const SmilePage: React.FC = () => {
               <div className="flex flex-col items-center mb-8">
                 <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 bg-black flex items-center justify-center">
                   <img
-                    src="/images/SmileaBittt.png"
+                    src="/images/smile-collection.png"
                     alt="SMILE A BIT Preview"
                     className="w-full h-full object-contain scale-[1.02]"
                     onError={(e) => {
