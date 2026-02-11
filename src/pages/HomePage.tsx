@@ -259,12 +259,16 @@ export const HomePage: React.FC = () => {
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.thumbnail ? (
-                <ProgressiveImage
-                  src={project.thumbnail}
-                  alt={project.name}
-                  className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
-                  loading="lazy"
-                />
+                <div className={project.id === 'smile-a-bit' ? 'overflow-hidden rounded' : ''}>
+                  <ProgressiveImage
+                    src={project.thumbnail}
+                    alt={project.name}
+                    className={`w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50 ${
+                      project.id === 'smile-a-bit' ? 'scale-[1.08]' : ''
+                    }`}
+                    loading="lazy"
+                  />
+                </div>
               ) : (
                 <div className="w-full aspect-[2/3] bg-gray-900 border border-red-600 rounded flex items-center justify-center">
                   <div className="text-center p-8">

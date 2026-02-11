@@ -201,7 +201,7 @@ export const SmilePage: React.FC = () => {
                   <img
                     src="/images/smile-collection.png"
                     alt="SMILE A BIT Preview"
-                    className="w-full h-full object-contain scale-[1.05]"
+                    className="w-full h-full object-cover scale-[1.08]"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
