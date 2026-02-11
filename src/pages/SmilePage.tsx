@@ -12,7 +12,7 @@ import {
   isTaprootAddress,
 } from '../services/smileMintService';
 
-const SMILE_PRICE_SATS = 8000;
+const SMILE_PRICE_SATS = 1000;
 const SMILE_DESCRIPTION = `SMILE A BIT – Bitcoin Smiley Ordinals Collection
 Infinite good vibes.
 
@@ -189,10 +189,6 @@ export const SmilePage: React.FC = () => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
-                  {/* Mystery Overlay */}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-6xl">🎲</span>
-                  </div>
                 </div>
 
                 {/* Price Display */}

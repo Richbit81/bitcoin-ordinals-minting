@@ -18,7 +18,7 @@ import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendMultipleBitcoinPayments } from '../utils/wallet';
 
 const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
-const SMILE_PRICE_SATS = 8000;
+const SMILE_PRICE_SATS = 1000;
 const SMILE_PRICE_BTC = SMILE_PRICE_SATS / 100_000_000;
 
 export interface SmileGeneratedItem {
