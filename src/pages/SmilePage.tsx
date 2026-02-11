@@ -125,129 +125,234 @@ export const SmilePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black relative flex flex-col items-center justify-center overflow-hidden">
-      {/* Hintergrundbild */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src="/images/SmileaBittt.png"
-          alt="SMILE A BIT Background"
-          className="w-full h-full object-cover opacity-30"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        <div className="absolute inset-0 bg-black/70"></div>
-      </div>
+    <div
+      className="min-h-screen bg-black text-white relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/images/SmileaBittt.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen w-full px-8 py-20">
-        {/* Zurück-Button */}
-        <button
-          onClick={() => navigate('/')}
-          className="absolute top-8 left-8 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors z-20"
-        >
-          ← Back
-        </button>
+      <div className="relative z-10 container mx-auto px-4 py-8 min-h-screen flex flex-col">
+        {/* Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span className="text-sm font-semibold">Back to Home</span>
+          </button>
+        </div>
 
-        {/* Titel */}
-        <h1 className="text-6xl md:text-8xl font-bold text-white mb-8 text-center drop-shadow-2xl">
-          SMILE A BIT
-        </h1>
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white drop-shadow-2xl">
+            SMILE A BIT
+          </h1>
+          <p className="text-xl text-gray-300">
+            100 Unique Bitcoin Smiley Ordinals
+          </p>
+        </div>
 
         {collectionReady === null ? (
           <div className="text-white text-center py-8">Loading...</div>
         ) : collectionReady === false ? (
-          <div className="mt-auto mb-16">
-            <p className="text-4xl md:text-6xl font-bold text-red-600 text-center drop-shadow-2xl mb-4">
-              COMING SOON
-            </p>
-            <p className="text-gray-400 text-center text-sm">
-              Collection data not found.
-            </p>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-4xl md:text-6xl font-bold text-red-600 drop-shadow-2xl mb-4">
+                COMING SOON
+              </p>
+              <p className="text-gray-400 text-sm">Collection data not found.</p>
+            </div>
           </div>
         ) : (
-          <div className="w-full max-w-lg">
-            {/* Beschreibung */}
-            <p className="text-gray-300 text-center mb-6 whitespace-pre-line">
-              {SMILE_DESCRIPTION}
-            </p>
+          /* Main Content - Two Column Layout (wie Mixtape) */
+          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12">
 
-            {/* Fee Rate Selector */}
-            <div className="mb-6">
-              <FeeRateSelector
-                selectedFeeRate={inscriptionFeeRate}
-                onFeeRateChange={setInscriptionFeeRate}
-              />
-            </div>
+            {/* Left Side: Mint Panel */}
+            <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
+              {/* Smiley Preview */}
+              <div className="flex flex-col items-center mb-8">
+                <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 bg-black flex items-center justify-center">
+                  <img
+                    src="/images/SmileaBittt.png"
+                    alt="SMILE A BIT Preview"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  {/* Mystery Overlay */}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="text-6xl">🎲</span>
+                  </div>
+                </div>
 
-            {/* Minting Status */}
-            {mintingStatus && (
-              <div className="mb-6">
-                <MintingProgress status={mintingStatus} />
+                {/* Price Display */}
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-red-600 mb-1">
+                    {SMILE_PRICE_SATS.toLocaleString()} sats
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    + inscription fees
+                  </p>
+                </div>
               </div>
-            )}
 
-            {/* Mint Button */}
-            <div className="bg-black/80 border-2 border-red-600 rounded-lg p-6 text-center backdrop-blur-sm">
-              <h3 className="text-2xl font-bold mb-4 text-white">🎲 Random Mint</h3>
-              <p className="text-gray-300 mb-4">
-                You'll receive a random smiley – you don't see which one until it's yours!
-              </p>
-              <p className="text-red-600 font-bold text-xl mb-4">
-                {SMILE_PRICE_SATS.toLocaleString()} sats
-              </p>
-              <p className="text-gray-500 text-xs mb-6">
-                Sent to your Taproot address (bc1p...)
-              </p>
-              <button
-                onClick={handleMint}
-                disabled={isMinting || !walletState.connected}
-                className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-colors text-white"
-              >
-                {isMinting ? 'Minting...' : '🎲 Mint Random Smiley'}
-              </button>
-              <p className="text-xs text-gray-500 mt-4">
-                {totalItems} unique smileys in collection
+              {/* Fee Rate Selector */}
+              <div className="mb-6">
+                <FeeRateSelector
+                  selectedFeeRate={inscriptionFeeRate}
+                  onFeeRateChange={setInscriptionFeeRate}
+                />
+              </div>
+
+              {/* Minting Status */}
+              {mintingStatus && (
+                <div className="mb-6">
+                  <MintingProgress status={mintingStatus} />
+                </div>
+              )}
+
+              {/* Mint Button */}
+              {!mintingStatus || mintingStatus.status === 'failed' ? (
+                <button
+                  onClick={handleMint}
+                  disabled={isMinting || !walletState.connected}
+                  className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
+                >
+                  {isMinting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Minting...
+                    </span>
+                  ) : (
+                    '🎲 MINT RANDOM SMILEY'
+                  )}
+                </button>
+              ) : mintingStatus.status === 'completed' ? (
+                <div className="text-center">
+                  <p className="text-green-400 font-bold mb-4">Mint Successful!</p>
+                  <button
+                    onClick={() => setMintingStatus(null)}
+                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                  >
+                    Mint Another
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Wallet Connection Info */}
+              {!walletState.connected && (
+                <p className="text-center text-gray-400 text-sm mt-4 cursor-pointer hover:text-white" onClick={() => setShowWalletConnect(true)}>
+                  Connect your wallet to mint
+                </p>
+              )}
+
+              <p className="text-xs text-gray-500 text-center mt-4">
+                {totalItems} unique smileys · Sent to your Taproot address (bc1p...)
               </p>
             </div>
 
-            {/* Wallet Connect */}
-            {!walletState.connected && (
-              <div className="text-center mt-8">
-                <p className="text-gray-400 mb-4">Connect your wallet to mint</p>
+            {/* Right Side: Description */}
+            <div className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 lg:p-8 max-w-xl w-full backdrop-blur-md">
+              <div className="prose prose-invert prose-sm max-w-none">
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  SMILE A BIT
+                </h2>
+                <p className="text-red-500 font-semibold text-lg mb-4">
+                  Bitcoin Smiley Ordinals Collection
+                </p>
+                <p className="text-gray-300 text-lg italic mb-6">
+                  Infinite good vibes.
+                </p>
+
+                <p className="text-gray-300 leading-relaxed mb-6">
+                  Say hello to the smiley with the Bitcoin look – rocking the iconic <span className="text-red-500 font-semibold">₿-shaped glasses</span> and spreading nothing but positivity, energy, and real crypto emotion. Born from an idea back in 2021, this expressive icon first lit up the Ethereum blockchain… and now it's smiling its way onto Bitcoin with a limited Ordinals collection.
+                </p>
+
+                <p className="text-gray-300 leading-relaxed mb-6">
+                  Each smiley reflects a different mood – from pure joy to crypto chaos – capturing the rollercoaster of Web3 life. But no matter the emotion, the message stays the same:
+                </p>
+
+                <div className="border-l-4 border-red-600 pl-4 py-2 mb-6 bg-red-600/10 rounded-r">
+                  <p className="text-white font-bold text-lg">
+                    Life is better with a smile. 😎
+                  </p>
+                </div>
+
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <span>🎲</span> How it works:
+                </h3>
+
+                <ul className="space-y-2 text-gray-300 mb-6">
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span><strong className="text-white">100 unique smileys</strong> – each one different</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span><strong className="text-white">Random mint</strong> – you don't see which one you get</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>New SVG Ordinal inscribed <strong className="text-white">directly on Bitcoin</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Sent to your <strong className="text-white">Taproot address (bc1p...)</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Recursive SVG – composed of multiple on-chain layers</span>
+                  </li>
+                </ul>
+
+                <div className="text-center mt-8 space-y-1">
+                  <p className="text-white font-bold text-lg">
+                    Let's turn frowns into ₿rowns.
+                  </p>
+                  <p className="text-red-500 font-bold text-lg italic">
+                    Let's smile a bit – on-chain
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wallet Connect Modal */}
+        {showWalletConnect && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="bg-black border-2 border-red-600 rounded-lg max-w-md w-full">
+              <div className="flex justify-between items-center p-4 border-b-2 border-red-600">
+                <h2 className="text-xl font-bold text-white">Connect Wallet</h2>
                 <button
-                  onClick={() => setShowWalletConnect(true)}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-white"
+                  onClick={() => setShowWalletConnect(false)}
+                  className="text-gray-400 hover:text-white"
                 >
-                  Connect Wallet
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-            )}
+              <div className="p-4">
+                <WalletConnect onConnected={() => setShowWalletConnect(false)} />
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Wallet Connect Modal */}
-      {showWalletConnect && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-black border-2 border-red-600 rounded-lg max-w-md w-full">
-            <div className="flex justify-between items-center p-4 border-b-2 border-red-600">
-              <h2 className="text-xl font-bold text-white">Connect Wallet</h2>
-              <button
-                onClick={() => setShowWalletConnect(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4">
-              <WalletConnect onConnected={() => setShowWalletConnect(false)} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
