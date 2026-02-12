@@ -2018,6 +2018,48 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         >
           📥 CSV
         </button>
+        {activeLogTab === 'smileABit' && (
+          <>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/smile-a-bit/hashlist`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'smile-a-bit-hashlist.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                } catch (err) {
+                  console.error('Hashlist download failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              📥 Hashlist
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/smile-a-bit/hashlist/sync`, { method: 'POST' });
+                  if (res.ok) {
+                    const data = await res.json();
+                    alert(`Hashlist Sync: ${data.synced} neue Einträge aus ${data.totalLogs} Logs`);
+                  }
+                } catch (err) {
+                  console.error('Hashlist sync failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              🔄 Hashlist Sync
+            </button>
+          </>
+        )}
         <button
           onClick={loadLogs}
           className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-xs sm:text-sm font-semibold"
