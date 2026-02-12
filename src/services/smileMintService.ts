@@ -110,7 +110,7 @@ export async function mintSmileRandom(
     file: svgFile,
     address: buyerAddress,
     feeRate,
-    postage: 546,
+    postage: 330,
   });
 
   console.log(`[SmileMint] Inscription erstellt: ${result.inscriptionId}`);

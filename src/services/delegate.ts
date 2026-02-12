@@ -63,7 +63,7 @@ export const createDelegateInscription = async (
     file: jsonFile, // JSON-Metadaten, nicht das Bild!
     address: recipientAddress,
     feeRate,
-    postage: 546, // Bitcoin Dust-Limit (erhöht von 330 um "too low dust" Fehler zu vermeiden)
+    postage: 330,
     delegateMetadata: JSON.stringify(delegateContent), // Metadaten für Backend-Registrierung
   });
   

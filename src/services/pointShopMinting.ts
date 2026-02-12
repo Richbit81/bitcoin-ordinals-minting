@@ -76,7 +76,7 @@ img {
     file: htmlFile,
     address: recipientAddress,
     feeRate,
-    postage: 546, // Bitcoin Dust-Limit (erhöht von 330 um "too low dust" Fehler zu vermeiden)
+    postage: 330,
   });
 
   console.log(`[PointShopMinting] ✅ Inskription erstellt: ${result.inscriptionId}`);
