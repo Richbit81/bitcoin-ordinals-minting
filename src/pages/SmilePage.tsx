@@ -123,6 +123,27 @@ export const SmilePage: React.FC = () => {
         console.warn('[SmilePage] Log speichern fehlgeschlagen:', logErr);
       }
 
+      // Hashlist aktualisieren
+      try {
+        const attributes = result.item.layers.map(layer => ({
+          trait_type: layer.traitType,
+          value: layer.trait.name,
+        }));
+        await fetch(`${API_URL}/api/smile-a-bit/hashlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inscriptionId: result.inscriptionId,
+            itemIndex: result.item.index,
+            name: `SMILE A BIT #${result.item.index}`,
+            attributes,
+          }),
+        });
+        console.log('[SmilePage] Hashlist aktualisiert');
+      } catch (hashErr) {
+        console.warn('[SmilePage] Hashlist update fehlgeschlagen:', hashErr);
+      }
+
       setMintingStatus({
         packId: 'smile-a-bit',
         status: 'completed',
