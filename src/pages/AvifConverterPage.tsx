@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import JSZip from 'jszip';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
 
@@ -124,15 +125,28 @@ export const AvifConverterPage: React.FC = () => {
     setConverting(false);
   }, [files, quality]);
 
-  const downloadAll = useCallback(() => {
-    converted.forEach((file) => {
+  const [zipping, setZipping] = useState(false);
+
+  const downloadAll = useCallback(async () => {
+    if (converted.length === 0) return;
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder('avif-converted');
+      converted.forEach((file) => {
+        folder!.file(file.name, file.blob);
+      });
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(file.blob);
-      a.download = file.name;
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = `avif-converted-q${quality}.zip`;
       a.click();
       URL.revokeObjectURL(a.href);
-    });
-  }, [converted]);
+    } catch (err) {
+      console.error('ZIP Fehler:', err);
+    }
+    setZipping(false);
+  }, [converted, quality]);
 
   const downloadSingle = useCallback((file: ConvertedFile) => {
     const a = document.createElement('a');
@@ -275,9 +289,10 @@ export const AvifConverterPage: React.FC = () => {
               </div>
               <button
                 onClick={downloadAll}
-                className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-bold transition-colors"
+                disabled={zipping}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-bold transition-colors"
               >
-                Download All ({converted.length})
+                {zipping ? 'Creating ZIP...' : `Download ZIP (${converted.length})`}
               </button>
             </div>
 
