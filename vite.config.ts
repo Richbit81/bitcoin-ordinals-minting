@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import wasm from 'vite-plugin-wasm'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), wasm()],
   server: {
     host: '0.0.0.0',
     port: 3008,
@@ -21,6 +22,10 @@ export default defineConfig({
   publicDir: resolve(__dirname, 'public'),
   optimizeDeps: {
     include: ['sats-connect']
+  },
+  worker: {
+    format: 'es',
+    plugins: () => [wasm()],
   },
   build: {
     commonjsOptions: {

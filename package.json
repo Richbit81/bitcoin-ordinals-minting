@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jsquash/avif": "^2.1.1",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^2.0.0",
@@ -18,7 +19,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.30.2",
     "recharts": "^3.6.0",
-    "sats-connect": "^4.2.0"
+    "sats-connect": "^4.2.0",
+    "vite-plugin-wasm": "^3.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

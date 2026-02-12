@@ -46,46 +46,30 @@ export const AvifConverterPage: React.FC = () => {
     setProgress(0);
   }, []);
 
-  const convertToAvif = useCallback(async (file: File, q: number): Promise<ConvertedFile> => {
+  const getImageData = (file: File): Promise<ImageData> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
-
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new Error('Canvas context not available'));
           return;
         }
-
         ctx.drawImage(img, 0, 0);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error(`Konvertierung fehlgeschlagen: ${file.name}`));
-              return;
-            }
-
-            const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
-            resolve({
-              name: `${nameWithoutExt}.avif`,
-              originalSize: file.size,
-              convertedSize: blob.size,
-              blob,
-              preview: URL.createObjectURL(blob),
-            });
-          },
-          'image/avif',
-          q / 100
-        );
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(img.src);
+        resolve(imageData);
       };
-      img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${file.name}`));
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error(`Bild konnte nicht geladen werden: ${file.name}`));
+      };
       img.src = URL.createObjectURL(file);
     });
-  }, []);
+  };
 
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
@@ -95,35 +79,50 @@ export const AvifConverterPage: React.FC = () => {
     setError(null);
     setProgress(0);
 
-    const results: ConvertedFile[] = [];
+    try {
+      // Dynamisch laden um WASM-Initialisierung zu handhaben
+      const avifModule = await import('@jsquash/avif');
+      const avifEncode = avifModule.default || avifModule.encode;
 
-    // Check AVIF support
-    const testCanvas = document.createElement('canvas');
-    testCanvas.width = 1;
-    testCanvas.height = 1;
-    const testBlob = await new Promise<Blob | null>(resolve => 
-      testCanvas.toBlob(resolve, 'image/avif', 0.5)
-    );
-    
-    if (!testBlob || testBlob.type !== 'image/avif') {
-      setError('Dein Browser unterstützt keine AVIF-Konvertierung. Bitte verwende Chrome 94+ oder Edge 121+.');
-      setConverting(false);
-      return;
-    }
+      const results: ConvertedFile[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const result = await convertToAvif(files[i], quality);
-        results.push(result);
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const imageData = await getImageData(files[i]);
+
+          const avifBuffer = await avifEncode(imageData, {
+            quality,
+          });
+
+          const blob = new Blob([avifBuffer], { type: 'image/avif' });
+          const nameWithoutExt = files[i].name.replace(/\.[^.]+$/, '');
+
+          results.push({
+            name: `${nameWithoutExt}.avif`,
+            originalSize: files[i].size,
+            convertedSize: blob.size,
+            blob,
+            preview: URL.createObjectURL(blob),
+          });
+        } catch (err: any) {
+          console.warn(`Fehler bei ${files[i].name}:`, err.message);
+        }
+
         setProgress(Math.round(((i + 1) / files.length) * 100));
-      } catch (err: any) {
-        console.warn(`Fehler bei ${files[i].name}:`, err.message);
       }
+
+      setConverted(results);
+
+      if (results.length === 0) {
+        setError('Keine Bilder konnten konvertiert werden.');
+      }
+    } catch (err: any) {
+      console.error('AVIF Encoder Fehler:', err);
+      setError(`Encoder-Fehler: ${err.message}`);
     }
 
-    setConverted(results);
     setConverting(false);
-  }, [files, quality, convertToAvif]);
+  }, [files, quality]);
 
   const downloadAll = useCallback(() => {
     converted.forEach((file) => {
@@ -309,7 +308,7 @@ export const AvifConverterPage: React.FC = () => {
                       onClick={() => downloadSingle(file)}
                       className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold transition-colors"
                     >
-                      📥
+                      Download
                     </button>
                   </div>
                 );
