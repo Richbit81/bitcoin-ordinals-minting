@@ -22,6 +22,8 @@ import { GalleryInscriptionToolPage } from './pages/GalleryInscriptionToolPage';
 import RecursiveCollectionToolPage from './pages/RecursiveCollectionToolPage';
 import CollectionDataToolPage from './pages/CollectionDataToolPage';
 import { AvifConverterPage } from './pages/AvifConverterPage';
+import { AudioSplitterPage } from './pages/AudioSplitterPage';
+import { VideoSplitterPage } from './pages/VideoSplitterPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -64,6 +66,8 @@ function AppContent() {
         <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
         <Route path="/admin/collection-data" element={<CollectionDataToolPage />} />
         <Route path="/admin/avif-converter" element={<AvifConverterPage />} />
+        <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
+        <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
