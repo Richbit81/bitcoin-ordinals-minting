@@ -16,6 +16,21 @@ interface NewsItem {
 
 const NEWS_ITEMS: NewsItem[] = [
   {
+    id: 'krypdroidz',
+    title: 'KRYPDROIDZ',
+    description: 'Raffle your free Krypdroidz on Soltrix (Solana)',
+    image: '/images/kr0.png',
+    link: 'https://www.soltrix.io/mint/krypdroidz-2863/286315fc12',
+    fullWidth: true,
+    images: [
+      '/images/kr0.png',
+      '/images/kr1.png',
+      '/images/kr2.png',
+      '/images/kr3.png',
+      '/images/kr4.png',
+    ],
+  },
+  {
     id: 'smile-a-bit-banner',
     title: 'SMILE A ₿IT',
     description: 'Mint the lost Smile A Bit Ordinals',
@@ -284,14 +299,12 @@ export const NewsBanner: React.FC = () => {
                     {item1.description}
                   </p>
                 )}
-                {item1.isInternal && (
-                  <div className="mt-2 inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold text-white text-sm transition-colors">
-                    <span>MINT NOW</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                )}
+                <div className="mt-2 inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold text-white text-sm transition-colors">
+                  <span>{item1.isInternal ? 'MINT NOW' : 'LFG!'}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
             </div>
           )}

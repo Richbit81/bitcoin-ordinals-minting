@@ -197,6 +197,14 @@ const LINK_ITEMS: LinkItem[] = [
     category: 'collection',
     image: '/images/SmileaBittt.png',
   },
+  {
+    id: 'krypdroidz',
+    title: 'Krypdroidz',
+    description: 'Raffle your free Krypdroidz on Soltrix (Solana)',
+    url: 'https://www.soltrix.io/mint/krypdroidz-2863/286315fc12',
+    category: 'collection',
+    image: '/images/kr2.png',
+  },
 ];
 
 const CATEGORY_LABELS: Record<LinkItem['category'], string> = {
