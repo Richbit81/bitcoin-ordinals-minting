@@ -101,6 +101,9 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   const [enableBatch, setEnableBatch] = useState(false);
   const [batchFiles, setBatchFiles] = useState<BatchFileEntry[]>([]);
 
+  const [enablePixelUpscale, setEnablePixelUpscale] = useState(false);
+  const [pixelScale, setPixelScale] = useState<number>(2);
+
   // ---- SETTINGS ----
   const [feeRate, setFeeRate] = useState<number>(2);
   const [galleryPreviewExpanded, setGalleryPreviewExpanded] = useState(false);
@@ -255,6 +258,42 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   }, []);
 
   // ============================================================
+  // PIXEL UPSCALE HELPER
+  // ============================================================
+
+  const isRasterImage = (ct: string) => ['image/png', 'image/jpeg', 'image/jpg', 'image/avif', 'image/webp', 'image/gif', 'image/bmp'].includes(ct);
+
+  const pixelUpscaleImage = useCallback(async (data: Uint8Array, contentType: string, scale: number): Promise<{ data: Uint8Array; contentType: string }> => {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([data], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error('Canvas context error')); return; }
+        // Nearest-neighbor: no smoothing = pixel-perfect upscale
+        ctx.imageSmoothingEnabled = false;
+        (ctx as any).mozImageSmoothingEnabled = false;
+        (ctx as any).webkitImageSmoothingEnabled = false;
+        (ctx as any).msImageSmoothingEnabled = false;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('Canvas toBlob failed')); return; }
+          blob.arrayBuffer().then(buf => {
+            resolve({ data: new Uint8Array(buf), contentType: 'image/png' });
+          });
+        }, 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+  }, []);
+
+  // ============================================================
   // BUILD INSCRIPTION OPTIONS
   // ============================================================
 
@@ -279,16 +318,25 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       const inscriptions: InscriptionOptions[] = [];
       for (const bf of batchFiles) {
         let body = bf.data;
-        if (enableBrotli && isTextBasedContent(bf.contentType)) {
+        let ct = bf.contentType;
+
+        // Pixel Upscale (nur Rasterbilder)
+        if (enablePixelUpscale && isRasterImage(ct)) {
+          const upscaled = await pixelUpscaleImage(body, ct, pixelScale);
+          body = upscaled.data;
+          ct = upscaled.contentType;
+        }
+
+        if (enableBrotli && isTextBasedContent(ct)) {
           body = await compressWithBrotli(body);
         }
         inscriptions.push({
-          contentType: bf.contentType,
+          contentType: ct,
           body,
           galleryData: inscriptions.length === 0 ? galleryCborData : null, // gallery only on first
           parentIds: parents,
           metadata,
-          contentEncoding: enableBrotli && isTextBasedContent(bf.contentType) ? 'br' : null,
+          contentEncoding: enableBrotli && isTextBasedContent(ct) ? 'br' : null,
         });
       }
       return inscriptions;
@@ -298,17 +346,26 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     if (!imageData) throw new Error('Kein Bild geladen!');
 
     let body = imageData;
-    if (enableBrotli && isTextBasedContent(imageContentType)) {
-      body = await compressWithBrotli(imageData);
+    let ct = imageContentType;
+
+    // Pixel Upscale (nur Rasterbilder)
+    if (enablePixelUpscale && isRasterImage(ct)) {
+      const upscaled = await pixelUpscaleImage(body, ct, pixelScale);
+      body = upscaled.data;
+      ct = upscaled.contentType;
+    }
+
+    if (enableBrotli && isTextBasedContent(ct)) {
+      body = await compressWithBrotli(body);
     }
 
     return [{
-      contentType: imageContentType,
+      contentType: ct,
       body,
       galleryData: galleryCborData,
       parentIds: parents,
       metadata,
-      contentEncoding: enableBrotli && isTextBasedContent(imageContentType) ? contentEncoding : null,
+      contentEncoding: enableBrotli && isTextBasedContent(ct) ? contentEncoding : null,
       reinscribeId: enableReinscribe ? reinscribeId : null,
     }];
   }, [
@@ -316,6 +373,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     enableTitle, title, enableTraits, traits,
     enableParent, parentIds, enableBrotli,
     enableBatch, batchFiles, enableReinscribe, reinscribeId,
+    enablePixelUpscale, pixelScale, pixelUpscaleImage,
   ]);
 
   // ============================================================
@@ -828,6 +886,45 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                       )}
                     </div>
                   )}
+                </FeatureToggle>
+
+                {/* Pixel Upscale */}
+                <FeatureToggle
+                  label="Pixel Upscale"
+                  description="Vergrössert Pixel-Art verlustfrei (Nearest Neighbor). Nur für PNG, JPG, AVIF, WebP."
+                  checked={enablePixelUpscale}
+                  onChange={setEnablePixelUpscale}
+                >
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      {[2, 3, 4].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setPixelScale(s)}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                            pixelScale === s
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          }`}
+                        >
+                          {s}x
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-gray-400 text-xs">
+                      1 Pixel → {pixelScale}×{pixelScale} Block ({pixelScale * pixelScale} Pixel)
+                    </p>
+                    {imageData && isRasterImage(imageContentType) && (
+                      <p className="text-yellow-400 text-xs">
+                        ⚠️ Bild wird {pixelScale}x grösser → mehr Inscription-Fees. Output: PNG
+                      </p>
+                    )}
+                    {imageData && !isRasterImage(imageContentType) && (
+                      <p className="text-yellow-400 text-xs">
+                        ⚠️ Dein Content ({imageContentType}) ist kein Rasterbild – Upscale hat keinen Effekt.
+                      </p>
+                    )}
+                  </div>
                 </FeatureToggle>
 
                 {/* Batch */}
