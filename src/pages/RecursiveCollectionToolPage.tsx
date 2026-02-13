@@ -362,7 +362,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   }, [layers, collectionName, totalCount, viewBox, scanAddress, walletInscriptions, generated, hashlist, activeProjectId, saveCurrentProject]);
 
   // ============================================================
-  // WALLET SCANNER
+  // WALLET SCANNER (UniSat Open API)
   // ============================================================
   const scanWallet = useCallback(async () => {
     const addr = scanAddress.trim();
@@ -377,75 +377,38 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setScanProgress('Lade Inscriptions...');
 
     try {
-      // ---- Phase 1: IDs laden von ordinals.com ----
-      let allIds: string[] = [];
-      let page = 0;
-      let hasMore = true;
+      let allInscriptions: WalletInscription[] = [];
+      let cursor = 0;
+      const pageSize = 100;
+      let total = 0;
 
-      while (hasMore) {
-        const url = `https://ordinals.com/api/address/${addr}/inscriptions/${page}`;
+      do {
+        const url = `https://open-api.unisat.io/v1/indexer/address/${addr}/inscription-data?cursor=${cursor}&size=${pageSize}`;
         const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error(`ordinals.com API Fehler: ${res.status}`);
-        const data = await res.json();
-        const ids: string[] = data.inscriptions || [];
-        allIds = [...allIds, ...ids];
-        hasMore = data.more === true;
-        page++;
+        if (!res.ok) throw new Error(`API Fehler: ${res.status}`);
+        const json = await res.json();
+        if (json.code !== 0) throw new Error(json.msg || 'API Error');
+        const data = json.data;
+        total = data.total || 0;
+        setScanTotal(total);
 
-        setScanTotal(allIds.length);
-        setScanProgress(`${allIds.length} IDs geladen...`);
+        const items: WalletInscription[] = (data.inscription || []).map((r: any) => ({
+          id: r.inscriptionId,
+          number: r.inscriptionNumber,
+          contentType: r.contentType,
+          contentLength: r.contentLength,
+        }));
 
-        if (hasMore) await new Promise(r => setTimeout(r, 150));
-      }
+        allInscriptions = [...allInscriptions, ...items];
+        setWalletInscriptions([...allInscriptions]);
+        setScanProgress(`${allInscriptions.length} / ${total} geladen...`);
+        cursor += pageSize;
 
-      if (allIds.length === 0) {
-        setScanProgress('Keine Inscriptions gefunden.');
-        setScanning(false);
-        return;
-      }
+        if (items.length < pageSize) break;
+        await new Promise(r => setTimeout(r, 200));
+      } while (cursor < total);
 
-      // ---- Phase 2: Details laden von Hiro (optional) ----
-      setScanProgress(`${allIds.length} IDs gefunden. Lade Details...`);
-      let allInscriptions: WalletInscription[] = allIds.map(id => ({ id } as WalletInscription));
-      setWalletInscriptions([...allInscriptions]);
-
-      // Versuche Details in Batches von Hiro zu laden
-      const batchSize = 50;
-      let enriched = 0;
-      for (let i = 0; i < allIds.length; i += batchSize) {
-        const batch = allIds.slice(i, i + batchSize);
-        try {
-          const detailPromises = batch.map(async (id) => {
-            try {
-              const r = await fetch(`${HIRO_API}/inscriptions/${id}`, { headers: { Accept: 'application/json' } });
-              if (!r.ok) return null;
-              return await r.json();
-            } catch { return null; }
-          });
-          const details = await Promise.all(detailPromises);
-          details.forEach((d, idx) => {
-            if (d) {
-              const globalIdx = i + idx;
-              allInscriptions[globalIdx] = {
-                id: d.id || allIds[globalIdx],
-                number: d.number,
-                contentType: d.content_type,
-                contentLength: d.content_length,
-              };
-              enriched++;
-            }
-          });
-          setWalletInscriptions([...allInscriptions]);
-          setScanProgress(`Details: ${Math.min(i + batchSize, allIds.length)} / ${allIds.length}...`);
-          if (i + batchSize < allIds.length) await new Promise(r => setTimeout(r, 200));
-        } catch {
-          // Hiro-Details fehlgeschlagen — IDs reichen aus
-          break;
-        }
-      }
-
-      setScanTotal(allInscriptions.length);
-      setScanProgress(`✅ ${allInscriptions.length} Inscriptions geladen${enriched < allInscriptions.length ? ` (${enriched} mit Details)` : ''}`);
+      setScanProgress(`✅ ${allInscriptions.length} Inscriptions geladen`);
     } catch (err: any) {
       setError(`Scan Fehler: ${err.message}`);
       setScanProgress('');
