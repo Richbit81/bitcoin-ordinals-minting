@@ -54,11 +54,12 @@ export const AvifConverterPage: React.FC = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           reject(new Error('Canvas context not available'));
           return;
         }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(img.src);
@@ -91,8 +92,19 @@ export const AvifConverterPage: React.FC = () => {
         try {
           const imageData = await getImageData(files[i]);
 
+          // Prüfe ob Bild Transparenz hat
+          const hasAlpha = (() => {
+            const d = imageData.data;
+            for (let j = 3; j < d.length; j += 4) {
+              if (d[j] < 255) return true;
+            }
+            return false;
+          })();
+
           const avifBuffer = await avifEncode(imageData, {
             quality,
+            qualityAlpha: hasAlpha ? Math.max(quality, 90) : -1, // Alpha immer hohe Qualität
+            subsample: hasAlpha ? 3 : 1, // YUV444 bei Transparenz für bessere Farbtreue
           });
 
           const blob = new Blob([avifBuffer], { type: 'image/avif' });
