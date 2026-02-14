@@ -16,6 +16,7 @@ import { getApiUrl } from '../utils/apiUrl';
 const SLUMS_PRICE_SATS = 3000;
 const SLUMS_FREE_MINTS = 100;
 const SLUMS_TOTAL_SUPPLY = 333;
+const SLUMS_FREE_LIMIT_PER_ADDRESS = 3;
 const API_URL = getApiUrl();
 
 // Preview item #124 layer inscription IDs
@@ -43,6 +44,7 @@ export const SlumsPage: React.FC = () => {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [addressMintCount, setAddressMintCount] = useState<number>(0);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number;
     itemName: string;
@@ -109,6 +111,19 @@ export const SlumsPage: React.FC = () => {
     loadMintCount();
     loadRecentMints();
   }, []);
+
+  // Load address mint count when wallet connects/changes
+  useEffect(() => {
+    if (walletState.connected && walletState.accounts[0]) {
+      const ordinalsAccount = walletState.accounts.find(
+        (acc) => acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
+      );
+      const addr = ordinalsAccount?.address || walletState.accounts[0].address;
+      loadAddressMintCount(addr);
+    } else {
+      setAddressMintCount(0);
+    }
+  }, [walletState.connected, walletState.accounts]);
 
   // Render a single item's layers to a data URL
   const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
@@ -186,6 +201,18 @@ export const SlumsPage: React.FC = () => {
     }
   };
 
+  const loadAddressMintCount = async (address: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/slums/address-mints?address=${encodeURIComponent(address)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAddressMintCount(data.count || 0);
+      }
+    } catch {
+      console.warn('[SlumsPage] Could not load address mint count');
+    }
+  };
+
   const handleMint = async () => {
     if (!walletState.connected || !walletState.accounts[0]) {
       setShowWalletConnect(true);
@@ -202,6 +229,12 @@ export const SlumsPage: React.FC = () => {
 
     if (!isTaprootAddress(userAddress)) {
       alert('Ordinals werden nur an Taproot-Adressen (bc1p...) gesendet. Bitte verbinde eine Taproot-Wallet.');
+      return;
+    }
+
+    // Free-phase limit check (client-side, also enforced server-side)
+    if (mintCount < SLUMS_FREE_MINTS && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS) {
+      alert(`Du hast bereits ${addressMintCount} von ${SLUMS_FREE_LIMIT_PER_ADDRESS} erlaubten Free Mints genutzt. Warte bis die kostenpflichtige Phase beginnt (ab Mint #${SLUMS_FREE_MINTS + 1}).`);
       return;
     }
 
@@ -289,6 +322,7 @@ export const SlumsPage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
       });
       setMintCount(prev => prev + 1);
+      setAddressMintCount(prev => prev + 1);
       // Refresh recent mints list
       loadRecentMints();
     } catch (error: any) {
@@ -466,6 +500,11 @@ export const SlumsPage: React.FC = () => {
                         <p className="text-[10px] text-gray-600">
                           {SLUMS_FREE_MINTS - mintCount} free left · then {SLUMS_PRICE_SATS.toLocaleString()} sats
                         </p>
+                        {walletState.connected && (
+                          <p className={`text-[10px] mt-0.5 font-bold ${addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS ? 'text-red-500' : 'text-green-600'}`}>
+                            {addressMintCount} / {SLUMS_FREE_LIMIT_PER_ADDRESS} free mints used
+                          </p>
+                        )}
                       </>
                     ) : (
                       <>
@@ -497,11 +536,11 @@ export const SlumsPage: React.FC = () => {
                 {!mintingStatus || mintingStatus.status === 'failed' ? (
                   <button
                     onClick={handleMint}
-                    disabled={isMinting || !walletState.connected || isSoldOut}
+                    disabled={isMinting || !walletState.connected || isSoldOut || (isFreePhase && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS)}
                     className="w-full py-2.5 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
                     style={{
                       fontFamily: comicFont,
-                      background: isSoldOut ? '#555' : 'linear-gradient(180deg, #FFE03D 0%, #FFA500 100%)',
+                      background: isSoldOut || (isFreePhase && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS) ? '#555' : 'linear-gradient(180deg, #FFE03D 0%, #FFA500 100%)',
                       color: '#000',
                       border: '3px solid #000',
                       boxShadow: '4px 4px 0 #000',
@@ -510,6 +549,8 @@ export const SlumsPage: React.FC = () => {
                   >
                     {isSoldOut ? (
                       'SOLD OUT!'
+                    ) : (isFreePhase && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS) ? (
+                      'FREE LIMIT REACHED (3/3)'
                     ) : isMinting ? (
                       <span className="flex items-center justify-center gap-2">
                         <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -601,6 +642,12 @@ export const SlumsPage: React.FC = () => {
                       <span className="bg-green-500 text-black px-2 py-0.5 rounded-sm text-[10px] font-bold border border-black"
                         style={{ fontFamily: comicFont }}>
                         FREE!
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500" style={{ fontFamily: comicFont }}>Free Phase Limit</span>
+                      <span className="text-yellow-400 text-[10px] font-bold" style={{ fontFamily: comicFont }}>
+                        max {SLUMS_FREE_LIMIT_PER_ADDRESS} per address
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
