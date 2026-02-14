@@ -38,6 +38,7 @@ export const SmilePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number;
     itemName: string;
@@ -502,7 +503,10 @@ export const SmilePage: React.FC = () => {
               <div className="flex flex-wrap justify-center gap-3">
                 {recentMints.map((mint, i) => (
                   <div key={i} className="flex flex-col items-center">
-                    <div className="w-24 h-24 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20">
+                    <div
+                      className="w-24 h-24 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20 cursor-pointer transition-transform hover:scale-110"
+                      onClick={() => mint.imageUrl && setLightboxImage({ url: mint.imageUrl, name: mint.itemName })}
+                    >
                       {mint.imageUrl ? (
                         <img src={mint.imageUrl} alt={mint.itemName}
                           className="w-full h-full object-cover" />
@@ -521,6 +525,22 @@ export const SmilePage: React.FC = () => {
             </div>
           )}
           </>
+        )}
+
+        {/* Lightbox Modal */}
+        {lightboxImage && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setLightboxImage(null)}>
+            <div className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setLightboxImage(null)}
+                className="absolute -top-10 right-0 text-gray-400 hover:text-white text-sm font-bold">
+                ✕ Close
+              </button>
+              <img src={lightboxImage.url} alt={lightboxImage.name}
+                className="w-full h-auto rounded-lg border-2 border-red-600 shadow-2xl shadow-red-600/30" />
+              <p className="text-center text-white font-bold mt-3">{lightboxImage.name}</p>
+            </div>
+          </div>
         )}
 
         {/* Wallet Connect Modal */}
