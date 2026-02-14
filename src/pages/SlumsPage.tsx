@@ -578,7 +578,7 @@ export const SlumsPage: React.FC = () => {
                 <div className="relative bg-white text-black rounded-lg px-3 py-2 mb-4 border-2 border-black inline-block"
                   style={{ boxShadow: '3px 3px 0 #000', transform: 'rotate(-1deg)' }}>
                   <p className="text-xs italic" style={{ fontFamily: comicFont }}>
-                    "Where the streets have no name — but every character tells a story."
+                    Slum slum slum slum. Slums slum slum slums. SLUMS!
                   </p>
                   <div className="absolute -bottom-2 left-6 w-0 h-0"
                     style={{ borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '6px solid #000' }}></div>
