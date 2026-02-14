@@ -289,13 +289,13 @@ export const SmilePage: React.FC = () => {
         ) : (
           /* Main Content - Two Column Layout (wie Mixtape) */
           <>
-          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12">
+          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 lg:gap-10">
 
             {/* Left Side: Mint Panel */}
-            <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
+            <div className="bg-black/80 border-2 border-red-600 rounded-xl p-4 lg:p-5 max-w-md w-full backdrop-blur-md">
               {/* Smiley Preview */}
-              <div className="flex flex-col items-center mb-8">
-                <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 bg-black flex items-center justify-center">
+              <div className="flex flex-col items-center mb-4">
+                <div className="relative mb-3 w-full max-w-[220px] aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 bg-black flex items-center justify-center">
                   <img
                     src="/images/smile-collection.png"
                     alt="SMILE A BIT Preview"
@@ -311,12 +311,12 @@ export const SmilePage: React.FC = () => {
                 </div>
 
                 {/* Mint Counter */}
-                <div className="w-full mb-4">
-                  <div className="flex justify-between text-sm mb-1">
+                <div className="w-full mb-3">
+                  <div className="flex justify-between text-xs mb-0.5">
                     <span className="text-gray-400">Minted</span>
                     <span className="text-white font-bold">{mintCount} / {SMILE_TOTAL_SUPPLY}</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+                  <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-700">
                     <div
                       className="h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min((mintCount / SMILE_TOTAL_SUPPLY) * 100, 100)}%` }}
@@ -329,17 +329,17 @@ export const SmilePage: React.FC = () => {
 
                 {/* Price Display */}
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-red-600 mb-1">
+                  <p className="text-2xl font-bold text-red-600 mb-0.5">
                     {SMILE_PRICE_SATS.toLocaleString()} sats
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs text-gray-400">
                     + inscription fees
                   </p>
                 </div>
               </div>
 
               {/* Fee Rate Selector */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <FeeRateSelector
                   selectedFeeRate={inscriptionFeeRate}
                   onFeeRateChange={setInscriptionFeeRate}
@@ -348,7 +348,7 @@ export const SmilePage: React.FC = () => {
 
               {/* Minting Status */}
               {mintingStatus && (
-                <div className="mb-6">
+                <div className="mb-4">
                   <MintingProgress status={mintingStatus} />
                 </div>
               )}
@@ -358,7 +358,7 @@ export const SmilePage: React.FC = () => {
                 <button
                   onClick={handleMint}
                   disabled={isMinting || !walletState.connected || mintCount >= SMILE_TOTAL_SUPPLY}
-                  className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
+                  className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
                 >
                   {mintCount >= SMILE_TOTAL_SUPPLY ? (
                     'SOLD OUT'
@@ -388,12 +388,12 @@ export const SmilePage: React.FC = () => {
 
               {/* Wallet Connection Info */}
               {!walletState.connected && (
-                <p className="text-center text-gray-400 text-sm mt-4 cursor-pointer hover:text-white" onClick={() => setShowWalletConnect(true)}>
+                <p className="text-center text-gray-400 text-xs mt-3 cursor-pointer hover:text-white" onClick={() => setShowWalletConnect(true)}>
                   Connect your wallet to mint
                 </p>
               )}
 
-              <p className="text-xs text-gray-500 text-center mt-4">
+              <p className="text-[10px] text-gray-500 text-center mt-3">
 {SMILE_TOTAL_SUPPLY} unique smileys · Sent to your Taproot address (bc1p...)
               </p>
             </div>
