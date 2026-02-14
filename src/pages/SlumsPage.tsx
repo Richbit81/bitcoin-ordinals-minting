@@ -406,7 +406,7 @@ export const SlumsPage: React.FC = () => {
           </div>
         ) : (
           <>
-          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 lg:gap-8">
+          <div className="flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 lg:gap-8">
 
             {/* ====== LEFT: MINT PANEL ====== */}
             <div
