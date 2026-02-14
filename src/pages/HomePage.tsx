@@ -311,7 +311,7 @@ export const HomePage: React.FC = () => {
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.id === 'slums' ? (
-                <div className="overflow-hidden rounded">
+                <div className="overflow-hidden rounded relative">
                   {slumsPreview ? (
                     <img
                       src={slumsPreview}
@@ -324,6 +324,10 @@ export const HomePage: React.FC = () => {
                       <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
+                  {/* FREE badge */}
+                  <div className="absolute top-2 -right-6 rotate-45 bg-green-500 text-white font-bold text-[10px] px-6 py-0.5 shadow-lg z-10">
+                    FREE
+                  </div>
                 </div>
               ) : project.thumbnail ? (
                 <div className={
