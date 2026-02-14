@@ -1752,9 +1752,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     randomStuff: { logs: any[]; totalMints: number };
     freeStuff: { logs: any[]; totalMints: number };
     smileABit: { logs: any[]; totalMints: number };
+    slums: { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums'>('blackAndWild');
 
   useEffect(() => {
     loadLogs();
@@ -1777,7 +1778,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff') => {
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       if (response.ok) {
@@ -1798,7 +1799,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -1848,6 +1849,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 8000},"${log.paymentTxid || ''}"\n`;
+      });
+    } else if (logType === 'slums') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 0},"${log.paymentTxid || ''}"\n`;
       });
     }
 
@@ -1913,6 +1919,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <div className="bg-gray-900 border border-orange-500 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">Smile A Bit</p>
             <p className="text-3xl font-bold text-white">{logs.smileABit?.totalMints || 0}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-violet-500 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">SLUMS</p>
+            <p className="text-3xl font-bold text-white">{logs.slums?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
         </div>
@@ -2001,13 +2012,23 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           >
             😊 Smile
           </button>
+          <button
+            onClick={() => setActiveLogTab('slums')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'slums'
+                ? 'bg-violet-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🏚️ SLUMS
+          </button>
         </div>
       </div>
 
       {/* Download Buttons */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : activeLogTab === 'slums' ? 'slums' : 'mixtape')}
           className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
           📥 JSON
@@ -2052,6 +2073,48 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                   }
                 } catch (err) {
                   console.error('Hashlist sync failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              🔄 Hashlist Sync
+            </button>
+          </>
+        )}
+        {activeLogTab === 'slums' && (
+          <>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/slums/hashlist`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'slums-hashlist.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                } catch (err) {
+                  console.error('SLUMS Hashlist download failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              📥 Hashlist
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/slums/hashlist/sync`, { method: 'POST' });
+                  if (res.ok) {
+                    const data = await res.json();
+                    alert(`SLUMS Hashlist Sync: ${data.synced} neue Einträge aus ${data.totalLogs} Logs`);
+                  }
+                } catch (err) {
+                  console.error('SLUMS Hashlist sync failed:', err);
                 }
               }}
               className="px-3 sm:px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-xs sm:text-sm font-semibold"
@@ -2119,6 +2182,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       <th className="text-left p-3 text-gray-400">Price</th>
                     </>
                   )}
+                  {activeLogTab === 'slums' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -2179,6 +2248,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                         <>
                           <td className="p-3 text-white">{log.itemName || log.packName || 'Smile A Bit'}</td>
                           <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 8000).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === 'slums' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName || log.packName || 'SLUMS'}</td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
                         </>
                       )}
                     </tr>

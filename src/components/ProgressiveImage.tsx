@@ -7,6 +7,7 @@ interface ProgressiveImageProps {
   placeholder?: string;
   onError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   loading?: 'lazy' | 'eager';
+  style?: React.CSSProperties;
 }
 
 export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
@@ -16,6 +17,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   placeholder,
   onError,
   loading = 'lazy',
+  style,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -67,6 +69,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         loading={loading}
         onLoad={handleLoad}
         onError={handleError}
+        style={style}
       />
       
       {/* Loading Spinner */}

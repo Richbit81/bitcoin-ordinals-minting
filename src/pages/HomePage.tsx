@@ -35,46 +35,53 @@ export const HomePage: React.FC = () => {
       order: 2, // Position 2
     },
     {
+      id: 'slums',
+      name: 'SLUMS',
+      thumbnail: '/images/slums-preview.svg',
+      description: '333 Unique Pixel Ordinals',
+      order: 3, // Position 3
+    },
+    {
       id: 'black-wild',
       name: 'Black & Wild',
       thumbnail: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif',
       description: 'Bitcoin Ordinals Card Game',
-      order: 3,
+      order: 4,
     },
     {
       id: 'tech-games',
       name: 'TECH & GAMES',
       thumbnail: '/techgame.png',
       description: 'Interactive games and tech tools',
-      order: 4,
+      order: 5,
     },
     {
       id: 'point-shop',
       name: 'Point Shop',
       thumbnail: '/pointshop.png',
       description: 'Mint exclusive Ordinals with your points',
-      order: 5,
+      order: 6,
     },
     {
       id: '1984',
       name: '1984',
       thumbnail: `https://ordinals.com/content/5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0`,
       description: 'Orwell on Bitcoin',
-      order: 6,
+      order: 7,
     },
     {
       id: 'free-stuff',
       name: 'Free Stuff',
       thumbnail: `https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0`,
       description: 'Free Ordinals Mints',
-      order: 7,
+      order: 8,
     },
     {
       id: 'random-stuff',
       name: 'Random Stuff',
       thumbnail: `https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0`,
       description: 'Random Ordinals Collection',
-      order: 8,
+      order: 9,
     },
   ];
 
@@ -234,32 +241,38 @@ export const HomePage: React.FC = () => {
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'bitcoin-mixtape' ? 'md:order-1' :
               project.id === 'smile-a-bit' ? 'md:order-2' :
-              project.id === 'black-wild' ? 'md:order-3' :
-              project.order === 2 ? 'md:order-4' : // Sons of Satoshi Evolution
-              project.id === 'tech-games' ? 'md:order-5' : 
-              project.id === 'point-shop' ? 'md:order-6' :
-              project.id === 'free-stuff' ? 'md:order-7' :
-              project.id === 'random-stuff' ? 'md:order-8' :
-              project.order >= 6 ? 'md:order-9' : // Weitere dynamische Collections
-              'md:order-10'
+              project.id === 'slums' ? 'md:order-3' :
+              project.id === 'black-wild' ? 'md:order-4' :
+              (project as any).collectionId ? 'md:order-5' : // Dynamic collections (Sons of Satoshi etc.)
+              project.id === 'tech-games' ? 'md:order-6' : 
+              project.id === 'point-shop' ? 'md:order-7' :
+              project.id === 'free-stuff' ? 'md:order-8' :
+              project.id === 'random-stuff' ? 'md:order-9' :
+              project.order >= 7 ? 'md:order-10' :
+              'md:order-11'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
             {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
             <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
-              project.id === 'bitcoin-mixtape' ? 'md:mt-8' : // Bitcoin Mix Tape: Position 1
-              project.id === 'smile-a-bit' ? 'md:-mt-2' : // Smile A Bit: etwas höher
+              project.id === 'bitcoin-mixtape' ? 'md:mt-8' :
+              project.id === 'smile-a-bit' ? 'md:-mt-2' :
+              project.id === 'slums' ? 'md:mt-4' :
               project.id === 'black-wild' ? 'md:mt-16' :
-              project.order === 2 ? 'md:mt-20' : // Sons of Satoshi: optimal positioning
-              project.id === 'point-shop' || project.id === 'tech-games' || project.order === 4 ? 'md:mt-8' : ''
+              (project as any).collectionId ? 'md:mt-20' :
+              project.id === 'point-shop' || project.id === 'tech-games' ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' :
-              project.id === 'smile-a-bit' ? 'max-w-[210px]' : 'max-w-48'
+              project.id === 'smile-a-bit' ? 'max-w-[210px]' :
+              project.id === 'slums' ? 'max-w-[180px]' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.thumbnail ? (
-                <div className={project.id === 'smile-a-bit' ? 'overflow-hidden rounded' : ''}>
+                <div className={
+                  project.id === 'smile-a-bit' ? 'overflow-hidden rounded' :
+                  project.id === 'slums' ? 'overflow-hidden rounded' : ''
+                }>
                   <ProgressiveImage
                     src={project.thumbnail}
                     alt={project.name}
@@ -267,6 +280,7 @@ export const HomePage: React.FC = () => {
                       project.id === 'smile-a-bit' ? 'scale-[1.08]' : ''
                     }`}
                     loading="lazy"
+                    style={project.id === 'slums' ? { imageRendering: 'pixelated' as any } : undefined}
                   />
                 </div>
               ) : (

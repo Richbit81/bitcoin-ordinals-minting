@@ -198,6 +198,14 @@ const LINK_ITEMS: LinkItem[] = [
     image: '/images/SmileaBittt.png',
   },
   {
+    id: 'slums',
+    title: 'SLUMS',
+    description: '333 Unique Pixel Ordinals — Mint on richart.app',
+    url: '/slums',
+    category: 'collection',
+    image: '/images/slums-preview.svg',
+  },
+  {
     id: 'krypdroidz',
     title: 'Krypdroidz',
     description: 'Raffle your free Krypdroidz on Soltrix (Solana)',

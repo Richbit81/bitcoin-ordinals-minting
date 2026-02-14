@@ -12,6 +12,7 @@ import { TechGamesPage } from './pages/TechGamesPage';
 import { CollectionMintingPage } from './pages/CollectionMintingPage';
 import { LinkGalleryPage } from './pages/LinkGalleryPage';
 import { SmilePage } from './pages/SmilePage';
+import { SlumsPage } from './pages/SlumsPage';
 import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
 import { Orwell1984Page } from './pages/Orwell1984Page';
 // NftMintingPage moved into RandomStuffPage
@@ -61,6 +62,7 @@ function AppContent() {
         <Route path="/play" element={<GamePage />} />
         <Route path="/link-gallery" element={<LinkGalleryPage />} />
         <Route path="/smile-a-bit" element={<SmilePage />} />
+        <Route path="/slums" element={<SlumsPage />} />
         <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
         <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
         <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
