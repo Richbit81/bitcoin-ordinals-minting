@@ -306,7 +306,7 @@ export const HomePage: React.FC = () => {
               project.id === 'point-shop' || project.id === 'tech-games' ? 'md:mt-8' : ''
             } ${
               project.id === 'black-wild' ? 'max-w-32' :
-              project.id === 'smile-a-bit' ? 'max-w-[210px]' :
+              project.id === 'smile-a-bit' ? 'max-w-[180px]' :
               project.id === 'slums' ? 'max-w-[180px]' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
