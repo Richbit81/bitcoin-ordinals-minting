@@ -386,10 +386,6 @@ export const SlumsPage: React.FC = () => {
                   Welcome to <span className="text-purple-400 font-semibold">SLUMS</span> — a collection of 333 unique pixel art characters inscribed directly on the Bitcoin blockchain. Each piece is composed of 6 hand-crafted layers — background, body, clothes, mouth, eyes, and top — creating thousands of possible trait combinations.
                 </p>
 
-                <p className="text-gray-300 text-xs leading-relaxed mb-4">
-                  Every character is rendered on-chain from its individual AVIF layers, upscaled 2x using pixel-perfect nearest-neighbor scaling, and inscribed as a crisp PNG. No shortcuts, no off-chain dependencies — just pure pixel art living forever on Bitcoin.
-                </p>
-
                 {/* Pricing Box */}
                 <div className="bg-purple-900/30 border border-purple-600/50 rounded-lg p-3 mb-4">
                   <h3 className="text-sm font-bold text-white mb-2">💰 Pricing</h3>
@@ -442,25 +438,6 @@ export const SlumsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <h3 className="text-sm font-bold text-white mb-2">🔧 Technical Details</h3>
-                <ul className="space-y-1 text-gray-400 text-xs mb-4">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400">›</span>
-                    <span>Original: 1000×1000 → Inscribed: 2000×2000 (2x upscale)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400">›</span>
-                    <span>6 trait layers: Background, Body, Clothes, Mouth, Eyes, Top</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400">›</span>
-                    <span>Nearest-neighbor scaling — pixel-perfect, no anti-aliasing</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400">›</span>
-                    <span>Postage: 330 sats</span>
-                  </li>
-                </ul>
               </div>
             </div>
           </div>

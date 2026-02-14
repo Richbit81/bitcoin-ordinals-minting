@@ -9,10 +9,21 @@ import { ProgressiveImage } from '../components/ProgressiveImage';
 import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
 
+// SLUMS preview layers (item #124)
+const SLUMS_PREVIEW_LAYERS = [
+  '8f5fc247bf80511bd5b175b1f527cef1098d5e908c34acf81e986bfb99dcfa80i0',
+  'b1776bc34762f7a6ef0122276e7cbd2922dfe6d5301a57bf7eb105bac167a364i0',
+  '3c6549906170fe529005d201f77fa5a4f0cab7bfa283ed2c3e4c44d57887921fi0',
+  '64abdaab518f553ef692fb59fb1244dd7c4833c2ae085b40fe71a14c253b9600i0',
+  '397e179ca9c6b62c7982fd3426c569fcc52ff0e3f7c97a68b5dd9c89ea0bbb5di0',
+  '8e26e5823d7fc3cd092b605feec7d1e7ce6e8908ca320d702a75f6160a552a89i0',
+];
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
   const [pointsData, setPointsData] = useState<PointsData | null>(null);
+  const [slumsPreview, setSlumsPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
@@ -37,7 +48,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'slums',
       name: 'SLUMS',
-      thumbnail: '/images/slums-preview.svg',
+      thumbnail: slumsPreview || '',
       description: '333 Unique Pixel Ordinals',
       order: 3, // Position 3
     },
@@ -127,6 +138,37 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     loadCollections();
+  }, []);
+
+  // Render SLUMS preview from on-chain AVIF layers
+  useEffect(() => {
+    let cancelled = false;
+    const renderSlumsPreview = async () => {
+      try {
+        const SIZE = 400;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        for (const id of SLUMS_PREVIEW_LAYERS) {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const el = new Image();
+            el.crossOrigin = 'anonymous';
+            el.onload = () => resolve(el);
+            el.onerror = () => reject(new Error('load failed'));
+            el.src = `https://ordinals.com/content/${id}`;
+          });
+          if (cancelled) return;
+          ctx.drawImage(img, 0, 0, SIZE, SIZE);
+        }
+        if (!cancelled) setSlumsPreview(canvas.toDataURL('image/png'));
+      } catch {
+        console.warn('[HomePage] SLUMS preview render failed');
+      }
+    };
+    renderSlumsPreview();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -268,10 +310,24 @@ export const HomePage: React.FC = () => {
               project.id === 'slums' ? 'max-w-[180px]' : 'max-w-48'
             }`}>
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
-              {project.thumbnail ? (
+              {project.id === 'slums' ? (
+                <div className="overflow-hidden rounded">
+                  {slumsPreview ? (
+                    <img
+                      src={slumsPreview}
+                      alt="SLUMS"
+                      className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  ) : (
+                    <div className="w-full aspect-square bg-gray-900 rounded flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+              ) : project.thumbnail ? (
                 <div className={
-                  project.id === 'smile-a-bit' ? 'overflow-hidden rounded' :
-                  project.id === 'slums' ? 'overflow-hidden rounded' : ''
+                  project.id === 'smile-a-bit' ? 'overflow-hidden rounded' : ''
                 }>
                   <ProgressiveImage
                     src={project.thumbnail}
@@ -280,7 +336,6 @@ export const HomePage: React.FC = () => {
                       project.id === 'smile-a-bit' ? 'scale-[1.08]' : ''
                     }`}
                     loading="lazy"
-                    style={project.id === 'slums' ? { imageRendering: 'pixelated' as any } : undefined}
                   />
                 </div>
               ) : (
