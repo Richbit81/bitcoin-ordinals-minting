@@ -145,6 +145,29 @@ export const SlumsPage: React.FC = () => {
 
       console.log(`[SlumsPage] Mint erfolgreich: ${result.inscriptionId}`);
 
+      // === DOPPELTE ABSICHERUNG: Beide Log-Wege gleichzeitig ===
+
+      // 1) Direkter Call an /api/slums/log (primär, SLUMS-spezifisch)
+      try {
+        await fetch(`${API_URL}/api/slums/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: userAddress,
+            inscriptionId: result.inscriptionId,
+            txid: result.txid || null,
+            itemName: `SLUMS #${result.item.index}`,
+            itemIndex: result.item.index,
+            priceInSats: isFreePhase ? 0 : SLUMS_PRICE_SATS,
+            paymentTxid: result.paymentTxid || null,
+          }),
+        });
+        console.log('[SlumsPage] SLUMS-Log gespeichert (direkt)');
+      } catch (directLogErr) {
+        console.warn('[SlumsPage] Direktes SLUMS-Log fehlgeschlagen:', directLogErr);
+      }
+
+      // 2) Backup: Generisches logMinting (routet im Backend auch zu saveSlumsLog)
       try {
         await logMinting({
           walletAddress: userAddress,
@@ -160,8 +183,9 @@ export const SlumsPage: React.FC = () => {
           txids: result.txid ? [result.txid] : [],
           paymentTxid: result.paymentTxid,
         });
+        console.log('[SlumsPage] Backup-Log gespeichert (generisch)');
       } catch (logErr) {
-        console.warn('[SlumsPage] Log speichern fehlgeschlagen:', logErr);
+        console.warn('[SlumsPage] Backup-Log fehlgeschlagen:', logErr);
       }
 
       try {

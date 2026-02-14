@@ -69,13 +69,13 @@ export async function loadSlumsCollection(): Promise<SlumsCollection | null> {
  */
 function buildRecursiveHtml(item: SlumsGeneratedItem): string {
   const imgTags = item.layers
-    .map(layer => `<img src="/content/${layer.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px;image-rendering:pixelated">`)
+    .map(layer => `<img src="/content/${layer.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
     .join('\n');
 
   return `<html>
-<head><style>*{margin:0;padding:0}body{background:#000;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px;overflow:hidden}</style></head>
+<head><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#000}body{display:flex;align-items:center;justify-content:center}.c{position:relative;width:100vmin;height:100vmin}</style></head>
 <body>
-<div style="position:relative;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px">
+<div class="c">
 ${imgTags}
 </div>
 </body>
