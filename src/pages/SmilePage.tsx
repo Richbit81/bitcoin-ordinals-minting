@@ -38,7 +38,7 @@ export const SmilePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string; svgMarkup?: string } | null>(null);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number;
     itemName: string;
@@ -46,6 +46,19 @@ export const SmilePage: React.FC = () => {
     imageUrl: string | null;
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
+
+  // Build SVG for lightbox from collection data
+  const openLightbox = useCallback((mint: { itemIndex: number; itemName: string; imageUrl: string | null }) => {
+    if (!collectionData || !mint.imageUrl) return;
+    const item = collectionData.generated.find((g: any) => g.index === mint.itemIndex);
+    if (item && item.svg) {
+      // Replace /content/ with full ordinals.com URL for browser rendering
+      const svgMarkup = item.svg.replace(/href="\/content\//g, 'href="https://ordinals.com/content/');
+      setLightboxImage({ url: mint.imageUrl, name: mint.itemName, svgMarkup });
+    } else {
+      setLightboxImage({ url: mint.imageUrl, name: mint.itemName });
+    }
+  }, [collectionData]);
 
   // Render a single item's layers to a data URL
   const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
@@ -505,7 +518,7 @@ export const SmilePage: React.FC = () => {
                   <div key={i} className="flex flex-col items-center">
                     <div
                       className="w-24 h-24 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20 cursor-pointer transition-transform hover:scale-110"
-                      onClick={() => mint.imageUrl && setLightboxImage({ url: mint.imageUrl, name: mint.itemName })}
+                      onClick={() => mint.imageUrl && openLightbox(mint)}
                     >
                       {mint.imageUrl ? (
                         <img src={mint.imageUrl} alt={mint.itemName}
@@ -536,8 +549,15 @@ export const SmilePage: React.FC = () => {
                 className="absolute -top-10 right-0 text-gray-400 hover:text-white text-sm font-bold">
                 ✕ Close
               </button>
-              <img src={lightboxImage.url} alt={lightboxImage.name}
-                className="w-full h-auto rounded-lg border-2 border-red-600 shadow-2xl shadow-red-600/30" />
+              {lightboxImage.svgMarkup ? (
+                <div
+                  className="w-full rounded-lg border-2 border-red-600 shadow-2xl shadow-red-600/30 overflow-hidden bg-black"
+                  dangerouslySetInnerHTML={{ __html: lightboxImage.svgMarkup }}
+                />
+              ) : (
+                <img src={lightboxImage.url} alt={lightboxImage.name}
+                  className="w-full h-auto rounded-lg border-2 border-red-600 shadow-2xl shadow-red-600/30" />
+              )}
               <p className="text-center text-white font-bold mt-3">{lightboxImage.name}</p>
             </div>
           </div>
