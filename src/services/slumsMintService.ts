@@ -1,9 +1,10 @@
 /**
  * SLUMS Mint Service
  * 
- * Mintet 1 zufälliges SLUMS-Item als PNG-Inscription (mit 2x Pixel Upscale).
- * Die Layer (AVIF-Bilder) werden auf einem Canvas übereinander gerendert,
- * dann 2x hochskaliert (Nearest Neighbor) und als PNG inscribed.
+ * Mintet 1 zufälliges SLUMS-Item als rekursives HTML-Ordinal.
+ * Die AVIF-Layer werden per /content/INSCRIPTION_ID referenziert
+ * und via CSS auf 2x vergrössert (image-rendering: pixelated).
+ * 1 Pixel → 2×2 Pixel Block, verlustfrei.
  * 
  * Preis: Erste 100 Mints = gratis (nur Fees), danach 3000 sats
  */
@@ -16,6 +17,8 @@ const SLUMS_PRICE_SATS = 3000;
 const SLUMS_PRICE_BTC = SLUMS_PRICE_SATS / 100_000_000;
 const SLUMS_FREE_MINTS = 100;
 const PIXEL_SCALE = 2; // 1px → 2×2 block
+const ORIGINAL_SIZE = 1000;
+const DISPLAY_SIZE = ORIGINAL_SIZE * PIXEL_SCALE; // 2000
 
 export interface SlumsGeneratedItem {
   index: number;
@@ -60,59 +63,28 @@ export async function loadSlumsCollection(): Promise<SlumsCollection | null> {
 }
 
 /**
- * Rendert alle Layer eines Items auf einem Canvas und gibt ein 2x upscaltes PNG zurück.
+ * Baut ein rekursives HTML-Ordinal aus den Layer-Inscription-IDs.
+ * Die AVIF-Bilder werden per /content/ referenziert und via CSS
+ * auf 2x vergrössert mit image-rendering: pixelated (Nearest Neighbor).
  */
-async function renderItemAsPng(item: SlumsGeneratedItem): Promise<Blob> {
-  const SIZE = 1000; // Original viewBox size
-  const UPSCALED = SIZE * PIXEL_SCALE;
+function buildRecursiveHtml(item: SlumsGeneratedItem): string {
+  const imgTags = item.layers
+    .map(layer => `<img src="/content/${layer.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px;image-rendering:pixelated">`)
+    .join('\n');
 
-  // Phase 1: Render all layers at original size
-  const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('Canvas context nicht verfügbar');
-
-  for (const layer of item.layers) {
-    const imgUrl = `https://ordinals.com/content/${layer.trait.inscriptionId}`;
-    const img = await loadImage(imgUrl);
-    ctx.drawImage(img, 0, 0, SIZE, SIZE);
-  }
-
-  // Phase 2: Upscale 2x with nearest-neighbor
-  const upCanvas = document.createElement('canvas');
-  upCanvas.width = UPSCALED;
-  upCanvas.height = UPSCALED;
-  const upCtx = upCanvas.getContext('2d');
-  if (!upCtx) throw new Error('Upscale canvas context nicht verfügbar');
-
-  upCtx.imageSmoothingEnabled = false;
-  (upCtx as any).mozImageSmoothingEnabled = false;
-  (upCtx as any).webkitImageSmoothingEnabled = false;
-  (upCtx as any).msImageSmoothingEnabled = false;
-  upCtx.drawImage(canvas, 0, 0, UPSCALED, UPSCALED);
-
-  // Export as PNG
-  return new Promise((resolve, reject) => {
-    upCanvas.toBlob((blob) => {
-      if (!blob) { reject(new Error('PNG Export fehlgeschlagen')); return; }
-      resolve(blob);
-    }, 'image/png');
-  });
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Bild laden fehlgeschlagen: ${url}`));
-    img.src = url;
-  });
+  return `<html>
+<head><style>*{margin:0;padding:0}body{background:#000;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px;overflow:hidden}</style></head>
+<body>
+<div style="position:relative;width:${DISPLAY_SIZE}px;height:${DISPLAY_SIZE}px">
+${imgTags}
+</div>
+</body>
+</html>`;
 }
 
 /**
- * Mintet 1 zufälliges SLUMS-Item als PNG an die Taproot-Adresse des Käufers.
+ * Mintet 1 zufälliges SLUMS-Item als rekursives HTML-Ordinal
+ * an die Taproot-Adresse des Käufers.
  */
 export async function mintSlumsRandom(
   buyerAddress: string,
@@ -135,21 +107,20 @@ export async function mintSlumsRandom(
   const item = collection.generated[randomIndex];
 
   console.log(`[SlumsMint] Zufällig gewählt: Item #${item.index} (${randomIndex + 1}/${collection.generated.length})`);
-  console.log(`[SlumsMint] Rendere ${item.layers.length} Layer auf Canvas...`);
 
-  // Layer auf Canvas rendern + 2x Upscale → PNG
-  const pngBlob = await renderItemAsPng(item);
-  console.log(`[SlumsMint] PNG erstellt: ${(pngBlob.size / 1024).toFixed(1)} KB (${PIXEL_SCALE}x upscaled)`);
+  // Rekursives HTML bauen
+  const htmlContent = buildRecursiveHtml(item);
+  console.log(`[SlumsMint] HTML erstellt: ${htmlContent.length} Bytes (${item.layers.length} Layer, ${PIXEL_SCALE}x upscale)`);
 
-  const pngFile = new File(
-    [pngBlob],
-    `slums-${item.index}.png`,
-    { type: 'image/png' }
+  const htmlFile = new File(
+    [htmlContent],
+    `slums-${item.index}.html`,
+    { type: 'text/html' }
   );
 
   // Inscription erstellen
   const result = await createUnisatInscription({
-    file: pngFile,
+    file: htmlFile,
     address: buyerAddress,
     feeRate,
     postage: 330,
