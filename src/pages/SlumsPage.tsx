@@ -637,41 +637,42 @@ export const SlumsPage: React.FC = () => {
 
               </div>
             </div>
-            {/* ====== RECENT MINTS ====== */}
-            {recentMints.length > 0 && (
-              <div className="w-full mt-8">
-                <h3 className="text-center text-xl text-yellow-400 mb-4"
-                  style={{ fontFamily: comicFont, WebkitTextStroke: '1px #000', textShadow: '2px 2px 0 #000' }}>
-                  RECENT MINTS
-                </h3>
-                <div className="flex flex-wrap justify-center gap-3">
-                  {recentMints.map((mint, i) => (
-                    <div key={i} className="flex flex-col items-center">
-                      <div className="w-16 h-16 bg-black border-2 border-black rounded-md overflow-hidden"
-                        style={{ boxShadow: '3px 3px 0 #000' }}>
-                        {mint.imageUrl ? (
-                          <img src={mint.imageUrl} alt={mint.itemName}
-                            className="w-full h-full object-cover"
-                            style={{ imageRendering: 'pixelated' }} />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: comicFont }}>
-                        #{mint.itemIndex}
-                      </p>
-                      {mint.walletAddress && (
-                        <p className="text-[8px] text-gray-600 text-center">{mint.walletAddress}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
           </div>
+
+          {/* ====== RECENT MINTS (below panels) ====== */}
+          {recentMints.length > 0 && (
+            <div className="w-full mt-8 mb-4">
+              <h3 className="text-center text-xl text-yellow-400 mb-4"
+                style={{ fontFamily: comicFont, WebkitTextStroke: '1px #000', textShadow: '2px 2px 0 #000' }}>
+                RECENT MINTS
+              </h3>
+              <div className="flex flex-wrap justify-center gap-3">
+                {recentMints.map((mint, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-black border-2 border-black rounded-md overflow-hidden"
+                      style={{ boxShadow: '3px 3px 0 #000' }}>
+                      {mint.imageUrl ? (
+                        <img src={mint.imageUrl} alt={mint.itemName}
+                          className="w-full h-full object-cover"
+                          style={{ imageRendering: 'pixelated' }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: comicFont }}>
+                      #{mint.itemIndex}
+                    </p>
+                    {mint.walletAddress && (
+                      <p className="text-[8px] text-gray-600 text-center">{mint.walletAddress}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         )}
 
         {/* Wallet Connect Modal */}
