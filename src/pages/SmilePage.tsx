@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { FeeRateSelector } from '../components/FeeRateSelector';
@@ -38,12 +38,84 @@ export const SmilePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [recentMints, setRecentMints] = useState<Array<{
+    itemIndex: number;
+    itemName: string;
+    timestamp: string;
+    imageUrl: string | null;
+  }>>([]);
+  const [collectionData, setCollectionData] = useState<any>(null);
+
+  // Render a single item's layers to a data URL
+  const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
+    try {
+      const SIZE = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      for (const id of layerIds) {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const el = new Image();
+          el.crossOrigin = 'anonymous';
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error('img load failed'));
+          el.src = `https://ordinals.com/content/${id}`;
+        });
+        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      }
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const loadRecentMints = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/smile-a-bit/recent`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.recent && data.recent.length > 0) {
+        setRecentMints(data.recent.map((m: any) => ({ ...m, imageUrl: null })));
+      }
+    } catch {
+      console.warn('[SmilePage] Could not load recent mints');
+    }
+  };
+
+  // Render recent mint images when collection data + recent mints are available
+  useEffect(() => {
+    if (!collectionData || recentMints.length === 0) return;
+    if (recentMints.some(m => m.imageUrl !== null)) return;
+
+    let cancelled = false;
+    const renderAll = async () => {
+      const updated = [...recentMints];
+      for (let i = 0; i < updated.length; i++) {
+        if (cancelled) return;
+        const item = collectionData.generated.find((g: any) => g.index === updated[i].itemIndex);
+        if (item && item.layers) {
+          const layerIds = item.layers.map((l: any) => l.trait.inscriptionId);
+          const url = await renderItemImage(layerIds);
+          updated[i] = { ...updated[i], imageUrl: url };
+        }
+      }
+      if (!cancelled) {
+        setRecentMints(updated);
+      }
+    };
+    renderAll();
+    return () => { cancelled = true; };
+  }, [collectionData, recentMints.length]);
 
   useEffect(() => {
     loadSmileCollection().then((col) => {
       if (col && col.generated.length > 0) {
         setCollectionReady(true);
         setTotalItems(col.generated.length);
+        setCollectionData(col);
         console.log(`[SmilePage] Collection geladen: ${col.generated.length} Items`);
       } else {
         setCollectionReady(false);
@@ -51,6 +123,7 @@ export const SmilePage: React.FC = () => {
       }
     });
     loadMintCount();
+    loadRecentMints();
   }, []);
 
   const loadMintCount = async () => {
@@ -151,6 +224,7 @@ export const SmilePage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
       });
       setMintCount(prev => prev + 1);
+      loadRecentMints();
     } catch (error: any) {
       console.error('[SmilePage] Mint-Fehler:', error);
       setMintingStatus({
@@ -214,6 +288,7 @@ export const SmilePage: React.FC = () => {
           </div>
         ) : (
           /* Main Content - Two Column Layout (wie Mixtape) */
+          <>
           <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12">
 
             {/* Left Side: Mint Panel */}
@@ -417,6 +492,35 @@ export const SmilePage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* ====== RECENT MINTS ====== */}
+          {recentMints.length > 0 && (
+            <div className="w-full mt-8 mb-4">
+              <h3 className="text-center text-lg font-bold text-white mb-4">
+                RECENT MINTS
+              </h3>
+              <div className="flex flex-wrap justify-center gap-3">
+                {recentMints.map((mint, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20">
+                      {mint.imageUrl ? (
+                        <img src={mint.imageUrl} alt={mint.itemName}
+                          className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1 text-center font-bold">
+                      #{mint.itemIndex}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {/* Wallet Connect Modal */}
