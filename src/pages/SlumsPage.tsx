@@ -298,12 +298,11 @@ export const SlumsPage: React.FC = () => {
 
             {/* ====== LEFT: MINT PANEL ====== */}
             <div
-              className="max-w-md w-full relative"
+              className="max-w-md w-full"
               style={{ transform: 'rotate(-1deg)' }}
             >
-              {/* Thick comic border */}
-              <div className="absolute inset-0 bg-yellow-400 rounded-xl" style={{ transform: 'translate(4px, 4px)' }}></div>
-              <div className="relative bg-[#1a1a2e] border-[3px] border-black rounded-xl p-3 lg:p-4">
+              <div className="bg-[#1a1a2e] border-[3px] border-black rounded-xl p-3 lg:p-4"
+                style={{ boxShadow: '5px 5px 0 #EAB308' }}>
 
                 {/* Preview with comic frame */}
                 <div className="flex flex-col items-center mb-3">
@@ -481,12 +480,11 @@ export const SlumsPage: React.FC = () => {
 
             {/* ====== RIGHT: DESCRIPTION PANEL ====== */}
             <div
-              className="max-w-xl w-full relative"
+              className="max-w-xl w-full"
               style={{ transform: 'rotate(1deg)' }}
             >
-              {/* Comic shadow */}
-              <div className="absolute inset-0 bg-cyan-400 rounded-xl" style={{ transform: 'translate(4px, 4px)' }}></div>
-              <div className="relative bg-[#1a1a2e] border-[3px] border-black rounded-xl p-4 lg:p-5">
+              <div className="bg-[#1a1a2e] border-[3px] border-black rounded-xl p-4 lg:p-5"
+                style={{ boxShadow: '5px 5px 0 #22D3EE' }}>
 
                 <h2 className="text-2xl text-yellow-400 mb-1" style={{
                   fontFamily: comicFont,
@@ -543,7 +541,6 @@ export const SlumsPage: React.FC = () => {
                     ['333 unique characters', '— each one different'],
                     ['Random mint', '— you don\'t see which one you get'],
                     ['6 on-chain AVIF layers', '— composited recursively'],
-                    ['2x pixel upscale', '— crisp, no blur'],
                     ['Inscribed as HTML', '— recursive on Bitcoin'],
                     ['Taproot address', '— sent to your bc1p...'],
                   ].map(([bold, rest], i) => (
