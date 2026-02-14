@@ -254,13 +254,13 @@ export const SlumsPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12">
+          <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-8 lg:gap-10">
 
             {/* Left Side: Mint Panel */}
-            <div className="bg-black/80 border-2 border-purple-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
+            <div className="bg-black/80 border-2 border-purple-600 rounded-xl p-4 lg:p-5 max-w-md w-full backdrop-blur-md">
               {/* Preview */}
-              <div className="flex flex-col items-center mb-8">
-                <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-purple-600/30 border border-purple-600/30 bg-black flex items-center justify-center">
+              <div className="flex flex-col items-center mb-4">
+                <div className="relative mb-3 w-full max-w-[240px] aspect-square rounded-lg overflow-hidden shadow-2xl shadow-purple-600/30 border border-purple-600/30 bg-black flex items-center justify-center">
                   {previewDataUrl ? (
                     <img
                       src={previewDataUrl}
@@ -274,12 +274,12 @@ export const SlumsPage: React.FC = () => {
                 </div>
 
                 {/* Mint Counter */}
-                <div className="w-full mb-4">
-                  <div className="flex justify-between text-sm mb-1">
+                <div className="w-full mb-3">
+                  <div className="flex justify-between text-xs mb-1">
                     <span className="text-gray-400">Minted</span>
                     <span className="text-white font-bold">{mintCount} / {SLUMS_TOTAL_SUPPLY}</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+                  <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-700">
                     <div
                       className="h-full bg-gradient-to-r from-purple-600 to-violet-500 rounded-full transition-all duration-500"
                       style={{ width: `${progressPercent}%` }}
@@ -294,25 +294,25 @@ export const SlumsPage: React.FC = () => {
                 <div className="text-center">
                   {isFreePhase ? (
                     <>
-                      <p className="text-3xl font-bold text-green-400 mb-1">FREE</p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-2xl font-bold text-green-400 mb-0.5">FREE</p>
+                      <p className="text-xs text-gray-400">
                         {SLUMS_FREE_MINTS - mintCount} free mints left · then {SLUMS_PRICE_SATS.toLocaleString()} sats
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">+ network fees</p>
+                      <p className="text-xs text-gray-500">+ network fees</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-3xl font-bold text-purple-400 mb-1">
+                      <p className="text-2xl font-bold text-purple-400 mb-0.5">
                         {SLUMS_PRICE_SATS.toLocaleString()} sats
                       </p>
-                      <p className="text-sm text-gray-400">+ inscription fees</p>
+                      <p className="text-xs text-gray-400">+ inscription fees</p>
                     </>
                   )}
                 </div>
               </div>
 
               {/* Fee Rate Selector */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <FeeRateSelector
                   selectedFeeRate={inscriptionFeeRate}
                   onFeeRateChange={setInscriptionFeeRate}
@@ -321,7 +321,7 @@ export const SlumsPage: React.FC = () => {
 
               {/* Minting Status */}
               {mintingStatus && (
-                <div className="mb-6">
+                <div className="mb-4">
                   <MintingProgress status={mintingStatus} />
                 </div>
               )}
@@ -331,7 +331,7 @@ export const SlumsPage: React.FC = () => {
                 <button
                   onClick={handleMint}
                   disabled={isMinting || !walletState.connected || isSoldOut}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/30"
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/30"
                 >
                   {isSoldOut ? (
                     'SOLD OUT'
@@ -349,10 +349,10 @@ export const SlumsPage: React.FC = () => {
                 </button>
               ) : mintingStatus.status === 'completed' ? (
                 <div className="text-center">
-                  <p className="text-green-400 font-bold mb-4">Mint Successful!</p>
+                  <p className="text-green-400 font-bold mb-3">Mint Successful!</p>
                   <button
                     onClick={() => setMintingStatus(null)}
-                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                    className="px-5 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold text-sm transition-colors"
                   >
                     Mint Another
                   </button>
@@ -361,12 +361,12 @@ export const SlumsPage: React.FC = () => {
 
               {/* Wallet Connection Info */}
               {!walletState.connected && (
-                <p className="text-center text-gray-400 text-sm mt-4 cursor-pointer hover:text-white" onClick={() => setShowWalletConnect(true)}>
+                <p className="text-center text-gray-400 text-xs mt-3 cursor-pointer hover:text-white" onClick={() => setShowWalletConnect(true)}>
                   Connect your wallet to mint
                 </p>
               )}
 
-              <p className="text-xs text-gray-500 text-center mt-4">
+              <p className="text-xs text-gray-500 text-center mt-3">
                 {SLUMS_TOTAL_SUPPLY} unique pixel characters · Sent to your Taproot address (bc1p...)
               </p>
             </div>
