@@ -691,8 +691,8 @@ export const SlumsPage: React.FC = () => {
 
           {/* ====== RECENT MINTS (below panels) ====== */}
           {recentMints.length > 0 && (
-            <div className="w-full mt-8 mb-4">
-              <h3 className="text-center text-xl text-yellow-400 mb-4"
+            <div className="w-full mt-2 mb-4">
+              <h3 className="text-center text-xl text-yellow-400 mb-3"
                 style={{ fontFamily: comicFont, WebkitTextStroke: '1px #000', textShadow: '2px 2px 0 #000' }}>
                 RECENT MINTS
               </h3>
