@@ -42,6 +42,14 @@ export const SlumsPage: React.FC = () => {
   const [isMinting, setIsMinting] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [recentMints, setRecentMints] = useState<Array<{
+    itemIndex: number;
+    itemName: string;
+    timestamp: string;
+    walletAddress: string | null;
+    imageUrl: string | null;
+  }>>([]);
+  const [collectionData, setCollectionData] = useState<any>(null);
 
   // Load comic font
   useEffect(() => {
@@ -92,12 +100,78 @@ export const SlumsPage: React.FC = () => {
       if (col && col.generated.length > 0) {
         setCollectionReady(true);
         setTotalItems(col.generated.length);
+        setCollectionData(col);
       } else {
         setCollectionReady(false);
       }
     });
     loadMintCount();
+    loadRecentMints();
   }, []);
+
+  // Render a single item's layers to a data URL
+  const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
+    try {
+      const SIZE = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      for (const id of layerIds) {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const el = new Image();
+          el.crossOrigin = 'anonymous';
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error('img load failed'));
+          el.src = `https://ordinals.com/content/${id}`;
+        });
+        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      }
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const loadRecentMints = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/slums/recent`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.recent && data.recent.length > 0) {
+        setRecentMints(data.recent.map((m: any) => ({ ...m, imageUrl: null })));
+      }
+    } catch {
+      console.warn('[SlumsPage] Could not load recent mints');
+    }
+  };
+
+  // Render recent mint images when collection data + recent mints are available
+  useEffect(() => {
+    if (!collectionData || recentMints.length === 0) return;
+    if (recentMints.some(m => m.imageUrl !== null)) return; // already rendered
+
+    let cancelled = false;
+    const renderAll = async () => {
+      const updated = [...recentMints];
+      for (let i = 0; i < updated.length; i++) {
+        if (cancelled) return;
+        const item = collectionData.generated.find((g: any) => g.index === updated[i].itemIndex);
+        if (item && item.layers) {
+          const layerIds = item.layers.map((l: any) => l.trait.inscriptionId);
+          const url = await renderItemImage(layerIds);
+          updated[i] = { ...updated[i], imageUrl: url };
+        }
+      }
+      if (!cancelled) {
+        setRecentMints(updated);
+      }
+    };
+    renderAll();
+    return () => { cancelled = true; };
+  }, [collectionData, recentMints.length]);
 
   const loadMintCount = async () => {
     try {
@@ -214,6 +288,8 @@ export const SlumsPage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
       });
       setMintCount(prev => prev + 1);
+      // Refresh recent mints list
+      loadRecentMints();
     } catch (error: any) {
       console.error('[SlumsPage] Mint-Fehler:', error);
       setMintingStatus({
@@ -561,6 +637,40 @@ export const SlumsPage: React.FC = () => {
 
               </div>
             </div>
+            {/* ====== RECENT MINTS ====== */}
+            {recentMints.length > 0 && (
+              <div className="w-full mt-8">
+                <h3 className="text-center text-xl text-yellow-400 mb-4"
+                  style={{ fontFamily: comicFont, WebkitTextStroke: '1px #000', textShadow: '2px 2px 0 #000' }}>
+                  RECENT MINTS
+                </h3>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {recentMints.map((mint, i) => (
+                    <div key={i} className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-black border-2 border-black rounded-md overflow-hidden"
+                        style={{ boxShadow: '3px 3px 0 #000' }}>
+                        {mint.imageUrl ? (
+                          <img src={mint.imageUrl} alt={mint.itemName}
+                            className="w-full h-full object-cover"
+                            style={{ imageRendering: 'pixelated' }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: comicFont }}>
+                        #{mint.itemIndex}
+                      </p>
+                      {mint.walletAddress && (
+                        <p className="text-[8px] text-gray-600 text-center">{mint.walletAddress}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
