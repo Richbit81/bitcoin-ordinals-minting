@@ -70,7 +70,8 @@ export async function loadSmileCollection(): Promise<SmileCollection | null> {
 export async function mintSmileRandom(
   buyerAddress: string,
   feeRate: number,
-  walletType: 'unisat' | 'xverse' | null
+  walletType: 'unisat' | 'xverse' | null,
+  mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SmileGeneratedItem }> {
   
   // Taproot-Check
@@ -86,16 +87,26 @@ export async function mintSmileRandom(
     throw new Error('Smile A Bit Collection konnte nicht geladen werden.');
   }
 
-  // Zufälliges Item wählen – Käufer sieht nicht welches
-  const randomIndex = Math.floor(Math.random() * collection.generated.length);
-  const item = collection.generated[randomIndex];
+  // Bereits gemintete Items ausschliessen
+  const mintedSet = new Set(mintedIndices);
+  const available = collection.generated.filter(item => !mintedSet.has(item.index));
+
+  if (available.length === 0) {
+    throw new Error('Alle Smile A Bit Items sind bereits gemintet – SOLD OUT!');
+  }
+
+  console.log(`[SmileMint] Verfügbar: ${available.length} von ${collection.generated.length} (${mintedSet.size} bereits gemintet)`);
+
+  // Zufälliges Item aus den VERFÜGBAREN wählen
+  const randomIndex = Math.floor(Math.random() * available.length);
+  const item = available[randomIndex];
   const svgContent = item.svg;
 
   if (!svgContent || !svgContent.includes('<svg')) {
     throw new Error('Ungültiges SVG in der Collection.');
   }
 
-  console.log(`[SmileMint] Zufällig gewählt: Item #${item.index} (${randomIndex + 1}/${collection.generated.length})`);
+  console.log(`[SmileMint] Zufällig gewählt: Item #${item.index} (aus ${available.length} verfügbaren)`);
   console.log(`[SmileMint] SVG Größe: ${svgContent.length} bytes`);
 
   // SVG als File erstellen für die Inscription

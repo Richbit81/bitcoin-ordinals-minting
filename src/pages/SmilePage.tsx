@@ -46,6 +46,7 @@ export const SmilePage: React.FC = () => {
     imageUrl: string | null;
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
+  const [mintedIndices, setMintedIndices] = useState<number[]>([]);
 
   // Build SVG for lightbox from collection data
   const openLightbox = useCallback((mint: { itemIndex: number; itemName: string; imageUrl: string | null }) => {
@@ -137,6 +138,7 @@ export const SmilePage: React.FC = () => {
       }
     });
     loadMintCount();
+    loadMintedIndices();
     loadRecentMints();
   }, []);
 
@@ -149,6 +151,19 @@ export const SmilePage: React.FC = () => {
       }
     } catch {
       console.warn('[SmilePage] Could not load mint count');
+    }
+  };
+
+  const loadMintedIndices = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/smile-a-bit/minted-indices`);
+      if (res.ok) {
+        const data = await res.json();
+        setMintedIndices(data.mintedIndices || []);
+        console.log(`[SmilePage] ${(data.mintedIndices || []).length} Items bereits gemintet`);
+      }
+    } catch {
+      console.warn('[SmilePage] Could not load minted indices');
     }
   };
 
@@ -181,10 +196,22 @@ export const SmilePage: React.FC = () => {
     });
 
     try {
+      // Frische minted-indices laden direkt vor dem Mint (Race-Condition verhindern)
+      let freshMintedIndices = mintedIndices;
+      try {
+        const idxRes = await fetch(`${API_URL}/api/smile-a-bit/minted-indices`);
+        if (idxRes.ok) {
+          const idxData = await idxRes.json();
+          freshMintedIndices = idxData.mintedIndices || [];
+          setMintedIndices(freshMintedIndices);
+        }
+      } catch { /* fallback auf cached */ }
+
       const result = await mintSmileRandom(
         userAddress,
         inscriptionFeeRate,
-        walletState.walletType || 'unisat'
+        walletState.walletType || 'unisat',
+        freshMintedIndices
       );
 
       console.log(`[SmilePage] ✅ Mint erfolgreich: ${result.inscriptionId}`);
@@ -238,6 +265,7 @@ export const SmilePage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
       });
       setMintCount(prev => prev + 1);
+      setMintedIndices(prev => [...prev, result.item.index]);
       loadRecentMints();
     } catch (error: any) {
       console.error('[SmilePage] Mint-Fehler:', error);

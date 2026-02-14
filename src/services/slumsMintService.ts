@@ -90,7 +90,8 @@ export async function mintSlumsRandom(
   buyerAddress: string,
   feeRate: number,
   walletType: 'unisat' | 'xverse' | null,
-  currentMintCount: number
+  currentMintCount: number,
+  mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
   
   if (!isTaprootAddress(buyerAddress)) {
@@ -102,11 +103,21 @@ export async function mintSlumsRandom(
     throw new Error('SLUMS Collection konnte nicht geladen werden.');
   }
 
-  // Zufälliges Item wählen
-  const randomIndex = Math.floor(Math.random() * collection.generated.length);
-  const item = collection.generated[randomIndex];
+  // Bereits gemintete Items ausschliessen
+  const mintedSet = new Set(mintedIndices);
+  const available = collection.generated.filter(item => !mintedSet.has(item.index));
 
-  console.log(`[SlumsMint] Zufällig gewählt: Item #${item.index} (${randomIndex + 1}/${collection.generated.length})`);
+  if (available.length === 0) {
+    throw new Error('Alle SLUMS Items sind bereits gemintet – SOLD OUT!');
+  }
+
+  console.log(`[SlumsMint] Verfügbar: ${available.length} von ${collection.generated.length} (${mintedSet.size} bereits gemintet)`);
+
+  // Zufälliges Item aus den VERFÜGBAREN wählen
+  const randomIndex = Math.floor(Math.random() * available.length);
+  const item = available[randomIndex];
+
+  console.log(`[SlumsMint] Zufällig gewählt: Item #${item.index} (aus ${available.length} verfügbaren)`);
 
   // Rekursives HTML bauen
   const htmlContent = buildRecursiveHtml(item);

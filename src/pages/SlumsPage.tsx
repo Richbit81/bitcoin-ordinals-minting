@@ -45,6 +45,7 @@ export const SlumsPage: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [addressMintCount, setAddressMintCount] = useState<number>(0);
+  const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number;
     itemName: string;
@@ -109,6 +110,7 @@ export const SlumsPage: React.FC = () => {
       }
     });
     loadMintCount();
+    loadMintedIndices();
     loadRecentMints();
   }, []);
 
@@ -201,6 +203,19 @@ export const SlumsPage: React.FC = () => {
     }
   };
 
+  const loadMintedIndices = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/slums/minted-indices`);
+      if (res.ok) {
+        const data = await res.json();
+        setMintedIndices(data.mintedIndices || []);
+        console.log(`[SlumsPage] ${(data.mintedIndices || []).length} Items bereits gemintet`);
+      }
+    } catch {
+      console.warn('[SlumsPage] Could not load minted indices');
+    }
+  };
+
   const loadAddressMintCount = async (address: string) => {
     try {
       const res = await fetch(`${API_URL}/api/slums/address-mints?address=${encodeURIComponent(address)}`);
@@ -244,11 +259,23 @@ export const SlumsPage: React.FC = () => {
     try {
       setMintingStatus({ packId: 'slums', status: 'processing', progress: 30 });
 
+      // Frische minted-indices laden direkt vor dem Mint (Race-Condition verhindern)
+      let freshMintedIndices = mintedIndices;
+      try {
+        const idxRes = await fetch(`${API_URL}/api/slums/minted-indices`);
+        if (idxRes.ok) {
+          const idxData = await idxRes.json();
+          freshMintedIndices = idxData.mintedIndices || [];
+          setMintedIndices(freshMintedIndices);
+        }
+      } catch { /* fallback auf cached */ }
+
       const result = await mintSlumsRandom(
         userAddress,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        mintCount
+        mintCount,
+        freshMintedIndices
       );
 
       console.log(`[SlumsPage] Mint erfolgreich: ${result.inscriptionId}`);
@@ -323,6 +350,8 @@ export const SlumsPage: React.FC = () => {
       });
       setMintCount(prev => prev + 1);
       setAddressMintCount(prev => prev + 1);
+      // Gemintetes Item lokal zur Blacklist hinzufügen
+      setMintedIndices(prev => [...prev, result.item.index]);
       // Refresh recent mints list
       loadRecentMints();
     } catch (error: any) {
