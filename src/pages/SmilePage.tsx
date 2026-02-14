@@ -502,7 +502,7 @@ export const SmilePage: React.FC = () => {
               <div className="flex flex-wrap justify-center gap-3">
                 {recentMints.map((mint, i) => (
                   <div key={i} className="flex flex-col items-center">
-                    <div className="w-16 h-16 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20">
+                    <div className="w-24 h-24 bg-black border-2 border-red-600/50 rounded-lg overflow-hidden shadow-lg shadow-red-600/20">
                       {mint.imageUrl ? (
                         <img src={mint.imageUrl} alt={mint.itemName}
                           className="w-full h-full object-cover" />
