@@ -279,11 +279,11 @@ export const SlumsPage: React.FC = () => {
             >
               {/* Thick comic border */}
               <div className="absolute inset-0 bg-yellow-400 rounded-xl" style={{ transform: 'translate(4px, 4px)' }}></div>
-              <div className="relative bg-[#1a1a2e] border-[3px] border-black rounded-xl p-4 lg:p-5">
+              <div className="relative bg-[#1a1a2e] border-[3px] border-black rounded-xl p-3 lg:p-4">
 
                 {/* Preview with comic frame */}
-                <div className="flex flex-col items-center mb-4">
-                  <div className="relative mb-3 w-full max-w-[220px] aspect-square bg-black border-[3px] border-black rounded-md overflow-hidden"
+                <div className="flex flex-col items-center mb-3">
+                  <div className="relative mb-2 w-full max-w-[180px] aspect-square bg-black border-[3px] border-black rounded-md overflow-hidden"
                     style={{ boxShadow: '4px 4px 0 #000' }}>
                     {previewDataUrl ? (
                       <img
@@ -321,14 +321,14 @@ export const SlumsPage: React.FC = () => {
                   </div>
 
                   {/* Mint Counter - comic style */}
-                  <div className="w-full mb-3">
-                    <div className="flex justify-between text-xs mb-1">
+                  <div className="w-full mb-2">
+                    <div className="flex justify-between text-xs mb-0.5">
                       <span className="text-gray-400" style={{ fontFamily: comicFont }}>Minted</span>
-                      <span className="text-yellow-400 font-bold" style={{ fontFamily: comicFont, fontSize: '14px' }}>
+                      <span className="text-yellow-400 font-bold" style={{ fontFamily: comicFont, fontSize: '13px' }}>
                         {mintCount} / {SLUMS_TOTAL_SUPPLY}
                       </span>
                     </div>
-                    <div className="w-full bg-black rounded-sm h-4 overflow-hidden border-2 border-black"
+                    <div className="w-full bg-black rounded-sm h-3 overflow-hidden border-2 border-black"
                       style={{ boxShadow: '2px 2px 0 #000' }}>
                       <div
                         className="h-full transition-all duration-500"
@@ -338,13 +338,13 @@ export const SlumsPage: React.FC = () => {
                         }}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 text-center">
+                    <p className="text-[10px] text-gray-500 mt-0.5 text-center">
                       {SLUMS_TOTAL_SUPPLY - mintCount} remaining
                     </p>
                   </div>
 
                   {/* Price Display - speech bubble style */}
-                  <div className="relative bg-white text-black rounded-lg px-4 py-2 text-center border-2 border-black"
+                  <div className="relative bg-white text-black rounded-lg px-3 py-1.5 text-center border-2 border-black"
                     style={{ boxShadow: '3px 3px 0 #000' }}>
                     {/* Speech bubble tail */}
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0"
@@ -361,14 +361,14 @@ export const SlumsPage: React.FC = () => {
                       }}></div>
                     {isFreePhase ? (
                       <>
-                        <p className="text-2xl font-bold text-green-600" style={{ fontFamily: comicFont }}>FREE!</p>
+                        <p className="text-xl font-bold text-green-600" style={{ fontFamily: comicFont }}>FREE!</p>
                         <p className="text-[10px] text-gray-600">
                           {SLUMS_FREE_MINTS - mintCount} free left · then {SLUMS_PRICE_SATS.toLocaleString()} sats
                         </p>
                       </>
                     ) : (
                       <>
-                        <p className="text-2xl font-bold text-purple-700" style={{ fontFamily: comicFont }}>
+                        <p className="text-xl font-bold text-purple-700" style={{ fontFamily: comicFont }}>
                           {SLUMS_PRICE_SATS.toLocaleString()} sats
                         </p>
                         <p className="text-[10px] text-gray-600">+ inscription fees</p>
@@ -378,7 +378,7 @@ export const SlumsPage: React.FC = () => {
                 </div>
 
                 {/* Fee Rate */}
-                <div className="mb-4">
+                <div className="mb-3 mt-3">
                   <FeeRateSelector
                     selectedFeeRate={inscriptionFeeRate}
                     onFeeRateChange={setInscriptionFeeRate}
@@ -387,7 +387,7 @@ export const SlumsPage: React.FC = () => {
 
                 {/* Minting Status */}
                 {mintingStatus && (
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <MintingProgress status={mintingStatus} />
                   </div>
                 )}
@@ -397,7 +397,7 @@ export const SlumsPage: React.FC = () => {
                   <button
                     onClick={handleMint}
                     disabled={isMinting || !walletState.connected || isSoldOut}
-                    className="w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-xl transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
+                    className="w-full py-2.5 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
                     style={{
                       fontFamily: comicFont,
                       background: isSoldOut ? '#555' : 'linear-gradient(180deg, #FFE03D 0%, #FFA500 100%)',
@@ -449,7 +449,7 @@ export const SlumsPage: React.FC = () => {
                   </p>
                 )}
 
-                <p className="text-[10px] text-gray-500 text-center mt-3">
+                <p className="text-[10px] text-gray-500 text-center mt-2">
                   {SLUMS_TOTAL_SUPPLY} unique pixel characters · Taproot (bc1p...)
                 </p>
               </div>
