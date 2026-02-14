@@ -17,8 +17,8 @@ const SLUMS_PRICE_SATS = 3000;
 const SLUMS_PRICE_BTC = SLUMS_PRICE_SATS / 100_000_000;
 const SLUMS_FREE_MINTS = 100;
 const PIXEL_SCALE = 2; // 1px → 2×2 block
-const ORIGINAL_SIZE = 1000;
-const DISPLAY_SIZE = ORIGINAL_SIZE * PIXEL_SCALE; // 2000
+const ORIGINAL_SIZE = 200; // AVIF-Layer sind 200x200 Pixel
+const DISPLAY_SIZE = ORIGINAL_SIZE * PIXEL_SCALE; // 400
 
 export interface SlumsGeneratedItem {
   index: number;
