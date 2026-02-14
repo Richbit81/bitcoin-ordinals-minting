@@ -666,9 +666,6 @@ export const SlumsPage: React.FC = () => {
                     <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: comicFont }}>
                       #{mint.itemIndex}
                     </p>
-                    {mint.walletAddress && (
-                      <p className="text-[8px] text-gray-600 text-center">{mint.walletAddress}</p>
-                    )}
                   </div>
                 ))}
               </div>
