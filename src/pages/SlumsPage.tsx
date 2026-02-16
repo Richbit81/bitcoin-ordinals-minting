@@ -51,6 +51,7 @@ export const SlumsPage: React.FC = () => {
     itemName: string;
     timestamp: string;
     walletAddress: string | null;
+    inscriptionId: string | null;
     imageUrl: string | null;
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
@@ -181,8 +182,10 @@ export const SlumsPage: React.FC = () => {
           const layerIds = item.layers.map((l: any) => l.trait.inscriptionId);
           const url = await renderItemImage(layerIds);
           updated[i] = { ...updated[i], imageUrl: url };
+        } else if (updated[i].inscriptionId) {
+          // Special items (#334+): direct AVIF/image from ordinals.com
+          updated[i] = { ...updated[i], imageUrl: `https://ordinals.com/content/${updated[i].inscriptionId}` };
         } else {
-          // Special items (#334+) not in collection: show placeholder
           updated[i] = { ...updated[i], imageUrl: 'placeholder' };
         }
       }
