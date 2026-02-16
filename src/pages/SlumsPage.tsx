@@ -181,6 +181,9 @@ export const SlumsPage: React.FC = () => {
           const layerIds = item.layers.map((l: any) => l.trait.inscriptionId);
           const url = await renderItemImage(layerIds);
           updated[i] = { ...updated[i], imageUrl: url };
+        } else {
+          // Special items (#334+) not in collection: show placeholder
+          updated[i] = { ...updated[i], imageUrl: 'placeholder' };
         }
       }
       if (!cancelled) {
@@ -731,9 +734,13 @@ export const SlumsPage: React.FC = () => {
                     <div
                       className="w-16 h-16 bg-black border-2 border-black rounded-md overflow-hidden cursor-pointer transition-transform hover:scale-110"
                       style={{ boxShadow: '3px 3px 0 #000' }}
-                      onClick={() => mint.imageUrl && setLightboxImage({ url: mint.imageUrl, name: mint.itemName })}
+                      onClick={() => mint.imageUrl && mint.imageUrl !== 'placeholder' && setLightboxImage({ url: mint.imageUrl, name: mint.itemName })}
                     >
-                      {mint.imageUrl ? (
+                      {mint.imageUrl === 'placeholder' ? (
+                        <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
+                          <span className="text-yellow-400 font-bold text-xs" style={{ fontFamily: comicFont }}>#{mint.itemIndex}</span>
+                        </div>
+                      ) : mint.imageUrl ? (
                         <img src={mint.imageUrl} alt={mint.itemName}
                           className="w-full h-full object-cover"
                           style={{ imageRendering: 'pixelated' }} />
