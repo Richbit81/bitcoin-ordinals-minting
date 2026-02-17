@@ -73,6 +73,20 @@ export const AvifConverterPage: React.FC = () => {
     });
   };
 
+  /** Canvas liefert premultiplied Alpha – AVIF braucht straight alpha für saubere Kanten */
+  const premultipliedToStraight = (imageData: ImageData): ImageData => {
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3] / 255;
+      if (a > 0.0001) {
+        d[i] = Math.min(255, Math.round(d[i] / a));
+        d[i + 1] = Math.min(255, Math.round(d[i + 1] / a));
+        d[i + 2] = Math.min(255, Math.round(d[i + 2] / a));
+      }
+    }
+    return imageData;
+  };
+
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
 
@@ -101,10 +115,17 @@ export const AvifConverterPage: React.FC = () => {
             return false;
           })();
 
+          // Bei Transparenz: premultiplied → straight alpha für saubere Kanten
+          if (hasAlpha) {
+            premultipliedToStraight(imageData);
+          }
+
           const avifBuffer = await avifEncode(imageData, {
             quality,
-            qualityAlpha: hasAlpha ? Math.max(quality, 90) : -1, // Alpha immer hohe Qualität
-            subsample: hasAlpha ? 3 : 1, // YUV444 bei Transparenz für bessere Farbtreue
+            qualityAlpha: hasAlpha ? 100 : -1, // Verlustfrei für Alpha, verhindert dicke Ränder
+            subsample: hasAlpha ? 3 : 1,      // YUV444 bei Transparenz
+            speed: hasAlpha ? 4 : 6,          // Langsamer = bessere Kanten bei Alpha
+            enableSharpYUV: hasAlpha,         // Schärfere RGB→YUV Konvertierung
           });
 
           const blob = new Blob([avifBuffer], { type: 'image/avif' });
