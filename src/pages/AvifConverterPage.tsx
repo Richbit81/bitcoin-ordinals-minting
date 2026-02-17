@@ -24,6 +24,7 @@ export const AvifConverterPage: React.FC = () => {
 
   const [files, setFiles] = useState<File[]>([]);
   const [quality, setQuality] = useState(75);
+  const [losslessAlpha, setLosslessAlpha] = useState(false);
   const [outWidth, setOutWidth] = useState<string>('');
   const [outHeight, setOutHeight] = useState<string>('');
   const [converting, setConverting] = useState(false);
@@ -113,11 +114,15 @@ export const AvifConverterPage: React.FC = () => {
         })();
 
         const avifBuffer = await avifEncode(imageData, {
-          quality,
-          qualityAlpha: hasAlpha ? 100 : -1,
-          subsample: hasAlpha ? 3 : 1,
-          speed: hasAlpha ? 4 : 6,
-          enableSharpYUV: hasAlpha,
+          ...(hasAlpha && losslessAlpha
+            ? { lossless: true }
+            : {
+                quality: hasAlpha ? Math.max(quality, 95) : quality,
+                qualityAlpha: hasAlpha ? 100 : -1,
+                subsample: hasAlpha ? 3 : 1,
+                speed: hasAlpha ? 2 : 6,
+                enableSharpYUV: hasAlpha,
+              }),
         });
 
         const blob = new Blob([avifBuffer], { type: 'image/avif' });
@@ -135,7 +140,7 @@ export const AvifConverterPage: React.FC = () => {
       setProgress(Math.round(((i + 1) / files.length) * 100));
     }
     return results;
-  }, [files, quality, targetW, targetH]);
+  }, [files, quality, losslessAlpha, targetW, targetH]);
 
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
@@ -154,6 +159,7 @@ export const AvifConverterPage: React.FC = () => {
           const formData = new FormData();
           formData.append('adminAddress', connectedAddress);
           formData.append('quality', String(quality));
+          if (losslessAlpha) formData.append('losslessAlpha', 'true');
           if (outWidth.trim()) formData.append('width', outWidth.trim());
           if (outHeight.trim()) formData.append('height', outHeight.trim());
           files.forEach((f) => formData.append('files', f));
@@ -205,7 +211,7 @@ export const AvifConverterPage: React.FC = () => {
     }
 
     setConverting(false);
-  }, [files, quality, outWidth, outHeight, isAdmin, connectedAddress, convertViaClient]);
+  }, [files, quality, losslessAlpha, outWidth, outHeight, isAdmin, connectedAddress, convertViaClient]);
 
   const [zipping, setZipping] = useState(false);
 
@@ -323,6 +329,20 @@ export const AvifConverterPage: React.FC = () => {
                 <span>50</span>
                 <span>100 (max)</span>
               </div>
+            </div>
+
+            {/* Lossless für Transparenz (PNG/WebP) */}
+            <div className="flex items-center gap-2" title="Behebt blockige Kanten und Abdunkeln bei semi-transparenten Bereichen">
+              <input
+                type="checkbox"
+                id="losslessAlpha"
+                checked={losslessAlpha}
+                onChange={(e) => setLosslessAlpha(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+              />
+              <label htmlFor="losslessAlpha" className="text-sm font-medium text-gray-300 cursor-pointer select-none">
+                Lossless Transparenz
+              </label>
             </div>
 
             {/* Ausgabegrösse (px × px) */}
