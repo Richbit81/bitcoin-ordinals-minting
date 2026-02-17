@@ -24,6 +24,8 @@ export const AvifConverterPage: React.FC = () => {
 
   const [files, setFiles] = useState<File[]>([]);
   const [quality, setQuality] = useState(75);
+  const [outWidth, setOutWidth] = useState<string>('');
+  const [outHeight, setOutHeight] = useState<string>('');
   const [converting, setConverting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [converted, setConverted] = useState<ConvertedFile[]>([]);
@@ -48,20 +50,40 @@ export const AvifConverterPage: React.FC = () => {
     setProgress(0);
   }, []);
 
-  const getImageData = (file: File): Promise<ImageData> => {
+  const w = outWidth.trim() ? parseInt(outWidth.trim(), 10) : 0;
+  const h = outHeight.trim() ? parseInt(outHeight.trim(), 10) : 0;
+  const targetW = w > 0 && w <= 10000 ? w : null;
+  const targetH = h > 0 && h <= 10000 ? h : null;
+
+  const getImageData = (file: File, resizeW?: number | null, resizeH?: number | null): Promise<ImageData> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
+        let drawW = img.naturalWidth;
+        let drawH = img.naturalHeight;
+        if (resizeW && resizeH) {
+          const scale = Math.min(resizeW / drawW, resizeH / drawH);
+          drawW = Math.round(drawW * scale);
+          drawH = Math.round(drawH * scale);
+        } else if (resizeW) {
+          const scale = resizeW / drawW;
+          drawW = resizeW;
+          drawH = Math.round(drawH * scale);
+        } else if (resizeH) {
+          const scale = resizeH / drawH;
+          drawW = Math.round(drawW * scale);
+          drawH = resizeH;
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+        canvas.width = drawW;
+        canvas.height = drawH;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           reject(new Error('Canvas context not available'));
           return;
         }
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, drawW, drawH);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(img.src);
         resolve(imageData);
@@ -81,7 +103,7 @@ export const AvifConverterPage: React.FC = () => {
 
     for (let i = 0; i < files.length; i++) {
       try {
-        const imageData = await getImageData(files[i]);
+        const imageData = await getImageData(files[i], targetW, targetH);
         const hasAlpha = (() => {
           const d = imageData.data;
           for (let j = 3; j < d.length; j += 4) {
@@ -113,7 +135,7 @@ export const AvifConverterPage: React.FC = () => {
       setProgress(Math.round(((i + 1) / files.length) * 100));
     }
     return results;
-  }, [files, quality]);
+  }, [files, quality, targetW, targetH]);
 
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
@@ -132,6 +154,8 @@ export const AvifConverterPage: React.FC = () => {
           const formData = new FormData();
           formData.append('adminAddress', connectedAddress);
           formData.append('quality', String(quality));
+          if (outWidth.trim()) formData.append('width', outWidth.trim());
+          if (outHeight.trim()) formData.append('height', outHeight.trim());
           files.forEach((f) => formData.append('files', f));
 
           const res = await fetch(`${API_URL}/api/avif/convert`, {
@@ -181,7 +205,7 @@ export const AvifConverterPage: React.FC = () => {
     }
 
     setConverting(false);
-  }, [files, quality, isAdmin, connectedAddress, convertViaClient]);
+  }, [files, quality, outWidth, outHeight, isAdmin, connectedAddress, convertViaClient]);
 
   const [zipping, setZipping] = useState(false);
 
@@ -298,6 +322,35 @@ export const AvifConverterPage: React.FC = () => {
                 <span>1 (klein)</span>
                 <span>50</span>
                 <span>100 (max)</span>
+              </div>
+            </div>
+
+            {/* Ausgabegrösse (px × px) */}
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div>
+                <label className="block text-sm font-bold text-gray-400 mb-1">Breite (px)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  placeholder="Original"
+                  value={outWidth}
+                  onChange={(e) => setOutWidth(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  className="w-24 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                />
+              </div>
+              <span className="text-gray-500 hidden sm:inline self-center">×</span>
+              <div>
+                <label className="block text-sm font-bold text-gray-400 mb-1">Höhe (px)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  placeholder="Original"
+                  value={outHeight}
+                  onChange={(e) => setOutHeight(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  className="w-24 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                />
               </div>
             </div>
 
