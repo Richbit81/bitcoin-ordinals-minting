@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import JSZip from 'jszip';
 import { useWallet } from '../contexts/WalletContext';
 import { isAdminAddress } from '../config/admin';
+import { getApiUrl } from '../utils/apiUrl';
 
 interface ConvertedFile {
   name: string;
@@ -73,19 +74,46 @@ export const AvifConverterPage: React.FC = () => {
     });
   };
 
-  /** Canvas liefert premultiplied Alpha – AVIF braucht straight alpha für saubere Kanten */
-  const premultipliedToStraight = (imageData: ImageData): ImageData => {
-    const d = imageData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const a = d[i + 3] / 255;
-      if (a > 0.0001) {
-        d[i] = Math.min(255, Math.round(d[i] / a));
-        d[i + 1] = Math.min(255, Math.round(d[i + 1] / a));
-        d[i + 2] = Math.min(255, Math.round(d[i + 2] / a));
+  const convertViaClient = useCallback(async (): Promise<ConvertedFile[]> => {
+    const avifModule = await import('@jsquash/avif');
+    const avifEncode = avifModule.default || avifModule.encode;
+    const results: ConvertedFile[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const imageData = await getImageData(files[i]);
+        const hasAlpha = (() => {
+          const d = imageData.data;
+          for (let j = 3; j < d.length; j += 4) {
+            if (d[j] < 255) return true;
+          }
+          return false;
+        })();
+
+        const avifBuffer = await avifEncode(imageData, {
+          quality,
+          qualityAlpha: hasAlpha ? 100 : -1,
+          subsample: hasAlpha ? 3 : 1,
+          speed: hasAlpha ? 4 : 6,
+          enableSharpYUV: hasAlpha,
+        });
+
+        const blob = new Blob([avifBuffer], { type: 'image/avif' });
+        const nameWithoutExt = files[i].name.replace(/\.[^.]+$/, '');
+        results.push({
+          name: `${nameWithoutExt}.avif`,
+          originalSize: files[i].size,
+          convertedSize: blob.size,
+          blob,
+          preview: URL.createObjectURL(blob),
+        });
+      } catch (err: any) {
+        console.warn(`Fehler bei ${files[i].name}:`, err.message);
       }
+      setProgress(Math.round(((i + 1) / files.length) * 100));
     }
-    return imageData;
-  };
+    return results;
+  }, [files, quality]);
 
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
@@ -96,57 +124,54 @@ export const AvifConverterPage: React.FC = () => {
     setProgress(0);
 
     try {
-      // Dynamisch laden um WASM-Initialisierung zu handhaben
-      const avifModule = await import('@jsquash/avif');
-      const avifEncode = avifModule.default || avifModule.encode;
+      const API_URL = getApiUrl();
+      let results: ConvertedFile[] = [];
 
-      const results: ConvertedFile[] = [];
-
-      for (let i = 0; i < files.length; i++) {
+      if (isAdmin && connectedAddress) {
         try {
-          const imageData = await getImageData(files[i]);
+          const formData = new FormData();
+          formData.append('adminAddress', connectedAddress);
+          formData.append('quality', String(quality));
+          files.forEach((f) => formData.append('files', f));
 
-          // Prüfe ob Bild Transparenz hat
-          const hasAlpha = (() => {
-            const d = imageData.data;
-            for (let j = 3; j < d.length; j += 4) {
-              if (d[j] < 255) return true;
+          const res = await fetch(`${API_URL}/api/avif/convert`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.files && data.files.length > 0) {
+              const valid = data.files.filter((f: any) => f.data && !f.error);
+              setProgress(100);
+              results = valid.map((f: any) => {
+                const binary = atob(f.data);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: 'image/avif' });
+                return {
+                  name: f.name,
+                  originalSize: f.originalSize,
+                  convertedSize: f.convertedSize,
+                  blob,
+                  preview: URL.createObjectURL(blob),
+                };
+              });
+              if (results.length > 0) {
+                console.log(`[AVIF] ${results.length} Bilder via Backend (Sharp) konvertiert`);
+              }
             }
-            return false;
-          })();
-
-          // Bei Transparenz: premultiplied → straight alpha für saubere Kanten
-          if (hasAlpha) {
-            premultipliedToStraight(imageData);
           }
-
-          const avifBuffer = await avifEncode(imageData, {
-            quality,
-            qualityAlpha: hasAlpha ? 100 : -1, // Verlustfrei für Alpha, verhindert dicke Ränder
-            subsample: hasAlpha ? 3 : 1,      // YUV444 bei Transparenz
-            speed: hasAlpha ? 4 : 6,          // Langsamer = bessere Kanten bei Alpha
-            enableSharpYUV: hasAlpha,         // Schärfere RGB→YUV Konvertierung
-          });
-
-          const blob = new Blob([avifBuffer], { type: 'image/avif' });
-          const nameWithoutExt = files[i].name.replace(/\.[^.]+$/, '');
-
-          results.push({
-            name: `${nameWithoutExt}.avif`,
-            originalSize: files[i].size,
-            convertedSize: blob.size,
-            blob,
-            preview: URL.createObjectURL(blob),
-          });
-        } catch (err: any) {
-          console.warn(`Fehler bei ${files[i].name}:`, err.message);
+        } catch (backendErr) {
+          console.warn('[AVIF] Backend nicht verfügbar, Fallback auf Client:', backendErr);
         }
+      }
 
-        setProgress(Math.round(((i + 1) / files.length) * 100));
+      if (results.length === 0) {
+        results = await convertViaClient();
       }
 
       setConverted(results);
-
       if (results.length === 0) {
         setError('Keine Bilder konnten konvertiert werden.');
       }
@@ -156,7 +181,7 @@ export const AvifConverterPage: React.FC = () => {
     }
 
     setConverting(false);
-  }, [files, quality]);
+  }, [files, quality, isAdmin, connectedAddress, convertViaClient]);
 
   const [zipping, setZipping] = useState(false);
 
