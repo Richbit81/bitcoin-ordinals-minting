@@ -32,6 +32,23 @@ const PREVIEW_LAYERS = [
 // Comic font via Google Fonts
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
 
+// Externe/besondere Mints für Recent Mints (z.B. #356) – erscheinen in der Liste, zählen NICHT im Counter
+const EXTERNAL_RECENT_MINTS: Array<{
+  itemIndex: number;
+  itemName: string;
+  inscriptionId: string;
+  timestamp: string;
+  walletAddress: string | null;
+}> = [
+  {
+    itemIndex: 356,
+    itemName: 'SLUMS #356',
+    inscriptionId: '12819a51ed8436caa676aa032fcbc531187df6d7a97b27cc35705066508b0a15i0',
+    timestamp: new Date().toISOString(),
+    walletAddress: null,
+  },
+];
+
 export const SlumsPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
@@ -157,13 +174,13 @@ export const SlumsPage: React.FC = () => {
   const loadRecentMints = async () => {
     try {
       const res = await fetch(`${API_URL}/api/slums/recent`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.recent && data.recent.length > 0) {
-        setRecentMints(data.recent.map((m: any) => ({ ...m, imageUrl: null })));
-      }
+      const data = res.ok ? await res.json() : { recent: [] };
+      const fromApi = (data.recent || []).map((m: any) => ({ ...m, imageUrl: null }));
+      const externals = EXTERNAL_RECENT_MINTS.map((m) => ({ ...m, inscriptionId: m.inscriptionId, imageUrl: null }));
+      const withoutDupes = fromApi.filter((m: any) => !externals.some((e) => e.itemIndex === m.itemIndex));
+      setRecentMints([...externals, ...withoutDupes].slice(0, 10));
     } catch {
-      console.warn('[SlumsPage] Could not load recent mints');
+      setRecentMints(EXTERNAL_RECENT_MINTS.map((m) => ({ ...m, imageUrl: null })));
     }
   };
 

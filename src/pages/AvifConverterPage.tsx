@@ -25,7 +25,7 @@ export const AvifConverterPage: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [quality, setQuality] = useState(75);
   const [losslessAlpha, setLosslessAlpha] = useState(false);
-  const [useClientForAlpha, setUseClientForAlpha] = useState(true);
+  const [useClientForAlpha, setUseClientForAlpha] = useState(false);
   const [outWidth, setOutWidth] = useState<string>('');
   const [outHeight, setOutHeight] = useState<string>('');
   const [converting, setConverting] = useState(false);
@@ -336,7 +336,7 @@ export const AvifConverterPage: React.FC = () => {
             </div>
 
             {/* Client-Encoder für Transparenz (PNG/WebP) – wie ezgif.com */}
-            <div className="flex items-center gap-2" title="Nutzt den gleichen Encoder wie ezgif.com – saubere Kanten ohne Abdunkeln">
+            <div className="flex items-center gap-2" title="Bei Problemen: Client-Encoder (wie ezgif.com) statt Backend nutzen">
               <input
                 type="checkbox"
                 id="useClientForAlpha"
