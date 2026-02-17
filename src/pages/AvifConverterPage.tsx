@@ -25,6 +25,7 @@ export const AvifConverterPage: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [quality, setQuality] = useState(75);
   const [losslessAlpha, setLosslessAlpha] = useState(false);
+  const [useClientForAlpha, setUseClientForAlpha] = useState(true);
   const [outWidth, setOutWidth] = useState<string>('');
   const [outHeight, setOutHeight] = useState<string>('');
   const [converting, setConverting] = useState(false);
@@ -117,11 +118,11 @@ export const AvifConverterPage: React.FC = () => {
           ...(hasAlpha && losslessAlpha
             ? { lossless: true }
             : {
-                quality: hasAlpha ? Math.max(quality, 95) : quality,
+                quality: hasAlpha ? 100 : quality,
                 qualityAlpha: hasAlpha ? 100 : -1,
                 subsample: hasAlpha ? 3 : 1,
-                speed: hasAlpha ? 2 : 6,
-                enableSharpYUV: hasAlpha,
+                speed: hasAlpha ? 1 : 6,
+                enableSharpYUV: true,
               }),
         });
 
@@ -154,7 +155,10 @@ export const AvifConverterPage: React.FC = () => {
       const API_URL = getApiUrl();
       let results: ConvertedFile[] = [];
 
-      if (isAdmin && connectedAddress) {
+      const allLikelyAlpha = files.every((f) => f.type === 'image/png' || f.type === 'image/webp');
+      const useBackend = isAdmin && connectedAddress && (!useClientForAlpha || !allLikelyAlpha);
+
+      if (useBackend) {
         try {
           const formData = new FormData();
           formData.append('adminAddress', connectedAddress);
@@ -188,7 +192,7 @@ export const AvifConverterPage: React.FC = () => {
                 };
               });
               if (results.length > 0) {
-                console.log(`[AVIF] ${results.length} Bilder via Backend (Sharp) konvertiert`);
+                console.log(`[AVIF] ${results.length} Bilder via Backend konvertiert`);
               }
             }
           }
@@ -211,7 +215,7 @@ export const AvifConverterPage: React.FC = () => {
     }
 
     setConverting(false);
-  }, [files, quality, losslessAlpha, outWidth, outHeight, isAdmin, connectedAddress, convertViaClient]);
+  }, [files, quality, useClientForAlpha, losslessAlpha, outWidth, outHeight, isAdmin, connectedAddress, convertViaClient]);
 
   const [zipping, setZipping] = useState(false);
 
@@ -329,6 +333,20 @@ export const AvifConverterPage: React.FC = () => {
                 <span>50</span>
                 <span>100 (max)</span>
               </div>
+            </div>
+
+            {/* Client-Encoder für Transparenz (PNG/WebP) – wie ezgif.com */}
+            <div className="flex items-center gap-2" title="Nutzt den gleichen Encoder wie ezgif.com – saubere Kanten ohne Abdunkeln">
+              <input
+                type="checkbox"
+                id="useClientForAlpha"
+                checked={useClientForAlpha}
+                onChange={(e) => setUseClientForAlpha(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+              />
+              <label htmlFor="useClientForAlpha" className="text-sm font-medium text-gray-300 cursor-pointer select-none">
+                Transparenz optimiert (Client)
+              </label>
             </div>
 
             {/* Lossless für Transparenz (PNG/WebP) */}
