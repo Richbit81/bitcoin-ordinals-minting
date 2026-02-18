@@ -94,10 +94,6 @@ export async function mintSlumsRandom(
   mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
   
-  if (!isTaprootAddress(buyerAddress)) {
-    throw new Error('Ordinals werden nur an Taproot-Adressen (bc1p...) gesendet.');
-  }
-
   const collection = await loadSlumsCollection();
   if (!collection || collection.generated.length === 0) {
     throw new Error('SLUMS Collection konnte nicht geladen werden.');

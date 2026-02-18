@@ -9,8 +9,8 @@ import { logMinting } from '../services/mintingLog';
 import {
   mintSmileRandom,
   loadSmileCollection,
-  isTaprootAddress,
 } from '../services/smileMintService';
+import { getOrdinalAddress } from '../utils/wallet';
 import { getApiUrl } from '../utils/apiUrl';
 
 const SMILE_PRICE_SATS = 10000;
@@ -173,20 +173,8 @@ export const SmilePage: React.FC = () => {
       return;
     }
 
-    // Taproot-Adresse suchen (Ordinals-Adresse)
-    let userAddress = walletState.accounts[0].address;
-    const ordinalsAccount = walletState.accounts.find(
-      (acc) => acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-    );
-    if (ordinalsAccount) {
-      userAddress = ordinalsAccount.address;
-      console.log(`[SmilePage] ✅ Verwende Taproot-Adresse: ${userAddress}`);
-    }
-
-    if (!isTaprootAddress(userAddress)) {
-      alert('Ordinals werden nur an Taproot-Adressen (bc1p...) gesendet. Bitte verbinde eine Taproot-Wallet.');
-      return;
-    }
+    const userAddress = getOrdinalAddress(walletState.accounts);
+    console.log(`[SmilePage] Verwende Adresse: ${userAddress}`);
 
     setIsMinting(true);
     setMintingStatus({

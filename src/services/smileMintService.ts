@@ -74,13 +74,6 @@ export async function mintSmileRandom(
   mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SmileGeneratedItem }> {
   
-  // Taproot-Check
-  if (!isTaprootAddress(buyerAddress)) {
-    throw new Error(
-      'Ordinals werden nur an Taproot-Adressen (bc1p...) gesendet. Bitte verbinde eine Taproot-Wallet.'
-    );
-  }
-
   // Collection laden
   const collection = await loadSmileCollection();
   if (!collection || collection.generated.length === 0) {

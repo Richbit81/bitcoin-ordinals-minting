@@ -9,8 +9,8 @@ import { logMinting } from '../services/mintingLog';
 import {
   mintSlumsRandom,
   loadSlumsCollection,
-  isTaprootAddress,
 } from '../services/slumsMintService';
+import { getOrdinalAddress } from '../utils/wallet';
 import { getApiUrl } from '../utils/apiUrl';
 
 const SLUMS_PRICE_SATS = 3000;
@@ -135,11 +135,7 @@ export const SlumsPage: React.FC = () => {
   // Load address mint count when wallet connects/changes
   useEffect(() => {
     if (walletState.connected && walletState.accounts[0]) {
-      const ordinalsAccount = walletState.accounts.find(
-        (acc) => acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-      );
-      const addr = ordinalsAccount?.address || walletState.accounts[0].address;
-      loadAddressMintCount(addr);
+      loadAddressMintCount(getOrdinalAddress(walletState.accounts));
     } else {
       setAddressMintCount(0);
     }
@@ -257,18 +253,7 @@ export const SlumsPage: React.FC = () => {
       return;
     }
 
-    let userAddress = walletState.accounts[0].address;
-    const ordinalsAccount = walletState.accounts.find(
-      (acc) => acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-    );
-    if (ordinalsAccount) {
-      userAddress = ordinalsAccount.address;
-    }
-
-    if (!isTaprootAddress(userAddress)) {
-      alert('Ordinals werden nur an Taproot-Adressen (bc1p...) gesendet. Bitte verbinde eine Taproot-Wallet.');
-      return;
-    }
+    const userAddress = getOrdinalAddress(walletState.accounts);
 
     // Free-phase limit check (client-side, also enforced server-side)
     if (mintCount < SLUMS_FREE_MINTS && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS) {
