@@ -32,7 +32,7 @@ const PREVIEW_LAYERS = [
 // Comic font via Google Fonts
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
 
-// Externe/besondere Mints für Recent Mints (z.B. #356) – erscheinen in der Liste, zählen NICHT im Counter
+// Externe/besondere Mints für Recent Mints (z.B. #336) – erscheinen in der Liste, zählen NICHT im Counter
 const EXTERNAL_RECENT_MINTS: Array<{
   itemIndex: number;
   itemName: string;
@@ -41,10 +41,10 @@ const EXTERNAL_RECENT_MINTS: Array<{
   walletAddress: string | null;
 }> = [
   {
-    itemIndex: 356,
-    itemName: 'SLUMS #356',
+    itemIndex: 336,
+    itemName: 'SLUMS #336',
     inscriptionId: '12819a51ed8436caa676aa032fcbc531187df6d7a97b27cc35705066508b0a15i0',
-    timestamp: new Date().toISOString(),
+    timestamp: '2025-02-01T12:00:00.000Z',
     walletAddress: null,
   },
 ];
@@ -174,7 +174,9 @@ export const SlumsPage: React.FC = () => {
       const fromApi = (data.recent || []).map((m: any) => ({ ...m, imageUrl: null }));
       const externals = EXTERNAL_RECENT_MINTS.map((m) => ({ ...m, inscriptionId: m.inscriptionId, imageUrl: null }));
       const withoutDupes = fromApi.filter((m: any) => !externals.some((e) => e.itemIndex === m.itemIndex));
-      setRecentMints([...externals, ...withoutDupes].slice(0, 10));
+      const merged = [...withoutDupes, ...externals];
+      merged.sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      setRecentMints(merged.slice(0, 10));
     } catch {
       setRecentMints(EXTERNAL_RECENT_MINTS.map((m) => ({ ...m, imageUrl: null })));
     }
