@@ -10,7 +10,7 @@
  */
 
 import { createUnisatInscription } from './unisatService';
-import { sendMultipleBitcoinPayments, sendBitcoinViaUnisat, sendBitcoinViaXverse } from '../utils/wallet';
+import { sendMultipleBitcoinPayments, sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX } from '../utils/wallet';
 
 const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
 const SLUMS_PRICE_SATS = 3000;
@@ -89,7 +89,7 @@ ${imgTags}
 export async function mintSlumsRandom(
   buyerAddress: string,
   feeRate: number,
-  walletType: 'unisat' | 'xverse' | null,
+  walletType: 'unisat' | 'xverse' | 'okx' | null,
   currentMintCount: number,
   mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
@@ -173,10 +173,11 @@ export async function mintSlumsRandom(
   let paymentTxid: string | undefined;
 
   if (payments.length === 1) {
-    // Nur Inscription-Fees (gratis mint)
     const p = payments[0];
     if (walletType === 'unisat') {
       paymentTxid = await sendBitcoinViaUnisat(p.address, p.amount);
+    } else if (walletType === 'okx') {
+      paymentTxid = await sendBitcoinViaOKX(p.address, p.amount);
     } else {
       paymentTxid = await sendBitcoinViaXverse(p.address, p.amount);
     }

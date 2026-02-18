@@ -29,7 +29,7 @@ export const createDelegateInscription = async (
   recipientAddress: string,
   collectionId: string,
   feeRate: number = 1,
-  walletType: 'unisat' | 'xverse' | null = null
+  walletType: 'unisat' | 'xverse' | 'okx' | null = null
 ): Promise<{ inscriptionId: string; txid: string; payAddress?: string; amount?: number }> => {
   console.log(`[Delegate] Creating delegate inscription for card: ${card.name} (${card.id})`);
   console.log(`[Delegate] Original inscription ID: ${card.inscriptionId}`);
@@ -86,7 +86,7 @@ export const createBatchDelegates = async (
   recipientAddress: string,
   collectionId: string,
   feeRate: number = 1,
-  walletType: 'unisat' | 'xverse' | null = null,
+  walletType: 'unisat' | 'xverse' | 'okx' | null = null,
   packPrice: number = 0
 ): Promise<Array<{ inscriptionId: string; txid: string; card: Card; payAddress?: string; amount?: number; paymentTxid?: string }>> => {
   console.log(`[Delegate] Creating batch delegates for ${cards.length} cards...`);

@@ -4,7 +4,7 @@
  */
 
 import { createUnisatInscription } from './unisatService';
-import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendMultipleBitcoinPayments } from '../utils/wallet';
+import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMultipleBitcoinPayments } from '../utils/wallet';
 import { getApiUrl } from '../utils/apiUrl';
 
 const API_URL = getApiUrl();
@@ -20,7 +20,7 @@ export const createSingleDelegate = async (
   recipientAddress: string,
   collectionName: string,
   feeRate: number,
-  walletType: 'unisat' | 'xverse' | null,
+  walletType: 'unisat' | 'xverse' | 'okx' | null,
   contentType?: 'html' | 'image',
   itemPrice?: number // Preis in sats (z.B. 2000 für TimeBIT, 10000 für TACTICAL)
 ): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
@@ -156,9 +156,10 @@ img {
   let paymentTxid: string | undefined;
 
   if (payments.length === 1) {
-    // Einzelzahlung - verwende normale Funktion
     if (walletType === 'unisat') {
       paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
+    } else if (walletType === 'okx') {
+      paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
     } else if (walletType === 'xverse') {
       paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
     } else {

@@ -70,7 +70,7 @@ export async function loadSmileCollection(): Promise<SmileCollection | null> {
 export async function mintSmileRandom(
   buyerAddress: string,
   feeRate: number,
-  walletType: 'unisat' | 'xverse' | null,
+  walletType: 'unisat' | 'xverse' | 'okx' | null,
   mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SmileGeneratedItem }> {
   

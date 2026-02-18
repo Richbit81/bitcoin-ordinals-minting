@@ -5,7 +5,7 @@
  */
 
 import { createUnisatInscription, UnisatInscriptionResponse } from './unisatService';
-import { sendBitcoinViaUnisat, sendBitcoinViaXverse } from '../utils/wallet';
+import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX } from '../utils/wallet';
 
 const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
@@ -18,8 +18,8 @@ export const mintPointShopItem = async (
   originalDelegateId: string,
   recipientAddress: string,
   feeRate: number = 1,
-  walletType: 'unisat' | 'xverse' | null = null,
-  walletState?: { walletType?: 'unisat' | 'xverse' | null }
+  walletType: 'unisat' | 'xverse' | 'okx' | null = null,
+  walletState?: { walletType?: 'unisat' | 'xverse' | 'okx' | null }
 ): Promise<{ inscriptionId: string; txid: string; payAddress?: string; amount?: number; paymentTxid?: string }> => {
   console.log(`[PointShopMinting] Creating delegate inscription for Point Shop item: ${originalDelegateId}`);
   
@@ -94,6 +94,8 @@ img {
 
     if (walletType === 'unisat') {
       paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
+    } else if (walletType === 'okx') {
+      paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
     } else if (walletType === 'xverse') {
       paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
     } else {
