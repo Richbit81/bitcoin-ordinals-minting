@@ -180,13 +180,25 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
           <p className="text-sm font-mono text-white break-all">
             {getOrdinalAddress(walletState.accounts)}
           </p>
-          {!getOrdinalAddress(walletState.accounts).startsWith('bc1p') && walletState.walletType === 'unisat' && (
+          {!getOrdinalAddress(walletState.accounts).startsWith('bc1p') && (walletState.walletType === 'unisat' || walletState.walletType === 'okx') && (
             <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-600/50 rounded">
               <p className="text-xs text-yellow-400 font-semibold mb-1">
                 Switch to Taproot for minting
               </p>
               <p className="text-xs text-yellow-400/70">
-                UniSat → Settings → Address Type → Taproot (P2TR) → Reconnect
+                {walletState.walletType === 'unisat'
+                  ? 'UniSat → Settings → Address Type → Taproot (P2TR) → Reconnect'
+                  : 'OKX → Manage Wallet → Bitcoin → Taproot → Reconnect'}
+              </p>
+            </div>
+          )}
+          {getOrdinalAddress(walletState.accounts).startsWith('bc1p') && !walletState.accounts.find(a => a.purpose === 'payment') && (walletState.walletType === 'unisat' || walletState.walletType === 'okx') && (
+            <div className="mt-3 p-3 bg-blue-900/30 border border-blue-600/50 rounded">
+              <p className="text-xs text-blue-400 font-semibold mb-1">
+                Payment tip
+              </p>
+              <p className="text-xs text-blue-400/70">
+                If your BTC is on a Legacy/SegWit address, switch to that address in {walletState.walletType === 'unisat' ? 'UniSat' : 'OKX'} and reconnect. Ordinals will still go to your Taproot address.
               </p>
             </div>
           )}

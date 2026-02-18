@@ -429,17 +429,42 @@ export const connectOKX = async (): Promise<WalletAccount[]> => {
 
     const address = result.address;
     const addressType = getAddressType(address);
-    console.log(`[OKX] ✅ Verbunden mit ${addressType}-Adresse: ${address}`);
+    console.log(`[OKX] Connected with ${addressType} address: ${address}`);
 
-    if (!address.startsWith('bc1p')) {
-      console.warn(`[OKX] ⚠️ ${addressType}-Adresse – für Ordinals wird Taproot (bc1p...) empfohlen.`);
+    const walletAccounts: WalletAccount[] = [];
+
+    if (address.startsWith('bc1p')) {
+      // Taproot: save for ordinals, check for saved Legacy/SegWit for payments
+      localStorage.setItem('okx_taproot_address', address);
+      walletAccounts.push({ address, publicKey: result.publicKey, purpose: 'ordinals' });
+
+      const savedPayment = localStorage.getItem('okx_payment_address');
+      if (savedPayment && !savedPayment.startsWith('bc1p')) {
+        console.log(`[OKX] Using saved payment address: ${savedPayment}`);
+        walletAccounts.push({ address: savedPayment, purpose: 'payment' });
+      } else {
+        console.warn(`[OKX] No saved payment address. Switch to Legacy/SegWit in OKX for payments, then reconnect.`);
+      }
+    } else {
+      // Legacy/SegWit: use for payments, check for saved Taproot for ordinals
+      localStorage.setItem('okx_payment_address', address);
+      walletAccounts.push({ address, publicKey: result.publicKey, purpose: 'payment' });
+
+      const savedTaproot = localStorage.getItem('okx_taproot_address');
+      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
+        console.log(`[OKX] Using saved Taproot address for ordinals: ${savedTaproot}`);
+        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+      } else {
+        console.log(`[OKX] No saved Taproot address, using ${addressType} for everything`);
+      }
     }
 
-    return [{
-      address,
-      publicKey: result.publicKey,
-      purpose: address.startsWith('bc1p') ? 'ordinals' : 'payment',
-    }];
+    console.log(`[OKX] Setup complete with ${walletAccounts.length} address(es)`);
+    walletAccounts.forEach(acc => {
+      console.log(`   ${acc.purpose === 'ordinals' ? 'Ordinals' : 'Payment'}: ${acc.address}`);
+    });
+
+    return walletAccounts;
   } catch (error: any) {
     if (error.message?.includes('User rejected') || error.code === 4001) {
       throw new Error('Connection rejected. Please approve the connection request in your OKX wallet.');
@@ -474,6 +499,14 @@ export const sendBitcoinViaOKX = async (
       throw new Error(`Amount too small. Minimum is 546 sats. You tried to send ${amountInSats} sats.`);
     }
 
+    // Check current connected address
+    const accounts = await window.okxwallet!.bitcoin.getAccounts();
+    const currentAddress = accounts?.[0];
+    if (currentAddress) {
+      const addrType = getAddressType(currentAddress);
+      console.log(`[OKX] Sending from ${addrType} address: ${currentAddress}`);
+    }
+
     const txid = await window.okxwallet!.bitcoin.sendBitcoin(to, amountInSats);
     console.log('[OKX] ✅ Transaction sent:', txid);
     return txid;
@@ -481,7 +514,22 @@ export const sendBitcoinViaOKX = async (
     if (error.message?.includes('User rejected') || error.code === 4001) {
       throw new Error('Payment was cancelled. Please approve the transaction in your OKX wallet.');
     }
-    if (error.message?.includes('Insufficient')) {
+    if (error.message?.includes('Insufficient') || error.message?.includes('insufficient') || error.message?.includes('not enough')) {
+      // Check if the user is connected with Taproot but has BTC on Legacy
+      try {
+        const accounts = await window.okxwallet!.bitcoin.getAccounts();
+        const currentAddress = accounts?.[0];
+        if (currentAddress?.startsWith('bc1p')) {
+          throw new Error(
+            'Insufficient balance on your Taproot address.\n\n' +
+            'Your BTC is likely on your Legacy/SegWit address.\n\n' +
+            'Fix: In OKX Wallet, switch to your Legacy address, then reconnect.\n' +
+            'Your ordinals will still go to your Taproot address.'
+          );
+        }
+      } catch (checkErr: any) {
+        if (checkErr.message?.includes('Insufficient balance on your Taproot')) throw checkErr;
+      }
       throw new Error('Insufficient balance in OKX Wallet.');
     }
     throw new Error(error.message || 'Fehler beim Senden von Bitcoin über OKX');
