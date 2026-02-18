@@ -158,11 +158,9 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
     const walletAccounts: WalletAccount[] = [];
     
     if (currentAddress.startsWith('bc1p')) {
-      // Taproot - ideal for ordinals, also works for payment
       localStorage.setItem('unisat_taproot_address', currentAddress);
       walletAccounts.push({ address: currentAddress, purpose: 'ordinals' });
     } else {
-      // Non-Taproot (Legacy/SegWit) - use as payment, try to recover saved Taproot
       walletAccounts.push({ address: currentAddress, purpose: 'payment' });
       
       const savedTaproot = localStorage.getItem('unisat_taproot_address');
@@ -170,17 +168,7 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
         console.log(`[UniSat] Using saved Taproot address for ordinals: ${savedTaproot}`);
         walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
       } else {
-        console.warn(`[UniSat] No Taproot address available. Please switch to Taproot (bc1p...) in UniSat settings for Ordinals support.`);
-        // Throw a helpful error so the user knows what to do
-        throw new Error(
-          'UniSat: Please switch to a Taproot address (bc1p...) in your UniSat Wallet.\n\n' +
-          'Steps:\n' +
-          '1. Open UniSat Wallet\n' +
-          '2. Go to Settings → Address Type\n' +
-          '3. Select "Taproot (P2TR)"\n' +
-          '4. Connect again\n\n' +
-          'Ordinals can only be received on Taproot addresses.'
-        );
+        console.log(`[UniSat] No saved Taproot address, using ${currentAddressType} for everything`);
       }
     }
 
