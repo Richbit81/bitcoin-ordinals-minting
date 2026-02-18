@@ -74,10 +74,10 @@ export const HistoryPage: React.FC = () => {
     if (walletState.connected && walletState.accounts[0]) {
       loadCards();
       
-      // Auto-Refresh alle 30 Sekunden
+      // Auto-Refresh alle 20 Minuten (reduziert UniSat API-Last)
       const interval = setInterval(() => {
         loadCards();
-      }, 30000);
+      }, 20 * 60 * 1000);
 
       return () => clearInterval(interval);
     } else {
