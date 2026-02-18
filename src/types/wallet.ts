@@ -4,7 +4,7 @@ export interface WalletAccount {
   purpose?: 'ordinals' | 'payment'; // Xverse: unterscheidet zwischen Ordinals- und Payment-Adresse
 }
 
-export type WalletType = 'unisat' | 'xverse' | null;
+export type WalletType = 'unisat' | 'xverse' | 'okx' | null;
 
 export interface WalletState {
   walletType: WalletType;

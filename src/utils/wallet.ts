@@ -19,6 +19,20 @@ declare global {
       request: (method: string, params?: any) => Promise<any>;
     };
     xverse?: any;
+    okxwallet?: {
+      bitcoin: {
+        connect: () => Promise<{ address: string; publicKey: string }>;
+        requestAccounts: () => Promise<string[]>;
+        getAccounts: () => Promise<string[]>;
+        getNetwork: () => Promise<string>;
+        sendBitcoin: (to: string, amount: number, options?: any) => Promise<string>;
+        signPsbt: (psbtHex: string, options?: any) => Promise<string>;
+        signPsbts: (psbtHexs: string[], options?: any) => Promise<string[]>;
+        pushPsbt: (psbtHex: string) => Promise<string>;
+        on: (event: string, callback: (...args: any[]) => void) => void;
+        removeListener: (event: string, callback: (...args: any[]) => void) => void;
+      };
+    };
   }
 }
 
@@ -451,6 +465,185 @@ export const getXverseAccounts = async (): Promise<WalletAccount[]> => {
   }
 };
 
+// ===================== OKX WALLET =====================
+
+export const isOKXInstalled = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return typeof window.okxwallet?.bitcoin !== 'undefined';
+};
+
+export const waitForOKX = (timeout = 3000): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (isOKXInstalled()) {
+      resolve(true);
+      return;
+    }
+    const startTime = Date.now();
+    const checkInterval = setInterval(() => {
+      if (isOKXInstalled()) {
+        clearInterval(checkInterval);
+        resolve(true);
+      } else if (Date.now() - startTime > timeout) {
+        clearInterval(checkInterval);
+        resolve(false);
+      }
+    }, 100);
+  });
+};
+
+export const connectOKX = async (): Promise<WalletAccount[]> => {
+  if (!isOKXInstalled()) {
+    throw new Error('OKX Wallet is not installed. Please install the OKX browser extension.');
+  }
+
+  try {
+    const result = await window.okxwallet!.bitcoin.connect();
+    
+    if (!result || !result.address) {
+      throw new Error('No account returned from OKX Wallet.');
+    }
+
+    const address = result.address;
+    const addressType = getAddressType(address);
+    console.log(`[OKX] ✅ Verbunden mit ${addressType}-Adresse: ${address}`);
+
+    if (!address.startsWith('bc1p')) {
+      console.warn(`[OKX] ⚠️ ${addressType}-Adresse – für Ordinals wird Taproot (bc1p...) empfohlen.`);
+    }
+
+    return [{
+      address,
+      publicKey: result.publicKey,
+      purpose: address.startsWith('bc1p') ? 'ordinals' : 'payment',
+    }];
+  } catch (error: any) {
+    if (error.message?.includes('User rejected') || error.code === 4001) {
+      throw new Error('Connection rejected. Please approve the connection request in your OKX wallet.');
+    }
+    throw new Error(error.message || 'Error connecting to OKX Wallet.');
+  }
+};
+
+export const getOKXAccounts = async (): Promise<WalletAccount[]> => {
+  if (!isOKXInstalled()) return [];
+  try {
+    const accounts = await window.okxwallet!.bitcoin.getAccounts();
+    return accounts.map(addr => ({ address: addr }));
+  } catch {
+    return [];
+  }
+};
+
+export const sendBitcoinViaOKX = async (
+  to: string,
+  amount: number
+): Promise<string> => {
+  if (!isOKXInstalled()) {
+    throw new Error('OKX Wallet nicht gefunden');
+  }
+
+  try {
+    const amountInSats = Math.round(amount * 100000000);
+    console.log('[OKX] Sending Bitcoin:', { to, amount, amountInSats });
+
+    if (amountInSats < 546) {
+      throw new Error(`Amount too small. Minimum is 546 sats. You tried to send ${amountInSats} sats.`);
+    }
+
+    const txid = await window.okxwallet!.bitcoin.sendBitcoin(to, amountInSats);
+    console.log('[OKX] ✅ Transaction sent:', txid);
+    return txid;
+  } catch (error: any) {
+    if (error.message?.includes('User rejected') || error.code === 4001) {
+      throw new Error('Payment was cancelled. Please approve the transaction in your OKX wallet.');
+    }
+    if (error.message?.includes('Insufficient')) {
+      throw new Error('Insufficient balance in OKX Wallet.');
+    }
+    throw new Error(error.message || 'Fehler beim Senden von Bitcoin über OKX');
+  }
+};
+
+export const signPSBTViaOKX = async (
+  psbtBase64: string,
+  autoFinalized: boolean = false
+): Promise<string> => {
+  if (!isOKXInstalled()) {
+    throw new Error('OKX Wallet nicht gefunden');
+  }
+
+  try {
+    // OKX erwartet PSBT als Hex (wie UniSat)
+    const binaryString = atob(psbtBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const psbtHex = Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    const signedPsbtHex = await window.okxwallet!.bitcoin.signPsbt(psbtHex, { autoFinalized });
+    console.log('[OKX] ✅ PSBT signed, length:', signedPsbtHex.length);
+
+    // Konvertiere Hex zu Base64 für Konsistenz
+    const hexBytes = signedPsbtHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+    const hexBinaryString = String.fromCharCode(...hexBytes);
+    return btoa(hexBinaryString);
+  } catch (error: any) {
+    if (error.message?.includes('User rejected') || error.message?.includes('rejected')) {
+      throw new Error('Signatur abgelehnt. Bitte bestätigen Sie die Transaktion in Ihrem OKX Wallet.');
+    }
+    throw new Error(error.message || 'Fehler beim Signieren der PSBT über OKX');
+  }
+};
+
+export const signPsbtsViaOKX = async (
+  psbtHexs: string[],
+  autoFinalized: boolean = false
+): Promise<string[]> => {
+  if (!isOKXInstalled()) {
+    throw new Error('OKX Wallet nicht gefunden');
+  }
+
+  try {
+    // Konvertiere Base64 zu Hex falls nötig
+    const psbtHexsArray = psbtHexs.map(psbt => {
+      if (psbt.length > 100 && !/^[0-9a-fA-F]+$/.test(psbt)) {
+        const binaryString = atob(psbt);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      return psbt;
+    });
+
+    const signedPsbtHexs = await window.okxwallet!.bitcoin.signPsbts(psbtHexsArray, { autoFinalized });
+    return signedPsbtHexs;
+  } catch (error: any) {
+    if (error.message?.includes('User rejected') || error.message?.includes('rejected')) {
+      throw new Error('Signatur abgelehnt.');
+    }
+    throw new Error(error.message || 'Fehler beim Signieren der PSBTs über OKX');
+  }
+};
+
+export const pushPsbtViaOKX = async (psbtHex: string): Promise<string> => {
+  if (!isOKXInstalled()) {
+    throw new Error('OKX Wallet nicht gefunden');
+  }
+  try {
+    const txid = await window.okxwallet!.bitcoin.pushPsbt(psbtHex);
+    return txid;
+  } catch (error: any) {
+    throw new Error(error.message || 'Fehler beim Pushen der PSBT über OKX');
+  }
+};
+
+// ===================== END OKX WALLET =====================
+
 export const sendBitcoinViaUnisat = async (
   to: string,
   amount: number
@@ -674,16 +867,17 @@ export const sendBitcoinViaUnisat = async (
  */
 export const sendMultipleBitcoinPayments = async (
   recipients: Array<{ address: string; amount: number }>,
-  walletType: 'unisat' | 'xverse'
+  walletType: 'unisat' | 'xverse' | 'okx'
 ): Promise<string> => {
   if (recipients.length === 0) {
     throw new Error('Keine Empfänger angegeben');
   }
 
   if (recipients.length === 1) {
-    // Einzelzahlung - verwende normale Funktion
     if (walletType === 'unisat') {
       return await sendBitcoinViaUnisat(recipients[0].address, recipients[0].amount);
+    } else if (walletType === 'okx') {
+      return await sendBitcoinViaOKX(recipients[0].address, recipients[0].amount);
     } else {
       return await sendBitcoinViaXverse(recipients[0].address, recipients[0].amount);
     }
@@ -793,30 +987,30 @@ export const sendMultipleBitcoinPayments = async (
       throw error;
     }
   } else {
-    // UniSat - verwende sendPsbt für mehrere Outputs
-    if (!isUnisatInstalled()) {
+    // UniSat oder OKX - sequenzielle Zahlungen
+    const walletLabel = walletType === 'okx' ? 'OKX' : 'UniSat';
+    const sendFn = walletType === 'okx' ? sendBitcoinViaOKX : sendBitcoinViaUnisat;
+
+    if (walletType === 'okx' && !isOKXInstalled()) {
+      throw new Error('OKX Wallet nicht gefunden');
+    }
+    if (walletType === 'unisat' && !isUnisatInstalled()) {
       throw new Error('UniSat Wallet nicht gefunden');
     }
 
     try {
-      // Für UniSat müssen wir sendPsbt verwenden
-      // Da das komplexer ist, machen wir die Zahlungen sequenziell, aber informieren den Benutzer
-      // dass es mehrere Transaktionen sind
-      console.log('[UniSat] Mehrere Zahlungen - UniSat unterstützt nur eine Zahlung pro Transaktion');
-      console.log('[UniSat] Führe Zahlungen sequenziell aus...');
+      console.log(`[${walletLabel}] Mehrere Zahlungen - sequenziell`);
       
-      // Sortiere Zahlungen nach Betrag (größte zuerst), falls das hilft
-      // Dies kann helfen, wenn das Guthaben auf einer bestimmten Adresse liegt
       const sortedRecipients = [...recipients].sort((a, b) => b.amount - a.amount);
-      console.log(`[UniSat] Sortiere Zahlungen nach Betrag (größte zuerst):`, sortedRecipients.map(r => `${r.address}: ${r.amount} BTC`));
+      console.log(`[${walletLabel}] Sortiere Zahlungen nach Betrag (größte zuerst):`, sortedRecipients.map(r => `${r.address}: ${r.amount} BTC`));
       
       let lastTxid = '';
       for (let i = 0; i < sortedRecipients.length; i++) {
         const recipient = sortedRecipients[i];
-        console.log(`[UniSat] Zahlung ${i + 1}/${sortedRecipients.length}: ${recipient.address}, ${recipient.amount} BTC (${Math.round(recipient.amount * 100000000)} sats)`);
+        console.log(`[${walletLabel}] Zahlung ${i + 1}/${sortedRecipients.length}: ${recipient.address}, ${recipient.amount} BTC (${Math.round(recipient.amount * 100000000)} sats)`);
         
         try {
-          lastTxid = await sendBitcoinViaUnisat(recipient.address, recipient.amount);
+          lastTxid = await sendFn(recipient.address, recipient.amount);
           console.log(`[UniSat] ✅ Zahlung ${i + 1}/${sortedRecipients.length} erfolgreich: ${lastTxid}`);
         } catch (error: any) {
           console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
@@ -1188,15 +1382,16 @@ export const signPSBTViaXverse = async (
  */
 export const signPSBT = async (
   psbtBase64: string,
-  walletType: 'unisat' | 'xverse',
+  walletType: 'unisat' | 'xverse' | 'okx',
   autoFinalized: boolean = false,
   walletAddress?: string,
-  sighashType?: number  // Optional: SIGHASH_NONE | ANYONECANPAY = 0x82
+  sighashType?: number
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
+  } else if (walletType === 'okx') {
+    return await signPSBTViaOKX(psbtBase64, autoFinalized);
   } else {
-    // Für Xverse: Übergebe walletAddress und sighashType
     return await signPSBTViaXverse(psbtBase64, walletAddress, sighashType);
   }
 };
@@ -1321,10 +1516,22 @@ export const signPsbtsViaXverse = async (
  */
 export const signPsbts = async (
   psbtBase64s: string[],
-  walletType: 'unisat' | 'xverse',
+  walletType: 'unisat' | 'xverse' | 'okx',
   autoFinalized: boolean = false
 ): Promise<string[]> => {
-  if (walletType === 'unisat') {
+  if (walletType === 'okx') {
+    const psbtHexs = psbtBase64s.map(psbtBase64 => {
+      const binaryString = atob(psbtBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    });
+    return await signPsbtsViaOKX(psbtHexs, autoFinalized);
+  } else if (walletType === 'unisat') {
     // Für UniSat: Konvertiere Base64 zu Hex
     const psbtHexs = psbtBase64s.map(psbtBase64 => {
       const binaryString = atob(psbtBase64);
@@ -1377,13 +1584,13 @@ export const pushPsbtViaUnisat = async (
  */
 export const pushPsbt = async (
   psbtHex: string,
-  walletType: 'unisat' | 'xverse'
+  walletType: 'unisat' | 'xverse' | 'okx'
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await pushPsbtViaUnisat(psbtHex);
+  } else if (walletType === 'okx') {
+    return await pushPsbtViaOKX(psbtHex);
   } else {
-    // Xverse unterstützt pushPsbt nicht direkt
-    // Fallback: Verwende Broadcast über Backend
     throw new Error('Xverse unterstützt pushPsbt nicht direkt. Bitte verwenden Sie das Backend-Broadcast.');
   }
 };

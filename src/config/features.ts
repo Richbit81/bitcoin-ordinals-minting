@@ -33,11 +33,12 @@ export const FEATURES = {
   ENABLE_XVERSE: true,
 
   /**
-   * Zukünftige Wallet-Unterstützung (Platzhalter)
+   * OKX Wallet Support
+   * 
+   * Status: AKTIVIERT
+   * API fast identisch mit UniSat (window.okxwallet.bitcoin)
    */
-  // ENABLE_LEATHER: false,
-  // ENABLE_OKX: false,
-  // ENABLE_PHANTOM: false,
+  ENABLE_OKX: true,
 } as const;
 
 /**
@@ -59,8 +60,7 @@ export function getEnabledWallets(): string[] {
   const wallets: string[] = [];
   if (FEATURES.ENABLE_UNISAT) wallets.push('unisat');
   if (FEATURES.ENABLE_XVERSE) wallets.push('xverse');
-  // if (FEATURES.ENABLE_LEATHER) wallets.push('leather');
-  // if (FEATURES.ENABLE_OKX) wallets.push('okx');
+  if (FEATURES.ENABLE_OKX) wallets.push('okx');
   return wallets;
 }
 

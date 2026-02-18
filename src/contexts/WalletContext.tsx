@@ -3,10 +3,13 @@ import { WalletType, WalletAccount, WalletState } from '../types/wallet';
 import {
   isUnisatInstalled,
   isXverseInstalled,
+  isOKXInstalled,
   connectUnisat,
   connectXverse,
+  connectOKX,
   getUnisatAccounts,
   getXverseAccounts,
+  getOKXAccounts,
 } from '../utils/wallet';
 
 interface WalletContextType {
@@ -17,6 +20,7 @@ interface WalletContextType {
   checkWalletConnection: () => Promise<void>;
   isUnisatInstalled: boolean;
   isXverseInstalled: boolean;
+  isOKXInstalled: boolean;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -50,6 +54,8 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     checkWalletConnection();
 
+    const cleanups: (() => void)[] = [];
+
     // Listener für Wallet-Änderungen (UniSat)
     if (isUnisatInstalled()) {
       const handleAccountsChanged = (accounts: string[]) => {
@@ -77,11 +83,42 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       window.unisat?.on('accountsChanged', handleAccountsChanged);
       window.unisat?.on('networkChanged', handleNetworkChanged);
 
-      return () => {
+      cleanups.push(() => {
         window.unisat?.removeListener('accountsChanged', handleAccountsChanged);
         window.unisat?.removeListener('networkChanged', handleNetworkChanged);
-      };
+      });
     }
+
+    // Listener für Wallet-Änderungen (OKX)
+    if (isOKXInstalled()) {
+      const handleOKXAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setWalletState(prev => ({
+            ...prev,
+            accounts: accounts.map(addr => ({ address: addr })),
+            connected: true,
+            walletType: 'okx',
+          }));
+        } else {
+          setWalletState({
+            walletType: null,
+            accounts: [],
+            connected: false,
+            network: 'mainnet',
+          });
+        }
+      };
+
+      window.okxwallet?.bitcoin?.on('accountsChanged', handleOKXAccountsChanged);
+
+      cleanups.push(() => {
+        window.okxwallet?.bitcoin?.removeListener('accountsChanged', handleOKXAccountsChanged);
+      });
+    }
+
+    return () => {
+      cleanups.forEach(fn => fn());
+    };
   }, [checkWalletConnection]);
 
   const connect = useCallback(async (walletType: WalletType) => {
@@ -92,6 +129,8 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         accounts = await connectUnisat();
       } else if (walletType === 'xverse') {
         accounts = await connectXverse();
+      } else if (walletType === 'okx') {
+        accounts = await connectOKX();
       } else {
         throw new Error('Ungültiger Wallet-Typ');
       }
@@ -141,6 +180,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         checkWalletConnection,
         isUnisatInstalled: isUnisatInstalled(),
         isXverseInstalled: isXverseInstalled(),
+        isOKXInstalled: isOKXInstalled(),
       }}
     >
       {children}

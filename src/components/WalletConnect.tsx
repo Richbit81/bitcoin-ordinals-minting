@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletType, WalletAccount } from '../types/wallet';
-import { waitForUnisat, waitForXverse } from '../utils/wallet';
+import { waitForUnisat, waitForXverse, waitForOKX } from '../utils/wallet';
 import { WalletConnectFallback } from './WalletConnectFallback';
 import { FEATURES } from '../config/features';
 
@@ -23,6 +23,7 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
   const [error, setError] = useState<string | null>(null);
   const [unisatAvailable, setUnisatAvailable] = useState(false);
   const [xverseAvailable, setXverseAvailable] = useState(false);
+  const [okxAvailable, setOkxAvailable] = useState(false);
   const [isCheckingWallets, setIsCheckingWallets] = useState(true);
   const [showFallback, setShowFallback] = useState(false);
 
@@ -31,15 +32,15 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
     const checkWallets = async () => {
       setIsCheckingWallets(true);
       
-      // Warte bis zu 3 Sekunden auf Wallets
-      // UniSat nur prüfen wenn Feature aktiviert ist
-      const [unisat, xverse] = await Promise.all([
+      const [unisat, xverse, okx] = await Promise.all([
         FEATURES.ENABLE_UNISAT ? waitForUnisat(3000) : Promise.resolve(false),
         waitForXverse(3000),
+        FEATURES.ENABLE_OKX ? waitForOKX(3000) : Promise.resolve(false),
       ]);
       
       setUnisatAvailable(FEATURES.ENABLE_UNISAT && unisat);
       setXverseAvailable(xverse);
+      setOkxAvailable(FEATURES.ENABLE_OKX && okx);
       setIsCheckingWallets(false);
 
       // Debug-Ausgabe - Detailliert
@@ -79,13 +80,15 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
 
     // Prüfe erneut alle 2 Sekunden (falls Extension später lädt)
     const retryInterval = setInterval(async () => {
-      if ((!unisatAvailable && FEATURES.ENABLE_UNISAT) || !xverseAvailable) {
-        const [unisat, xverse] = await Promise.all([
+      if ((!unisatAvailable && FEATURES.ENABLE_UNISAT) || !xverseAvailable || (!okxAvailable && FEATURES.ENABLE_OKX)) {
+        const [unisat, xverse, okx] = await Promise.all([
           FEATURES.ENABLE_UNISAT ? waitForUnisat(2000) : Promise.resolve(false),
           waitForXverse(2000),
+          FEATURES.ENABLE_OKX ? waitForOKX(2000) : Promise.resolve(false),
         ]);
         setUnisatAvailable(prev => prev || (FEATURES.ENABLE_UNISAT && unisat));
         setXverseAvailable(prev => prev || xverse);
+        setOkxAvailable(prev => prev || (FEATURES.ENABLE_OKX && okx));
       }
     }, 2000);
 
@@ -216,7 +219,7 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
         )}
 
         {/* Fallback-Option anzeigen wenn keine AKTIVIERTEN Wallets gefunden */}
-        {!xverseAvailable && (!FEATURES.ENABLE_UNISAT || !unisatAvailable) && !showFallback && (
+        {!xverseAvailable && (!FEATURES.ENABLE_UNISAT || !unisatAvailable) && (!FEATURES.ENABLE_OKX || !okxAvailable) && !showFallback && (
           <div className="mb-4 p-4 bg-gray-900 border-2 border-red-600 rounded-lg">
             <p className="text-sm font-bold text-red-600 mb-2">
               ⚠️ Wallet Extensions Not Detected
@@ -374,6 +377,36 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
             </button>
           </div>
         )}
+
+        {/* OKX Wallet */}
+        {FEATURES.ENABLE_OKX && (okxAvailable ? (
+          <button
+            onClick={() => handleConnect('okx')}
+            disabled={isConnecting}
+            className="w-full flex items-center justify-center px-6 py-4 bg-white text-black border-2 border-red-600 rounded-lg font-bold hover:bg-red-600 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isConnecting ? (
+              'Connecting...'
+            ) : (
+              <>
+                <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
+                  <text x="12" y="16" textAnchor="middle" fontSize="10" fill="currentColor" fontWeight="bold">OK</text>
+                </svg>
+                Connect OKX Wallet
+              </>
+            )}
+          </button>
+        ) : (
+          <a
+            href="https://www.okx.com/web3"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center px-6 py-4 bg-gray-900 text-white border-2 border-gray-700 rounded-lg font-bold hover:border-red-600 transition"
+          >
+            Install OKX Wallet
+          </a>
+        ))}
       </div>
 
       {error && (
