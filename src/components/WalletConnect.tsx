@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletType, WalletAccount } from '../types/wallet';
-import { waitForUnisat, waitForXverse, waitForOKX } from '../utils/wallet';
+import { waitForUnisat, waitForXverse, waitForOKX, getOrdinalAddress } from '../utils/wallet';
 import { WalletConnectFallback } from './WalletConnectFallback';
 import { FEATURES } from '../config/features';
 
@@ -178,12 +178,17 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
         <div className="bg-gray-900 border-2 border-red-600 rounded-lg p-4">
           <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">Address</p>
           <p className="text-sm font-mono text-white break-all">
-            {walletState.accounts[0]?.address}
+            {getOrdinalAddress(walletState.accounts)}
           </p>
-          {!walletState.accounts[0]?.address.startsWith('bc1p') && (
-            <p className="text-xs text-red-600 mt-2 font-semibold">
-              ⚠️ Please use a Taproot address (bc1p...)
-            </p>
+          {!getOrdinalAddress(walletState.accounts).startsWith('bc1p') && walletState.walletType === 'unisat' && (
+            <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-600/50 rounded">
+              <p className="text-xs text-yellow-400 font-semibold mb-1">
+                Switch to Taproot for minting
+              </p>
+              <p className="text-xs text-yellow-400/70">
+                UniSat → Settings → Address Type → Taproot (P2TR) → Reconnect
+              </p>
+            </div>
           )}
         </div>
 

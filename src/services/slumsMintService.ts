@@ -94,6 +94,14 @@ export async function mintSlumsRandom(
   mintedIndices: number[] = []
 ): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
   
+  if (!buyerAddress.startsWith('bc1p')) {
+    throw new Error(
+      'Inscriptions require a Taproot address (bc1p...).\n\n' +
+      'In UniSat: Click your address → Settings → Address Type → Taproot (P2TR)\n' +
+      'Then reconnect your wallet.'
+    );
+  }
+
   const collection = await loadSlumsCollection();
   if (!collection || collection.generated.length === 0) {
     throw new Error('SLUMS Collection konnte nicht geladen werden.');

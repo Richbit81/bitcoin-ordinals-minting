@@ -30,6 +30,15 @@ export const createUnisatInscription = async (
 ): Promise<UnisatInscriptionResponse> => {
   const { file, address, feeRate, postage = 330, delegateMetadata } = request;
 
+  if (!address.startsWith('bc1p')) {
+    throw new Error(
+      'Inscriptions require a Taproot address (bc1p...).\n\n' +
+      'In UniSat: Click your address → Settings → Address Type → Taproot (P2TR)\n' +
+      'Then reconnect your wallet.\n\n' +
+      'Xverse and OKX wallets handle this automatically.'
+    );
+  }
+
   const formData = new FormData();
   formData.append('file', file); // Backend erwartet 'file' (Singular), nicht 'files'
   formData.append('address', address);
