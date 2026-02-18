@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { getOrdinalAddress } from '../utils/wallet';
 
 // NFT Item Configuration
 const NFT_ITEM = {
@@ -38,7 +39,7 @@ export const NftMintingPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const userAddress = getOrdinalAddress(walletState.accounts);
     setIsMinting(true);
     setMintingStatus({
       progress: 0,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletCard, fetchWalletCards } from '../services/gallery';
+import { getOrdinalAddress } from '../utils/wallet';
 import { TradeOfferList } from '../components/trading/TradeOfferList';
 import { CreateOffer } from '../components/trading/CreateOffer';
 
@@ -25,7 +26,7 @@ export const TradingPage: React.FC = () => {
     
     setLoading(true);
     try {
-      const cards = await fetchWalletCards(walletState.accounts[0].address);
+      const cards = await fetchWalletCards(getOrdinalAddress(walletState.accounts));
       setMyCards(cards);
     } catch (error) {
       console.error('Error loading cards:', error);

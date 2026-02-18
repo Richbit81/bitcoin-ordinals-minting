@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { fetchWalletCards, WalletCard } from '../services/gallery';
+import { getOrdinalAddress } from '../utils/wallet';
 import { CardReveal } from '../components/CardReveal';
 import { Card } from '../types/wallet';
 
@@ -21,7 +22,7 @@ export const HistoryPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const walletAddress = walletState.accounts[0].address;
+      const walletAddress = getOrdinalAddress(walletState.accounts);
       const fetchedCards = await fetchWalletCards(walletAddress);
       setCards(fetchedCards);
       setLastCheck(new Date());
@@ -40,7 +41,7 @@ export const HistoryPage: React.FC = () => {
     setChecking(true);
     try {
       const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
-      const walletAddress = walletState.accounts[0].address;
+      const walletAddress = getOrdinalAddress(walletState.accounts);
       
       console.log('[History] 🔍 Checking pending inscriptions...');
       const response = await fetch(`${API_URL}/api/unisat/check-pending-inscriptions`, {

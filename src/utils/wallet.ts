@@ -98,6 +98,28 @@ export const waitForXverse = (timeout = 3000): Promise<boolean> => {
   });
 };
 
+/**
+ * Gibt die Ordinals/Taproot-Adresse aus den Wallet-Accounts zurück.
+ * Sucht nach purpose='ordinals' oder bc1p-Adresse, Fallback auf accounts[0].
+ */
+export const getOrdinalAddress = (accounts: WalletAccount[]): string => {
+  if (!accounts || accounts.length === 0) return '';
+  const ordinals = accounts.find(
+    acc => acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
+  );
+  return ordinals?.address || accounts[0].address;
+};
+
+/**
+ * Gibt die Payment-Adresse aus den Wallet-Accounts zurück.
+ * Sucht nach purpose='payment', Fallback auf accounts[0].
+ */
+export const getPaymentAddress = (accounts: WalletAccount[]): string => {
+  if (!accounts || accounts.length === 0) return '';
+  const payment = accounts.find(acc => acc.purpose === 'payment');
+  return payment?.address || accounts[0].address;
+};
+
 // Helper-Funktion: Bestimme den Adresstyp
 const getAddressType = (address: string): string => {
   if (address.startsWith('bc1p')) return 'Taproot';
@@ -113,7 +135,6 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
   }
 
   try {
-    // Prüfe ob window.unisat wirklich verfügbar ist
     if (!window.unisat || typeof window.unisat.requestAccounts !== 'function') {
       throw new Error('UniSat Wallet is detected but the connection API is not available. This may be due to multiple wallet extensions interfering with each other. Try disabling other Bitcoin wallet extensions and reload the page.');
     }
@@ -124,137 +145,52 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
       throw new Error('No accounts returned. Please unlock your UniSat Wallet and try again.');
     }
 
-    // Schritt 1: Hole die aktuell verbundene Adresse (Payment-Adresse)
     const currentAddress = accounts[0];
     const currentAddressType = getAddressType(currentAddress);
     
-    console.log(`[UniSat] ✅ Verbunden mit ${currentAddressType}-Adresse: ${currentAddress}`);
+    console.log(`[UniSat] Connected with ${currentAddressType} address: ${currentAddress}`);
 
     const network = await window.unisat.getNetwork();
-    
     if (network !== 'livenet') {
       throw new Error('Please switch to Bitcoin Mainnet in your UniSat Wallet.');
     }
 
     const walletAccounts: WalletAccount[] = [];
     
-    // Schritt 2: Prüfe ob es Taproot ist
     if (currentAddress.startsWith('bc1p')) {
-      // ✅ Bereits Taproot - perfekt!
-      console.log(`[UniSat] ✅ Taproot-Adresse aktiv - optimal für Ordinals!`);
-      walletAccounts.push({
-        address: currentAddress,
-        purpose: 'ordinals' // Taproot ist perfekt für beides
-      });
+      // Taproot - ideal for ordinals, also works for payment
+      localStorage.setItem('unisat_taproot_address', currentAddress);
+      walletAccounts.push({ address: currentAddress, purpose: 'ordinals' });
     } else {
-      // ⚠️ Nicht-Taproot (Legacy/SegWit) - brauchen BEIDE Adressen
-      console.warn(`[UniSat] ⚠️ ${currentAddressType}-Adresse verbunden`);
-      console.warn(`[UniSat] 💡 Für Inscriptions wird Taproot benötigt!`);
+      // Non-Taproot (Legacy/SegWit) - use as payment, try to recover saved Taproot
+      walletAccounts.push({ address: currentAddress, purpose: 'payment' });
       
-      // Füge aktuelle Adresse als Payment hinzu
-      walletAccounts.push({
-        address: currentAddress,
-        purpose: 'payment' // Für Zahlungen
-      });
-      
-      // Schritt 3: Frage nach Taproot-Adresse
-      const shouldGetTaproot = confirm(
-        `🔔 UniSat Wallet Setup - WICHTIG!\n\n` +
-        `✅ Aktuell verbunden: ${currentAddressType}-Adresse\n` +
-        `   ${currentAddress}\n\n` +
-        `⚠️ Für Ordinals-Inscriptions wird eine Taproot-Adresse (bc1p...) benötigt.\n\n` +
-        `📋 SETUP-ANLEITUNG:\n` +
-        `1. Klicke "OK" um fortzufahren\n` +
-        `2. Öffne UniSat Wallet → Settings → Address Type\n` +
-        `3. Wähle "Taproot (P2TR)"\n` +
-        `4. Akzeptiere die Verbindung erneut\n` +
-        `5. Taproot-Adresse wird gespeichert ✅\n\n` +
-        `💰 WICHTIG FÜR PAYMENTS:\n` +
-        `Danach WECHSLE ZURÜCK zur ${currentAddressType}-Adresse!\n` +
-        `→ Payment muss von der Adresse kommen, wo dein BTC ist\n` +
-        `→ Inscription geht automatisch an Taproot ✅\n\n` +
-        `Möchtest du jetzt die Taproot-Adresse hinzufügen?`
-      );
-      
-      if (shouldGetTaproot) {
-        try {
-          console.log(`[UniSat] 🔄 Warte auf Taproot-Adresse...`);
-          console.log(`[UniSat] 👉 Bitte wechsle jetzt im UniSat Wallet zu Taproot!`);
-          
-          // Warte auf neue Verbindung (User wechselt zu Taproot)
-          const taprootAccounts = await window.unisat.requestAccounts();
-          const taprootAddress = taprootAccounts[0];
-          
-          if (taprootAddress && taprootAddress.startsWith('bc1p')) {
-            console.log(`[UniSat] ✅ Taproot-Adresse erhalten: ${taprootAddress}`);
-            
-            // Füge Taproot-Adresse hinzu
-            walletAccounts.push({
-              address: taprootAddress,
-              purpose: 'ordinals' // Für Inscriptions
-            });
-            
-            // Speichere in localStorage für zukünftige Sessions
-            localStorage.setItem('unisat_taproot_address', taprootAddress);
-            
-            alert(
-              `✅ Perfekt!\n\n` +
-              `Taproot-Adresse gespeichert:\n${taprootAddress}\n\n` +
-              `Du kannst jetzt im UniSat Wallet zurück zu ${currentAddressType} wechseln.\n\n` +
-              `💰 Payments: ${currentAddressType}-Adresse\n` +
-              `🎯 Inscriptions: Taproot-Adresse`
-            );
-          } else {
-            console.warn(`[UniSat] ⚠️ Keine Taproot-Adresse erhalten: ${taprootAddress}`);
-            
-            // Versuche aus localStorage
-            const savedTaproot = localStorage.getItem('unisat_taproot_address');
-            if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-              console.log(`[UniSat] 💾 Verwende gespeicherte Taproot-Adresse: ${savedTaproot}`);
-              walletAccounts.push({
-                address: savedTaproot,
-                purpose: 'ordinals'
-              });
-            } else {
-              console.warn(`[UniSat] ⚠️ Keine Taproot-Adresse verfügbar - Inscriptions werden an ${currentAddressType} gesendet!`);
-            }
-          }
-        } catch (taprootError: any) {
-          console.error(`[UniSat] ❌ Fehler beim Abrufen der Taproot-Adresse:`, taprootError);
-          
-          // Fallback: Versuche gespeicherte Adresse
-          const savedTaproot = localStorage.getItem('unisat_taproot_address');
-          if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-            console.log(`[UniSat] 💾 Verwende gespeicherte Taproot-Adresse: ${savedTaproot}`);
-            walletAccounts.push({
-              address: savedTaproot,
-              purpose: 'ordinals'
-            });
-          }
-        }
+      const savedTaproot = localStorage.getItem('unisat_taproot_address');
+      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
+        console.log(`[UniSat] Using saved Taproot address for ordinals: ${savedTaproot}`);
+        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
       } else {
-        // User hat abgelehnt - versuche gespeicherte Taproot
-        const savedTaproot = localStorage.getItem('unisat_taproot_address');
-        if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-          console.log(`[UniSat] 💾 Verwende zuvor gespeicherte Taproot-Adresse: ${savedTaproot}`);
-          walletAccounts.push({
-            address: savedTaproot,
-            purpose: 'ordinals'
-          });
-        } else {
-          console.warn(`[UniSat] ⚠️ Keine Taproot-Adresse - Inscriptions werden an ${currentAddressType} gesendet!`);
-        }
+        console.warn(`[UniSat] No Taproot address available. Please switch to Taproot (bc1p...) in UniSat settings for Ordinals support.`);
+        // Throw a helpful error so the user knows what to do
+        throw new Error(
+          'UniSat: Please switch to a Taproot address (bc1p...) in your UniSat Wallet.\n\n' +
+          'Steps:\n' +
+          '1. Open UniSat Wallet\n' +
+          '2. Go to Settings → Address Type\n' +
+          '3. Select "Taproot (P2TR)"\n' +
+          '4. Connect again\n\n' +
+          'Ordinals can only be received on Taproot addresses.'
+        );
       }
     }
 
-    console.log(`[UniSat] ✅ Setup abgeschlossen mit ${walletAccounts.length} Adresse(n)`);
+    console.log(`[UniSat] Setup complete with ${walletAccounts.length} address(es)`);
     walletAccounts.forEach(acc => {
-      console.log(`   ${acc.purpose === 'ordinals' ? '🎯' : '💰'} ${acc.purpose || 'default'}: ${acc.address}`);
+      console.log(`   ${acc.purpose === 'ordinals' ? 'Ordinals' : 'Payment'}: ${acc.address}`);
     });
 
     return walletAccounts;
   } catch (error: any) {
-    // Spezifische Fehlermeldungen
     if (error.message && error.message.includes('User rejected')) {
       throw new Error('Connection rejected. Please approve the connection request in your wallet.');
     }

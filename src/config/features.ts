@@ -14,15 +14,10 @@ export const FEATURES = {
   /**
    * UniSat Wallet Support
    * 
-   * Status: DEAKTIVIERT (2026-01-18)
-   * Grund: "Insufficient funds" Issues, instabile UTXO-Erkennung
-   * 
-   * Um zu reaktivieren:
-   * 1. Setze auf `true`
-   * 2. Teste gründlich mit verschiedenen Address-Types (Legacy, SegWit, Taproot)
-   * 3. Verifiziere UTXO-Balance-Checks
+   * Status: AKTIVIERT (2026-02-11)
+   * Fix: getOrdinalAddress() stellt sicher dass Inscriptions immer an Taproot gehen
    */
-  ENABLE_UNISAT: false,
+  ENABLE_UNISAT: true,
 
   /**
    * Xverse Wallet Support

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { getPointShopItems, mintPointShopItem, PointShopItem } from '../services/pointShopService';
 import { getPoints } from '../services/pointsService';
+import { getOrdinalAddress } from '../utils/wallet';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 
@@ -43,7 +44,7 @@ export const PointShopPage: React.FC = () => {
     if (!walletState.accounts[0]) return;
     
     try {
-      const pointsData = await getPoints(walletState.accounts[0].address);
+      const pointsData = await getPoints(getOrdinalAddress(walletState.accounts));
       setUserPoints(pointsData?.points || 0);
     } catch (error) {
       console.error('Error loading points:', error);
@@ -84,7 +85,7 @@ export const PointShopPage: React.FC = () => {
     setMintingItemId(item.id);
     try {
       const result = await mintPointShopItem(
-        walletState.accounts[0].address,
+        getOrdinalAddress(walletState.accounts),
         item.id,
         walletState.walletType || 'unisat',
         inscriptionFeeRate,

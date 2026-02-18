@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { getOrdinalAddress } from '../utils/wallet';
 
 // 1984 Collection Items
 const ITEMS_1984 = [
@@ -50,7 +51,7 @@ export const Orwell1984Page: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const userAddress = getOrdinalAddress(walletState.accounts);
     setMintingItemId(item.id);
     setMintingStatus({
       progress: 0,

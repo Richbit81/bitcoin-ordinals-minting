@@ -6,6 +6,7 @@ import { Gallery } from '../components/Gallery';
 import { useWallet } from '../contexts/WalletContext';
 import { CardPack, MintingStatus } from '../types/wallet';
 import { createBatchDelegates } from '../services/delegate';
+import { getOrdinalAddress } from '../utils/wallet';
 import { PACK_CONFIGS } from '../config/packs';
 import { checkPackAvailability, incrementPackSupply } from '../services/packSupply';
 import { logMinting } from '../services/mintingLog';
@@ -51,7 +52,7 @@ export const MintingPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const userAddress = getOrdinalAddress(walletState.accounts);
     console.log('[MintingPage] User Address:', userAddress);
 
     setMintingPackId(packId);

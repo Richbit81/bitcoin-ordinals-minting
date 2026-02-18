@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { getOrdinalAddress } from '../utils/wallet';
 
 // Random Stuff Collection Items
 const RANDOM_ITEMS = [
@@ -95,7 +96,7 @@ export const RandomStuffPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const userAddress = getOrdinalAddress(walletState.accounts);
     setMintingItemId(item.id);
     setMintingStatus({
       progress: 0,
