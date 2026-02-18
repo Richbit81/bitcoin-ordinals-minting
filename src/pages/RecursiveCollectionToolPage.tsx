@@ -663,6 +663,17 @@ const RecursiveCollectionToolPage: React.FC = () => {
     ));
   }, []);
 
+  const moveTrait = useCallback((layerId: string, traitIdx: number, direction: 'up' | 'down') => {
+    setLayers(prev => prev.map(l => {
+      if (l.id !== layerId) return l;
+      const newIdx = direction === 'up' ? traitIdx - 1 : traitIdx + 1;
+      if (newIdx < 0 || newIdx >= l.traits.length) return l;
+      const traits = [...l.traits];
+      [traits[traitIdx], traits[newIdx]] = [traits[newIdx], traits[traitIdx]];
+      return { ...l, traits };
+    }));
+  }, []);
+
   // ============================================================
   // GENERATE
   // ============================================================
@@ -1419,6 +1430,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
                                   onChange={e => updateTrait(layer.id, traitIdx, { rarity: parseInt(e.target.value) })}
                                   min={1} max={100} className="w-full accent-purple-500" />
                               </div>
+                              <button onClick={() => moveTrait(layer.id, traitIdx, 'up')} disabled={traitIdx === 0}
+                                className="p-1 text-gray-400 hover:text-white disabled:text-gray-700 disabled:cursor-not-allowed text-xs" title="Move up">▲</button>
+                              <button onClick={() => moveTrait(layer.id, traitIdx, 'down')} disabled={traitIdx === layer.traits.length - 1}
+                                className="p-1 text-gray-400 hover:text-white disabled:text-gray-700 disabled:cursor-not-allowed text-xs" title="Move down">▼</button>
                               <button onClick={() => removeTrait(layer.id, traitIdx)}
                                 className="p-1.5 text-red-500 hover:text-red-400 text-xs">✕</button>
                             </div>
