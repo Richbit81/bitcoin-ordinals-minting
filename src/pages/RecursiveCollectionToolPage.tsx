@@ -936,12 +936,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
     // Step 1: Pick a seed trait from a random grouped layer to determine the "theme"
     let activeGroups: string[] = [];
     if (hasAnyGroups) {
-      // Weight each grouped trait across all grouped layers
       const allGroupedTraits: { trait: TraitItem; layerIdx: number }[] = [];
       groupedLayers.forEach((l, li) => {
         l.traits.filter(t => !tIsUngrouped(t)).forEach(t => allGroupedTraits.push({ trait: t, layerIdx: li }));
       });
-      // Also add an "ungrouped" option with combined weight
       const ungroupedW = layers.reduce((s, l) =>
         s + l.traits.filter(t => tIsUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
       const groupedW = allGroupedTraits.reduce((s, { trait }) => s + (trait.rarity || 1), 0);
@@ -949,7 +947,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
       let rand = Math.random() * totalW;
       rand -= ungroupedW;
       if (rand > 0) {
-        // Picked a grouped theme — find which seed trait
         for (const { trait } of allGroupedTraits) {
           rand -= (trait.rarity || 1);
           if (rand <= 0) { activeGroups = parseG(trait); break; }
@@ -957,6 +954,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
         if (activeGroups.length === 0) activeGroups = parseG(allGroupedTraits[allGroupedTraits.length - 1].trait);
       }
     }
+
+    console.log('[Shuffle] ============================');
+    console.log('[Shuffle] Theme groups:', activeGroups.length > 0 ? activeGroups : '(ungrouped)');
+    layers.forEach(l => {
+      console.log(`[Shuffle] Layer "${l.name}":`, l.traits.map(t => `"${t.name}" [group: "${t.group || ''}" → parsed: ${JSON.stringify(parseG(t))}]`));
+    });
 
     // Step 2: For each layer, pick a compatible trait
     const newPreview: Record<string, number> = {};
@@ -968,14 +971,16 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
       if (hasAnyGroups && layerHasGroups) {
         if (activeGroups.length > 0) {
-          // Strict: only traits sharing at least one group with the theme
           const matching = pool.filter(({ t }) => sharesGroup(t, activeGroups));
+          console.log(`[Shuffle]   Layer "${layer.name}": ${matching.length}/${pool.length} traits match theme ${JSON.stringify(activeGroups)} → [${matching.map(({t}) => `${t.name}(${t.group})`).join(', ')}]`);
           pool = matching.length > 0 ? matching : [];
         } else {
-          // No group theme: only ungrouped traits
           const ungrouped = pool.filter(({ t }) => tIsUngrouped(t));
+          console.log(`[Shuffle]   Layer "${layer.name}": ungrouped mode → ${ungrouped.length} ungrouped traits`);
           pool = ungrouped.length > 0 ? ungrouped : [];
         }
+      } else {
+        console.log(`[Shuffle]   Layer "${layer.name}": neutral (no groups in this layer) → all ${pool.length} traits`);
       }
 
       if (pool.length > 0) {
@@ -986,9 +991,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
           if (rand <= 0) { newPreview[layer.id] = i; break; }
         }
         if (newPreview[layer.id] === undefined) newPreview[layer.id] = pool[pool.length - 1].i;
+        const picked = layer.traits[newPreview[layer.id]];
+        console.log(`[Shuffle]   → Picked: "${picked?.name}" [group: "${picked?.group || ''}"]`);
       } else {
         const noneIdx = layer.traits.findIndex(t => isNoneTrait(t));
         newPreview[layer.id] = noneIdx >= 0 ? noneIdx : -1;
+        console.log(`[Shuffle]   → No match, using NONE`);
       }
     }
     setLivePreviewTraits(newPreview);
