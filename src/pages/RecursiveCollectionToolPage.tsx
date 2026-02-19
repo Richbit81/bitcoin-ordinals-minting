@@ -760,29 +760,32 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const maxAttempts = totalCount * 10;
     let attempts = 0;
 
-    // Collect all unique groups across all layers
+    // Collect all unique groups (case-insensitive) across all layers
+    const norm = (g: string | undefined) => g?.toLowerCase().trim();
     const allGroups = new Set<string>();
-    validLayers.forEach(l => l.traits.forEach(t => { if (t.group) allGroups.add(t.group); }));
+    validLayers.forEach(l => l.traits.forEach(t => {
+      const n = norm(t.group);
+      if (n) allGroups.add(n);
+    }));
     const groupList = Array.from(allGroups);
     const hasAnyGroups = groupList.length > 0;
+
+    const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
 
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      // Pick a random group (or "ungrouped") weighted by rarity sums
       let activeGroup: string | null = null;
       if (hasAnyGroups) {
         const weights: { group: string | null; weight: number }[] = [];
 
-        // Weight for "no group" = sum of rarity of all ungrouped traits across layers
         const ungroupedW = validLayers.reduce((sum, l) =>
           sum + l.traits.filter(t => !t.group).reduce((s, t) => s + (t.rarity || 1), 0), 0);
         if (ungroupedW > 0) weights.push({ group: null, weight: ungroupedW });
 
-        // Weight for each group = sum of rarity of matching traits across layers
         for (const g of groupList) {
           const gw = validLayers.reduce((sum, l) =>
-            sum + l.traits.filter(t => t.group === g).reduce((s, t) => s + (t.rarity || 1), 0), 0);
+            sum + l.traits.filter(t => norm(t.group) === g).reduce((s, t) => s + (t.rarity || 1), 0), 0);
           if (gw > 0) weights.push({ group: g, weight: gw });
         }
 
@@ -799,14 +802,23 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
         if (hasAnyGroups) {
           if (activeGroup) {
-            // Active group: only use traits from this group, fallback to ungrouped
-            const groupMatch = pool.filter(t => t.group === activeGroup);
-            const ungrouped = pool.filter(t => !t.group);
-            pool = groupMatch.length > 0 ? groupMatch : ungrouped.length > 0 ? ungrouped : pool;
+            // Strict: only traits matching this group OR ungrouped — NEVER other groups
+            const allowed = pool.filter(t => norm(t.group) === activeGroup || !t.group);
+            if (allowed.length > 0) {
+              pool = allowed;
+            } else {
+              // Layer has only traits from other groups → skip (none)
+              return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
+            }
           } else {
-            // No group selected: only use ungrouped traits
+            // No group: strictly ungrouped traits only — NEVER grouped
             const ungrouped = pool.filter(t => !t.group);
-            if (ungrouped.length > 0) pool = ungrouped;
+            if (ungrouped.length > 0) {
+              pool = ungrouped;
+            } else {
+              // Layer has only grouped traits, no ungrouped → skip (none)
+              return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
+            }
           }
         }
 
