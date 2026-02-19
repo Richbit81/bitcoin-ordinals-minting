@@ -23,6 +23,7 @@ interface TraitItem {
   name: string;
   rarity: number;
   contentType?: string;
+  group?: string;
 }
 
 /** Leerer Layer = Name "none" – wird im SVG übersprungen (kein image-Tag) */
@@ -714,11 +715,27 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
-      const selectedLayers = validLayers.map(layer => ({
-        layerName: layer.name,
-        traitType: layer.traitType,
-        trait: weightedRandom(layer.traits),
-      }));
+
+      // Pick traits with group-linking: once a group is chosen, other layers prefer same group
+      let activeGroup: string | null = null;
+      const selectedLayers = validLayers.map(layer => {
+        let pool = layer.traits;
+
+        if (activeGroup) {
+          const grouped = pool.filter(t => t.group === activeGroup);
+          if (grouped.length > 0) pool = grouped;
+          // If no match found, fall back to all traits (ungrouped behavior)
+        }
+
+        const trait = weightedRandom(pool);
+
+        if (!activeGroup && trait.group) {
+          activeGroup = trait.group;
+        }
+
+        return { layerName: layer.name, traitType: layer.traitType, trait };
+      });
+
       const comboKey = selectedLayers.map(l => isNoneTrait(l.trait) ? 'none' : l.trait.inscriptionId).join('|');
       if (seenCombos.has(comboKey) && attempts < maxAttempts - totalCount) continue;
       seenCombos.add(comboKey);
@@ -1408,7 +1425,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                               <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">?</div>
                             )}
                           </div>
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
                             <div>
                               <label className="block text-xs text-gray-500">Inscription ID</label>
                               <input type="text" value={trait.inscriptionId}
@@ -1422,6 +1439,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
                                 onChange={e => updateTrait(layer.id, traitIdx, { name: e.target.value })}
                                 placeholder="z.B. blue gradient"
                                 className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-xs text-white" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500">Group</label>
+                              <input type="text" value={trait.group || ''}
+                                onChange={e => updateTrait(layer.id, traitIdx, { group: e.target.value.trim() || undefined })}
+                                placeholder="z.B. ice, fire"
+                                className={`w-full px-2 py-1.5 bg-gray-900 border rounded text-xs text-white ${trait.group ? 'border-cyan-600' : 'border-gray-700'}`} />
                             </div>
                             <div className="flex items-end gap-2">
                               <div className="flex-1">
