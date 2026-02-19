@@ -167,6 +167,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState('');
 
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
+  const [traitDrag, setTraitDrag] = useState<{ layerId: string; fromIdx: number } | null>(null);
+  const [traitDragOverIdx, setTraitDragOverIdx] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -674,6 +676,19 @@ const RecursiveCollectionToolPage: React.FC = () => {
       return { ...l, traits };
     }));
   }, []);
+
+  const handleTraitDrop = useCallback((layerId: string, toIdx: number) => {
+    if (!traitDrag || traitDrag.layerId !== layerId || traitDrag.fromIdx === toIdx) return;
+    setLayers(prev => prev.map(l => {
+      if (l.id !== layerId) return l;
+      const traits = [...l.traits];
+      const [moved] = traits.splice(traitDrag.fromIdx, 1);
+      traits.splice(toIdx, 0, moved);
+      return { ...l, traits };
+    }));
+    setTraitDrag(null);
+    setTraitDragOverIdx(null);
+  }, [traitDrag]);
 
   // ============================================================
   // GENERATE
@@ -1407,7 +1422,20 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   ) : (
                     <div className="space-y-2">
                       {layer.traits.map((trait, traitIdx) => (
-                        <div key={traitIdx} className="flex gap-2 items-start bg-black/50 p-3 rounded-lg border border-gray-800">
+                        <div key={traitIdx}
+                          draggable
+                          onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setTraitDrag({ layerId: layer.id, fromIdx: traitIdx }); }}
+                          onDragOver={e => { if (traitDrag?.layerId === layer.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setTraitDragOverIdx(traitIdx); } }}
+                          onDragLeave={() => setTraitDragOverIdx(null)}
+                          onDrop={e => { e.preventDefault(); handleTraitDrop(layer.id, traitIdx); }}
+                          onDragEnd={() => { setTraitDrag(null); setTraitDragOverIdx(null); }}
+                          className={`flex gap-2 items-start p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-all ${
+                            traitDrag?.layerId === layer.id && traitDrag?.fromIdx === traitIdx
+                              ? 'opacity-40 border-gray-800 bg-black/50'
+                              : traitDrag?.layerId === layer.id && traitDragOverIdx === traitIdx
+                                ? 'border-purple-500 bg-purple-900/30'
+                                : 'border-gray-800 bg-black/50'
+                          }`}>
                           <div className="flex-shrink-0 w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
                             onClick={() => !isNoneTrait(trait) && setSelectedLayerPreview(
                               selectedLayerPreview?.layerId === layer.id && selectedLayerPreview?.traitIdx === traitIdx
