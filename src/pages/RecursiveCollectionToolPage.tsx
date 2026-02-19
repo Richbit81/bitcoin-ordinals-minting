@@ -778,6 +778,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
     const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
 
+    console.log('[Generator] ===== START =====');
+    console.log('[Generator] Groups found:', groupList);
+    validLayers.forEach(l => {
+      console.log(`[Generator] Layer "${l.name}" traits:`, l.traits.map(t => `${t.name} [group: ${t.group || '(none)'}] → parsed: [${parseGroups(t).join(', ')}]`));
+    });
+
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
@@ -795,6 +801,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
           if (gw > 0) weights.push({ group: g, weight: gw });
         }
 
+        if (items.length < 3) console.log('[Generator] Group weights:', weights.map(w => `${w.group ?? '(ungrouped)'}: ${w.weight}`));
+
         const totalW = weights.reduce((s, w) => s + w.weight, 0);
         let rand = Math.random() * totalW;
         for (const w of weights) {
@@ -803,6 +811,9 @@ const RecursiveCollectionToolPage: React.FC = () => {
         }
       }
 
+      const logItem = items.length < 5;
+      if (logItem) console.log(`[Generator] Item #${items.length + 1} → activeGroup: "${activeGroup}"`);
+
       const selectedLayers = validLayers.map(layer => {
         let pool = layer.traits;
 
@@ -810,27 +821,30 @@ const RecursiveCollectionToolPage: React.FC = () => {
           const layerHasAnyGroups = pool.some(t => !traitIsUngrouped(t));
 
           if (!layerHasAnyGroups) {
-            // Layer has NO grouped traits at all → neutral layer, use all traits
+            if (logItem) console.log(`[Generator]   Layer "${layer.name}": neutral (no groups) → all ${pool.length} traits`);
           } else if (activeGroup) {
-            // Layer has groups → ONLY traits matching active group (strict, no ungrouped mixed in)
             const matching = pool.filter(t => traitHasGroup(t, activeGroup!));
             if (matching.length > 0) {
               pool = matching;
+              if (logItem) console.log(`[Generator]   Layer "${layer.name}": ${matching.length} traits match group "${activeGroup}" → [${matching.map(t => t.name).join(', ')}]`);
             } else {
+              if (logItem) console.log(`[Generator]   Layer "${layer.name}": NO traits for group "${activeGroup}" → SKIP (none)`);
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           } else {
-            // No group active, but layer uses groups → only ungrouped traits from this layer
             const ungrouped = pool.filter(t => traitIsUngrouped(t));
             if (ungrouped.length > 0) {
               pool = ungrouped;
+              if (logItem) console.log(`[Generator]   Layer "${layer.name}": no group active → ${ungrouped.length} ungrouped traits`);
             } else {
+              if (logItem) console.log(`[Generator]   Layer "${layer.name}": no group active, no ungrouped traits → SKIP (none)`);
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           }
         }
 
         const trait = weightedRandom(pool);
+        if (logItem) console.log(`[Generator]   Layer "${layer.name}": picked "${trait.name}" [group: ${trait.group || '(none)'}]`);
         return { layerName: layer.name, traitType: layer.traitType, trait };
       });
 
