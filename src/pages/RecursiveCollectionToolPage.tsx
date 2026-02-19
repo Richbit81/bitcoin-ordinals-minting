@@ -48,7 +48,7 @@ interface WalletInscription {
 
 interface GeneratedItem {
   index: number;
-  layers: { layerName: string; traitType: string; trait: TraitItem }[];
+  layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number }[];
   svg: string;
 }
 
@@ -877,13 +877,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
       layerEntry.trait = matchingLayer.traits[newTraitIdx];
       layersCopy[layerIdx] = layerEntry;
       item.layers = layersCopy;
-
-      // Rebuild SVG (none-Traits überspringen)
-      const svgImages = layersCopy
-        .filter(l => !isNoneTrait(l.trait))
-        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
-        .join('\n');
-      item.svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+      item.svg = buildSvgFromLayers(layersCopy);
 
       updated[itemIdx] = item;
       return updated;
@@ -916,7 +910,21 @@ const RecursiveCollectionToolPage: React.FC = () => {
       updated[itemIdx] = entry;
       return updated;
     });
-  }, [layers, viewBox, generated]);
+  }, [layers, buildSvgFromLayers, generated]);
+
+  const buildSvgFromLayers = useCallback((itemLayers: GeneratedItem['layers']) => {
+    const svgImages = itemLayers
+      .filter(l => !isNoneTrait(l.trait))
+      .map(l => {
+        const ox = l.offsetX || 0;
+        const oy = l.offsetY || 0;
+        return ox || oy
+          ? `  <image href="/content/${l.trait.inscriptionId}" x="${ox}" y="${oy}" />`
+          : `  <image href="/content/${l.trait.inscriptionId}" />`;
+      })
+      .join('\n');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+  }, [viewBox]);
 
   const moveGeneratedItemLayer = useCallback((itemIdx: number, layerIdx: number, direction: -1 | 1) => {
     setGenerated(prev => {
@@ -928,12 +936,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
       [layersCopy[layerIdx], layersCopy[targetIdx]] = [layersCopy[targetIdx], layersCopy[layerIdx]];
       item.layers = layersCopy;
-
-      const svgImages = layersCopy
-        .filter(l => !isNoneTrait(l.trait))
-        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
-        .join('\n');
-      item.svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+      item.svg = buildSvgFromLayers(layersCopy);
 
       updated[itemIdx] = item;
       return updated;
@@ -951,7 +954,30 @@ const RecursiveCollectionToolPage: React.FC = () => {
       updated[itemIdx] = entry;
       return updated;
     });
-  }, [viewBox]);
+  }, [buildSvgFromLayers]);
+
+  const nudgeGeneratedItemLayer = useCallback((itemIdx: number, layerIdx: number, dx: number, dy: number, reset?: boolean) => {
+    setGenerated(prev => {
+      const updated = [...prev];
+      const item = { ...updated[itemIdx] };
+      const layersCopy = [...item.layers];
+      const entry = { ...layersCopy[layerIdx] };
+      if (reset) {
+        delete entry.offsetX;
+        delete entry.offsetY;
+      } else {
+        entry.offsetX = (entry.offsetX || 0) + dx;
+        entry.offsetY = (entry.offsetY || 0) + dy;
+        if (entry.offsetX === 0) delete entry.offsetX;
+        if (entry.offsetY === 0) delete entry.offsetY;
+      }
+      layersCopy[layerIdx] = entry;
+      item.layers = layersCopy;
+      item.svg = buildSvgFromLayers(layersCopy);
+      updated[itemIdx] = item;
+      return updated;
+    });
+  }, [buildSvgFromLayers]);
 
   // ============================================================
   // LIVE PREVIEW (random trait per layer, respecting groups)
@@ -1930,14 +1956,24 @@ const RecursiveCollectionToolPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
                   <div className="w-full aspect-square relative">
-                    {generated[previewIndex]?.layers
-                      .filter(l => !isNoneTrait(l.trait))
-                      .map((layer, i) => (
-                        <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
-                          src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                          alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
-                          style={{ zIndex: i }} loading="lazy" />
-                      ))}
+                    {(() => {
+                      const vbParts = viewBox.split(/\s+/).map(Number);
+                      const vbW = vbParts[2] || 1000;
+                      const vbH = vbParts[3] || 1000;
+                      return generated[previewIndex]?.layers
+                        .filter(l => !isNoneTrait(l.trait))
+                        .map((layer, i) => (
+                          <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
+                            src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                            alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
+                            style={{
+                              zIndex: i,
+                              ...(layer.offsetX || layer.offsetY ? {
+                                transform: `translate(${((layer.offsetX || 0) / vbW) * 100}%, ${((layer.offsetY || 0) / vbH) * 100}%)`
+                              } : {})
+                            }} loading="lazy" />
+                        ));
+                    })()}
                   </div>
                 </div>
                 <div>
@@ -1976,18 +2012,34 @@ const RecursiveCollectionToolPage: React.FC = () => {
                             )}
                           </div>
                           {editingItem && (
-                            <div className="flex gap-1 flex-shrink-0">
-                              <div className="flex flex-col gap-0.5">
+                            <div className="flex gap-1 flex-shrink-0 items-center">
+                              <div className="flex flex-col gap-0.5" title="Layer-Reihenfolge">
                                 <button
                                   onClick={() => moveGeneratedItemLayer(previewIndex, i, -1)}
                                   disabled={i === 0}
-                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed"
-                                  title="Layer nach unten (hinter)">▲</button>
+                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed">▲</button>
                                 <button
                                   onClick={() => moveGeneratedItemLayer(previewIndex, i, 1)}
                                   disabled={i === (generated[previewIndex]?.layers.length ?? 1) - 1}
-                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed"
-                                  title="Layer nach oben (davor)">▼</button>
+                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed">▼</button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-px w-[42px]" title={`Position: ${layer.offsetX || 0}, ${layer.offsetY || 0}`}>
+                                <div />
+                                <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, 0, -10)}
+                                  className="w-[13px] h-[13px] bg-green-900 border border-green-700 rounded-sm text-green-300 hover:text-white text-[8px] flex items-center justify-center">↑</button>
+                                <div />
+                                <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, -10, 0)}
+                                  className="w-[13px] h-[13px] bg-green-900 border border-green-700 rounded-sm text-green-300 hover:text-white text-[8px] flex items-center justify-center">←</button>
+                                <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, 0, 0, true)}
+                                  className="w-[13px] h-[13px] bg-gray-800 border border-gray-600 rounded-sm text-gray-400 hover:text-white text-[7px] flex items-center justify-center"
+                                  title="Position zurücksetzen"
+                                  style={{ opacity: (layer.offsetX || layer.offsetY) ? 1 : 0.3 }}>⟲</button>
+                                <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, 10, 0)}
+                                  className="w-[13px] h-[13px] bg-green-900 border border-green-700 rounded-sm text-green-300 hover:text-white text-[8px] flex items-center justify-center">→</button>
+                                <div />
+                                <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, 0, 10)}
+                                  className="w-[13px] h-[13px] bg-green-900 border border-green-700 rounded-sm text-green-300 hover:text-white text-[8px] flex items-center justify-center">↓</button>
+                                <div />
                               </div>
                               {matchingLayer && matchingLayer.traits.length > 1 && (
                                 <div className="flex gap-0.5">
@@ -2013,7 +2065,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   </div>
                   {editingItem && (
                     <p className="text-xs text-yellow-500/70 mb-2">
-                      💡 Ändere Traits per Dropdown/◀▶ oder verschiebe Layer-Reihenfolge mit ▲▼
+                      💡 Traits: Dropdown/◀▶ | Reihenfolge: ▲▼ | Position: ←↑↓→ (grün)
                     </p>
                   )}
                   <details className="mt-3">
