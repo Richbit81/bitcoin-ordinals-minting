@@ -764,45 +764,50 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const allGroups = new Set<string>();
     validLayers.forEach(l => l.traits.forEach(t => { if (t.group) allGroups.add(t.group); }));
     const groupList = Array.from(allGroups);
+    const hasAnyGroups = groupList.length > 0;
 
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      // Decide group for this item: pick a random group (or none)
-      // Weight: each group gets weight based on avg rarity of its traits, "no group" gets weight too
+      // Pick a random group (or "ungrouped") weighted by rarity sums
       let activeGroup: string | null = null;
-      if (groupList.length > 0) {
-        const ungroupedWeight = validLayers.reduce((sum, l) => {
-          const ungrouped = l.traits.filter(t => !t.group);
-          return sum + ungrouped.reduce((s, t) => s + (t.rarity || 1), 0);
-        }, 0) / validLayers.length;
+      if (hasAnyGroups) {
+        const weights: { group: string | null; weight: number }[] = [];
 
-        const groupWeights = groupList.map(g => {
-          const w = validLayers.reduce((sum, l) => {
-            const matched = l.traits.filter(t => t.group === g);
-            return sum + matched.reduce((s, t) => s + (t.rarity || 1), 0);
-          }, 0) / validLayers.length;
-          return { group: g, weight: w };
-        });
+        // Weight for "no group" = sum of rarity of all ungrouped traits across layers
+        const ungroupedW = validLayers.reduce((sum, l) =>
+          sum + l.traits.filter(t => !t.group).reduce((s, t) => s + (t.rarity || 1), 0), 0);
+        if (ungroupedW > 0) weights.push({ group: null, weight: ungroupedW });
 
-        const totalW = ungroupedWeight + groupWeights.reduce((s, gw) => s + gw.weight, 0);
+        // Weight for each group = sum of rarity of matching traits across layers
+        for (const g of groupList) {
+          const gw = validLayers.reduce((sum, l) =>
+            sum + l.traits.filter(t => t.group === g).reduce((s, t) => s + (t.rarity || 1), 0), 0);
+          if (gw > 0) weights.push({ group: g, weight: gw });
+        }
+
+        const totalW = weights.reduce((s, w) => s + w.weight, 0);
         let rand = Math.random() * totalW;
-        rand -= ungroupedWeight;
-        if (rand > 0) {
-          for (const gw of groupWeights) {
-            rand -= gw.weight;
-            if (rand <= 0) { activeGroup = gw.group; break; }
-          }
-          if (!activeGroup) activeGroup = groupWeights[groupWeights.length - 1]?.group || null;
+        for (const w of weights) {
+          rand -= w.weight;
+          if (rand <= 0) { activeGroup = w.group; break; }
         }
       }
 
       const selectedLayers = validLayers.map(layer => {
         let pool = layer.traits;
 
-        if (activeGroup) {
-          const grouped = pool.filter(t => t.group === activeGroup);
-          if (grouped.length > 0) pool = grouped;
+        if (hasAnyGroups) {
+          if (activeGroup) {
+            // Active group: only use traits from this group, fallback to ungrouped
+            const groupMatch = pool.filter(t => t.group === activeGroup);
+            const ungrouped = pool.filter(t => !t.group);
+            pool = groupMatch.length > 0 ? groupMatch : ungrouped.length > 0 ? ungrouped : pool;
+          } else {
+            // No group selected: only use ungrouped traits
+            const ungrouped = pool.filter(t => !t.group);
+            if (ungrouped.length > 0) pool = ungrouped;
+          }
         }
 
         const trait = weightedRandom(pool);
