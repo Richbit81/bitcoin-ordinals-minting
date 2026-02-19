@@ -169,6 +169,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
   const [traitDrag, setTraitDrag] = useState<{ layerId: string; fromIdx: number } | null>(null);
   const [traitDragOverIdx, setTraitDragOverIdx] = useState<number | null>(null);
+  const [selectedTraits, setSelectedTraits] = useState<Record<string, Set<number>>>({}); // layerId -> Set of traitIdx
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -677,10 +678,40 @@ const RecursiveCollectionToolPage: React.FC = () => {
     }));
   }, []);
 
+  const toggleTraitSelection = useCallback((layerId: string, traitIdx: number, shiftKey: boolean) => {
+    setSelectedTraits(prev => {
+      const next = { ...prev };
+      const current = new Set(next[layerId] || []);
+      if (shiftKey && current.size > 0) {
+        const existing = Array.from(current);
+        const min = Math.min(...existing, traitIdx);
+        const max = Math.max(...existing, traitIdx);
+        for (let i = min; i <= max; i++) current.add(i);
+      } else if (current.has(traitIdx)) {
+        current.delete(traitIdx);
+      } else {
+        current.add(traitIdx);
+      }
+      next[layerId] = current;
+      return next;
+    });
+  }, []);
+
   const handleTraitDrop = useCallback((layerId: string, toIdx: number) => {
-    if (!traitDrag || traitDrag.layerId !== layerId || traitDrag.fromIdx === toIdx) return;
+    if (!traitDrag || traitDrag.layerId !== layerId) return;
+    const sel = selectedTraits[layerId];
+    const isMulti = sel && sel.size > 1 && sel.has(traitDrag.fromIdx);
+
     setLayers(prev => prev.map(l => {
       if (l.id !== layerId) return l;
+      if (isMulti) {
+        const indices = Array.from(sel).sort((a, b) => a - b);
+        const movedTraits = indices.map(i => l.traits[i]);
+        const remaining = l.traits.filter((_, i) => !sel.has(i));
+        const insertAt = Math.min(toIdx, remaining.length);
+        remaining.splice(insertAt, 0, ...movedTraits);
+        return { ...l, traits: remaining };
+      }
       const traits = [...l.traits];
       const [moved] = traits.splice(traitDrag.fromIdx, 1);
       traits.splice(toIdx, 0, moved);
@@ -688,7 +719,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
     }));
     setTraitDrag(null);
     setTraitDragOverIdx(null);
-  }, [traitDrag]);
+    setSelectedTraits(prev => ({ ...prev, [layerId]: new Set() }));
+  }, [traitDrag, selectedTraits]);
 
   // ============================================================
   // GENERATE
@@ -1420,8 +1452,22 @@ const RecursiveCollectionToolPage: React.FC = () => {
                       <p className="text-xs">Inscriptions oben auswählen und hierher ziehen (Drag & Drop)</p>
                     </div>
                   ) : (
+                    {(selectedTraits[layer.id]?.size || 0) > 0 && (
+                      <div className="flex items-center gap-2 mb-2 px-2">
+                        <span className="text-xs text-cyan-400">{selectedTraits[layer.id]?.size} selected</span>
+                        <button onClick={() => setSelectedTraits(prev => ({ ...prev, [layer.id]: new Set() }))}
+                          className="text-xs text-gray-500 hover:text-white">Clear</button>
+                      </div>
+                    )}
                     <div className="space-y-2">
-                      {layer.traits.map((trait, traitIdx) => (
+                      {layer.traits.map((trait, traitIdx) => {
+                        const isSelected = selectedTraits[layer.id]?.has(traitIdx) || false;
+                        const isDragSource = traitDrag?.layerId === layer.id && (
+                          selectedTraits[layer.id]?.size > 1 && selectedTraits[layer.id]?.has(traitDrag.fromIdx)
+                            ? isSelected
+                            : traitDrag.fromIdx === traitIdx
+                        );
+                        return (
                         <div key={traitIdx}
                           draggable
                           onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setTraitDrag({ layerId: layer.id, fromIdx: traitIdx }); }}
@@ -1430,14 +1476,20 @@ const RecursiveCollectionToolPage: React.FC = () => {
                           onDrop={e => { e.preventDefault(); handleTraitDrop(layer.id, traitIdx); }}
                           onDragEnd={() => { setTraitDrag(null); setTraitDragOverIdx(null); }}
                           className={`flex gap-2 items-start p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-all ${
-                            traitDrag?.layerId === layer.id && traitDrag?.fromIdx === traitIdx
+                            isDragSource
                               ? 'opacity-40 border-gray-800 bg-black/50'
                               : traitDrag?.layerId === layer.id && traitDragOverIdx === traitIdx
                                 ? 'border-purple-500 bg-purple-900/30'
-                                : 'border-gray-800 bg-black/50'
+                                : isSelected
+                                  ? 'border-cyan-600 bg-cyan-900/20'
+                                  : 'border-gray-800 bg-black/50'
                           }`}>
-                          <div className="flex-shrink-0 w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
-                            onClick={() => !isNoneTrait(trait) && setSelectedLayerPreview(
+                          <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                            <input type="checkbox" checked={isSelected}
+                              onChange={e => { e.stopPropagation(); toggleTraitSelection(layer.id, traitIdx, e.nativeEvent instanceof MouseEvent && (e.nativeEvent as MouseEvent).shiftKey); }}
+                              className="accent-cyan-500 w-3.5 h-3.5 mt-1 cursor-pointer" />
+                            <div className="w-14 h-14 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden cursor-pointer"
+                              onClick={() => !isNoneTrait(trait) && setSelectedLayerPreview(
                               selectedLayerPreview?.layerId === layer.id && selectedLayerPreview?.traitIdx === traitIdx
                                 ? null : { layerId: layer.id, traitIdx }
                             )}>
@@ -1452,6 +1504,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">?</div>
                             )}
+                            </div>
                           </div>
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
                             <div>
@@ -1491,7 +1544,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
