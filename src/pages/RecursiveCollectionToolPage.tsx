@@ -1452,6 +1452,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                       <p className="text-xs">Inscriptions oben auswählen und hierher ziehen (Drag & Drop)</p>
                     </div>
                   ) : (
+                    <>
                     {(selectedTraits[layer.id]?.size || 0) > 0 && (
                       <div className="flex items-center gap-2 mb-2 px-2">
                         <span className="text-xs text-cyan-400">{selectedTraits[layer.id]?.size} selected</span>
@@ -1547,6 +1548,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                         );
                       })}
                     </div>
+                    </>
                   )}
 
                   <div className="mt-3 flex flex-wrap gap-2 items-center">
