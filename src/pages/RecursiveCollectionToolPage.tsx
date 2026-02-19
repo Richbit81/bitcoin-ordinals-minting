@@ -777,14 +777,15 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
     const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
 
-    // Weight calculation for primary group selection
+    // Weight calculation: only count layers that USE groups (not neutral layers)
+    const layersWithGroups = validLayers.filter(l => l.traits.some(t => !isUngrouped(t)));
     const primaryWeights: { pg: string | null; weight: number }[] = [];
     if (hasPrimaries) {
-      const ungW = validLayers.reduce((sum, l) =>
+      const ungW = layersWithGroups.reduce((sum, l) =>
         sum + l.traits.filter(t => isUngrouped(t)).reduce((s, t2) => s + (t2.rarity || 1), 0), 0);
       if (ungW > 0) primaryWeights.push({ pg: null, weight: ungW });
       for (const pg of allPrimaries) {
-        const gw = validLayers.reduce((sum, l) =>
+        const gw = layersWithGroups.reduce((sum, l) =>
           sum + l.traits.filter(t => primaryGroup(t) === pg).reduce((s, t2) => s + (t2.rarity || 1), 0), 0);
         if (gw > 0) primaryWeights.push({ pg, weight: gw });
       }
@@ -999,15 +1000,16 @@ const RecursiveCollectionToolPage: React.FC = () => {
     }));
     const hasPrimaries = allPrimaries.size > 0;
 
-    // Pick a random primary group (weighted) or "ungrouped"
+    // Pick a random primary group (weighted) — only count layers that USE groups
+    const layersWithGroups = layers.filter(l => l.traits.some(t => !isUngrouped(t)));
     let activePrimary: string | null = null;
     if (hasPrimaries) {
       const weights: { pg: string | null; weight: number }[] = [];
-      const ungW = layers.reduce((s, l) =>
+      const ungW = layersWithGroups.reduce((s, l) =>
         s + l.traits.filter(t => isUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
       if (ungW > 0) weights.push({ pg: null, weight: ungW });
       for (const pg of allPrimaries) {
-        const gw = layers.reduce((s, l) =>
+        const gw = layersWithGroups.reduce((s, l) =>
           s + l.traits.filter(t => primaryGroup(t) === pg).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
         if (gw > 0) weights.push({ pg, weight: gw });
       }
