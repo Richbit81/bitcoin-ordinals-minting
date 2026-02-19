@@ -807,16 +807,20 @@ const RecursiveCollectionToolPage: React.FC = () => {
         let pool = layer.traits;
 
         if (hasAnyGroups) {
-          if (activeGroup) {
-            // Only traits that belong to this group OR are ungrouped
-            const allowed = pool.filter(t => traitHasGroup(t, activeGroup!) || traitIsUngrouped(t));
-            if (allowed.length > 0) {
-              pool = allowed;
+          const layerHasAnyGroups = pool.some(t => !traitIsUngrouped(t));
+
+          if (!layerHasAnyGroups) {
+            // Layer has NO grouped traits at all → neutral layer, use all traits
+          } else if (activeGroup) {
+            // Layer has groups → ONLY traits matching active group (strict, no ungrouped mixed in)
+            const matching = pool.filter(t => traitHasGroup(t, activeGroup!));
+            if (matching.length > 0) {
+              pool = matching;
             } else {
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           } else {
-            // No group active: only ungrouped traits
+            // No group active, but layer uses groups → only ungrouped traits from this layer
             const ungrouped = pool.filter(t => traitIsUngrouped(t));
             if (ungrouped.length > 0) {
               pool = ungrouped;
