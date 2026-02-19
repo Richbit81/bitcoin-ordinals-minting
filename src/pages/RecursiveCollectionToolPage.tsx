@@ -863,6 +863,20 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // ============================================================
   // EDIT SINGLE GENERATED ITEM
   // ============================================================
+  const buildSvgFromLayers = useCallback((itemLayers: GeneratedItem['layers']) => {
+    const svgImages = itemLayers
+      .filter(l => !isNoneTrait(l.trait))
+      .map(l => {
+        const ox = l.offsetX || 0;
+        const oy = l.offsetY || 0;
+        return ox || oy
+          ? `  <image href="/content/${l.trait.inscriptionId}" x="${ox}" y="${oy}" />`
+          : `  <image href="/content/${l.trait.inscriptionId}" />`;
+      })
+      .join('\n');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+  }, [viewBox]);
+
   const updateGeneratedItemTrait = useCallback((itemIdx: number, layerIdx: number, newTraitIdx: number) => {
     setGenerated(prev => {
       const updated = [...prev];
@@ -911,20 +925,6 @@ const RecursiveCollectionToolPage: React.FC = () => {
       return updated;
     });
   }, [layers, buildSvgFromLayers, generated]);
-
-  const buildSvgFromLayers = useCallback((itemLayers: GeneratedItem['layers']) => {
-    const svgImages = itemLayers
-      .filter(l => !isNoneTrait(l.trait))
-      .map(l => {
-        const ox = l.offsetX || 0;
-        const oy = l.offsetY || 0;
-        return ox || oy
-          ? `  <image href="/content/${l.trait.inscriptionId}" x="${ox}" y="${oy}" />`
-          : `  <image href="/content/${l.trait.inscriptionId}" />`;
-      })
-      .join('\n');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
-  }, [viewBox]);
 
   const moveGeneratedItemLayer = useCallback((itemIdx: number, layerIdx: number, direction: -1 | 1) => {
     setGenerated(prev => {
