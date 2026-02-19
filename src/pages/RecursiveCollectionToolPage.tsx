@@ -760,68 +760,67 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const maxAttempts = totalCount * 10;
     let attempts = 0;
 
-    // Parse comma-separated groups from a trait, case-insensitive
-    const parseGroups = (t: TraitItem): string[] => {
-      if (!t.group) return [];
-      return t.group.split(',').map(g => g.toLowerCase().trim()).filter(Boolean);
+    // First group = primary/linking group, rest = properties/modifiers
+    const primaryGroup = (t: TraitItem): string | null => {
+      if (!t.group) return null;
+      const first = t.group.split(',')[0]?.toLowerCase().trim();
+      return first || null;
     };
-    const traitIsUngrouped = (t: TraitItem) => parseGroups(t).length === 0;
-    const sharesAnyGroup = (t: TraitItem, groups: string[]) => parseGroups(t).some(g => groups.includes(g));
+    const isUngrouped = (t: TraitItem) => !primaryGroup(t);
 
-    const groupedLayers = validLayers.filter(l => l.traits.some(t => !traitIsUngrouped(t)));
-    const hasAnyGroups = groupedLayers.length > 0;
+    const allPrimaries = new Set<string>();
+    validLayers.forEach(l => l.traits.forEach(t => {
+      const pg = primaryGroup(t);
+      if (pg) allPrimaries.add(pg);
+    }));
+    const hasPrimaries = allPrimaries.size > 0;
 
     const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
 
-    // Collect all grouped traits for seed selection
-    const allGroupedTraits: TraitItem[] = [];
-    if (hasAnyGroups) {
-      groupedLayers.forEach(l => {
-        l.traits.filter(t => !traitIsUngrouped(t)).forEach(t => allGroupedTraits.push(t));
-      });
+    // Weight calculation for primary group selection
+    const primaryWeights: { pg: string | null; weight: number }[] = [];
+    if (hasPrimaries) {
+      const ungW = validLayers.reduce((sum, l) =>
+        sum + l.traits.filter(t => isUngrouped(t)).reduce((s, t2) => s + (t2.rarity || 1), 0), 0);
+      if (ungW > 0) primaryWeights.push({ pg: null, weight: ungW });
+      for (const pg of allPrimaries) {
+        const gw = validLayers.reduce((sum, l) =>
+          sum + l.traits.filter(t => primaryGroup(t) === pg).reduce((s, t2) => s + (t2.rarity || 1), 0), 0);
+        if (gw > 0) primaryWeights.push({ pg, weight: gw });
+      }
     }
-    const ungroupedW = validLayers.reduce((sum, l) =>
-      sum + l.traits.filter(t => traitIsUngrouped(t)).reduce((s, t) => s + (t.rarity || 1), 0), 0);
-    const groupedTotalW = allGroupedTraits.reduce((s, t) => s + (t.rarity || 1), 0);
+    const primaryTotalW = primaryWeights.reduce((s, w) => s + w.weight, 0);
 
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      // Step 1: Pick a seed trait to determine the "theme" groups, or pick "ungrouped"
-      let activeGroups: string[] = [];
-      if (hasAnyGroups) {
-        const totalW = ungroupedW + groupedTotalW;
-        let rand = Math.random() * totalW;
-        rand -= ungroupedW;
-        if (rand > 0) {
-          for (const t of allGroupedTraits) {
-            rand -= (t.rarity || 1);
-            if (rand <= 0) { activeGroups = parseGroups(t); break; }
-          }
-          if (activeGroups.length === 0) activeGroups = parseGroups(allGroupedTraits[allGroupedTraits.length - 1]);
+      // Pick a random primary group
+      let activePrimary: string | null = null;
+      if (hasPrimaries) {
+        let rand = Math.random() * primaryTotalW;
+        for (const w of primaryWeights) {
+          rand -= w.weight;
+          if (rand <= 0) { activePrimary = w.pg; break; }
         }
       }
 
-      // Step 2: For each layer, pick a compatible trait
       const selectedLayers = validLayers.map(layer => {
         let pool = layer.traits;
 
-        if (hasAnyGroups) {
-          const layerHasAnyGroups = pool.some(t => !traitIsUngrouped(t));
+        if (hasPrimaries) {
+          const layerHasGroups = pool.some(t => !isUngrouped(t));
 
-          if (!layerHasAnyGroups) {
-            // Neutral layer (no groups at all) → use all traits
-          } else if (activeGroups.length > 0) {
-            // Strict: only traits sharing at least one group with the theme
-            const matching = pool.filter(t => sharesAnyGroup(t, activeGroups));
+          if (!layerHasGroups) {
+            // Neutral layer → use all traits
+          } else if (activePrimary) {
+            const matching = pool.filter(t => primaryGroup(t) === activePrimary);
             if (matching.length > 0) {
               pool = matching;
             } else {
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           } else {
-            // No group theme → only ungrouped traits
-            const ungrouped = pool.filter(t => traitIsUngrouped(t));
+            const ungrouped = pool.filter(t => isUngrouped(t));
             if (ungrouped.length > 0) {
               pool = ungrouped;
             } else {
@@ -923,64 +922,61 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // LIVE PREVIEW (random trait per layer, respecting groups)
   // ============================================================
   const randomizeLivePreview = useCallback(() => {
-    const parseG = (t: TraitItem): string[] => {
-      if (!t.group) return [];
-      return t.group.split(',').map(g => g.toLowerCase().trim()).filter(Boolean);
+    // First group = primary/linking group, rest = properties/modifiers
+    const primaryGroup = (t: TraitItem): string | null => {
+      if (!t.group) return null;
+      const first = t.group.split(',')[0]?.toLowerCase().trim();
+      return first || null;
     };
-    const tIsUngrouped = (t: TraitItem) => parseG(t).length === 0;
-    const sharesGroup = (t: TraitItem, groups: string[]) => parseG(t).some(g => groups.includes(g));
+    const isUngrouped = (t: TraitItem) => !primaryGroup(t);
 
-    const groupedLayers = layers.filter(l => l.traits.some(t => !tIsUngrouped(t)));
-    const hasAnyGroups = groupedLayers.length > 0;
+    // Collect all unique primary groups
+    const allPrimaries = new Set<string>();
+    layers.forEach(l => l.traits.forEach(t => {
+      const pg = primaryGroup(t);
+      if (pg) allPrimaries.add(pg);
+    }));
+    const hasPrimaries = allPrimaries.size > 0;
 
-    // Step 1: Pick a seed trait from a random grouped layer to determine the "theme"
-    let activeGroups: string[] = [];
-    if (hasAnyGroups) {
-      const allGroupedTraits: { trait: TraitItem; layerIdx: number }[] = [];
-      groupedLayers.forEach((l, li) => {
-        l.traits.filter(t => !tIsUngrouped(t)).forEach(t => allGroupedTraits.push({ trait: t, layerIdx: li }));
-      });
-      const ungroupedW = layers.reduce((s, l) =>
-        s + l.traits.filter(t => tIsUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
-      const groupedW = allGroupedTraits.reduce((s, { trait }) => s + (trait.rarity || 1), 0);
-      const totalW = ungroupedW + groupedW;
+    // Pick a random primary group (weighted) or "ungrouped"
+    let activePrimary: string | null = null;
+    if (hasPrimaries) {
+      const weights: { pg: string | null; weight: number }[] = [];
+      const ungW = layers.reduce((s, l) =>
+        s + l.traits.filter(t => isUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
+      if (ungW > 0) weights.push({ pg: null, weight: ungW });
+      for (const pg of allPrimaries) {
+        const gw = layers.reduce((s, l) =>
+          s + l.traits.filter(t => primaryGroup(t) === pg).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
+        if (gw > 0) weights.push({ pg, weight: gw });
+      }
+      const totalW = weights.reduce((s, w) => s + w.weight, 0);
       let rand = Math.random() * totalW;
-      rand -= ungroupedW;
-      if (rand > 0) {
-        for (const { trait } of allGroupedTraits) {
-          rand -= (trait.rarity || 1);
-          if (rand <= 0) { activeGroups = parseG(trait); break; }
-        }
-        if (activeGroups.length === 0) activeGroups = parseG(allGroupedTraits[allGroupedTraits.length - 1].trait);
+      for (const w of weights) {
+        rand -= w.weight;
+        if (rand <= 0) { activePrimary = w.pg; break; }
       }
     }
 
-    console.log('[Shuffle] ============================');
-    console.log('[Shuffle] Theme groups:', activeGroups.length > 0 ? activeGroups : '(ungrouped)');
-    layers.forEach(l => {
-      console.log(`[Shuffle] Layer "${l.name}":`, l.traits.map(t => `"${t.name}" [group: "${t.group || ''}" → parsed: ${JSON.stringify(parseG(t))}]`));
-    });
+    console.log(`[Shuffle] === Primary: "${activePrimary ?? '(ungrouped)'}" ===`);
 
-    // Step 2: For each layer, pick a compatible trait
     const newPreview: Record<string, number> = {};
     for (const layer of layers) {
       if (layer.traits.length === 0) continue;
 
       let pool = layer.traits.map((t, i) => ({ t, i }));
-      const layerHasGroups = pool.some(({ t }) => !tIsUngrouped(t));
+      const layerHasGroups = pool.some(({ t }) => !isUngrouped(t));
 
-      if (hasAnyGroups && layerHasGroups) {
-        if (activeGroups.length > 0) {
-          const matching = pool.filter(({ t }) => sharesGroup(t, activeGroups));
-          console.log(`[Shuffle]   Layer "${layer.name}": ${matching.length}/${pool.length} traits match theme ${JSON.stringify(activeGroups)} → [${matching.map(({t}) => `${t.name}(${t.group})`).join(', ')}]`);
+      if (hasPrimaries && layerHasGroups) {
+        if (activePrimary) {
+          const matching = pool.filter(({ t }) => primaryGroup(t) === activePrimary);
+          console.log(`[Shuffle]   "${layer.name}": ${matching.length}/${pool.length} match "${activePrimary}"`);
           pool = matching.length > 0 ? matching : [];
         } else {
-          const ungrouped = pool.filter(({ t }) => tIsUngrouped(t));
-          console.log(`[Shuffle]   Layer "${layer.name}": ungrouped mode → ${ungrouped.length} ungrouped traits`);
-          pool = ungrouped.length > 0 ? ungrouped : [];
+          const ung = pool.filter(({ t }) => isUngrouped(t));
+          console.log(`[Shuffle]   "${layer.name}": ungrouped → ${ung.length}`);
+          pool = ung.length > 0 ? ung : [];
         }
-      } else {
-        console.log(`[Shuffle]   Layer "${layer.name}": neutral (no groups in this layer) → all ${pool.length} traits`);
       }
 
       if (pool.length > 0) {
@@ -992,11 +988,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
         }
         if (newPreview[layer.id] === undefined) newPreview[layer.id] = pool[pool.length - 1].i;
         const picked = layer.traits[newPreview[layer.id]];
-        console.log(`[Shuffle]   → Picked: "${picked?.name}" [group: "${picked?.group || ''}"]`);
+        console.log(`[Shuffle]   → "${picked?.name}" [${picked?.group || ''}]`);
       } else {
         const noneIdx = layer.traits.findIndex(t => isNoneTrait(t));
         newPreview[layer.id] = noneIdx >= 0 ? noneIdx : -1;
-        console.log(`[Shuffle]   → No match, using NONE`);
+        console.log(`[Shuffle]   → NONE`);
       }
     }
     setLivePreviewTraits(newPreview);
