@@ -765,55 +765,44 @@ const RecursiveCollectionToolPage: React.FC = () => {
       if (!t.group) return [];
       return t.group.split(',').map(g => g.toLowerCase().trim()).filter(Boolean);
     };
-    const traitHasGroup = (t: TraitItem, group: string) => parseGroups(t).includes(group);
     const traitIsUngrouped = (t: TraitItem) => parseGroups(t).length === 0;
+    const sharesAnyGroup = (t: TraitItem, groups: string[]) => parseGroups(t).some(g => groups.includes(g));
 
-    // Collect all unique groups across all layers
-    const allGroups = new Set<string>();
-    validLayers.forEach(l => l.traits.forEach(t => {
-      for (const g of parseGroups(t)) allGroups.add(g);
-    }));
-    const groupList = Array.from(allGroups);
-    const hasAnyGroups = groupList.length > 0;
+    const groupedLayers = validLayers.filter(l => l.traits.some(t => !traitIsUngrouped(t)));
+    const hasAnyGroups = groupedLayers.length > 0;
 
     const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
 
-    console.log('[Generator] ===== START =====');
-    console.log('[Generator] Groups found:', groupList);
-    validLayers.forEach(l => {
-      console.log(`[Generator] Layer "${l.name}" traits:`, l.traits.map(t => `${t.name} [group: ${t.group || '(none)'}] → parsed: [${parseGroups(t).join(', ')}]`));
-    });
+    // Collect all grouped traits for seed selection
+    const allGroupedTraits: TraitItem[] = [];
+    if (hasAnyGroups) {
+      groupedLayers.forEach(l => {
+        l.traits.filter(t => !traitIsUngrouped(t)).forEach(t => allGroupedTraits.push(t));
+      });
+    }
+    const ungroupedW = validLayers.reduce((sum, l) =>
+      sum + l.traits.filter(t => traitIsUngrouped(t)).reduce((s, t) => s + (t.rarity || 1), 0), 0);
+    const groupedTotalW = allGroupedTraits.reduce((s, t) => s + (t.rarity || 1), 0);
 
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      let activeGroup: string | null = null;
+      // Step 1: Pick a seed trait to determine the "theme" groups, or pick "ungrouped"
+      let activeGroups: string[] = [];
       if (hasAnyGroups) {
-        const weights: { group: string | null; weight: number }[] = [];
-
-        const ungroupedW = validLayers.reduce((sum, l) =>
-          sum + l.traits.filter(t => traitIsUngrouped(t)).reduce((s, t) => s + (t.rarity || 1), 0), 0);
-        if (ungroupedW > 0) weights.push({ group: null, weight: ungroupedW });
-
-        for (const g of groupList) {
-          const gw = validLayers.reduce((sum, l) =>
-            sum + l.traits.filter(t => traitHasGroup(t, g)).reduce((s, t) => s + (t.rarity || 1), 0), 0);
-          if (gw > 0) weights.push({ group: g, weight: gw });
-        }
-
-        if (items.length < 3) console.log('[Generator] Group weights:', weights.map(w => `${w.group ?? '(ungrouped)'}: ${w.weight}`));
-
-        const totalW = weights.reduce((s, w) => s + w.weight, 0);
+        const totalW = ungroupedW + groupedTotalW;
         let rand = Math.random() * totalW;
-        for (const w of weights) {
-          rand -= w.weight;
-          if (rand <= 0) { activeGroup = w.group; break; }
+        rand -= ungroupedW;
+        if (rand > 0) {
+          for (const t of allGroupedTraits) {
+            rand -= (t.rarity || 1);
+            if (rand <= 0) { activeGroups = parseGroups(t); break; }
+          }
+          if (activeGroups.length === 0) activeGroups = parseGroups(allGroupedTraits[allGroupedTraits.length - 1]);
         }
       }
 
-      const logItem = items.length < 5;
-      if (logItem) console.log(`[Generator] Item #${items.length + 1} → activeGroup: "${activeGroup}"`);
-
+      // Step 2: For each layer, pick a compatible trait
       const selectedLayers = validLayers.map(layer => {
         let pool = layer.traits;
 
@@ -821,30 +810,27 @@ const RecursiveCollectionToolPage: React.FC = () => {
           const layerHasAnyGroups = pool.some(t => !traitIsUngrouped(t));
 
           if (!layerHasAnyGroups) {
-            if (logItem) console.log(`[Generator]   Layer "${layer.name}": neutral (no groups) → all ${pool.length} traits`);
-          } else if (activeGroup) {
-            const matching = pool.filter(t => traitHasGroup(t, activeGroup!));
+            // Neutral layer (no groups at all) → use all traits
+          } else if (activeGroups.length > 0) {
+            // Strict: only traits sharing at least one group with the theme
+            const matching = pool.filter(t => sharesAnyGroup(t, activeGroups));
             if (matching.length > 0) {
               pool = matching;
-              if (logItem) console.log(`[Generator]   Layer "${layer.name}": ${matching.length} traits match group "${activeGroup}" → [${matching.map(t => t.name).join(', ')}]`);
             } else {
-              if (logItem) console.log(`[Generator]   Layer "${layer.name}": NO traits for group "${activeGroup}" → SKIP (none)`);
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           } else {
+            // No group theme → only ungrouped traits
             const ungrouped = pool.filter(t => traitIsUngrouped(t));
             if (ungrouped.length > 0) {
               pool = ungrouped;
-              if (logItem) console.log(`[Generator]   Layer "${layer.name}": no group active → ${ungrouped.length} ungrouped traits`);
             } else {
-              if (logItem) console.log(`[Generator]   Layer "${layer.name}": no group active, no ungrouped traits → SKIP (none)`);
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           }
         }
 
         const trait = weightedRandom(pool);
-        if (logItem) console.log(`[Generator]   Layer "${layer.name}": picked "${trait.name}" [group: ${trait.group || '(none)'}]`);
         return { layerName: layer.name, traitType: layer.traitType, trait };
       });
 
@@ -941,34 +927,38 @@ const RecursiveCollectionToolPage: React.FC = () => {
       if (!t.group) return [];
       return t.group.split(',').map(g => g.toLowerCase().trim()).filter(Boolean);
     };
-    const tHasGroup = (t: TraitItem, g: string) => parseG(t).includes(g);
     const tIsUngrouped = (t: TraitItem) => parseG(t).length === 0;
+    const sharesGroup = (t: TraitItem, groups: string[]) => parseG(t).some(g => groups.includes(g));
 
-    // Collect all groups across layers
-    const allG = new Set<string>();
-    layers.forEach(l => l.traits.forEach(t => { for (const g of parseG(t)) allG.add(g); }));
-    const gList = Array.from(allG);
+    const groupedLayers = layers.filter(l => l.traits.some(t => !tIsUngrouped(t)));
+    const hasAnyGroups = groupedLayers.length > 0;
 
-    // Pick a random group (weighted) or null
-    let activeGroup: string | null = null;
-    if (gList.length > 0) {
-      const weights: { group: string | null; weight: number }[] = [];
-      const ungW = layers.reduce((s, l) =>
+    // Step 1: Pick a seed trait from a random grouped layer to determine the "theme"
+    let activeGroups: string[] = [];
+    if (hasAnyGroups) {
+      // Weight each grouped trait across all grouped layers
+      const allGroupedTraits: { trait: TraitItem; layerIdx: number }[] = [];
+      groupedLayers.forEach((l, li) => {
+        l.traits.filter(t => !tIsUngrouped(t)).forEach(t => allGroupedTraits.push({ trait: t, layerIdx: li }));
+      });
+      // Also add an "ungrouped" option with combined weight
+      const ungroupedW = layers.reduce((s, l) =>
         s + l.traits.filter(t => tIsUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
-      if (ungW > 0) weights.push({ group: null, weight: ungW });
-      for (const g of gList) {
-        const gw = layers.reduce((s, l) =>
-          s + l.traits.filter(t => tHasGroup(t, g)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
-        if (gw > 0) weights.push({ group: g, weight: gw });
-      }
-      const totalW = weights.reduce((s, w) => s + w.weight, 0);
+      const groupedW = allGroupedTraits.reduce((s, { trait }) => s + (trait.rarity || 1), 0);
+      const totalW = ungroupedW + groupedW;
       let rand = Math.random() * totalW;
-      for (const w of weights) {
-        rand -= w.weight;
-        if (rand <= 0) { activeGroup = w.group; break; }
+      rand -= ungroupedW;
+      if (rand > 0) {
+        // Picked a grouped theme — find which seed trait
+        for (const { trait } of allGroupedTraits) {
+          rand -= (trait.rarity || 1);
+          if (rand <= 0) { activeGroups = parseG(trait); break; }
+        }
+        if (activeGroups.length === 0) activeGroups = parseG(allGroupedTraits[allGroupedTraits.length - 1].trait);
       }
     }
 
+    // Step 2: For each layer, pick a compatible trait
     const newPreview: Record<string, number> = {};
     for (const layer of layers) {
       if (layer.traits.length === 0) continue;
@@ -976,11 +966,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
       let pool = layer.traits.map((t, i) => ({ t, i }));
       const layerHasGroups = pool.some(({ t }) => !tIsUngrouped(t));
 
-      if (gList.length > 0 && layerHasGroups) {
-        if (activeGroup) {
-          const matching = pool.filter(({ t }) => tHasGroup(t, activeGroup!));
+      if (hasAnyGroups && layerHasGroups) {
+        if (activeGroups.length > 0) {
+          // Strict: only traits sharing at least one group with the theme
+          const matching = pool.filter(({ t }) => sharesGroup(t, activeGroups));
           pool = matching.length > 0 ? matching : [];
         } else {
+          // No group theme: only ungrouped traits
           const ungrouped = pool.filter(({ t }) => tIsUngrouped(t));
           pool = ungrouped.length > 0 ? ungrouped : [];
         }
@@ -995,8 +987,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
         }
         if (newPreview[layer.id] === undefined) newPreview[layer.id] = pool[pool.length - 1].i;
       } else {
-        const noneIdx = layer.traits.findIndex(t => t.name.toLowerCase() === 'none');
-        newPreview[layer.id] = noneIdx >= 0 ? noneIdx : 0;
+        const noneIdx = layer.traits.findIndex(t => isNoneTrait(t));
+        newPreview[layer.id] = noneIdx >= 0 ? noneIdx : -1;
       }
     }
     setLivePreviewTraits(newPreview);
@@ -1004,11 +996,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
   // Computed: get the current preview traits (use random selection or first trait)
   const livePreviewLayers = useMemo(() => {
+    const noneTrait: TraitItem = { name: 'none', inscriptionId: '', rarity: 1 };
     return layers
       .filter(l => l.traits.length > 0)
       .map(l => {
         const idx = livePreviewTraits[l.id] ?? 0;
-        const trait = l.traits[Math.min(idx, l.traits.length - 1)];
+        const trait = idx < 0 ? noneTrait : l.traits[Math.min(idx, l.traits.length - 1)];
         return { layerName: l.name, traitType: l.traitType, trait, layerId: l.id };
       });
   }, [layers, livePreviewTraits]);
