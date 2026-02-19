@@ -934,13 +934,69 @@ const RecursiveCollectionToolPage: React.FC = () => {
   }, [layers, viewBox, generated]);
 
   // ============================================================
-  // LIVE PREVIEW (random trait per layer)
+  // LIVE PREVIEW (random trait per layer, respecting groups)
   // ============================================================
   const randomizeLivePreview = useCallback(() => {
+    const parseG = (t: TraitItem): string[] => {
+      if (!t.group) return [];
+      return t.group.split(',').map(g => g.toLowerCase().trim()).filter(Boolean);
+    };
+    const tHasGroup = (t: TraitItem, g: string) => parseG(t).includes(g);
+    const tIsUngrouped = (t: TraitItem) => parseG(t).length === 0;
+
+    // Collect all groups across layers
+    const allG = new Set<string>();
+    layers.forEach(l => l.traits.forEach(t => { for (const g of parseG(t)) allG.add(g); }));
+    const gList = Array.from(allG);
+
+    // Pick a random group (weighted) or null
+    let activeGroup: string | null = null;
+    if (gList.length > 0) {
+      const weights: { group: string | null; weight: number }[] = [];
+      const ungW = layers.reduce((s, l) =>
+        s + l.traits.filter(t => tIsUngrouped(t)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
+      if (ungW > 0) weights.push({ group: null, weight: ungW });
+      for (const g of gList) {
+        const gw = layers.reduce((s, l) =>
+          s + l.traits.filter(t => tHasGroup(t, g)).reduce((s2, t) => s2 + (t.rarity || 1), 0), 0);
+        if (gw > 0) weights.push({ group: g, weight: gw });
+      }
+      const totalW = weights.reduce((s, w) => s + w.weight, 0);
+      let rand = Math.random() * totalW;
+      for (const w of weights) {
+        rand -= w.weight;
+        if (rand <= 0) { activeGroup = w.group; break; }
+      }
+    }
+
     const newPreview: Record<string, number> = {};
     for (const layer of layers) {
-      if (layer.traits.length > 0) {
-        newPreview[layer.id] = Math.floor(Math.random() * layer.traits.length);
+      if (layer.traits.length === 0) continue;
+
+      let pool = layer.traits.map((t, i) => ({ t, i }));
+      const layerHasGroups = pool.some(({ t }) => !tIsUngrouped(t));
+
+      if (gList.length > 0 && layerHasGroups) {
+        if (activeGroup) {
+          const matching = pool.filter(({ t }) => tHasGroup(t, activeGroup!));
+          pool = matching.length > 0 ? matching : [];
+        } else {
+          const ungrouped = pool.filter(({ t }) => tIsUngrouped(t));
+          pool = ungrouped.length > 0 ? ungrouped : [];
+        }
+      }
+
+      if (pool.length > 0) {
+        const totalW = pool.reduce((s, { t }) => s + (t.rarity || 1), 0);
+        let rand = Math.random() * totalW;
+        for (const { t, i } of pool) {
+          rand -= (t.rarity || 1);
+          if (rand <= 0) { newPreview[layer.id] = i; break; }
+        }
+        if (newPreview[layer.id] === undefined) newPreview[layer.id] = pool[pool.length - 1].i;
+      } else {
+        const noneIdx = layer.traits.findIndex(t => t.name.toLowerCase() === 'none');
+        newPreview[layer.id] = noneIdx >= 0 ? noneIdx : 0;
       }
     }
     setLivePreviewTraits(newPreview);
