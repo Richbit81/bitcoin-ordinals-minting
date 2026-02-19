@@ -918,6 +918,41 @@ const RecursiveCollectionToolPage: React.FC = () => {
     });
   }, [layers, viewBox, generated]);
 
+  const moveGeneratedItemLayer = useCallback((itemIdx: number, layerIdx: number, direction: -1 | 1) => {
+    setGenerated(prev => {
+      const updated = [...prev];
+      const item = { ...updated[itemIdx] };
+      const layersCopy = [...item.layers];
+      const targetIdx = layerIdx + direction;
+      if (targetIdx < 0 || targetIdx >= layersCopy.length) return prev;
+
+      [layersCopy[layerIdx], layersCopy[targetIdx]] = [layersCopy[targetIdx], layersCopy[layerIdx]];
+      item.layers = layersCopy;
+
+      const svgImages = layersCopy
+        .filter(l => !isNoneTrait(l.trait))
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
+        .join('\n');
+      item.svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+
+      updated[itemIdx] = item;
+      return updated;
+    });
+
+    setHashlist(prev => {
+      const updated = [...prev];
+      if (!updated[itemIdx]) return prev;
+      const entry = { ...updated[itemIdx] };
+      const attrs = [...(entry.meta?.attributes || [])];
+      const targetIdx = layerIdx + direction;
+      if (targetIdx < 0 || targetIdx >= attrs.length) return prev;
+      [attrs[layerIdx], attrs[targetIdx]] = [attrs[targetIdx], attrs[layerIdx]];
+      entry.meta = { ...entry.meta, attributes: attrs };
+      updated[itemIdx] = entry;
+      return updated;
+    });
+  }, [viewBox]);
+
   // ============================================================
   // LIVE PREVIEW (random trait per layer, respecting groups)
   // ============================================================
@@ -1940,20 +1975,36 @@ const RecursiveCollectionToolPage: React.FC = () => {
                               <p className="text-sm text-white truncate">{layer.trait.name}</p>
                             )}
                           </div>
-                          {editingItem && matchingLayer && matchingLayer.traits.length > 1 && (
-                            <div className="flex gap-0.5 flex-shrink-0">
-                              <button
-                                onClick={() => {
-                                  const newIdx = (currentTraitIdx - 1 + matchingLayer.traits.length) % matchingLayer.traits.length;
-                                  updateGeneratedItemTrait(previewIndex, i, newIdx);
-                                }}
-                                className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">◀</button>
-                              <button
-                                onClick={() => {
-                                  const newIdx = (currentTraitIdx + 1) % matchingLayer.traits.length;
-                                  updateGeneratedItemTrait(previewIndex, i, newIdx);
-                                }}
-                                className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center">▶</button>
+                          {editingItem && (
+                            <div className="flex gap-1 flex-shrink-0">
+                              <div className="flex flex-col gap-0.5">
+                                <button
+                                  onClick={() => moveGeneratedItemLayer(previewIndex, i, -1)}
+                                  disabled={i === 0}
+                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed"
+                                  title="Layer nach unten (hinter)">▲</button>
+                                <button
+                                  onClick={() => moveGeneratedItemLayer(previewIndex, i, 1)}
+                                  disabled={i === (generated[previewIndex]?.layers.length ?? 1) - 1}
+                                  className="w-6 h-4 bg-blue-900 border border-blue-700 rounded text-blue-300 hover:text-white text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed"
+                                  title="Layer nach oben (davor)">▼</button>
+                              </div>
+                              {matchingLayer && matchingLayer.traits.length > 1 && (
+                                <div className="flex gap-0.5">
+                                  <button
+                                    onClick={() => {
+                                      const newIdx = (currentTraitIdx - 1 + matchingLayer.traits.length) % matchingLayer.traits.length;
+                                      updateGeneratedItemTrait(previewIndex, i, newIdx);
+                                    }}
+                                    className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center self-center">◀</button>
+                                  <button
+                                    onClick={() => {
+                                      const newIdx = (currentTraitIdx + 1) % matchingLayer.traits.length;
+                                      updateGeneratedItemTrait(previewIndex, i, newIdx);
+                                    }}
+                                    className="w-6 h-6 bg-gray-800 border border-gray-600 rounded text-gray-400 hover:text-white text-xs flex items-center justify-center self-center">▶</button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1962,7 +2013,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
                   </div>
                   {editingItem && (
                     <p className="text-xs text-yellow-500/70 mb-2">
-                      💡 Ändere Traits per Dropdown oder Pfeiltasten. Wird automatisch gespeichert.
+                      💡 Ändere Traits per Dropdown/◀▶ oder verschiebe Layer-Reihenfolge mit ▲▼
                     </p>
                   )}
                   <details className="mt-3">
