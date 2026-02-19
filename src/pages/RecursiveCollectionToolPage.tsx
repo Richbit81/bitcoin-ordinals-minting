@@ -760,26 +760,52 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const maxAttempts = totalCount * 10;
     let attempts = 0;
 
+    // Collect all unique groups across all layers
+    const allGroups = new Set<string>();
+    validLayers.forEach(l => l.traits.forEach(t => { if (t.group) allGroups.add(t.group); }));
+    const groupList = Array.from(allGroups);
+
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      // Pick traits with group-linking: once a group is chosen, other layers prefer same group
+      // Decide group for this item: pick a random group (or none)
+      // Weight: each group gets weight based on avg rarity of its traits, "no group" gets weight too
       let activeGroup: string | null = null;
+      if (groupList.length > 0) {
+        const ungroupedWeight = validLayers.reduce((sum, l) => {
+          const ungrouped = l.traits.filter(t => !t.group);
+          return sum + ungrouped.reduce((s, t) => s + (t.rarity || 1), 0);
+        }, 0) / validLayers.length;
+
+        const groupWeights = groupList.map(g => {
+          const w = validLayers.reduce((sum, l) => {
+            const matched = l.traits.filter(t => t.group === g);
+            return sum + matched.reduce((s, t) => s + (t.rarity || 1), 0);
+          }, 0) / validLayers.length;
+          return { group: g, weight: w };
+        });
+
+        const totalW = ungroupedWeight + groupWeights.reduce((s, gw) => s + gw.weight, 0);
+        let rand = Math.random() * totalW;
+        rand -= ungroupedWeight;
+        if (rand > 0) {
+          for (const gw of groupWeights) {
+            rand -= gw.weight;
+            if (rand <= 0) { activeGroup = gw.group; break; }
+          }
+          if (!activeGroup) activeGroup = groupWeights[groupWeights.length - 1]?.group || null;
+        }
+      }
+
       const selectedLayers = validLayers.map(layer => {
         let pool = layer.traits;
 
         if (activeGroup) {
           const grouped = pool.filter(t => t.group === activeGroup);
           if (grouped.length > 0) pool = grouped;
-          // If no match found, fall back to all traits (ungrouped behavior)
         }
 
         const trait = weightedRandom(pool);
-
-        if (!activeGroup && trait.group) {
-          activeGroup = trait.group;
-        }
-
         return { layerName: layer.name, traitType: layer.traitType, trait };
       });
 
