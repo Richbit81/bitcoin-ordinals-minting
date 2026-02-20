@@ -48,7 +48,7 @@ interface WalletInscription {
 
 interface GeneratedItem {
   index: number;
-  layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number }[];
+  layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[];
   svg: string;
 }
 
@@ -865,14 +865,22 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // EDIT SINGLE GENERATED ITEM
   // ============================================================
   const buildSvgFromLayers = useCallback((itemLayers: GeneratedItem['layers']) => {
+    const vbParts = viewBox.split(/\s+/).map(Number);
+    const vbW = vbParts[2] || 1000;
+    const vbH = vbParts[3] || 1000;
     const svgImages = itemLayers
       .filter(l => !isNoneTrait(l.trait))
       .map(l => {
         const ox = l.offsetX || 0;
         const oy = l.offsetY || 0;
-        return ox || oy
-          ? `  <image href="/content/${l.trait.inscriptionId}" x="${ox}" y="${oy}" />`
-          : `  <image href="/content/${l.trait.inscriptionId}" />`;
+        const sc = l.scale || 1;
+        const hasTransform = ox || oy || sc !== 1;
+        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" />`;
+        const w = vbW * sc;
+        const h = vbH * sc;
+        const x = (vbW - w) / 2 + ox;
+        const y = (vbH - h) / 2 + oy;
+        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" />`;
       })
       .join('\n');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
@@ -971,6 +979,31 @@ const RecursiveCollectionToolPage: React.FC = () => {
         entry.offsetY = (entry.offsetY || 0) + dy;
         if (entry.offsetX === 0) delete entry.offsetX;
         if (entry.offsetY === 0) delete entry.offsetY;
+      }
+      layersCopy[layerIdx] = entry;
+      item.layers = layersCopy;
+      item.svg = buildSvgFromLayers(layersCopy);
+      updated[itemIdx] = item;
+      return updated;
+    });
+  }, [buildSvgFromLayers]);
+
+  const scaleGeneratedItemLayer = useCallback((itemIdx: number, layerIdx: number, delta: number, reset?: boolean) => {
+    setGenerated(prev => {
+      const updated = [...prev];
+      const item = { ...updated[itemIdx] };
+      const layersCopy = [...item.layers];
+      const entry = { ...layersCopy[layerIdx] };
+      if (reset) {
+        delete entry.scale;
+      } else {
+        const newScale = Math.round(((entry.scale || 1) + delta) * 100) / 100;
+        if (newScale <= 0.1) return prev;
+        if (newScale === 1) {
+          delete entry.scale;
+        } else {
+          entry.scale = newScale;
+        }
       }
       layersCopy[layerIdx] = entry;
       item.layers = layersCopy;
@@ -1970,8 +2003,11 @@ const RecursiveCollectionToolPage: React.FC = () => {
                             alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
                             style={{
                               zIndex: i,
-                              ...(layer.offsetX || layer.offsetY ? {
-                                transform: `translate(${((layer.offsetX || 0) / vbW) * 100}%, ${((layer.offsetY || 0) / vbH) * 100}%)`
+                              ...((layer.offsetX || layer.offsetY || (layer.scale && layer.scale !== 1)) ? {
+                                transform: [
+                                  (layer.offsetX || layer.offsetY) ? `translate(${((layer.offsetX || 0) / vbW) * 100}%, ${((layer.offsetY || 0) / vbH) * 100}%)` : '',
+                                  (layer.scale && layer.scale !== 1) ? `scale(${layer.scale})` : ''
+                                ].filter(Boolean).join(' ')
                               } : {})
                             }} loading="lazy" />
                         ));
@@ -2042,6 +2078,19 @@ const RecursiveCollectionToolPage: React.FC = () => {
                                 <button onClick={() => nudgeGeneratedItemLayer(previewIndex, i, 0, 10)}
                                   className="w-[13px] h-[13px] bg-green-900 border border-green-700 rounded-sm text-green-300 hover:text-white text-[8px] flex items-center justify-center">↓</button>
                                 <div />
+                              </div>
+                              <div className="flex flex-col items-center gap-0.5" title={`Größe: ${Math.round((layer.scale || 1) * 100)}%`}>
+                                <button onClick={() => scaleGeneratedItemLayer(previewIndex, i, 0.05)}
+                                  className="w-[16px] h-[13px] bg-orange-900 border border-orange-700 rounded-sm text-orange-300 hover:text-white text-[9px] font-bold flex items-center justify-center">+</button>
+                                <span className="text-[7px] text-orange-400 leading-none select-none">{Math.round((layer.scale || 1) * 100)}%</span>
+                                <button onClick={() => scaleGeneratedItemLayer(previewIndex, i, -0.05)}
+                                  disabled={(layer.scale || 1) <= 0.15}
+                                  className="w-[16px] h-[13px] bg-orange-900 border border-orange-700 rounded-sm text-orange-300 hover:text-white text-[9px] font-bold flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed">−</button>
+                                {layer.scale && layer.scale !== 1 && (
+                                  <button onClick={() => scaleGeneratedItemLayer(previewIndex, i, 0, true)}
+                                    className="w-[16px] h-[10px] bg-gray-800 border border-gray-600 rounded-sm text-gray-400 hover:text-white text-[6px] flex items-center justify-center"
+                                    title="Größe zurücksetzen">⟲</button>
+                                )}
                               </div>
                               {matchingLayer && matchingLayer.traits.length > 1 && (
                                 <div className="flex gap-0.5">
