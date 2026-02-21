@@ -411,6 +411,7 @@ export const BadCatsPage: React.FC = () => {
         status: 'completed',
         progress: 100,
         inscriptionIds: [result.inscriptionId],
+        paymentTxid: result.paymentTxid || undefined,
       });
       setMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
@@ -593,9 +594,21 @@ export const BadCatsPage: React.FC = () => {
                 <div className="min-h-[44px]">
                   {mintingStatus?.status === 'completed' ? (
                     <div className="text-center">
-                      <p className="text-green-400 font-bold mb-3 text-lg" style={{ fontFamily: comicFont }}>
+                      <p className="text-green-400 font-bold mb-2 text-lg" style={{ fontFamily: comicFont }}>
                         MINT SUCCESSFUL!
                       </p>
+                      {mintingStatus.paymentTxid && (
+                        <a
+                          href={`https://mempool.space/tx/${mintingStatus.paymentTxid}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-xs text-blue-400 hover:text-blue-300 underline mb-3 break-all"
+                          style={{ fontFamily: subFont }}
+                        >
+                          View transaction: {mintingStatus.paymentTxid.slice(0, 12)}...{mintingStatus.paymentTxid.slice(-8)}
+                        </a>
+                      )}
+                      <br />
                       <button onClick={() => setMintingStatus(null)}
                         className="px-5 py-2 rounded-md font-semibold text-sm text-white"
                         style={{ fontFamily: subFont, background: '#e11d48', border: '2px solid #000', boxShadow: '3px 3px 0 #000' }}>

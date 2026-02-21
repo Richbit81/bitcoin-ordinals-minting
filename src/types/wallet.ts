@@ -56,7 +56,8 @@ export interface MintingStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number; // 0-100
   inscriptionIds?: string[];
-  cards?: Card[]; // Gemintete Karten
+  paymentTxid?: string;
+  cards?: Card[];
   error?: string;
 }
 

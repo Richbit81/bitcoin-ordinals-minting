@@ -65,8 +65,21 @@ export const MintingProgress: React.FC<MintingProgressProps> = ({ status }) => {
           <p className="text-xs font-bold text-white mb-1">
             ✓ Minting successful!
           </p>
+
+          {status.paymentTxid && (
+            <div className="mb-2">
+              <p className="text-[10px] text-gray-400 mb-0.5 uppercase">Transaction:</p>
+              <a
+                href={`https://mempool.space/tx/${status.paymentTxid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-mono text-blue-400 hover:text-blue-300 underline break-all"
+              >
+                {status.paymentTxid}
+              </a>
+            </div>
+          )}
           
-          {/* Gemintete Karten anzeigen mit Reveal-Funktion */}
           {status.cards && status.cards.length > 0 && (
             <div className="mb-2">
               <p className="text-[10px] font-semibold text-gray-300 mb-2 uppercase">Your Cards:</p>

@@ -255,9 +255,10 @@ export const MintingPage: React.FC = () => {
               status: 'completed',
               progress: 100,
               inscriptionIds: finalResults.map(r => r.inscriptionId),
+              paymentTxid: finalResults[0]?.paymentTxid || undefined,
               cards: cards.map((card, index) => ({
                 ...card,
-                originalInscriptionId: card.inscriptionId, // Original-Bild-ID für CardReveal
+                originalInscriptionId: card.inscriptionId,
                 inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
               })),
             }
