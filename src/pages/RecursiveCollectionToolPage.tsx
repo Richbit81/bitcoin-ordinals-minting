@@ -197,7 +197,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setLayers(project.layers || []);
     setScanAddress(project.scanAddress || '');
     setWalletInscriptions(project.walletInscriptions || []);
-    setGenerated(project.generated || []);
+    setGenerated((project.generated || []).map(item => ({
+      ...item,
+      svg: item.svg.includes('overflow="hidden"')
+        ? item.svg
+        : item.svg.replace('<svg ', '<svg overflow="hidden" ')
+    })));
     setHashlist(project.hashlist || []);
     setPreviewIndex(0);
     setSelectedIds(new Set());
