@@ -338,14 +338,16 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
               ) : project.id === 'badcats' ? (
-                <div className="overflow-hidden rounded-xl relative">
-                  <ProgressiveImage
+                <div className="overflow-hidden rounded-xl relative" style={{ aspectRatio: '1/1' }}>
+                  <iframe
                     src={project.thumbnail}
-                    alt={project.name}
-                    className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                    title={project.name}
+                    className="w-full h-full border-0 pointer-events-none transition-all duration-300 group-hover:scale-110"
+                    sandbox="allow-scripts allow-same-origin"
                     loading="lazy"
+                    scrolling="no"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="bg-red-600 text-white font-bold px-4 py-1.5 border-[3px] border-black shadow-[3px_3px_0_#000]"
                       style={{
                         fontFamily: "'Bangers', 'Creepster', cursive",

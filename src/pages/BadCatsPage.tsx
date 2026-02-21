@@ -476,8 +476,13 @@ export const BadCatsPage: React.FC = () => {
                 <div className="flex flex-col items-center mb-4">
                   <div className="relative mb-3 w-full max-w-[220px] aspect-square bg-black border-[3px] border-red-900 rounded-md overflow-hidden"
                     style={{ boxShadow: '4px 4px 0 #000' }}>
-                    <img src="https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0" alt="BadCats Preview"
-                      className="w-full h-full object-cover" />
+                    <iframe
+                      src="https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0"
+                      title="BadCats Preview"
+                      className="w-full h-full border-0 pointer-events-none"
+                      sandbox="allow-scripts allow-same-origin"
+                      scrolling="no"
+                    />
                     {!MINT_PUBLIC && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                         <span className="text-red-400 text-sm font-bold px-3 py-1 bg-black/80 rounded border border-red-800" style={{ fontFamily: subFont }}>
