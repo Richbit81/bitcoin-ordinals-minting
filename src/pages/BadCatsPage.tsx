@@ -196,13 +196,26 @@ export const BadCatsPage: React.FC = () => {
     try {
       let inscriptionCount = 0;
       try {
-        const res = await fetch(`${API_URL}/v1/indexer/address/${address}/inscription-data?offset=0&limit=100`);
-        if (res.ok) {
+        const whitelistSet = new Set(FREE_MINT_INSCRIPTION_IDS);
+        const PAGE_SIZE = 100;
+        let offset = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const res = await fetch(`${API_URL}/v1/indexer/address/${address}/inscription-data?offset=${offset}&limit=${PAGE_SIZE}`);
+          if (!res.ok) break;
           const data = await res.json();
-          const userInscriptionIds = (data.data?.inscription || []).map((i: any) => i.inscriptionId);
-          const whitelistSet = new Set(FREE_MINT_INSCRIPTION_IDS);
-          inscriptionCount = userInscriptionIds.filter((id: string) => whitelistSet.has(id)).length;
+          const batch = data.data?.inscription || [];
+          for (const i of batch) {
+            if (whitelistSet.has(i.inscriptionId)) inscriptionCount++;
+          }
+          if (batch.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            offset += PAGE_SIZE;
+          }
+          if (inscriptionCount >= whitelistSet.size) break;
         }
+        console.log(`[BadCats] Checked ${offset + PAGE_SIZE} inscriptions, found ${inscriptionCount} whitelisted`);
       } catch {
         console.warn('[BadCats] Could not check inscription holdings');
       }
@@ -463,7 +476,7 @@ export const BadCatsPage: React.FC = () => {
                 <div className="flex flex-col items-center mb-4">
                   <div className="relative mb-3 w-full max-w-[220px] aspect-square bg-black border-[3px] border-red-900 rounded-md overflow-hidden"
                     style={{ boxShadow: '4px 4px 0 #000' }}>
-                    <img src="/images/badcats-bg.png" alt="BadCats Preview"
+                    <img src="https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0" alt="BadCats Preview"
                       className="w-full h-full object-cover" />
                     {!MINT_PUBLIC && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -609,7 +622,7 @@ export const BadCatsPage: React.FC = () => {
                   fontFamily: comicFont, textShadow: '2px 2px 0 #000',
                 }}>BAD CATS</h2>
                 <p className="text-sm mb-3" style={{ fontFamily: subFont, color: '#fb7185' }}>
-                  Recursive SVG Collection on Bitcoin
+                  Recursive Collection on Bitcoin
                 </p>
 
                 <p className="text-gray-300 text-xs leading-relaxed mb-4">
@@ -686,7 +699,7 @@ export const BadCatsPage: React.FC = () => {
                   {[
                     ['500 unique cats', '— each one different'],
                     ['Random mint', '— you don\'t know which cat you get'],
-                    ['Recursive SVG', '— layers composited on-chain'],
+                    ['Recursive', '— layers composited on-chain'],
                     ['Hold to earn', '— Bone Cat & Halloween holders mint free'],
                     ['Taproot address', '— sent to your bc1p...'],
                   ].map(([bold, rest], i) => (

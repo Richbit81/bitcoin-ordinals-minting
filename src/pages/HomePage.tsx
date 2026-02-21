@@ -43,21 +43,21 @@ export const HomePage: React.FC = () => {
       name: 'SMILE A ₿IT',
       thumbnail: '/images/smile-collection.png',
       description: '222 Unique Bitcoin Smiley Ordinals',
-      order: 2, // Position 2
+      order: 3,
     },
     {
       id: 'slums',
       name: 'SLUMS',
       thumbnail: slumsPreview || '',
       description: '333 Unique Pixel Ordinals',
-      order: 3,
+      order: 4,
     },
     {
       id: 'badcats',
       name: 'BAD CATS',
-      thumbnail: '/images/badcats-bg.png',
-      description: '500 Recursive SVG Ordinals',
-      order: 4,
+      thumbnail: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0',
+      description: '500 Recursive Ordinals',
+      order: 2,
     },
     {
       id: 'black-wild',
@@ -289,16 +289,17 @@ export const HomePage: React.FC = () => {
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'bitcoin-mixtape' ? 'md:order-1' :
-              project.id === 'smile-a-bit' ? 'md:order-2' :
-              project.id === 'slums' ? 'md:order-3' :
-              project.id === 'black-wild' ? 'md:order-4' :
-              (project as any).collectionId ? 'md:order-5' : // Dynamic collections (Sons of Satoshi etc.)
-              project.id === 'tech-games' ? 'md:order-6' : 
-              project.id === 'point-shop' ? 'md:order-7' :
-              project.id === 'free-stuff' ? 'md:order-8' :
-              project.id === 'random-stuff' ? 'md:order-9' :
-              project.order >= 7 ? 'md:order-10' :
-              'md:order-11'
+              project.id === 'badcats' ? 'md:order-2' :
+              project.id === 'smile-a-bit' ? 'md:order-3' :
+              project.id === 'slums' ? 'md:order-4' :
+              project.id === 'black-wild' ? 'md:order-5' :
+              (project as any).collectionId ? 'md:order-6' :
+              project.id === 'tech-games' ? 'md:order-7' : 
+              project.id === 'point-shop' ? 'md:order-8' :
+              project.id === 'free-stuff' ? 'md:order-9' :
+              project.id === 'random-stuff' ? 'md:order-10' :
+              project.order >= 8 ? 'md:order-11' :
+              'md:order-12'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
@@ -334,6 +335,27 @@ export const HomePage: React.FC = () => {
                   {/* FREE badge */}
                   <div className="absolute top-2 -right-6 rotate-45 bg-green-500 text-white font-bold text-[10px] px-6 py-0.5 shadow-lg z-10">
                     FREE
+                  </div>
+                </div>
+              ) : project.id === 'badcats' ? (
+                <div className="overflow-hidden rounded-xl relative">
+                  <ProgressiveImage
+                    src={project.thumbnail}
+                    alt={project.name}
+                    className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-red-600 text-white font-bold px-4 py-1.5 border-[3px] border-black shadow-[3px_3px_0_#000]"
+                      style={{
+                        fontFamily: "'Bangers', 'Creepster', cursive",
+                        transform: 'rotate(-8deg)',
+                        fontSize: '18px',
+                        letterSpacing: '0.08em',
+                        textShadow: '2px 2px 0 #000',
+                      }}>
+                      COMING SOON
+                    </div>
                   </div>
                 </div>
               ) : project.thumbnail ? (
