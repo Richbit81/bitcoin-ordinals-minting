@@ -656,7 +656,7 @@ export const BadCatsPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-500" style={{ fontFamily: subFont }}>1 free mint per ordinal held</span>
-                      <span className="text-gray-500 text-[10px]">from Bone Cat & Halloween</span>
+                      <span className="text-gray-500 text-[10px]">from Bone Cat & Halloween Bad Cats</span>
                     </div>
                     <div className="border-t border-red-900/40 my-1" />
                     <div className="flex justify-between items-center">
