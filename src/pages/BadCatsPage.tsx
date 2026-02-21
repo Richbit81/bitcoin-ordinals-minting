@@ -475,10 +475,10 @@ export const BadCatsPage: React.FC = () => {
           <div className="text-center py-8" style={{ fontFamily: subFont }}>Loading...</div>
         ) : (
           <>
-          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 lg:gap-8">
+          <div className="flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 lg:gap-8">
             {/* ====== LEFT: MINT PANEL ====== */}
             <div className="max-w-xl w-full" style={{ transform: 'rotate(-1deg)' }}>
-              <div className="bg-[#1a0a0e] border-[3px] border-red-900 rounded-xl p-4"
+              <div className="bg-[#1a0a0e] border-[3px] border-red-900 rounded-xl p-4 h-full flex flex-col"
                 style={{ boxShadow: '5px 5px 0 #7f1d1d' }}>
 
                 <div className="flex flex-col items-center mb-4">
@@ -628,7 +628,7 @@ export const BadCatsPage: React.FC = () => {
 
             {/* ====== RIGHT: DESCRIPTION ====== */}
             <div className="max-w-xl w-full" style={{ transform: 'rotate(0.5deg)' }}>
-              <div className="bg-[#1a0a0e] border-[3px] border-red-900 rounded-xl p-5"
+              <div className="bg-[#1a0a0e] border-[3px] border-red-900 rounded-xl p-5 h-full flex flex-col"
                 style={{ boxShadow: '5px 5px 0 #450a0a' }}>
 
                 <h2 className="text-3xl text-red-400 mb-2" style={{
