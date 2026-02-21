@@ -161,6 +161,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [hashlist, setHashlist] = useState<HashlistEntry[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [editingItem, setEditingItem] = useState(false);
+  const [traitFilter, setTraitFilter] = useState<{ traitType: string; traitName: string; inscriptionId: string } | null>(null);
   const [selectedLayerPreview, setSelectedLayerPreview] = useState<{ layerId: string; traitIdx: number } | null>(null);
   const [livePreviewTraits, setLivePreviewTraits] = useState<Record<string, number>>({}); // layerId -> traitIdx
   const [error, setError] = useState('');
@@ -1107,6 +1108,21 @@ const RecursiveCollectionToolPage: React.FC = () => {
   }, [layers, livePreviewTraits]);
 
   // ============================================================
+  // TRAIT FILTER — indices of generated items matching filter
+  // ============================================================
+  const filteredIndices = useMemo(() => {
+    if (!traitFilter) return null;
+    const indices: number[] = [];
+    for (let i = 0; i < generated.length; i++) {
+      const match = generated[i].layers.some(l =>
+        l.traitType === traitFilter.traitType && l.trait.inscriptionId === traitFilter.inscriptionId
+      );
+      if (match) indices.push(i);
+    }
+    return indices;
+  }, [generated, traitFilter]);
+
+  // ============================================================
   // RARITY STATS
   // ============================================================
   const rarityStats = useMemo(() => {
@@ -1967,12 +1983,34 @@ const RecursiveCollectionToolPage: React.FC = () => {
                 </button>
               </div>
               <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0}
+                <button onClick={() => {
+                  if (filteredIndices) {
+                    const curPos = filteredIndices.indexOf(previewIndex);
+                    if (curPos > 0) setPreviewIndex(filteredIndices[curPos - 1]);
+                    else if (curPos === -1 && filteredIndices.length > 0) setPreviewIndex(filteredIndices[filteredIndices.length - 1]);
+                  } else {
+                    setPreviewIndex(Math.max(0, previewIndex - 1));
+                  }
+                }} disabled={filteredIndices ? filteredIndices.indexOf(previewIndex) <= 0 && filteredIndices.includes(previewIndex) : previewIndex === 0}
                   className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">◀</button>
-                <span className="text-sm text-gray-400">#{previewIndex + 1} / {generated.length}</span>
-                <button onClick={() => setPreviewIndex(Math.min(generated.length - 1, previewIndex + 1))} disabled={previewIndex >= generated.length - 1}
+                <span className="text-sm text-gray-400">
+                  #{previewIndex + 1} / {generated.length}
+                  {filteredIndices && <span className="text-purple-400 ml-1">({filteredIndices.indexOf(previewIndex) + 1}/{filteredIndices.length} gefiltert)</span>}
+                </span>
+                <button onClick={() => {
+                  if (filteredIndices) {
+                    const curPos = filteredIndices.indexOf(previewIndex);
+                    if (curPos >= 0 && curPos < filteredIndices.length - 1) setPreviewIndex(filteredIndices[curPos + 1]);
+                    else if (curPos === -1 && filteredIndices.length > 0) setPreviewIndex(filteredIndices[0]);
+                  } else {
+                    setPreviewIndex(Math.min(generated.length - 1, previewIndex + 1));
+                  }
+                }} disabled={filteredIndices ? filteredIndices.indexOf(previewIndex) >= filteredIndices.length - 1 && filteredIndices.includes(previewIndex) : previewIndex >= generated.length - 1}
                   className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-white hover:bg-gray-700 disabled:opacity-30">▶</button>
-                <button onClick={() => setPreviewIndex(Math.floor(Math.random() * generated.length))}
+                <button onClick={() => {
+                  const pool = filteredIndices || generated.map((_, i) => i);
+                  if (pool.length > 0) setPreviewIndex(pool[Math.floor(Math.random() * pool.length)]);
+                }}
                   className="px-3 py-1.5 bg-purple-900 border border-purple-600 rounded text-sm text-purple-300 hover:bg-purple-800">🎲</button>
                 <div className="flex items-center gap-2 ml-2">
                   <label className="text-xs text-gray-500">Gehe zu #</label>
@@ -2131,23 +2169,67 @@ const RecursiveCollectionToolPage: React.FC = () => {
 
             {/* Grid */}
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
-              <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">🖼️</span> Alle Items ({generated.length})</h2>
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-[600px] overflow-y-auto">
-                    {generated.map((item, idx) => (
-                  <div key={idx} onClick={() => setPreviewIndex(idx)}
-                    className={`aspect-square bg-black rounded-lg border cursor-pointer relative overflow-hidden ${
-                      idx === previewIndex ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-gray-800 hover:border-gray-600'
-                    }`}>
-                    {item.layers.filter(l => !isNoneTrait(l.trait)).map((layer, i) => (
-                      <img key={i} src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                        alt="" className="absolute inset-0 w-full h-full object-contain"
-                        style={{ zIndex: i }} loading="lazy" />
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <h2 className="text-lg font-bold"><span className="text-purple-400">🖼️</span> Alle Items ({generated.length})</h2>
+                <div className="flex items-center gap-2 ml-auto">
+                  <label className="text-xs text-gray-500">Filter:</label>
+                  <select
+                    value={traitFilter ? `${traitFilter.traitType}|||${traitFilter.inscriptionId}` : ''}
+                    onChange={e => {
+                      if (!e.target.value) { setTraitFilter(null); return; }
+                      const [tt, iid] = e.target.value.split('|||');
+                      const layer = layers.find(l => l.traitType === tt);
+                      const trait = layer?.traits.find(t => t.inscriptionId === iid);
+                      if (trait) setTraitFilter({ traitType: tt, traitName: trait.name, inscriptionId: iid });
+                    }}
+                    className="px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-white max-w-[250px]">
+                    <option value="">Alle anzeigen</option>
+                    {layers.filter(l => l.traits.length > 0).map(l => (
+                      <optgroup key={l.id} label={l.traitType}>
+                        {l.traits.filter(t => t.inscriptionId).map(t => (
+                          <option key={t.inscriptionId} value={`${l.traitType}|||${t.inscriptionId}`}>
+                            {t.name || 'Unnamed'} ({rarityStats?.[l.traitType]?.[t.name] || 0}x)
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-center">
-                      <span className="text-[10px] text-gray-400">#{idx + 1}</span>
+                  </select>
+                  {traitFilter && (
+                    <span className="text-xs text-purple-400">
+                      {filteredIndices?.length || 0} Items
+                    </span>
+                  )}
+                </div>
+              </div>
+              {traitFilter && filteredIndices && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs text-gray-400">
+                    Zeige: <strong className="text-purple-300">{traitFilter.traitType}</strong> → <strong className="text-white">{traitFilter.traitName}</strong>
+                  </span>
+                  <button onClick={() => setTraitFilter(null)}
+                    className="px-2 py-0.5 bg-red-900/50 border border-red-700 rounded text-xs text-red-300 hover:bg-red-800">✕ Filter entfernen</button>
+                </div>
+              )}
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-[600px] overflow-y-auto">
+                {(filteredIndices || generated.map((_, i) => i)).map(idx => {
+                  const item = generated[idx];
+                  if (!item) return null;
+                  return (
+                    <div key={idx} onClick={() => setPreviewIndex(idx)}
+                      className={`aspect-square bg-black rounded-lg border cursor-pointer relative overflow-hidden ${
+                        idx === previewIndex ? 'border-purple-500 ring-2 ring-purple-500/50' : 'border-gray-800 hover:border-gray-600'
+                      }`}>
+                      {item.layers.filter(l => !isNoneTrait(l.trait)).map((layer, i) => (
+                        <img key={i} src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
+                          alt="" className="absolute inset-0 w-full h-full object-contain"
+                          style={{ zIndex: i }} loading="lazy" />
+                      ))}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-center">
+                        <span className="text-[10px] text-gray-400">#{idx + 1}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
