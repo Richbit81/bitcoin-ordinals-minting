@@ -198,26 +198,29 @@ export const BadCatsPage: React.FC = () => {
       try {
         const whitelistSet = new Set(FREE_MINT_INSCRIPTION_IDS);
         const PAGE_SIZE = 100;
-        let offset = 0;
-        let hasMore = true;
-        while (hasMore) {
-          const res = await fetch(`${API_URL}/v1/indexer/address/${address}/inscription-data?offset=${offset}&limit=${PAGE_SIZE}`);
+        let cursor = 0;
+        let total = 0;
+        do {
+          const res = await fetch(
+            `https://open-api.unisat.io/v1/indexer/address/${address}/inscription-data?cursor=${cursor}&size=${PAGE_SIZE}`,
+            { headers: { Accept: 'application/json' } }
+          );
           if (!res.ok) break;
-          const data = await res.json();
-          const batch = data.data?.inscription || [];
+          const json = await res.json();
+          if (json.code !== 0) break;
+          const data = json.data;
+          total = data.total || 0;
+          const batch = data.inscription || [];
           for (const i of batch) {
             if (whitelistSet.has(i.inscriptionId)) inscriptionCount++;
           }
-          if (batch.length < PAGE_SIZE) {
-            hasMore = false;
-          } else {
-            offset += PAGE_SIZE;
-          }
+          cursor += PAGE_SIZE;
+          if (batch.length < PAGE_SIZE) break;
           if (inscriptionCount >= whitelistSet.size) break;
-        }
-        console.log(`[BadCats] Checked ${offset + PAGE_SIZE} inscriptions, found ${inscriptionCount} whitelisted`);
-      } catch {
-        console.warn('[BadCats] Could not check inscription holdings');
+        } while (cursor < total);
+        console.log(`[BadCats] Checked ${Math.min(cursor, total)}/${total} inscriptions, found ${inscriptionCount} whitelisted`);
+      } catch (err) {
+        console.warn('[BadCats] Could not check inscription holdings', err);
       }
 
       let addressBonus = 0;
