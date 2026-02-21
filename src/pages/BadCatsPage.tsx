@@ -482,7 +482,7 @@ export const BadCatsPage: React.FC = () => {
                 style={{ boxShadow: '5px 5px 0 #7f1d1d' }}>
 
                 <div className="flex flex-col items-center mb-4">
-                  <div className="relative mb-3 w-full max-w-[220px] aspect-square bg-black border-[3px] border-red-900 rounded-md overflow-hidden"
+                  <div className="relative mb-3 w-full max-w-[340px] aspect-square bg-black border-[3px] border-red-900 rounded-md overflow-hidden"
                     style={{ boxShadow: '4px 4px 0 #000' }}>
                     <iframe
                       src="https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0"
