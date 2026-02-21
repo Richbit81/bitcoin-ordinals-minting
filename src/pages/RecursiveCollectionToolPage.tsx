@@ -1157,6 +1157,35 @@ const RecursiveCollectionToolPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
+  const downloadInscriptionCode = useCallback((idx: number) => {
+    const item = generated[idx];
+    if (!item) return;
+    const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
+    const blob = new Blob([item.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+    URL.revokeObjectURL(url);
+  }, [generated, collectionName]);
+
+  const downloadTestPreview = useCallback((idx: number) => {
+    const item = generated[idx];
+    if (!item) return;
+    const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
+    const previewSvg = item.svg.replace(/href="\/content\//g, 'href="https://ordinals.com/content/');
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${collectionName} #${idx + 1} – Test Preview</title>
+<style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111}svg{max-width:90vmin;max-height:90vmin}</style>
+</head><body>
+${previewSvg}
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}_${idx + 1}_test.html`; a.click();
+    URL.revokeObjectURL(url);
+  }, [generated, collectionName]);
+
   // ============================================================
   // IMPORT / EXPORT CONFIG (file-based)
   // ============================================================
@@ -2022,8 +2051,14 @@ const RecursiveCollectionToolPage: React.FC = () => {
                     }}
                     className="w-16 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-white text-center" />
                 </div>
-                <button onClick={() => downloadSVG(previewIndex)}
-                  className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 hover:bg-gray-700 ml-auto">⬇️ SVG</button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button onClick={() => downloadInscriptionCode(previewIndex)}
+                    className="px-3 py-1.5 bg-orange-900 border border-orange-600 rounded text-sm text-orange-300 hover:bg-orange-800"
+                    title="SVG-Code wie er auf die Blockchain geschrieben wird">⬇️ Inscription Code</button>
+                  <button onClick={() => downloadTestPreview(previewIndex)}
+                    className="px-3 py-1.5 bg-green-900 border border-green-600 rounded text-sm text-green-300 hover:bg-green-800"
+                    title="HTML-Datei zum Testen im Browser (lädt Bilder von ordinals.com)">⬇️ Test Preview</button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
