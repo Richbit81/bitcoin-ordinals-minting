@@ -199,17 +199,19 @@ export const BadCatsPage: React.FC = () => {
       try {
         const whitelistSet = new Set(FREE_MINT_INSCRIPTION_IDS);
         const PAGE_SIZE = 100;
-        let offset = 0;
-        let hasMore = true;
+        let cursor = 0;
+        let total = 0;
         let totalChecked = 0;
-        while (hasMore) {
+        do {
           const res = await fetch(
-            `${API_URL}/v1/indexer/address/${address}/inscription-data?offset=${offset}&limit=${PAGE_SIZE}`
+            `${API_URL}/v1/indexer/address/${address}/inscription-data?cursor=${cursor}&size=${PAGE_SIZE}`
           );
-          if (!res.ok) { console.warn(`[BadCats] API returned ${res.status} at offset ${offset}`); break; }
+          if (!res.ok) { console.warn(`[BadCats] API returned ${res.status} at cursor ${cursor}`); break; }
           const json = await res.json();
-          const inscriptions = json.data?.inscription || json.inscription || [];
-          const batch = Array.isArray(inscriptions) ? inscriptions : [];
+          if (json.code !== undefined && json.code !== 0) { console.warn(`[BadCats] API error: ${json.msg}`); break; }
+          const data = json.data || json;
+          total = data.total || total;
+          const batch = data.inscription || [];
           totalChecked += batch.length;
           for (const i of batch) {
             const id = i.inscriptionId || i.id;
@@ -218,14 +220,11 @@ export const BadCatsPage: React.FC = () => {
               foundIds.push(id);
             }
           }
-          if (batch.length < PAGE_SIZE) {
-            hasMore = false;
-          } else {
-            offset += PAGE_SIZE;
-          }
+          cursor += PAGE_SIZE;
+          if (batch.length < PAGE_SIZE) break;
           if (inscriptionCount >= whitelistSet.size) break;
-        }
-        console.log(`[BadCats] Checked ${totalChecked} inscriptions on ${address}`);
+        } while (cursor < total || total === 0);
+        console.log(`[BadCats] Checked ${totalChecked}/${total} inscriptions on ${address}`);
         console.log(`[BadCats] Found ${inscriptionCount} whitelisted:`, foundIds);
       } catch (err) {
         console.warn('[BadCats] Could not check inscription holdings', err);
