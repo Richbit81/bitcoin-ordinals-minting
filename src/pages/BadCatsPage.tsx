@@ -199,30 +199,33 @@ export const BadCatsPage: React.FC = () => {
       try {
         const whitelistSet = new Set(FREE_MINT_INSCRIPTION_IDS);
         const PAGE_SIZE = 100;
-        let cursor = 0;
-        let total = 0;
-        do {
+        let offset = 0;
+        let hasMore = true;
+        let totalChecked = 0;
+        while (hasMore) {
           const res = await fetch(
-            `https://open-api.unisat.io/v1/indexer/address/${address}/inscription-data?cursor=${cursor}&size=${PAGE_SIZE}`,
-            { headers: { Accept: 'application/json' } }
+            `${API_URL}/v1/indexer/address/${address}/inscription-data?offset=${offset}&limit=${PAGE_SIZE}`
           );
-          if (!res.ok) { console.warn(`[BadCats] API returned ${res.status} at cursor ${cursor}`); break; }
+          if (!res.ok) { console.warn(`[BadCats] API returned ${res.status} at offset ${offset}`); break; }
           const json = await res.json();
-          if (json.code !== 0) { console.warn(`[BadCats] API error code ${json.code}: ${json.msg}`); break; }
-          const data = json.data;
-          total = data.total || 0;
-          const batch = data.inscription || [];
+          const inscriptions = json.data?.inscription || json.inscription || [];
+          const batch = Array.isArray(inscriptions) ? inscriptions : [];
+          totalChecked += batch.length;
           for (const i of batch) {
-            if (whitelistSet.has(i.inscriptionId)) {
+            const id = i.inscriptionId || i.id;
+            if (id && whitelistSet.has(id)) {
               inscriptionCount++;
-              foundIds.push(i.inscriptionId);
+              foundIds.push(id);
             }
           }
-          cursor += PAGE_SIZE;
-          if (batch.length < PAGE_SIZE) break;
+          if (batch.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            offset += PAGE_SIZE;
+          }
           if (inscriptionCount >= whitelistSet.size) break;
-        } while (cursor < total);
-        console.log(`[BadCats] Checked ${Math.min(cursor, total)}/${total} inscriptions on ${address}`);
+        }
+        console.log(`[BadCats] Checked ${totalChecked} inscriptions on ${address}`);
         console.log(`[BadCats] Found ${inscriptionCount} whitelisted:`, foundIds);
       } catch (err) {
         console.warn('[BadCats] Could not check inscription holdings', err);
