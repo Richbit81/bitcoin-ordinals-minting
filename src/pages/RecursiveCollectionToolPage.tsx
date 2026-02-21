@@ -847,7 +847,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
       items.push({
         index,
         layers: selectedLayers,
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`,
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden">\n${svgImages}\n</svg>`,
       });
     }
 
@@ -884,7 +884,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
         return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" />`;
       })
       .join('\n');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n${svgImages}\n</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden">\n${svgImages}\n</svg>`;
   }, [viewBox]);
 
   const updateGeneratedItemTrait = useCallback((itemIdx: number, layerIdx: number, newTraitIdx: number) => {
