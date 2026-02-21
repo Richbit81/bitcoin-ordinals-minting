@@ -1753,9 +1753,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     freeStuff: { logs: any[]; totalMints: number };
     smileABit: { logs: any[]; totalMints: number };
     slums: { logs: any[]; totalMints: number };
+    badCats: { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats'>('blackAndWild');
+  const [badCatsWhitelistInput, setBadCatsWhitelistInput] = useState('');
+  const [badCatsWhitelistAddresses, setBadCatsWhitelistAddresses] = useState<string[]>([]);
 
   useEffect(() => {
     loadLogs();
@@ -1778,7 +1781,54 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums') => {
+  const loadBadCatsWhitelist = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
+      if (res.ok) {
+        const data = await res.json();
+        setBadCatsWhitelistAddresses(data.addresses || []);
+      }
+    } catch { console.warn('Could not load BadCats whitelist'); }
+  };
+
+  useEffect(() => { loadBadCatsWhitelist(); }, []);
+
+  const addBadCatsWhitelistAddress = async (address: string) => {
+    const trimmed = address.trim();
+    if (!trimmed) return;
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: trimmed }),
+      });
+      if (res.ok) {
+        setBadCatsWhitelistInput('');
+        loadBadCatsWhitelist();
+      } else {
+        alert('Failed to add address');
+      }
+    } catch {
+      alert('Failed to add address');
+    }
+  };
+
+  const removeBadCatsWhitelistAddress = async (address: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      if (res.ok) {
+        loadBadCatsWhitelist();
+      }
+    } catch {
+      alert('Failed to remove address');
+    }
+  };
+
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums' | 'badcats') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       if (response.ok) {
@@ -1799,7 +1849,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -1851,6 +1901,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 8000},"${log.paymentTxid || ''}"\n`;
       });
     } else if (logType === 'slums') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 0},"${log.paymentTxid || ''}"\n`;
+      });
+    } else if (logType === 'badCats') {
       csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 0},"${log.paymentTxid || ''}"\n`;
@@ -1924,6 +1979,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <div className="bg-gray-900 border border-violet-500 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">SLUMS</p>
             <p className="text-3xl font-bold text-white">{logs.slums?.totalMints || 0}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
+          <div className="bg-gray-900 border border-red-500 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">BadCats</p>
+            <p className="text-3xl font-bold text-white">{logs.badCats?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
         </div>
@@ -2022,13 +2082,23 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           >
             🏚️ SLUMS
           </button>
+          <button
+            onClick={() => setActiveLogTab('badCats')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'badCats'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            🐱 BadCats
+          </button>
         </div>
       </div>
 
       {/* Download Buttons */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : activeLogTab === 'slums' ? 'slums' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : activeLogTab === 'slums' ? 'slums' : activeLogTab === 'badCats' ? 'badcats' : 'mixtape')}
           className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
           📥 JSON
@@ -2123,6 +2193,48 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             </button>
           </>
         )}
+        {activeLogTab === 'badCats' && (
+          <>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/badcats/hashlist`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'badcats-hashlist.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                } catch (err) {
+                  console.error('BadCats Hashlist download failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              📥 Hashlist
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_URL}/api/badcats/hashlist/sync`, { method: 'POST' });
+                  if (res.ok) {
+                    const data = await res.json();
+                    alert(`BadCats Hashlist Sync: ${data.synced} neue Einträge aus ${data.totalLogs} Logs`);
+                  }
+                } catch (err) {
+                  console.error('BadCats Hashlist sync failed:', err);
+                }
+              }}
+              className="px-3 sm:px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-xs sm:text-sm font-semibold"
+            >
+              🔄 Hashlist Sync
+            </button>
+          </>
+        )}
         <button
           onClick={loadLogs}
           className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-xs sm:text-sm font-semibold"
@@ -2130,6 +2242,50 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           🔄
         </button>
       </div>
+
+      {/* BadCats Whitelist Address Management */}
+      {activeLogTab === 'badCats' && (
+        <div className="bg-gray-900 border border-red-700 rounded p-4">
+          <h3 className="text-sm font-bold text-red-400 mb-3">🐱 BadCats Free-Mint Whitelist Addresses</h3>
+          <p className="text-xs text-gray-400 mb-3">
+            Adressen die hier eingetragen werden bekommen je 1 Free Mint. Die Liste wird auf dem Server gespeichert und bleibt nach Deploys erhalten.
+          </p>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={badCatsWhitelistInput}
+              onChange={e => setBadCatsWhitelistInput(e.target.value)}
+              placeholder="bc1p... oder andere Adresse eingeben"
+              className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+              onKeyDown={e => { if (e.key === 'Enter') addBadCatsWhitelistAddress(badCatsWhitelistInput); }}
+            />
+            <button
+              onClick={() => addBadCatsWhitelistAddress(badCatsWhitelistInput)}
+              className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-sm font-semibold"
+            >
+              + Hinzufügen
+            </button>
+          </div>
+          {badCatsWhitelistAddresses.length === 0 ? (
+            <p className="text-xs text-gray-500">Keine Adressen eingetragen.</p>
+          ) : (
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {badCatsWhitelistAddresses.map((addr, i) => (
+                <div key={i} className="flex items-center justify-between bg-gray-800 rounded px-3 py-1.5">
+                  <span className="text-xs text-gray-300 font-mono">{addr}</span>
+                  <button
+                    onClick={() => removeBadCatsWhitelistAddress(addr)}
+                    className="text-red-400 hover:text-red-300 text-xs font-bold ml-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <p className="text-xs text-gray-500 mt-1">{badCatsWhitelistAddresses.length} Adresse(n) eingetragen</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Log Table */}
       {logs && (
@@ -2183,6 +2339,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                     </>
                   )}
                   {activeLogTab === 'slums' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
+                  {activeLogTab === 'badCats' && (
                     <>
                       <th className="text-left p-3 text-gray-400">Item</th>
                       <th className="text-left p-3 text-gray-400">Price</th>
@@ -2253,6 +2415,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       {activeLogTab === 'slums' && (
                         <>
                           <td className="p-3 text-white">{log.itemName || log.packName || 'SLUMS'}</td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === 'badCats' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName || log.packName || 'BadCats'}</td>
                           <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
                         </>
                       )}

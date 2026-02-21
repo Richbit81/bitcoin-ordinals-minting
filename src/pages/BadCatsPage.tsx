@@ -131,11 +131,9 @@ const FREE_MINT_INSCRIPTION_IDS = [
   'cd4a6dd5f8926202e36b3f7b9c777ef24ed80020dfcb85e9696f8be9ed339322i0',
 ];
 
-const FREE_MINT_ADDRESSES: string[] = [];
-
 const STORAGE_KEY_FREE_MINTS_USED = 'badcats_free_mints_used';
 
-function getFreeMintTracker(): Record<string, number> {
+function getLocalFreeMintTracker(): Record<string, number> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_FREE_MINTS_USED);
     return raw ? JSON.parse(raw) : {};
@@ -144,19 +142,10 @@ function getFreeMintTracker(): Record<string, number> {
   }
 }
 
-function saveFreeMintTracker(tracker: Record<string, number>) {
-  localStorage.setItem(STORAGE_KEY_FREE_MINTS_USED, JSON.stringify(tracker));
-}
-
-function recordFreeMintUsed(address: string) {
-  const tracker = getFreeMintTracker();
+function recordLocalFreeMintUsed(address: string) {
+  const tracker = getLocalFreeMintTracker();
   tracker[address] = (tracker[address] || 0) + 1;
-  saveFreeMintTracker(tracker);
-}
-
-function getFreeMintUsedCount(address: string): number {
-  const tracker = getFreeMintTracker();
-  return tracker[address] || 0;
+  localStorage.setItem(STORAGE_KEY_FREE_MINTS_USED, JSON.stringify(tracker));
 }
 
 export const BadCatsPage: React.FC = () => {
@@ -217,12 +206,32 @@ export const BadCatsPage: React.FC = () => {
       }
 
       let addressBonus = 0;
-      if (FREE_MINT_ADDRESSES.some(a => a.toLowerCase() === address.toLowerCase())) {
-        addressBonus = 1;
+      try {
+        const wlRes = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
+        if (wlRes.ok) {
+          const wlData = await wlRes.json();
+          const wlAddrs: string[] = wlData.addresses || [];
+          if (wlAddrs.some(a => a.toLowerCase() === address.toLowerCase())) {
+            addressBonus = 1;
+          }
+        }
+      } catch {
+        console.warn('[BadCats] Could not load whitelist addresses');
       }
 
       const totalEntitlement = inscriptionCount + addressBonus;
-      const used = getFreeMintUsedCount(address);
+
+      let used = 0;
+      try {
+        const amRes = await fetch(`${API_URL}/api/badcats/address-mints?address=${encodeURIComponent(address)}`);
+        if (amRes.ok) {
+          const amData = await amRes.json();
+          used = amData.freeMints || 0;
+        }
+      } catch {
+        const tracker = getLocalFreeMintTracker();
+        used = tracker[address] || 0;
+      }
 
       setFreeMintEntitlement(totalEntitlement);
       setFreeMintUsed(used);
@@ -355,7 +364,14 @@ export const BadCatsPage: React.FC = () => {
       } catch { /* hashlist failed */ }
 
       if (isFreeForUser) {
-        recordFreeMintUsed(userAddress);
+        recordLocalFreeMintUsed(userAddress);
+        try {
+          await fetch(`${API_URL}/api/badcats/free-mint-used`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: userAddress }),
+          });
+        } catch { /* backend tracking failed, localStorage is fallback */ }
         setFreeMintUsed(prev => prev + 1);
       }
 
