@@ -451,24 +451,95 @@ export const BadCatsPage: React.FC = () => {
         {collectionReady === null ? (
           <div className="text-center py-8" style={{ fontFamily: subFont }}>Loading...</div>
         ) : !MINT_ACTIVE ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+          <div className="flex-1 flex flex-col items-center justify-center gap-8">
             <div className="relative">
               <img src="/images/badcats-bg.png" alt="BadCats"
                 className="w-80 md:w-[480px] rounded-2xl border-4 border-red-900/60"
                 style={{ boxShadow: '0 0 40px rgba(225,29,72,0.3)' }} />
             </div>
-            <div className="bg-black/60 border-2 border-red-800 rounded-xl px-8 py-5 text-center max-w-lg backdrop-blur-sm"
+
+            <div className="bg-black/60 border-2 border-red-800 rounded-xl px-8 py-6 text-center max-w-xl backdrop-blur-sm"
               style={{ boxShadow: '0 0 30px rgba(225,29,72,0.15)' }}>
               <p className="text-4xl md:text-5xl text-red-500 mb-3"
                 style={{ fontFamily: comicFont, textShadow: '3px 3px 0 #000' }}>
                 COMING SOON
               </p>
-              <p className="text-gray-400 text-sm" style={{ fontFamily: subFont }}>
+              <p className="text-gray-400 text-sm mb-2" style={{ fontFamily: subFont }}>
                 500 unique BadCats · Recursive SVG Ordinals · 10,000 sats each
               </p>
-              <div className="mt-4 bg-red-950/40 rounded-lg p-3 border border-red-800/50">
-                <p className="text-xs text-red-300" style={{ fontFamily: subFont }}>
-                  Holders of whitelisted inscriptions get FREE mints!
+              <p className="text-gray-500 text-xs">
+                Connect your wallet when mint goes live to check your free mint eligibility.
+              </p>
+            </div>
+
+            {/* Free Mint Collections */}
+            <div className="w-full max-w-2xl">
+              <h2 className="text-center text-2xl text-red-400 mb-5"
+                style={{ fontFamily: comicFont, textShadow: '2px 2px 0 #000' }}>
+                HOLD A CAT, MINT FOR FREE!
+              </h2>
+              <p className="text-center text-gray-400 text-xs mb-6" style={{ fontFamily: subFont }}>
+                Holders of the following collections get <strong className="text-green-400">1 FREE MINT per ordinal</strong> they hold.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Bone Cat */}
+                <a href="https://magiceden.io/ordinals/marketplace/bonecat" target="_blank" rel="noopener noreferrer"
+                  className="group bg-[#1a0a0e]/80 border-2 border-red-900/60 rounded-xl p-4 backdrop-blur-sm transition-all hover:border-red-500 hover:scale-[1.02]"
+                  style={{ boxShadow: '4px 4px 0 rgba(127,29,29,0.5)' }}>
+                  <div className="flex items-center gap-4 mb-3">
+                    <img src="/images/bonecat-preview.png" alt="Bone Cat"
+                      className="w-16 h-16 rounded-lg border-2 border-gray-700 group-hover:border-red-500 transition-colors object-cover" />
+                    <div>
+                      <h3 className="text-lg text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: comicFont }}>
+                        Bone Cat
+                      </h3>
+                      <p className="text-[10px] text-gray-500" style={{ fontFamily: subFont }}>Collection on Magic Eden</p>
+                    </div>
+                  </div>
+                  <div className="bg-green-950/40 rounded-md px-3 py-2 border border-green-800/40">
+                    <p className="text-xs text-green-400 text-center" style={{ fontFamily: subFont }}>
+                      1 Bone Cat held = 1 FREE BadCat mint
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-gray-600 text-center mt-2 group-hover:text-red-400 transition-colors" style={{ fontFamily: subFont }}>
+                    View on Magic Eden →
+                  </p>
+                </a>
+
+                {/* Halloween Bad Cats Special */}
+                <a href="https://magiceden.io/ordinals/marketplace/bchalloween" target="_blank" rel="noopener noreferrer"
+                  className="group bg-[#1a0a0e]/80 border-2 border-red-900/60 rounded-xl p-4 backdrop-blur-sm transition-all hover:border-orange-500 hover:scale-[1.02]"
+                  style={{ boxShadow: '4px 4px 0 rgba(127,29,29,0.5)' }}>
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex -space-x-3">
+                      <img src="/images/bchalloween-preview1.avif" alt="Halloween Bad Cat 1"
+                        className="w-14 h-14 rounded-lg border-2 border-gray-700 group-hover:border-orange-500 transition-colors object-cover relative z-10" />
+                      <img src="/images/bchalloween-preview2.avif" alt="Halloween Bad Cat 2"
+                        className="w-14 h-14 rounded-lg border-2 border-gray-700 group-hover:border-orange-500 transition-colors object-cover" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg text-white group-hover:text-orange-400 transition-colors" style={{ fontFamily: comicFont }}>
+                        Halloween Bad Cats
+                      </h3>
+                      <p className="text-[10px] text-gray-500" style={{ fontFamily: subFont }}>Special Edition on Magic Eden</p>
+                    </div>
+                  </div>
+                  <div className="bg-green-950/40 rounded-md px-3 py-2 border border-green-800/40">
+                    <p className="text-xs text-green-400 text-center" style={{ fontFamily: subFont }}>
+                      1 Halloween Cat held = 1 FREE BadCat mint
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-gray-600 text-center mt-2 group-hover:text-orange-400 transition-colors" style={{ fontFamily: subFont }}>
+                    View on Magic Eden →
+                  </p>
+                </a>
+              </div>
+
+              <div className="mt-5 text-center bg-red-950/30 rounded-lg p-3 border border-red-800/30">
+                <p className="text-xs text-gray-400" style={{ fontFamily: subFont }}>
+                  The more you hold, the more you mint for free. Each ordinal from these collections = 1 free BadCat.
+                  <br />
+                  <span className="text-red-400">After your free mints: {BADCATS_PRICE_SATS.toLocaleString()} sats per BadCat.</span>
                 </p>
               </div>
             </div>
