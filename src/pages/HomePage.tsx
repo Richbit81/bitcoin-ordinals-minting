@@ -348,16 +348,12 @@ export const HomePage: React.FC = () => {
                     scrolling="no"
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-red-600 text-white font-bold px-4 py-1.5 border-[3px] border-black shadow-[3px_3px_0_#000]"
+                    <span className="text-red-500 text-3xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
                       style={{
-                        fontFamily: "'Bangers', 'Creepster', cursive",
-                        transform: 'rotate(-8deg)',
-                        fontSize: '18px',
-                        letterSpacing: '0.08em',
-                        textShadow: '2px 2px 0 #000',
+                        textShadow: '3px 3px 0 #000, -1px -1px 0 #000',
                       }}>
                       MINT SOON
-                    </div>
+                    </span>
                   </div>
                 </div>
               ) : project.thumbnail ? (
