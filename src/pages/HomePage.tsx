@@ -356,7 +356,7 @@ export const HomePage: React.FC = () => {
                         letterSpacing: '0.08em',
                         textShadow: '2px 2px 0 #000',
                       }}>
-                      COMING SOON
+                      MINT SOON
                     </div>
                   </div>
                 </div>
