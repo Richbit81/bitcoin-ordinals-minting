@@ -163,6 +163,8 @@ export const BadCatsPage: React.FC = () => {
   const [collectionData, setCollectionData] = useState<any>(null);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
+  const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
+  const [freeMintFromWhitelist, setFreeMintFromWhitelist] = useState(0);
   const [freeMintUsed, setFreeMintUsed] = useState(0);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
 
@@ -245,6 +247,8 @@ export const BadCatsPage: React.FC = () => {
       }
 
       const totalEntitlement = inscriptionCount + addressBonus;
+      setFreeMintFromInscriptions(inscriptionCount);
+      setFreeMintFromWhitelist(addressBonus);
 
       let used = 0;
       try {
@@ -271,6 +275,8 @@ export const BadCatsPage: React.FC = () => {
       checkFreeMintEligibility(addr);
     } else {
       setFreeMintEntitlement(0);
+      setFreeMintFromInscriptions(0);
+      setFreeMintFromWhitelist(0);
       setFreeMintUsed(0);
     }
   }, [walletState.connected, walletState.accounts, checkFreeMintEligibility]);
@@ -555,10 +561,17 @@ export const BadCatsPage: React.FC = () => {
                     {checkingEligibility ? (
                       <p style={{ fontFamily: subFont }}>Checking eligibility...</p>
                     ) : freeMintEntitlement > 0 ? (
-                      <p style={{ fontFamily: subFont }}>
-                        ✅ You hold {freeMintEntitlement} whitelisted inscription{freeMintEntitlement > 1 ? 's' : ''} →{' '}
-                        <strong>{freeMintsRemaining} free mint{freeMintsRemaining !== 1 ? 's' : ''} remaining</strong>
-                      </p>
+                      <div style={{ fontFamily: subFont }}>
+                        {freeMintFromInscriptions > 0 && (
+                          <p>🐱 You hold {freeMintFromInscriptions} whitelisted ordinal{freeMintFromInscriptions > 1 ? 's' : ''} (Bone Cat / Halloween Bad Cats)</p>
+                        )}
+                        {freeMintFromWhitelist > 0 && (
+                          <p>⭐ Your address is on the free mint whitelist</p>
+                        )}
+                        <p className="mt-1">
+                          ✅ <strong>{freeMintsRemaining} free mint{freeMintsRemaining !== 1 ? 's' : ''} remaining</strong>
+                        </p>
+                      </div>
                     ) : (
                       <p style={{ fontFamily: subFont }}>
                         No whitelisted inscriptions found. Price: {BADCATS_PRICE_SATS.toLocaleString()} sats
