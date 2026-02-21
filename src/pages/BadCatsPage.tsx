@@ -495,8 +495,8 @@ export const BadCatsPage: React.FC = () => {
                       scrolling="no"
                     />
                     {!MINT_PUBLIC && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <span className="text-red-400 text-sm font-bold px-3 py-1 bg-black/80 rounded border border-red-800" style={{ fontFamily: subFont }}>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-red-500 text-2xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ fontFamily: subFont, textShadow: '2px 2px 0 #000, -1px -1px 0 #000' }}>
                           MINT SOON
                         </span>
                       </div>
