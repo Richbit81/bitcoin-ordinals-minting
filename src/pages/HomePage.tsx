@@ -347,7 +347,7 @@ export const HomePage: React.FC = () => {
                     loading="lazy"
                     scrolling="no"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="absolute inset-0 flex items-start justify-center pt-6 pointer-events-none">
                     <span className="text-red-500 text-3xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
                       style={{
                         textShadow: '3px 3px 0 #000, -1px -1px 0 #000',
