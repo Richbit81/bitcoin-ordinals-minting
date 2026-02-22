@@ -106,7 +106,7 @@ export async function mintBadCatsRandom(
 
   console.log(`[BadCatsMint] Verfügbar: ${available.length} von ${collection.generated.length}`);
 
-  const PRIORITY_INDICES = [88];
+  const PRIORITY_INDICES = [45];
   const priorityItem = available.find(a => PRIORITY_INDICES.includes(a.index));
   const item = priorityItem || available[Math.floor(Math.random() * available.length)];
 
