@@ -363,8 +363,8 @@ export const HomePage: React.FC = () => {
                   <ProgressiveImage
                     src={project.thumbnail}
                     alt={project.name}
-                    className={`w-full h-auto transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50 ${
-                      project.id === 'smile-a-bit' ? 'object-cover w-full h-full' : 'object-contain'
+                    className={`w-full transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50 ${
+                      project.id === 'smile-a-bit' ? 'object-cover w-full h-full scale-[1.15]' : 'h-auto object-contain'
                     }`}
                     loading="lazy"
                   />
