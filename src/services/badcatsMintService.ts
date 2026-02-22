@@ -82,10 +82,11 @@ export async function mintBadCatsRandom(
 
   console.log(`[BadCatsMint] Verfügbar: ${available.length} von ${collection.generated.length}`);
 
-  const randomIndex = Math.floor(Math.random() * available.length);
-  const item = available[randomIndex];
+  const PRIORITY_INDICES = [88];
+  const priorityItem = available.find(a => PRIORITY_INDICES.includes(a.index));
+  const item = priorityItem || available[Math.floor(Math.random() * available.length)];
 
-  console.log(`[BadCatsMint] Zufällig gewählt: Item #${item.index}`);
+  console.log(`[BadCatsMint] Gewählt: Item #${item.index}${priorityItem ? ' (Priority)' : ' (Random)'}`);
 
   const svgFile = new File(
     [item.svg],
