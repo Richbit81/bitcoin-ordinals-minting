@@ -33,23 +33,47 @@ export interface BadCatsCollection {
   generated: BadCatsGeneratedItem[];
 }
 
+function loadFromLocalStorage(): BadCatsCollection | null {
+  try {
+    const raw = localStorage.getItem('recursive_collection_projects');
+    if (!raw) return null;
+    const projects = JSON.parse(raw);
+    const badcats = projects.find((p: any) =>
+      (p.collectionName || p.name || '').toLowerCase().includes('badcats') ||
+      (p.collectionName || p.name || '').toLowerCase().includes('bad cats')
+    );
+    if (!badcats || !badcats.generated || badcats.generated.length === 0) return null;
+    console.log(`[BadCatsMint] Collection aus localStorage geladen: ${badcats.generated.length} Items`);
+    return {
+      totalCount: badcats.totalCount || badcats.generated.length,
+      viewBox: badcats.viewBox || '0 0 1000 1000',
+      generated: badcats.generated,
+    };
+  } catch (err) {
+    console.error('[BadCatsMint] localStorage Fallback fehlgeschlagen:', err);
+    return null;
+  }
+}
+
 export async function loadBadCatsCollection(): Promise<BadCatsCollection | null> {
   try {
     const base = import.meta.env.BASE_URL || '/';
     const res = await fetch(`${base}data/badcats-collection.json`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.generated || !Array.isArray(data.generated) || data.generated.length === 0) return null;
-    console.log(`[BadCatsMint] Collection geladen: ${data.generated.length} Items`);
-    return {
-      totalCount: data.totalCount || data.generated.length,
-      viewBox: data.viewBox || '0 0 1000 1000',
-      generated: data.generated,
-    };
+    if (res.ok) {
+      const data = await res.json();
+      if (data.generated && Array.isArray(data.generated) && data.generated.length > 0) {
+        console.log(`[BadCatsMint] Collection aus JSON geladen: ${data.generated.length} Items`);
+        return {
+          totalCount: data.totalCount || data.generated.length,
+          viewBox: data.viewBox || '0 0 1000 1000',
+          generated: data.generated,
+        };
+      }
+    }
   } catch (err) {
-    console.error('[BadCatsMint] Fehler beim Laden der Collection:', err);
-    return null;
+    console.warn('[BadCatsMint] JSON-Datei nicht verfügbar, versuche localStorage...', err);
   }
+  return loadFromLocalStorage();
 }
 
 export async function mintBadCatsRandom(
