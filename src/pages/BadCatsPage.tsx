@@ -316,6 +316,7 @@ export const BadCatsPage: React.FC = () => {
       setShowWalletConnect(true);
       return;
     }
+    if (checkingEligibility) return;
 
     const userAddress = getOrdinalAddress(walletState.accounts);
     setIsMinting(true);
@@ -618,7 +619,7 @@ export const BadCatsPage: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleMint}
-                      disabled={isMinting || !walletState.connected || isSoldOut || (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address))}
+                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address))}
                       className="w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95"
                       style={{
                         fontFamily: comicFont,
@@ -636,7 +637,7 @@ export const BadCatsPage: React.FC = () => {
                           </svg>
                           MINTING...
                         </span>
-                      ) : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? 'MINT STARTING SOON...' : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
+                      ) : checkingEligibility ? 'CHECKING ELIGIBILITY...' : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? 'MINT STARTING SOON...' : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
                     </button>
                   )}
                 </div>
