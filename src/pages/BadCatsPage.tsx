@@ -161,6 +161,7 @@ export const BadCatsPage: React.FC = () => {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
+  const [collectionConsistencyWarning, setCollectionConsistencyWarning] = useState<string | null>(null);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -309,6 +310,28 @@ export const BadCatsPage: React.FC = () => {
   const isFreeForUser = freeMintsRemaining > 0;
   const isSoldOut = mintCount >= BADCATS_TOTAL_SUPPLY;
   const progressPercent = Math.min((mintCount / BADCATS_TOTAL_SUPPLY) * 100, 100);
+  const getMissingMintedIndices = useCallback((indices: number[]) => {
+    if (!collectionData?.generated) return [];
+    const availableIndices = new Set<number>(collectionData.generated.map((item: any) => item.index));
+    return indices.filter(index => !availableIndices.has(index));
+  }, [collectionData]);
+
+  useEffect(() => {
+    if (!collectionData || mintedIndices.length === 0) {
+      setCollectionConsistencyWarning(null);
+      return;
+    }
+
+    const missing = getMissingMintedIndices(mintedIndices);
+    if (missing.length > 0) {
+      const preview = missing.slice(0, 8).join(', ');
+      setCollectionConsistencyWarning(
+        `Collection mismatch: ${missing.length} minted index${missing.length > 1 ? 'es are' : ' is'} missing in current JSON (${preview}${missing.length > 8 ? ', ...' : ''}). Minting is blocked to prevent duplicates.`
+      );
+      return;
+    }
+    setCollectionConsistencyWarning(null);
+  }, [collectionData, mintedIndices, getMissingMintedIndices]);
 
   const handleMint = async () => {
     if (!MINT_ACTIVE) return;
@@ -334,6 +357,13 @@ export const BadCatsPage: React.FC = () => {
           setMintedIndices(freshMintedIndices);
         }
       } catch { /* fallback */ }
+
+      const missingMinted = getMissingMintedIndices(freshMintedIndices);
+      if (missingMinted.length > 0) {
+        throw new Error(
+          `Collection mismatch: ${missingMinted.length} already minted indices are missing in badcats-collection.json (e.g. ${missingMinted.slice(0, 5).join(', ')}). Please export the latest collection JSON and deploy it before minting.`
+        );
+      }
 
       const result = await mintBadCatsRandom(
         userAddress,
@@ -582,6 +612,14 @@ export const BadCatsPage: React.FC = () => {
                   </div>
                 )}
 
+                {collectionConsistencyWarning && (
+                  <div className="rounded-lg px-3 py-2 mb-3 text-xs border bg-red-950/40 border-red-700/60 text-red-200">
+                    <p style={{ fontFamily: subFont }}>
+                      ⚠️ {collectionConsistencyWarning}
+                    </p>
+                  </div>
+                )}
+
                 <div className="mb-3">
                   <FeeRateSelector selectedFeeRate={inscriptionFeeRate} onFeeRateChange={setInscriptionFeeRate} />
                 </div>
@@ -619,7 +657,7 @@ export const BadCatsPage: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleMint}
-                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address))}
+                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || !!collectionConsistencyWarning || (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address))}
                       className="w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95"
                       style={{
                         fontFamily: comicFont,
@@ -637,7 +675,7 @@ export const BadCatsPage: React.FC = () => {
                           </svg>
                           MINTING...
                         </span>
-                      ) : checkingEligibility ? 'CHECKING ELIGIBILITY...' : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? 'MINT STARTING SOON...' : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
+                      ) : collectionConsistencyWarning ? 'COLLECTION MISMATCH' : checkingEligibility ? 'CHECKING ELIGIBILITY...' : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? 'MINT STARTING SOON...' : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
                     </button>
                   )}
                 </div>
