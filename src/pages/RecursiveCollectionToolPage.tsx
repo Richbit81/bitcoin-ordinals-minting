@@ -98,12 +98,12 @@ function buildSvgForViewBox(
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" />`;
+      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`;
       const w = vbW * sc;
       const h = vbH * sc;
       const x = (vbW - w) / 2 + ox;
       const y = (vbH - h) / 2 + oy;
-      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" />`;
+      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" />`;
     })
     .join('\n');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden">\n${svgImages}\n</svg>`;
@@ -896,7 +896,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
       const index = items.length + 1;
       const svgImages = selectedLayers
         .filter(l => !isNoneTrait(l.trait))
-        .map(l => `  <image href="/content/${l.trait.inscriptionId}" />`)
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`)
         .join('\n');
       items.push({
         index,
@@ -930,12 +930,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
         const oy = l.offsetY || 0;
         const sc = l.scale || 1;
         const hasTransform = ox || oy || sc !== 1;
-        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" />`;
+        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`;
         const w = vbW * sc;
         const h = vbH * sc;
         const x = (vbW - w) / 2 + ox;
         const y = (vbH - h) / 2 + oy;
-        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" />`;
+        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" />`;
       })
       .join('\n');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden">\n${svgImages}\n</svg>`;
