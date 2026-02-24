@@ -91,6 +91,7 @@ function buildSvgForViewBox(
   const vb = viewBox.trim().split(/\s+/).map(Number);
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
+  const BLEED_PX = 2;
   const svgImages = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
@@ -98,12 +99,12 @@ function buildSvgForViewBox(
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`;
+      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-BLEED_PX}" y="${-BLEED_PX}" width="${vbW + BLEED_PX * 2}" height="${vbH + BLEED_PX * 2}" preserveAspectRatio="none" />`;
       const w = vbW * sc;
       const h = vbH * sc;
-      const x = (vbW - w) / 2 + ox;
-      const y = (vbH - h) / 2 + oy;
-      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" />`;
+      const x = (vbW - w) / 2 + ox - BLEED_PX;
+      const y = (vbH - h) / 2 + oy - BLEED_PX;
+      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + BLEED_PX * 2}" height="${h + BLEED_PX * 2}" preserveAspectRatio="none" />`;
     })
     .join('\n');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden" preserveAspectRatio="none">\n${svgImages}\n</svg>`;
@@ -894,9 +895,13 @@ const RecursiveCollectionToolPage: React.FC = () => {
       seenCombos.add(comboKey);
 
       const index = items.length + 1;
+      const vbParts = viewBox.split(/\s+/).map(Number);
+      const vbW = vbParts[2] || 1000;
+      const vbH = vbParts[3] || 1000;
+      const BLEED_PX = 2;
       const svgImages = selectedLayers
         .filter(l => !isNoneTrait(l.trait))
-        .map(l => `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`)
+        .map(l => `  <image href="/content/${l.trait.inscriptionId}" x="${-BLEED_PX}" y="${-BLEED_PX}" width="${vbW + BLEED_PX * 2}" height="${vbH + BLEED_PX * 2}" preserveAspectRatio="none" />`)
         .join('\n');
       items.push({
         index,
@@ -923,6 +928,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const vbParts = viewBox.split(/\s+/).map(Number);
     const vbW = vbParts[2] || 1000;
     const vbH = vbParts[3] || 1000;
+    const BLEED_PX = 2;
     const svgImages = itemLayers
       .filter(l => !isNoneTrait(l.trait))
       .map(l => {
@@ -930,12 +936,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
         const oy = l.offsetY || 0;
         const sc = l.scale || 1;
         const hasTransform = ox || oy || sc !== 1;
-        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" />`;
+        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-BLEED_PX}" y="${-BLEED_PX}" width="${vbW + BLEED_PX * 2}" height="${vbH + BLEED_PX * 2}" preserveAspectRatio="none" />`;
         const w = vbW * sc;
         const h = vbH * sc;
-        const x = (vbW - w) / 2 + ox;
-        const y = (vbH - h) / 2 + oy;
-        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" />`;
+        const x = (vbW - w) / 2 + ox - BLEED_PX;
+        const y = (vbH - h) / 2 + oy - BLEED_PX;
+        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + BLEED_PX * 2}" height="${h + BLEED_PX * 2}" preserveAspectRatio="none" />`;
       })
       .join('\n');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden" preserveAspectRatio="none">\n${svgImages}\n</svg>`;
