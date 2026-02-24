@@ -1228,11 +1228,12 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
     const previewSvg = item.svg.replace(/href="\/content\//g, 'href="https://ordinals.com/content/');
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${collectionName} #${idx + 1} – Test Preview</title>
-<style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#111}svg{max-width:90vmin;max-height:90vmin}</style>
-</head><body>
-${previewSvg}
-</body></html>`;
+<html><head><meta charset="utf-8"><title>${collectionName} #${idx + 1} - Test Preview</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}
+svg{display:block;width:100vw;height:100vh;overflow:hidden}
+</style>
+</head><body>${previewSvg}</body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
