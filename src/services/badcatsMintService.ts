@@ -58,11 +58,16 @@ function loadFromLocalStorage(): BadCatsCollection | null {
 export async function loadBadCatsCollection(): Promise<BadCatsCollection | null> {
   try {
     const base = import.meta.env.BASE_URL || '/';
-    const res = await fetch(`${base}data/badcats-collection.json`);
+    const cacheBuster = Date.now();
+    const res = await fetch(`${base}data/badcats-collection.json?v=${cacheBuster}`, {
+      cache: 'no-store',
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.generated && Array.isArray(data.generated) && data.generated.length > 0) {
-        console.log(`[BadCatsMint] Collection aus JSON geladen: ${data.generated.length} Items`);
+        const firstIndex = data.generated[0]?.index;
+        const lastIndex = data.generated[data.generated.length - 1]?.index;
+        console.log(`[BadCatsMint] Collection aus JSON geladen: ${data.generated.length} Items (index range: ${firstIndex}-${lastIndex})`);
         return {
           totalCount: data.totalCount || data.generated.length,
           viewBox: data.viewBox || '0 0 1000 1000',
