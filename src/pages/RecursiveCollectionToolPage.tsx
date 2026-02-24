@@ -84,18 +84,67 @@ let idCounter = 0;
 function uid() { return `layer_${Date.now()}_${idCounter++}`; }
 function projectId() { return `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
 
+function buildSvgForViewBox(
+  layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
+  viewBox: string
+): string {
+  const vb = viewBox.trim().split(/\s+/).map(Number);
+  const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
+  const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
+  const svgImages = layers
+    .filter(l => !isNoneTrait(l.trait))
+    .map(l => {
+      const ox = l.offsetX || 0;
+      const oy = l.offsetY || 0;
+      const sc = l.scale || 1;
+      const hasTransform = ox || oy || sc !== 1;
+      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" />`;
+      const w = vbW * sc;
+      const h = vbH * sc;
+      const x = (vbW - w) / 2 + ox;
+      const y = (vbH - h) / 2 + oy;
+      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" />`;
+    })
+    .join('\n');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden">\n${svgImages}\n</svg>`;
+}
+
 function loadProjects(): SavedProject[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed: SavedProject[] = raw ? JSON.parse(raw) : [];
+    // Restore generated SVGs if they were compacted in storage.
+    return parsed.map((project) => {
+      const viewBox = project.viewBox || '0 0 1000 1000';
+      const generated = (project.generated || []).map((item) => {
+        const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
+        const svg = hasSvg
+          ? (item.svg.includes('overflow="hidden"')
+            ? item.svg
+            : item.svg.replace('<svg ', '<svg overflow="hidden" '))
+          : buildSvgForViewBox(item.layers || [], viewBox);
+        return { ...item, svg };
+      });
+      return { ...project, generated };
+    });
   } catch { return []; }
 }
 
-function saveProjects(projects: SavedProject[]) {
+function saveProjects(projects: SavedProject[]): boolean {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    // Compact storage: generated SVGs are derivable from layers and consume most quota.
+    const compacted = projects.map((project) => ({
+      ...project,
+      generated: (project.generated || []).map((item) => {
+        const { svg, ...rest } = item as any;
+        return rest;
+      }),
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted));
+    return true;
   } catch (e) {
     console.error('Save error:', e);
+    return false;
   }
 }
 
@@ -262,8 +311,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
       };
     });
     setProjects(updated);
-    saveProjects(updated);
-    setSaveStatus('✅ Gespeichert');
+    const ok = saveProjects(updated);
+    setSaveStatus(ok ? '✅ Gespeichert' : '❌ Save fehlgeschlagen (Speicher voll?) - bitte Backup exportieren');
     setTimeout(() => setSaveStatus(''), 2000);
   }, [activeProjectId, projects, collectionName, totalCount, viewBox, layers, scanAddress, walletInscriptions, generated, hashlist]);
 
@@ -1258,10 +1307,29 @@ ${previewSvg}
           generated: Array.isArray(data.generated) ? data.generated : [],
           hashlist: Array.isArray(data.hashlist) ? data.hashlist : [],
         };
-        const updated = [full, ...projects];
+        const normalized = (full.collectionName || full.name || '').trim().toLowerCase();
+        const existingIndex = projects.findIndex((p) =>
+          (p.collectionName || p.name || '').trim().toLowerCase() === normalized
+        );
+        let updated: SavedProject[];
+        let activeId: string;
+        if (existingIndex >= 0 && window.confirm(`Projekt "${projects[existingIndex].collectionName || projects[existingIndex].name}" existiert bereits. Soll es durch den Import ersetzt werden?`)) {
+          const existing = projects[existingIndex];
+          const merged: SavedProject = {
+            ...full,
+            id: existing.id,
+            createdAt: existing.createdAt || full.createdAt,
+            updatedAt: new Date().toISOString(),
+          };
+          updated = projects.map((p, idx) => (idx === existingIndex ? merged : p));
+          activeId = merged.id;
+        } else {
+          updated = [full, ...projects];
+          activeId = full.id;
+        }
         setProjects(updated);
         saveProjects(updated);
-        setActiveProjectId(full.id);
+        setActiveProjectId(activeId);
         loadProjectIntoState(full);
         setError('');
       } catch (err: any) {
