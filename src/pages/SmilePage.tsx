@@ -219,6 +219,7 @@ export const SmilePage: React.FC = () => {
           inscriptionIds: [result.inscriptionId],
           txids: result.txid ? [result.txid] : [],
           paymentTxid: result.paymentTxid,
+          orderId: result.orderId,
         });
         console.log('[SmilePage] Minting-Log gespeichert');
       } catch (logErr) {

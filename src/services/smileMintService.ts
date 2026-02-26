@@ -72,7 +72,7 @@ export async function mintSmileRandom(
   feeRate: number,
   walletType: 'unisat' | 'xverse' | 'okx' | null,
   mintedIndices: number[] = []
-): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SmileGeneratedItem }> {
+): Promise<{ inscriptionId: string; txid?: string; orderId?: string; paymentTxid?: string; item: SmileGeneratedItem }> {
   
   if (!buyerAddress.startsWith('bc1p')) {
     throw new Error(
@@ -170,6 +170,7 @@ export async function mintSmileRandom(
   return {
     inscriptionId: result.inscriptionId,
     txid: result.txid || result.orderId,
+    orderId: result.orderId,
     paymentTxid,
     item,
   };

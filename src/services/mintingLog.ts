@@ -10,6 +10,8 @@ export interface MintingLogEntry {
   txids: string[];
   timestamp: number;
   paymentTxid?: string;
+  orderId?: string;
+  originalOrderId?: string;
 }
 
 const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';

@@ -301,6 +301,7 @@ export const SlumsPage: React.FC = () => {
             walletAddress: userAddress,
             inscriptionId: result.inscriptionId,
             txid: result.txid || null,
+            orderId: result.orderId || null,
             itemName: `SLUMS #${result.item.index}`,
             itemIndex: result.item.index,
             priceInSats: isFreePhase ? 0 : SLUMS_PRICE_SATS,
@@ -327,6 +328,7 @@ export const SlumsPage: React.FC = () => {
           inscriptionIds: [result.inscriptionId],
           txids: result.txid ? [result.txid] : [],
           paymentTxid: result.paymentTxid,
+          orderId: result.orderId,
         });
         console.log('[SlumsPage] Backup-Log gespeichert (generisch)');
       } catch (logErr) {

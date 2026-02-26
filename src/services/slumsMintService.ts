@@ -92,7 +92,7 @@ export async function mintSlumsRandom(
   walletType: 'unisat' | 'xverse' | 'okx' | null,
   currentMintCount: number,
   mintedIndices: number[] = []
-): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
+): Promise<{ inscriptionId: string; txid?: string; orderId?: string; paymentTxid?: string; item: SlumsGeneratedItem }> {
   
   if (!buyerAddress.startsWith('bc1p')) {
     throw new Error(
@@ -192,6 +192,7 @@ export async function mintSlumsRandom(
   return {
     inscriptionId: result.inscriptionId,
     txid: result.txid || result.orderId,
+    orderId: result.orderId,
     paymentTxid,
     item,
   };
