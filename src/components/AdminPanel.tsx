@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getCollectionHashlist, getCollectionStats, exportHashlist, exportSimpleHashlist, CollectionStats } from '../services/collectionHashlist';
 import { getAdminStats, getAdminTradeOffers, openCardImagesFolder, exportAllCardsInfo, TradeOfferAdmin } from '../services/adminService';
 import { useWallet } from '../contexts/WalletContext';
@@ -1759,6 +1759,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats'>('blackAndWild');
   const [badCatsWhitelistInput, setBadCatsWhitelistInput] = useState('');
   const [badCatsWhitelistAddresses, setBadCatsWhitelistAddresses] = useState<string[]>([]);
+  const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadLogs();
@@ -1851,6 +1852,56 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     } catch (error) {
       console.error('Error downloading BadCats whitelist:', error);
       alert('Failed to download BadCats whitelist');
+    }
+  };
+
+  const importBadCatsWhitelist = async (file: File) => {
+    try {
+      const text = await file.text();
+      let parsedAddresses: string[] = [];
+      try {
+        const json = JSON.parse(text);
+        if (Array.isArray(json)) {
+          parsedAddresses = json.map(v => String(v || '').trim()).filter(Boolean);
+        } else if (Array.isArray(json.addresses)) {
+          parsedAddresses = json.addresses.map((v: any) => String(v || '').trim()).filter(Boolean);
+        } else {
+          throw new Error('Invalid JSON format');
+        }
+      } catch {
+        parsedAddresses = text
+          .split(/\r?\n/)
+          .map(v => v.trim())
+          .filter(Boolean);
+      }
+
+      if (parsedAddresses.length === 0) {
+        alert('No valid addresses found in file');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminAddress,
+          addresses: parsedAddresses,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Import failed');
+      }
+
+      const data = await res.json();
+      await loadBadCatsWhitelist();
+      alert(`Import done: ${data.added} added, ${data.skipped} skipped (${data.total} total)`);
+    } catch (error: any) {
+      console.error('BadCats whitelist import failed:', error);
+      alert(error?.message || 'Failed to import whitelist');
+    } finally {
+      if (badCatsWhitelistImportRef.current) badCatsWhitelistImportRef.current.value = '';
     }
   };
 
@@ -2297,6 +2348,22 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             >
               ⬇ Download
             </button>
+            <button
+              onClick={() => badCatsWhitelistImportRef.current?.click()}
+              className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded text-sm font-semibold"
+            >
+              ⬆ Import
+            </button>
+            <input
+              ref={badCatsWhitelistImportRef}
+              type="file"
+              accept=".json,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importBadCatsWhitelist(file);
+              }}
+            />
           </div>
           {badCatsWhitelistAddresses.length === 0 ? (
             <p className="text-xs text-gray-500">Keine Adressen eingetragen.</p>
