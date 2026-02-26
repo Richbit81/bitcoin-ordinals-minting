@@ -1828,6 +1828,32 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
+  const downloadBadCatsWhitelist = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses/download?adminAddress=${encodeURIComponent(adminAddress)}`);
+      let payload: { addresses: string[]; exportedAt?: string; count?: number } = {
+        addresses: badCatsWhitelistAddresses,
+        exportedAt: new Date().toISOString(),
+        count: badCatsWhitelistAddresses.length,
+      };
+      if (res.ok) {
+        payload = await res.json();
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `badcats-whitelist-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading BadCats whitelist:', error);
+      alert('Failed to download BadCats whitelist');
+    }
+  };
+
   const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums' | 'badcats') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
@@ -2264,6 +2290,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
               className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-sm font-semibold"
             >
               + Hinzufügen
+            </button>
+            <button
+              onClick={downloadBadCatsWhitelist}
+              className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm font-semibold"
+            >
+              ⬇ Download
             </button>
           </div>
           {badCatsWhitelistAddresses.length === 0 ? (
