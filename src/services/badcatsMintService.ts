@@ -87,7 +87,7 @@ export async function mintBadCatsRandom(
   walletType: 'unisat' | 'xverse' | 'okx' | null,
   isFree: boolean,
   mintedIndices: number[] = []
-): Promise<{ inscriptionId: string; txid?: string; paymentTxid?: string; item: BadCatsGeneratedItem }> {
+): Promise<{ inscriptionId: string; txid?: string; orderId?: string; paymentTxid?: string; item: BadCatsGeneratedItem }> {
 
   if (!buyerAddress.startsWith('bc1p')) {
     throw new Error(
@@ -177,6 +177,7 @@ export async function mintBadCatsRandom(
   return {
     inscriptionId: result.inscriptionId,
     txid: result.txid || result.orderId,
+    orderId: result.orderId,
     paymentTxid,
     item,
   };

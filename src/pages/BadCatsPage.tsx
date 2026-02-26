@@ -381,6 +381,7 @@ export const BadCatsPage: React.FC = () => {
             walletAddress: userAddress,
             inscriptionId: result.inscriptionId,
             txid: result.txid || null,
+            orderId: result.orderId || null,
             itemName: `BadCats #${result.item.index}`,
             itemIndex: result.item.index,
             priceInSats: isFreeForUser ? 0 : BADCATS_PRICE_SATS,
