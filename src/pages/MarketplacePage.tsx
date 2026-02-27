@@ -43,8 +43,8 @@ const PreviewImage: React.FC<{
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
-    `https://ordinals.com/preview/${encodedId}`,
     `${API_URL}/api/inscription/image/${encodedId}`,
+    `https://ordinals.com/preview/${encodedId}`,
     `https://ordinals.com/content/${encodedId}`,
   ];
   const currentSrc = imageSources[sourceIndex];
