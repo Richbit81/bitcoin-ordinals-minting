@@ -415,15 +415,27 @@ const MarketplaceAdminToolPage: React.FC = () => {
       if (hashlistEntries.length === 0) throw new Error('Load a hashlist file first');
       setHashlistImporting(true);
       setError(null);
-      const result = await importMarketplaceHashlist({
-        adminAddress: connectedAddress,
-        collectionSlug: slug,
-        entries: hashlistEntries,
-        replaceMissing: hashlistImportReplaceMissing,
-      });
-      setMessage(
-        `Hashlist imported: ${result.stats.imported} entries (traits on ${result.stats.withTraits}, deleted ${result.stats.deleted || 0}).`
-      );
+      if (hashlistImportReplaceMissing) {
+        const result = await updateMarketplaceHashlist({
+          adminAddress: connectedAddress,
+          collectionSlug: slug,
+          entries: hashlistEntries as any,
+          replaceMissing: true,
+        });
+        setMessage(
+          `Hashlist synced: imported ${result.stats.imported}, skipped ${result.stats.skipped}, deleted ${result.stats.deleted}.`
+        );
+      } else {
+        const result = await importMarketplaceHashlist({
+          adminAddress: connectedAddress,
+          collectionSlug: slug,
+          entries: hashlistEntries,
+          replaceMissing: false,
+        });
+        setMessage(
+          `Hashlist imported: ${result.stats.imported} entries (traits on ${result.stats.withTraits}, deleted ${result.stats.deleted || 0}).`
+        );
+      }
       await loadAll();
     } catch (err: any) {
       setError(err?.message || 'Failed to import hashlist');

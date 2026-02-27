@@ -38,7 +38,7 @@ const PreviewImage: React.FC<{
   const [failed, setFailed] = useState(false);
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const proxyImageSrc = `${API_URL}/api/inscription/image/${encodeURIComponent(inscriptionId)}`;
-  const previewSrc = `https://ordinals.com/preview/${encodeURIComponent(inscriptionId)}`;
+  const contentFallbackSrc = `https://ordinals.com/content/${encodeURIComponent(inscriptionId)}`;
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -49,7 +49,7 @@ const PreviewImage: React.FC<{
         </div>
       ) : failed ? (
         <iframe
-          src={previewSrc}
+          src={contentFallbackSrc}
           title={alt}
           loading="lazy"
           className="h-full w-full border-0 bg-zinc-900"
@@ -515,6 +515,69 @@ export const MarketplacePage: React.FC = () => {
     return String(raw);
   };
 
+  const extractInscriptionRarity = (ins: MarketplaceCollectionInscription): string => {
+    const md = ins.metadata || {};
+    const rarity = String(md?.derivedRarityTier || md?.rarity || '').trim();
+    return rarity || '-';
+  };
+
+  const extractInscriptionRareSats = (ins: MarketplaceCollectionInscription): string => {
+    const md = ins.metadata || {};
+    const raw =
+      md?.rareSats ??
+      md?.rare_sats ??
+      md?.rareSat ??
+      md?.rare_sat ??
+      md?.satributes?.rarity;
+    if (raw === undefined || raw === null || raw === '') return '-';
+    if (typeof raw === 'number') return raw.toLocaleString();
+    return String(raw);
+  };
+
+  const firstPresentValue = (...values: any[]): any => {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      if (typeof value === 'string' && value.trim() === '') continue;
+      return value;
+    }
+    return undefined;
+  };
+
+  const detailTextValue = (...values: any[]): string => {
+    const value = firstPresentValue(...values);
+    if (value === undefined) return '-';
+    if (Array.isArray(value)) return value.length ? value.join(', ') : '-';
+    if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '-';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
+  const extractInscriptionTraits = (ins: MarketplaceCollectionInscription): Array<{ trait_type: string; value: string }> => {
+    const rows = Array.isArray(ins.attributes) ? ins.attributes : [];
+    return rows
+      .map((t: any) => ({
+        trait_type: String(t?.trait_type || '').trim(),
+        value: String(t?.value || '').trim(),
+      }))
+      .filter((t) => t.trait_type && t.value);
+  };
+
+  const collectionTraitPercentByKey = useMemo(() => {
+    const total = Math.max(1, collectionInscriptions.length);
+    const counts = new Map<string, number>();
+    for (const ins of collectionInscriptions) {
+      for (const t of extractInscriptionTraits(ins)) {
+        const k = `${t.trait_type}::${t.value}`;
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
+    }
+    const out = new Map<string, number>();
+    for (const [k, c] of counts.entries()) {
+      out.set(k, (c / total) * 100);
+    }
+    return out;
+  }, [collectionInscriptions]);
+
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return listings.filter((l) => {
@@ -789,11 +852,11 @@ export const MarketplacePage: React.FC = () => {
                     key={c.slug}
                     type="button"
                     onClick={() => loadCollectionInscriptions(c.slug)}
-                    className="text-left rounded-lg border border-white/10 bg-zinc-900/60 hover:border-red-500/40 transition-colors overflow-hidden"
+                    className="text-left rounded-lg border border-white/10 bg-zinc-900/60 hover:border-red-500/40 transition-colors overflow-hidden max-w-xs"
                   >
-                    <div className="h-28 bg-zinc-800">
+                    <div className="aspect-square bg-zinc-900">
                       {c.cover_image ? (
-                        <img src={c.cover_image} alt={c.name} className="h-full w-full object-cover" />
+                        <img src={c.cover_image} alt={c.name} className="h-full w-full object-contain" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No cover</div>
                       )}
@@ -837,26 +900,53 @@ export const MarketplacePage: React.FC = () => {
               <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
-                {collectionInscriptions.map((ins) => (
-                  <button
-                    key={ins.inscription_id}
-                    type="button"
-                    onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
-                    className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
-                  >
-                    <PreviewImage
-                      inscriptionId={ins.inscription_id}
-                      alt={ins.inscription_id}
-                      className="w-full aspect-square"
-                    />
-                    <div className="p-2">
-                      <div className="text-[11px] font-mono text-gray-300 truncate">
-                        {String(ins.metadata?.name || ins.inscription_id)}
+                {collectionInscriptions.map((ins) => {
+                  const rarity = extractInscriptionRarity(ins);
+                  const rareSats = extractInscriptionRareSats(ins);
+                  const traits = extractInscriptionTraits(ins);
+                  return (
+                    <button
+                      key={ins.inscription_id}
+                      type="button"
+                      onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
+                      className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                    >
+                      <PreviewImage
+                        inscriptionId={ins.inscription_id}
+                        alt={ins.inscription_id}
+                        className="w-full aspect-square"
+                        fit="contain"
+                      />
+                      <div className="p-2">
+                        <div className="text-[11px] font-mono text-gray-300 truncate">
+                          {String(ins.metadata?.name || ins.inscription_id)}
+                        </div>
+                        <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
+                            Rarity: {rarity}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
+                            Rare sats: {rareSats}
+                          </span>
+                        </div>
+                        {traits.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {traits.slice(0, 2).map((t, idx) => {
+                              const k = `${t.trait_type}::${t.value}`;
+                              const pct = collectionTraitPercentByKey.get(k);
+                              return (
+                                <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
+                                  {t.trait_type}: {t.value} {pct !== undefined ? `(${pct.toFixed(1)}%)` : ''}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1173,7 +1263,7 @@ export const MarketplacePage: React.FC = () => {
                   <PreviewImage
                     inscriptionId={selectedInscriptionDetail.inscriptionId}
                     alt={selectedInscriptionDetail.inscriptionId}
-                    className="w-full aspect-square rounded border border-white/10"
+                    className="w-full max-w-[520px] aspect-square rounded border border-white/10 mx-auto bg-zinc-900"
                     fit="contain"
                   />
                   <div className="text-xs font-mono text-gray-300 break-all">
@@ -1285,18 +1375,18 @@ export const MarketplacePage: React.FC = () => {
                     <div className="rounded border border-white/10 p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         <div><span className="text-gray-500">Inscription ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
-                        <div><span className="text-gray-500">Inscription Number:</span> {String(selectedInscriptionDetail.chainInfo?.inscriptionNumber || selectedInscriptionDetail.chainInfo?.inscription_number || '-')}</div>
-                        <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{String(selectedInscriptionDetail.marketplaceInscription?.owner_address || selectedInscriptionDetail.chainInfo?.ownerAddress || selectedInscriptionDetail.chainInfo?.address || '-')}</span></div>
+                        <div><span className="text-gray-500">Inscription Number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.inscriptionNumber, selectedInscriptionDetail.chainInfo?.inscription_number, selectedInscriptionDetail.chainInfo?.number)}</div>
+                        <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.marketplaceInscription?.owner_address, selectedInscriptionDetail.chainInfo?.ownerAddress, selectedInscriptionDetail.chainInfo?.owner_address, selectedInscriptionDetail.chainInfo?.address)}</span></div>
                         <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={selectedInscriptionDetail.contentUrl}>Link</a></div>
-                        <div><span className="text-gray-500">Content Type:</span> {String(selectedInscriptionDetail.chainInfo?.contentType || selectedInscriptionDetail.chainInfo?.content_type || '-')}</div>
-                        <div><span className="text-gray-500">Created:</span> {String(selectedInscriptionDetail.chainInfo?.timestamp || selectedInscriptionDetail.chainInfo?.created || selectedInscriptionDetail.marketplaceInscription?.created_at || '-')}</div>
-                        <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.genesisTransaction || selectedInscriptionDetail.chainInfo?.genesis_txid || '-')}</span></div>
-                        <div><span className="text-gray-500">Genesis Block:</span> {String(selectedInscriptionDetail.chainInfo?.genesisTransactionBlock || selectedInscriptionDetail.chainInfo?.genesis_block || '-')}</div>
-                        <div><span className="text-gray-500">Location:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.location || '-')}</span></div>
-                        <div><span className="text-gray-500">Output:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.output || '-')}</span></div>
-                        <div><span className="text-gray-500">Rarity:</span> {String(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier || selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity || selectedInscriptionDetail.chainInfo?.rarity || '-')}</div>
-                        <div><span className="text-gray-500">Rare sats:</span> {String(selectedInscriptionDetail.chainInfo?.rareSats || selectedInscriptionDetail.chainInfo?.rare_sats || '-')}</div>
-                        <div><span className="text-gray-500">Sat number:</span> {String(selectedInscriptionDetail.chainInfo?.satNumber || selectedInscriptionDetail.chainInfo?.sat_number || selectedInscriptionDetail.chainInfo?.sat || '-')}</div>
+                        <div><span className="text-gray-500">Content Type:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.contentType, selectedInscriptionDetail.chainInfo?.content_type, selectedInscriptionDetail.marketplaceInscription?.metadata?.contentType, selectedInscriptionDetail.marketplaceInscription?.metadata?.content_type)}</div>
+                        <div><span className="text-gray-500">Created:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.timestamp, selectedInscriptionDetail.chainInfo?.created, selectedInscriptionDetail.marketplaceInscription?.metadata?.created, selectedInscriptionDetail.marketplaceInscription?.created_at)}</div>
+                        <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransaction, selectedInscriptionDetail.chainInfo?.genesis_txid, selectedInscriptionDetail.chainInfo?.genesis_tx_id, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransaction, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_txid, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_tx_id)}</span></div>
+                        <div><span className="text-gray-500">Genesis Block:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransactionBlock, selectedInscriptionDetail.chainInfo?.genesis_block, selectedInscriptionDetail.chainInfo?.genesis_height, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransactionBlock, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_block, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_height)}</div>
+                        <div><span className="text-gray-500">Location:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.location, selectedInscriptionDetail.chainInfo?.satpoint, selectedInscriptionDetail.chainInfo?.sat_point, selectedInscriptionDetail.marketplaceInscription?.metadata?.location, selectedInscriptionDetail.marketplaceInscription?.metadata?.satpoint)}</span></div>
+                        <div><span className="text-gray-500">Output:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.output, selectedInscriptionDetail.chainInfo?.outpoint, selectedInscriptionDetail.marketplaceInscription?.metadata?.output, selectedInscriptionDetail.marketplaceInscription?.metadata?.outpoint)}</span></div>
+                        <div><span className="text-gray-500">Rarity:</span> {detailTextValue(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier, selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity, selectedInscriptionDetail.chainInfo?.rarity, selectedInscriptionDetail.chainInfo?.sat_rarity, selectedInscriptionDetail.chainInfo?.satributes?.rarity)}</div>
+                        <div><span className="text-gray-500">Rare sats:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity)}</div>
+                        <div><span className="text-gray-500">Sat number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.satNumber, selectedInscriptionDetail.chainInfo?.sat_number, selectedInscriptionDetail.chainInfo?.sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satNumber, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat_number, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat)}</div>
                       </div>
                     </div>
                   )}
@@ -1309,6 +1399,14 @@ export const MarketplacePage: React.FC = () => {
                           selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
                             <span key={`${t?.trait_type}-${t?.value}-${idx}`} className="text-[11px] px-2 py-1 rounded bg-zinc-900 border border-white/10">
                               {String(t?.trait_type || '?')}: {String(t?.value || '?')}
+                              {(() => {
+                                const traitType = String(t?.trait_type || '').trim();
+                                const value = String(t?.value || '').trim();
+                                if (!traitType || !value) return '';
+                                const k = `${traitType}::${value}`;
+                                const pct = collectionTraitPercentByKey.get(k);
+                                return pct !== undefined ? ` (${pct.toFixed(1)}%)` : '';
+                              })()}
                             </span>
                           ))
                         ) : (
