@@ -3,15 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
 import {
+  acceptMarketplaceOffer,
   cancelMarketplaceListing,
+  completeMarketplaceOfferSale,
   completeMarketplacePurchaseAdvanced,
   completeMarketplacePurchase,
+  createMarketplaceOffer,
   createMarketplaceListing,
+  declineMarketplaceOffer,
   getMarketplaceCollections,
+  getMarketplaceInscriptionDetail,
   getMarketplaceListings,
   getMarketplaceRanking,
   MarketplaceCollection,
   MarketplaceCollectionRanking,
+  MarketplaceInscriptionDetail,
   MarketplaceListing,
 } from '../services/marketplaceService';
 import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
@@ -65,7 +71,19 @@ export const MarketplacePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('all');
   const [sortMode, setSortMode] = useState<'latest' | 'price-asc' | 'price-desc'>('latest');
+  const [showTraitFilters, setShowTraitFilters] = useState(false);
+  const [selectedTraitFilters, setSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionsMeta, setCollectionsMeta] = useState<MarketplaceCollection[]>([]);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedInscriptionDetail, setSelectedInscriptionDetail] = useState<MarketplaceInscriptionDetail | null>(null);
+  const [selectedDetailListing, setSelectedDetailListing] = useState<MarketplaceListing | null>(null);
+  const [offerPriceSats, setOfferPriceSats] = useState('');
+  const [offerNote, setOfferNote] = useState('');
+  const [offerSubmitting, setOfferSubmitting] = useState(false);
+  const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
+  const [offerTxids, setOfferTxids] = useState<Record<string, string>>({});
+  const [offerCompleteBusyId, setOfferCompleteBusyId] = useState<string | null>(null);
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
@@ -234,6 +252,116 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
+  const handleOpenDetail = async (listing: MarketplaceListing) => {
+    try {
+      setDetailLoading(true);
+      setError(null);
+      setDetailOpen(true);
+      setSelectedDetailListing(listing);
+      setOfferPriceSats(String(Math.max(1, Math.floor(Number(listing.price_sats || 0) * 0.95))));
+      setOfferNote('');
+      const detail = await getMarketplaceInscriptionDetail(listing.inscription_id);
+      setSelectedInscriptionDetail(detail);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load ordinal details');
+      setSelectedInscriptionDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleCreateOfferFromDetail = async () => {
+    try {
+      if (!selectedDetailListing) throw new Error('No listing selected');
+      if (!walletState.connected || !currentAddress) throw new Error('Connect wallet first');
+      const offerSats = Math.round(Number(offerPriceSats || 0));
+      if (!Number.isFinite(offerSats) || offerSats <= 0) throw new Error('Offer price must be greater than 0');
+      if (currentAddress.toLowerCase() === selectedDetailListing.seller_address.toLowerCase()) {
+        throw new Error('Seller cannot create own offer');
+      }
+
+      setOfferSubmitting(true);
+      setError(null);
+      setActionMessage(null);
+      await createMarketplaceOffer({
+        listingId: selectedDetailListing.id,
+        buyerAddress: currentAddress,
+        offerPriceSats: offerSats,
+        note: offerNote.trim(),
+      });
+      setActionMessage('Offer submitted successfully.');
+      const refreshed = await getMarketplaceInscriptionDetail(selectedDetailListing.inscription_id);
+      setSelectedInscriptionDetail(refreshed);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit offer');
+    } finally {
+      setOfferSubmitting(false);
+    }
+  };
+
+  const handleOfferDecision = async (offerId: string, decision: 'accept' | 'decline') => {
+    try {
+      if (!selectedDetailListing) throw new Error('No listing selected');
+      if (!walletState.connected || !currentAddress) throw new Error('Connect wallet first');
+      setOfferActionBusyId(offerId);
+      setError(null);
+      setActionMessage(null);
+
+      if (decision === 'accept') {
+        await acceptMarketplaceOffer({
+          listingId: selectedDetailListing.id,
+          offerId,
+          walletAddress: currentAddress,
+        });
+        setActionMessage('Offer accepted.');
+      } else {
+        await declineMarketplaceOffer({
+          listingId: selectedDetailListing.id,
+          offerId,
+          walletAddress: currentAddress,
+        });
+        setActionMessage('Offer declined.');
+      }
+
+      const refreshed = await getMarketplaceInscriptionDetail(selectedDetailListing.inscription_id);
+      setSelectedInscriptionDetail(refreshed);
+    } catch (err: any) {
+      setError(err?.message || `Failed to ${decision} offer`);
+    } finally {
+      setOfferActionBusyId(null);
+    }
+  };
+
+  const handleCompleteOfferSale = async (offerId: string) => {
+    try {
+      if (!selectedDetailListing) throw new Error('No listing selected');
+      if (!walletState.connected || !currentAddress) throw new Error('Connect wallet first');
+      const paymentTxid = String(offerTxids[offerId] || '').trim();
+      setOfferCompleteBusyId(offerId);
+      setError(null);
+      setActionMessage(null);
+      const result = await completeMarketplaceOfferSale({
+        listingId: selectedDetailListing.id,
+        offerId,
+        walletAddress: currentAddress,
+        paymentTxid: paymentTxid || undefined,
+      });
+      setActionMessage(
+        `Offer sale completed${result.paymentTxid ? `. Txid: ${result.paymentTxid}` : ''}.`
+      );
+      const [refreshedDetail] = await Promise.all([
+        getMarketplaceInscriptionDetail(selectedDetailListing.inscription_id),
+        loadListings(),
+        getMarketplaceRanking().then(setRanking),
+      ]);
+      setSelectedInscriptionDetail(refreshedDetail);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to complete offer sale');
+    } finally {
+      setOfferCompleteBusyId(null);
+    }
+  };
+
   if (!isAdminUser) {
     return (
       <div className="min-h-screen bg-black text-white p-4 md:p-6">
@@ -300,9 +428,32 @@ export const MarketplacePage: React.FC = () => {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [listings]);
 
-  const filteredListings = useMemo(() => {
+  const extractTraits = (l: MarketplaceListing): Array<{ trait_type: string; value: string }> => {
+    const rows = Array.isArray(l.inscription_attributes) ? l.inscription_attributes : [];
+    return rows
+      .map((t) => ({
+        trait_type: String(t?.trait_type || '').trim(),
+        value: String(t?.value || '').trim(),
+      }))
+      .filter((t) => t.trait_type && t.value);
+  };
+
+  const extractRareSats = (l: MarketplaceListing): string => {
+    const md = l.inscription_metadata || {};
+    const raw =
+      md?.rareSats ??
+      md?.rare_sats ??
+      md?.rareSat ??
+      md?.rare_sat ??
+      md?.satributes?.rarity;
+    if (raw === undefined || raw === null || raw === '') return '-';
+    if (typeof raw === 'number') return raw.toLocaleString();
+    return String(raw);
+  };
+
+  const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let rows = listings.filter((l) => {
+    return listings.filter((l) => {
       const matchCollection =
         collectionFilter === 'all' || String(l.collection_slug || '') === collectionFilter;
       if (!matchCollection) return false;
@@ -313,13 +464,49 @@ export const MarketplacePage: React.FC = () => {
         String(l.seller_address || '').toLowerCase().includes(q)
       );
     });
+  }, [listings, searchQuery, collectionFilter]);
+
+  const traitOptions = useMemo(() => {
+    const traitMap = new Map<string, Map<string, number>>();
+    for (const l of baseFilteredListings) {
+      for (const t of extractTraits(l)) {
+        if (!traitMap.has(t.trait_type)) traitMap.set(t.trait_type, new Map<string, number>());
+        const inner = traitMap.get(t.trait_type)!;
+        inner.set(t.value, (inner.get(t.value) || 0) + 1);
+      }
+    }
+    return Array.from(traitMap.entries())
+      .map(([traitType, valueMap]) => ({
+        traitType,
+        values: Array.from(valueMap.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => b.count - a.count),
+      }))
+      .sort((a, b) => a.traitType.localeCompare(b.traitType));
+  }, [baseFilteredListings]);
+
+  const selectedTraitCount = useMemo(
+    () => Object.values(selectedTraitFilters).reduce((sum, arr) => sum + (arr?.length || 0), 0),
+    [selectedTraitFilters]
+  );
+
+  const filteredListings = useMemo(() => {
+    let rows = baseFilteredListings.filter((l) => {
+      const activeTraitTypes = Object.entries(selectedTraitFilters).filter(([, vals]) => vals && vals.length > 0);
+      if (activeTraitTypes.length === 0) return true;
+      const traits = extractTraits(l);
+      return activeTraitTypes.every(([traitType, vals]) =>
+        traits.some((t) => t.trait_type === traitType && vals.includes(t.value))
+      );
+    });
+
     rows = [...rows].sort((a, b) => {
       if (sortMode === 'price-asc') return Number(a.price_sats || 0) - Number(b.price_sats || 0);
       if (sortMode === 'price-desc') return Number(b.price_sats || 0) - Number(a.price_sats || 0);
       return Date.parse(b.created_at || '') - Date.parse(a.created_at || '');
     });
     return rows;
-  }, [listings, searchQuery, collectionFilter, sortMode]);
+  }, [baseFilteredListings, selectedTraitFilters, sortMode]);
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
@@ -414,7 +601,7 @@ export const MarketplacePage: React.FC = () => {
         )}
 
         <div className="mb-6 rounded-xl border border-white/15 bg-zinc-950/70 p-3 md:p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -442,7 +629,68 @@ export const MarketplacePage: React.FC = () => {
               <option value="price-asc">Sort: Price Low -&gt; High</option>
               <option value="price-desc">Sort: Price High -&gt; Low</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setShowTraitFilters((v) => !v)}
+              className="bg-black border border-white/15 rounded-lg px-3 py-2 text-sm text-left hover:bg-zinc-900"
+            >
+              Traits Filter {selectedTraitCount > 0 ? `(${selectedTraitCount})` : ''}
+            </button>
           </div>
+          {showTraitFilters && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/40 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-gray-400">Select one or more trait values</div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTraitFilters({})}
+                  className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600"
+                >
+                  Clear Traits
+                </button>
+              </div>
+              {traitOptions.length === 0 ? (
+                <div className="text-xs text-gray-500">No traits available for current filters.</div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                  {traitOptions.map((group) => (
+                    <div key={group.traitType} className="border border-white/10 rounded p-2">
+                      <div className="text-xs font-semibold text-gray-300 mb-1">{group.traitType}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.values.slice(0, 40).map((entry) => {
+                          const selected = (selectedTraitFilters[group.traitType] || []).includes(entry.value);
+                          return (
+                            <button
+                              key={`${group.traitType}-${entry.value}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTraitFilters((prev) => {
+                                  const current = prev[group.traitType] || [];
+                                  const nextValues = current.includes(entry.value)
+                                    ? current.filter((v) => v !== entry.value)
+                                    : [...current, entry.value];
+                                  const next = { ...prev, [group.traitType]: nextValues };
+                                  if (nextValues.length === 0) delete next[group.traitType];
+                                  return next;
+                                });
+                              }}
+                              className={`px-2 py-1 rounded text-[11px] border ${
+                                selected
+                                  ? 'bg-red-600/30 border-red-500/70 text-red-100'
+                                  : 'bg-zinc-800 border-zinc-600 text-gray-200 hover:bg-zinc-700'
+                              }`}
+                            >
+                              {entry.value} ({entry.count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="mt-2 text-xs text-gray-400">
             Showing {filteredListings.length} listing(s) • Avg price {avgPriceSats.toLocaleString()} sats
           </div>
@@ -486,6 +734,13 @@ export const MarketplacePage: React.FC = () => {
               {filteredListings.map((l) => {
                 const isOwn = currentAddress && l.seller_address.toLowerCase() === currentAddress.toLowerCase();
                 const isBusy = busyListingId === l.id;
+                const rarityLabel = String(
+                  l.inscription_metadata?.derivedRarityTier ||
+                  l.inscription_metadata?.rarity ||
+                  ''
+                ).trim();
+                const traitsCount = extractTraits(l).length;
+                const rareSatsLabel = extractRareSats(l);
                 return (
                   <div
                     key={l.id}
@@ -502,11 +757,44 @@ export const MarketplacePage: React.FC = () => {
                       <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 border border-white/20 text-xs font-mono">
                         {Number(l.price_sats || 0).toLocaleString()} sats
                       </div>
+                      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div className="absolute inset-x-2 bottom-2 rounded-lg border border-white/20 bg-black/80 backdrop-blur-sm p-2">
+                          <div className="flex items-center justify-between gap-2 text-[10px] text-gray-200">
+                            <span className="uppercase tracking-wide text-gray-400">Quick Details</span>
+                            {rarityLabel ? (
+                              <span className="uppercase tracking-wide text-violet-200 bg-violet-900/40 border border-violet-700/40 rounded px-1.5 py-0.5">
+                                {rarityLabel}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            )}
+                          </div>
+                          <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-gray-300">
+                            <div className="truncate">
+                              <span className="text-gray-500">ID:</span> {l.inscription_id.slice(0, 8)}...{l.inscription_id.slice(-4)}
+                            </div>
+                            <div className="truncate">
+                              <span className="text-gray-500">Traits:</span> {traitsCount}
+                            </div>
+                            <div className="truncate">
+                              <span className="text-gray-500">Owner:</span> {l.seller_address.slice(0, 6)}...{l.seller_address.slice(-4)}
+                            </div>
+                            <div className="truncate">
+                              <span className="text-gray-500">Price:</span> {Number(l.price_sats || 0).toLocaleString()} sats
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <div className="p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-sm font-semibold truncate">{l.collection_slug}</div>
                         <div className="flex items-center gap-1">
+                          {rarityLabel && (
+                            <span className="text-[10px] uppercase tracking-wide text-violet-200 bg-violet-900/40 border border-violet-700/40 rounded px-1.5 py-0.5">
+                              {rarityLabel}
+                            </span>
+                          )}
                           {verifiedCollectionSet.has(String(l.collection_slug || '')) && (
                             <span className="text-[10px] uppercase tracking-wide text-sky-200 bg-sky-900/40 border border-sky-700/40 rounded px-1.5 py-0.5">
                               Verified
@@ -528,16 +816,47 @@ export const MarketplacePage: React.FC = () => {
                       <div className="text-xs text-gray-400">
                         Seller: <span className="font-mono">{l.seller_address.slice(0, 8)}...{l.seller_address.slice(-6)}</span>
                       </div>
+                      <div className="text-xs text-gray-400">
+                        Rare sats: <span className="font-mono">{rareSatsLabel}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractTraits(l)
+                          .slice(0, 3)
+                          .map((t, idx) => (
+                            <span
+                              key={`${l.id}-${t.trait_type}-${t.value}-${idx}`}
+                              className="text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200"
+                            >
+                              {t.trait_type}: {t.value}
+                            </span>
+                          ))}
+                      </div>
                       {isOwn ? (
-                        <button
-                          disabled={isBusy}
-                          onClick={() => handleCancelListing(l.id)}
-                          className="w-full px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-sm font-semibold"
-                        >
-                          {isBusy ? 'Working...' : 'Cancel Listing'}
-                        </button>
-                      ) : (
                         <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetail(l)}
+                            className="px-2 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold"
+                          >
+                            Details
+                          </button>
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleCancelListing(l.id)}
+                            className="px-2 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                          >
+                            {isBusy ? 'Working...' : 'Cancel'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetail(l)}
+                            className="px-2 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold"
+                          >
+                            Details
+                          </button>
                           <button
                             disabled={!walletState.connected || isBusy}
                             onClick={() => handleBuyListing(l)}
@@ -671,6 +990,256 @@ export const MarketplacePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {detailOpen && (
+        <div className="fixed inset-0 z-[120] bg-black/85 p-4 overflow-auto">
+          <div className="max-w-5xl mx-auto bg-zinc-950 border border-white/15 rounded-xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h3 className="font-bold text-lg">Ordinal Detail Preview</h3>
+              <button
+                onClick={() => {
+                  setDetailOpen(false);
+                  setSelectedInscriptionDetail(null);
+                  setSelectedDetailListing(null);
+                }}
+                className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="p-4 text-sm text-gray-400">Loading details...</div>
+            ) : !selectedInscriptionDetail ? (
+              <div className="p-4 text-sm text-gray-400">No detail data available.</div>
+            ) : (
+              <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div className="xl:col-span-1 space-y-3">
+                  <PreviewImage
+                    inscriptionId={selectedInscriptionDetail.inscriptionId}
+                    alt={selectedInscriptionDetail.inscriptionId}
+                    className="w-full aspect-square rounded border border-white/10"
+                  />
+                  <div className="text-xs font-mono text-gray-300 break-all">
+                    {selectedInscriptionDetail.inscriptionId}
+                  </div>
+                  <a
+                    href={selectedInscriptionDetail.contentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block text-xs text-red-300 hover:text-red-200 underline"
+                  >
+                    Open Content
+                  </a>
+                </div>
+
+                <div className="xl:col-span-2 space-y-4">
+                  {selectedDetailListing && (
+                    <div className="rounded border border-white/10 p-3">
+                      <div className="text-xs text-gray-400 mb-2">Offer / Buy</div>
+                      {currentAddress &&
+                      selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ? (
+                        <button
+                          disabled={busyListingId === selectedDetailListing.id}
+                          onClick={() => handleCancelListing(selectedDetailListing.id)}
+                          className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                        >
+                          {busyListingId === selectedDetailListing.id ? 'Working...' : 'Cancel Listing'}
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input
+                              value={offerPriceSats}
+                              onChange={(e) => setOfferPriceSats(e.target.value)}
+                              placeholder="Offer price (sats)"
+                              className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
+                            />
+                            <input
+                              value={offerNote}
+                              onChange={(e) => setOfferNote(e.target.value)}
+                              placeholder="Optional note"
+                              className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
+                            />
+                            <button
+                              disabled={!walletState.connected || offerSubmitting}
+                              onClick={handleCreateOfferFromDetail}
+                              className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-xs font-semibold"
+                              title="Submit price offer"
+                            >
+                              {offerSubmitting ? 'Submitting...' : 'Offer Buy'}
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                              disabled={!walletState.connected || busyListingId === selectedDetailListing.id}
+                              onClick={() => handleBuyListing(selectedDetailListing)}
+                              className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
+                              title="Simple mode: direct payment + complete"
+                            >
+                              {busyListingId === selectedDetailListing.id ? 'Buying...' : 'Simple Buy'}
+                            </button>
+                            <button
+                              disabled={!walletState.connected || busyListingId === selectedDetailListing.id}
+                              onClick={() => handleAdvancedBuyListing(selectedDetailListing)}
+                              className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                              title="Advanced mode: wallet PSBT signing and on-chain broadcast"
+                            >
+                              {busyListingId === selectedDetailListing.id ? 'PSBT...' : 'PSBT Buy'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="rounded border border-white/10 p-3">
+                    <div className="text-xs text-gray-400 mb-2">Details</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-gray-500">ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
+                      <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{String(selectedInscriptionDetail.marketplaceInscription?.owner_address || selectedInscriptionDetail.chainInfo?.ownerAddress || selectedInscriptionDetail.chainInfo?.address || '-')}</span></div>
+                      <div><span className="text-gray-500">Content:</span> <span className="font-mono break-all">{selectedInscriptionDetail.contentUrl}</span></div>
+                      <div><span className="text-gray-500">Created:</span> {String(selectedInscriptionDetail.chainInfo?.timestamp || selectedInscriptionDetail.chainInfo?.created || selectedInscriptionDetail.marketplaceInscription?.created_at || '-')}</div>
+                      <div><span className="text-gray-500">Block:</span> {String(selectedInscriptionDetail.chainInfo?.blockHeight || selectedInscriptionDetail.chainInfo?.block_height || selectedInscriptionDetail.chainInfo?.height || '-')}</div>
+                      <div><span className="text-gray-500">Rare sats:</span> {String(selectedInscriptionDetail.chainInfo?.rareSats || selectedInscriptionDetail.chainInfo?.rare_sats || '-')}</div>
+                      <div><span className="text-gray-500">Sat number:</span> {String(selectedInscriptionDetail.chainInfo?.satNumber || selectedInscriptionDetail.chainInfo?.sat_number || selectedInscriptionDetail.chainInfo?.sat || '-')}</div>
+                      <div><span className="text-gray-500">Rarity:</span> {String(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier || selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity || '-')}</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded border border-white/10 p-3">
+                    <div className="text-xs text-gray-400 mb-2">Traits</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.isArray(selectedInscriptionDetail.marketplaceInscription?.attributes) &&
+                      selectedInscriptionDetail.marketplaceInscription!.attributes!.length > 0 ? (
+                        selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
+                          <span key={`${t?.trait_type}-${t?.value}-${idx}`} className="text-[11px] px-2 py-1 rounded bg-zinc-900 border border-white/10">
+                            {String(t?.trait_type || '?')}: {String(t?.value || '?')}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-500">No traits</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
+                      <div className="text-xs text-gray-400 mb-2">Price History</div>
+                      {selectedInscriptionDetail.salesHistory.length === 0 ? (
+                        <div className="text-xs text-gray-500">No sales yet.</div>
+                      ) : (
+                        selectedInscriptionDetail.salesHistory.map((s) => (
+                          <div key={s.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
+                            <div className="font-mono">{Number(s.price_sats || 0).toLocaleString()} sats</div>
+                            <div className="text-gray-500">{String(s.sold_at || s.created_at || '')}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
+                      <div className="text-xs text-gray-400 mb-2">Activity</div>
+                      {selectedInscriptionDetail.activity.length === 0 ? (
+                        <div className="text-xs text-gray-500">No activity.</div>
+                      ) : (
+                        selectedInscriptionDetail.activity.map((a) => (
+                          <div key={a.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
+                            <div className="capitalize">{a.activity_type}</div>
+                            <div className="text-gray-500">{String(a.created_at || '')}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
+                      <div className="text-xs text-gray-400 mb-2">Offers</div>
+                      {selectedInscriptionDetail.offersHistory?.length === 0 ? (
+                        <div className="text-xs text-gray-500">No offers yet.</div>
+                      ) : (
+                        (selectedInscriptionDetail.offersHistory || []).map((o) => (
+                          <div key={o.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
+                            <div className="font-mono">{Number(o.offer_price_sats || 0).toLocaleString()} sats</div>
+                            <div className="text-gray-500">
+                              {String(o.buyer_address || '').slice(0, 8)}...{String(o.buyer_address || '').slice(-6)} • {o.status}
+                            </div>
+                            {selectedDetailListing &&
+                              currentAddress &&
+                              selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() &&
+                              o.status === 'active' && (
+                                <div className="mt-1 flex gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={offerActionBusyId === o.id}
+                                    onClick={() => handleOfferDecision(o.id, 'accept')}
+                                    className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-[10px] font-semibold"
+                                  >
+                                    {offerActionBusyId === o.id ? 'Working...' : 'Accept'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={offerActionBusyId === o.id}
+                                    onClick={() => handleOfferDecision(o.id, 'decline')}
+                                    className="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[10px] font-semibold"
+                                  >
+                                    {offerActionBusyId === o.id ? 'Working...' : 'Decline'}
+                                  </button>
+                                </div>
+                              )}
+                            {selectedDetailListing &&
+                              currentAddress &&
+                              o.status === 'accepted' &&
+                              (selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ||
+                                String(o.buyer_address || '').toLowerCase() === currentAddress.toLowerCase() ||
+                                isAdminUser) && (
+                                <div className="mt-1.5 space-y-1">
+                                  <input
+                                    value={offerTxids[o.id] || ''}
+                                    onChange={(e) =>
+                                      setOfferTxids((prev) => ({ ...prev, [o.id]: e.target.value }))
+                                    }
+                                    placeholder="Payment txid (optional)"
+                                    className="w-full bg-black border border-white/15 rounded px-2 py-1 text-[10px] font-mono"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={offerCompleteBusyId === o.id}
+                                    onClick={() => handleCompleteOfferSale(o.id)}
+                                    className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-[10px] font-semibold"
+                                  >
+                                    {offerCompleteBusyId === o.id ? 'Completing...' : 'Finalize Sale'}
+                                  </button>
+                                </div>
+                              )}
+                            {o.status === 'completed' && (
+                              <div className="text-[10px] text-emerald-300 mt-1">
+                                Completed
+                                {o.metadata?.paymentTxid ? (
+                                  <>
+                                    {' '}
+                                    •{' '}
+                                    <a
+                                      href={`https://mempool.space/tx/${o.metadata.paymentTxid}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="underline hover:text-emerald-200"
+                                    >
+                                      TX
+                                    </a>
+                                  </>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import {
   createMarketplaceListing,
   getMarketplaceActivity,
   getMarketplaceCollections,
+  getMarketplaceHashlist,
   getMarketplaceHealth,
   getMarketplaceListings,
   getMarketplaceRanking,
@@ -22,6 +23,8 @@ import {
   MarketplaceRaritySummaryRow,
   MarketplaceTraitSummaryRow,
   searchMarketplaceBisCollections,
+  recomputeMarketplaceRarityFromTraits,
+  updateMarketplaceHashlist,
   updateMarketplaceListingPrice,
 } from '../services/marketplaceService';
 
@@ -58,6 +61,45 @@ const MarketplaceAdminToolPage: React.FC = () => {
   const [integrationSuggestions, setIntegrationSuggestions] = useState<MarketplaceBisCollectionSuggestion[]>([]);
   const [integrationSuggestionsLoading, setIntegrationSuggestionsLoading] = useState(false);
   const [showIntegrationSuggestions, setShowIntegrationSuggestions] = useState(false);
+  const [hashlistEditorSlug, setHashlistEditorSlug] = useState('');
+  const [hashlistEditorText, setHashlistEditorText] = useState('');
+  const [hashlistEditorVisible, setHashlistEditorVisible] = useState(false);
+  const [hashlistEditorLoading, setHashlistEditorLoading] = useState(false);
+  const [hashlistEditorReplaceMissing, setHashlistEditorReplaceMissing] = useState(false);
+
+  const getTraitRarityBand = (percent: number): {
+    label: string;
+    className: string;
+  } => {
+    if (percent <= 1) {
+      return {
+        label: '1%',
+        className: 'bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700/60',
+      };
+    }
+    if (percent <= 5) {
+      return {
+        label: '2-5%',
+        className: 'bg-sky-900/50 text-sky-200 border border-sky-700/60',
+      };
+    }
+    if (percent <= 20) {
+      return {
+        label: '5-20%',
+        className: 'bg-emerald-900/50 text-emerald-200 border border-emerald-700/60',
+      };
+    }
+    if (percent <= 50) {
+      return {
+        label: '20-50%',
+        className: 'bg-amber-900/50 text-amber-200 border border-amber-700/60',
+      };
+    }
+    return {
+      label: '50-100%',
+      className: 'bg-zinc-800 text-zinc-100 border border-zinc-600',
+    };
+  };
 
   const [collectionForm, setCollectionForm] = useState({
     slug: '',
@@ -68,6 +110,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
     verified: false,
     metadataJson: '{}',
   });
+  const [collectionCoverFileName, setCollectionCoverFileName] = useState('');
 
   const [listingForm, setListingForm] = useState({
     inscriptionId: '',
@@ -160,6 +203,32 @@ const MarketplaceAdminToolPage: React.FC = () => {
       await loadAll();
     } catch (err: any) {
       setError(err?.message || 'Failed to save collection');
+    }
+  };
+
+  const handleCollectionCoverFileSelect = async (file: File | null) => {
+    if (!file) return;
+    try {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please select an image file');
+      }
+      // Keep DB payload reasonable and avoid huge inline base64 values.
+      const maxBytes = 3 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        throw new Error('Image is too large. Max size is 3 MB');
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+      });
+      setCollectionForm((p) => ({ ...p, coverImage: dataUrl }));
+      setCollectionCoverFileName(file.name);
+      setMessage(`Cover image loaded from file: ${file.name}`);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load cover image file');
     }
   };
 
@@ -306,6 +375,73 @@ const MarketplaceAdminToolPage: React.FC = () => {
     }
   };
 
+  const handleLoadHashlistEditor = async () => {
+    try {
+      if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
+      const slug = hashlistEditorSlug.trim();
+      if (!slug) throw new Error('Collection slug is required');
+      setHashlistEditorLoading(true);
+      setError(null);
+      const data = await getMarketplaceHashlist({
+        adminAddress: connectedAddress,
+        collectionSlug: slug,
+      });
+      setHashlistEditorText(JSON.stringify(data.entries || [], null, 2));
+      setHashlistEditorVisible(true);
+      setMessage(`Loaded hashlist for ${slug}: ${(data.entries || []).length} entries.`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load collection hashlist');
+    } finally {
+      setHashlistEditorLoading(false);
+    }
+  };
+
+  const handleSaveHashlistEditor = async () => {
+    try {
+      if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
+      const slug = hashlistEditorSlug.trim();
+      if (!slug) throw new Error('Collection slug is required');
+      const parsed = JSON.parse(hashlistEditorText || '[]');
+      if (!Array.isArray(parsed)) throw new Error('Hashlist JSON must be an array');
+
+      setHashlistEditorLoading(true);
+      setError(null);
+      const result = await updateMarketplaceHashlist({
+        adminAddress: connectedAddress,
+        collectionSlug: slug,
+        entries: parsed,
+        replaceMissing: hashlistEditorReplaceMissing,
+      });
+      setMessage(
+        `Hashlist updated for ${slug}: imported ${result.stats.imported}, skipped ${result.stats.skipped}, deleted ${result.stats.deleted}.`
+      );
+      await loadAll();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update collection hashlist');
+    } finally {
+      setHashlistEditorLoading(false);
+    }
+  };
+
+  const handleDownloadHashlistEditor = () => {
+    try {
+      const slug = hashlistEditorSlug.trim() || 'collection';
+      const text = hashlistEditorText || '[]';
+      const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}-hashlist.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMessage(`Downloaded ${slug}-hashlist.json`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to download hashlist');
+    }
+  };
+
   const handleLoadTraitsSummary = async () => {
     try {
       const slug = traitsCollectionSlug.trim();
@@ -317,6 +453,29 @@ const MarketplaceAdminToolPage: React.FC = () => {
       setMessage(`Loaded traits summary for ${slug}`);
     } catch (err: any) {
       setError(err?.message || 'Failed to load traits summary');
+    }
+  };
+
+  const handleRecomputeOrdinalRarity = async () => {
+    try {
+      if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
+      const slug = traitsCollectionSlug.trim();
+      if (!slug) throw new Error('Collection slug required');
+      setError(null);
+      setMessage('Computing ordinal rarity from trait frequencies...');
+      const result = await recomputeMarketplaceRarityFromTraits({
+        adminAddress: connectedAddress,
+        collectionSlug: slug,
+      });
+      const tierText = Object.entries(result.tiers || {})
+        .map(([tier, count]) => `${tier}: ${count}`)
+        .join(', ');
+      setMessage(
+        `Rarity recomputed for ${result.updated} ordinals (${slug}). ${tierText ? `Tiers -> ${tierText}` : ''}`
+      );
+      await handleLoadTraitsSummary();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to recompute ordinal rarity');
     }
   };
 
@@ -490,6 +649,37 @@ const MarketplaceAdminToolPage: React.FC = () => {
               <input className="w-full px-3 py-2 bg-black border border-gray-700 rounded" placeholder="Symbol" value={collectionForm.symbol} onChange={(e) => setCollectionForm((p) => ({ ...p, symbol: e.target.value }))} />
               <input className="w-full px-3 py-2 bg-black border border-gray-700 rounded" placeholder="Cover image URL" value={collectionForm.coverImage} onChange={(e) => setCollectionForm((p) => ({ ...p, coverImage: e.target.value }))} />
             </div>
+            <div className="border border-gray-700 rounded p-3 bg-black/30">
+              <p className="text-xs text-gray-400 mb-2">Or upload cover image from your PC</p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleCollectionCoverFileSelect(e.target.files?.[0] || null)}
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded text-sm"
+              />
+              {collectionCoverFileName && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-300 truncate">Loaded: {collectionCoverFileName}</span>
+                  <button
+                    type="button"
+                    className="px-2 py-1 text-xs rounded bg-zinc-700 hover:bg-zinc-600"
+                    onClick={() => {
+                      setCollectionCoverFileName('');
+                      setCollectionForm((p) => ({ ...p, coverImage: '' }));
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              {collectionForm.coverImage && (
+                <img
+                  src={collectionForm.coverImage}
+                  alt="Collection cover preview"
+                  className="mt-2 h-24 w-24 object-cover rounded border border-gray-700"
+                />
+              )}
+            </div>
             <textarea className="w-full px-3 py-2 bg-black border border-gray-700 rounded min-h-[80px]" placeholder="Description" value={collectionForm.description} onChange={(e) => setCollectionForm((p) => ({ ...p, description: e.target.value }))} />
             <textarea className="w-full px-3 py-2 bg-black border border-gray-700 rounded min-h-[80px] font-mono text-xs" placeholder='Metadata JSON, e.g. {"supply":500}' value={collectionForm.metadataJson} onChange={(e) => setCollectionForm((p) => ({ ...p, metadataJson: e.target.value }))} />
             <label className="inline-flex items-center gap-2 text-sm text-gray-300">
@@ -517,6 +707,65 @@ const MarketplaceAdminToolPage: React.FC = () => {
               <button onClick={handleCreateListing} className="px-4 py-2 bg-red-600 rounded hover:bg-red-500 font-semibold">Create Listing</button>
             </div>
           </div>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 space-y-3">
+          <h2 className="font-bold">View / Edit / Download Hashlist</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
+              placeholder="Collection slug (e.g. slums)"
+              value={hashlistEditorSlug}
+              onChange={(e) => setHashlistEditorSlug(e.target.value)}
+            />
+            <button
+              onClick={handleLoadHashlistEditor}
+              disabled={hashlistEditorLoading}
+              className="px-4 py-2 bg-zinc-700 rounded hover:bg-zinc-600 disabled:opacity-50 font-semibold"
+            >
+              {hashlistEditorLoading ? 'Loading...' : 'Load Hashlist'}
+            </button>
+            <button
+              onClick={() => setHashlistEditorVisible((v) => !v)}
+              className="px-4 py-2 bg-zinc-800 rounded hover:bg-zinc-700 font-semibold"
+            >
+              {hashlistEditorVisible ? 'Hide Text Editor' : 'Show Text Editor'}
+            </button>
+          </div>
+
+          {hashlistEditorVisible && (
+            <div className="space-y-3">
+              <textarea
+                className="w-full min-h-[260px] px-3 py-2 bg-black border border-gray-700 rounded font-mono text-xs"
+                placeholder="Hashlist JSON array"
+                value={hashlistEditorText}
+                onChange={(e) => setHashlistEditorText(e.target.value)}
+              />
+              <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={hashlistEditorReplaceMissing}
+                  onChange={(e) => setHashlistEditorReplaceMissing(e.target.checked)}
+                />
+                Replace mode: delete existing entries not present in edited JSON
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleSaveHashlistEditor}
+                  disabled={hashlistEditorLoading}
+                  className="px-4 py-2 bg-emerald-600 rounded hover:bg-emerald-500 disabled:opacity-50 font-semibold"
+                >
+                  {hashlistEditorLoading ? 'Saving...' : 'Save Hashlist'}
+                </button>
+                <button
+                  onClick={handleDownloadHashlistEditor}
+                  className="px-4 py-2 bg-sky-700 rounded hover:bg-sky-600 font-semibold"
+                >
+                  Download JSON
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -575,8 +824,18 @@ const MarketplaceAdminToolPage: React.FC = () => {
               <button onClick={handleLoadTraitsSummary} className="px-3 py-2 bg-zinc-700 rounded hover:bg-zinc-600 text-sm">
                 Load
               </button>
+              <button onClick={handleRecomputeOrdinalRarity} className="px-3 py-2 bg-purple-700 rounded hover:bg-purple-600 text-sm">
+                Compute Ordinal Rarity
+              </button>
             </div>
             <p className="text-xs text-gray-500">Total inscriptions: {traitsTotal}</p>
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <span className="px-2 py-1 rounded bg-fuchsia-900/50 text-fuchsia-200 border border-fuchsia-700/60">1%</span>
+              <span className="px-2 py-1 rounded bg-sky-900/50 text-sky-200 border border-sky-700/60">2-5%</span>
+              <span className="px-2 py-1 rounded bg-emerald-900/50 text-emerald-200 border border-emerald-700/60">5-20%</span>
+              <span className="px-2 py-1 rounded bg-amber-900/50 text-amber-200 border border-amber-700/60">20-50%</span>
+              <span className="px-2 py-1 rounded bg-zinc-800 text-zinc-100 border border-zinc-600">50-100%</span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="border border-gray-700 rounded p-2 max-h-[220px] overflow-auto">
                 <p className="text-xs text-gray-400 mb-1">Rarity</p>
@@ -592,16 +851,24 @@ const MarketplaceAdminToolPage: React.FC = () => {
                 )}
               </div>
               <div className="border border-gray-700 rounded p-2 max-h-[220px] overflow-auto">
-                <p className="text-xs text-gray-400 mb-1">Traits</p>
+                <p className="text-xs text-gray-400 mb-1">Traits (per value rarity)</p>
                 {traitsSummary.length === 0 ? (
                   <p className="text-xs text-gray-500">No trait data</p>
                 ) : (
-                  traitsSummary.slice(0, 200).map((t, idx) => (
-                    <div key={`${t.trait_type}-${t.value}-${idx}`} className="text-xs text-gray-300 flex justify-between gap-2">
-                      <span className="truncate">{t.trait_type}: {t.value}</span>
-                      <span>{t.count}</span>
-                    </div>
-                  ))
+                  traitsSummary.slice(0, 200).map((t, idx) => {
+                    const percent = traitsTotal > 0 ? (Number(t.count || 0) / traitsTotal) * 100 : 0;
+                    const band = getTraitRarityBand(percent);
+                    return (
+                      <div key={`${t.trait_type}-${t.value}-${idx}`} className="text-xs text-gray-300 flex items-center justify-between gap-2 py-0.5">
+                        <span className="truncate">{t.trait_type}: {t.value}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-gray-400">{t.count}</span>
+                          <span className="font-mono text-[11px] text-white">{percent.toFixed(1)}%</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${band.className}`}>{band.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -73,6 +73,11 @@ export interface MarketplaceListing {
   price_sats: number;
   status: string;
   signed_psbt_base64?: string;
+  inscription_attributes?: Array<{
+    trait_type?: string;
+    value?: string;
+  }>;
+  inscription_metadata?: Record<string, any>;
   sale_txid?: string;
   sale_metadata?: {
     source?: string;
@@ -96,6 +101,61 @@ export interface MarketplaceActivity {
   txid?: string;
 }
 
+export interface MarketplaceInscriptionDetail {
+  inscriptionId: string;
+  previewUrl: string;
+  contentUrl: string;
+  marketplaceInscription: {
+    inscription_id: string;
+    collection_slug?: string;
+    owner_address?: string;
+    listed?: boolean;
+    attributes?: Array<{ trait_type?: string; value?: string }>;
+    metadata?: Record<string, any>;
+    created_at?: string;
+    updated_at?: string;
+  } | null;
+  listingHistory: Array<{
+    id: string;
+    inscription_id: string;
+    collection_slug?: string;
+    seller_address?: string;
+    buyer_receive_address?: string;
+    price_sats: number;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  salesHistory: Array<{
+    id: string;
+    listing_id?: string;
+    inscription_id: string;
+    collection_slug?: string;
+    seller_address?: string;
+    buyer_address?: string;
+    price_sats: number;
+    txid?: string;
+    metadata?: Record<string, any>;
+    sold_at?: string;
+    created_at?: string;
+  }>;
+  activity: MarketplaceActivity[];
+  offersHistory: Array<{
+    id: string;
+    listing_id: string;
+    inscription_id: string;
+    collection_slug?: string;
+    buyer_address: string;
+    seller_address?: string;
+    offer_price_sats: number;
+    status: string;
+    metadata?: Record<string, any>;
+    created_at?: string;
+    updated_at?: string;
+  }>;
+  chainInfo?: Record<string, any> | null;
+}
+
 export interface MarketplaceTraitSummaryRow {
   trait_type: string;
   value: string;
@@ -105,6 +165,16 @@ export interface MarketplaceTraitSummaryRow {
 export interface MarketplaceRaritySummaryRow {
   rarity: string;
   count: number;
+}
+
+export interface MarketplaceHashlistEntry {
+  inscriptionId: string;
+  ownerAddress?: string;
+  name?: string;
+  itemIndex?: number | null;
+  rarity?: string;
+  attributes?: Array<{ trait_type?: string; value?: string }>;
+  metadata?: Record<string, any>;
 }
 
 export async function getMarketplaceRanking(): Promise<MarketplaceCollectionRanking[]> {
@@ -212,6 +282,47 @@ export async function importMarketplaceHashlist(payload: {
   return data;
 }
 
+export async function getMarketplaceHashlist(payload: {
+  adminAddress: string;
+  collectionSlug: string;
+}): Promise<{ collectionSlug: string; entries: MarketplaceHashlistEntry[] }> {
+  const query = new URLSearchParams();
+  query.set('adminAddress', payload.adminAddress);
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(payload.collectionSlug)}/hashlist?${query.toString()}`
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to load marketplace hashlist');
+  return data;
+}
+
+export async function updateMarketplaceHashlist(payload: {
+  adminAddress: string;
+  collectionSlug: string;
+  entries: MarketplaceHashlistEntry[];
+  replaceMissing?: boolean;
+}): Promise<{
+  success: boolean;
+  collectionSlug: string;
+  stats: { imported: number; skipped: number; deleted: number };
+}> {
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(payload.collectionSlug)}/hashlist`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminAddress: payload.adminAddress,
+        entries: payload.entries,
+        replaceMissing: payload.replaceMissing === true,
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to update marketplace hashlist');
+  return data;
+}
+
 export async function getMarketplaceTraitsSummary(collectionSlug: string): Promise<{
   collectionSlug: string;
   totalInscriptions: number;
@@ -221,6 +332,30 @@ export async function getMarketplaceTraitsSummary(collectionSlug: string): Promi
   const res = await fetch(`${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(collectionSlug)}/traits-summary`);
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to load marketplace traits summary');
+  return data;
+}
+
+export async function recomputeMarketplaceRarityFromTraits(payload: {
+  adminAddress: string;
+  collectionSlug: string;
+}): Promise<{
+  success: boolean;
+  collectionSlug: string;
+  updated: number;
+  tiers: Record<string, number>;
+}> {
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(payload.collectionSlug)}/recompute-rarity-from-traits`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminAddress: payload.adminAddress,
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to recompute rarity from traits');
   return data;
 }
 
@@ -253,6 +388,13 @@ export async function getMarketplaceListings(params?: {
   if (!res.ok) throw new Error('Failed to load marketplace listings');
   const data = await res.json();
   return data.listings || [];
+}
+
+export async function getMarketplaceInscriptionDetail(inscriptionId: string): Promise<MarketplaceInscriptionDetail> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/inscriptions/${encodeURIComponent(inscriptionId)}/detail`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to load inscription detail');
+  return data;
 }
 
 export async function createMarketplaceListing(payload: {
@@ -353,6 +495,90 @@ export async function completeMarketplacePurchaseAdvanced(payload: {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to complete advanced PSBT purchase');
+  return data;
+}
+
+export async function createMarketplaceOffer(payload: {
+  listingId: string;
+  buyerAddress: string;
+  offerPriceSats: number;
+  note?: string;
+}): Promise<{ success: boolean; offerId: string }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/offers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      buyerAddress: payload.buyerAddress,
+      offerPriceSats: payload.offerPriceSats,
+      note: payload.note || '',
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to create offer');
+  return data;
+}
+
+export async function acceptMarketplaceOffer(payload: {
+  listingId: string;
+  offerId: string;
+  walletAddress: string;
+}): Promise<{ success: boolean; status: string }> {
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/offers/${encodeURIComponent(payload.offerId)}/accept`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: payload.walletAddress }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to accept offer');
+  return data;
+}
+
+export async function declineMarketplaceOffer(payload: {
+  listingId: string;
+  offerId: string;
+  walletAddress: string;
+}): Promise<{ success: boolean; status: string }> {
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/offers/${encodeURIComponent(payload.offerId)}/decline`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: payload.walletAddress }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to decline offer');
+  return data;
+}
+
+export async function completeMarketplaceOfferSale(payload: {
+  listingId: string;
+  offerId: string;
+  walletAddress: string;
+  paymentTxid?: string;
+}): Promise<{
+  success: boolean;
+  saleId: string;
+  paymentTxid?: string | null;
+  buyerAddress?: string;
+  priceSats?: number;
+}> {
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/offers/${encodeURIComponent(payload.offerId)}/complete`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        walletAddress: payload.walletAddress,
+        paymentTxid: payload.paymentTxid || null,
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to complete offer sale');
   return data;
 }
 
