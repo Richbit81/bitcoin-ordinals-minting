@@ -431,6 +431,21 @@ export async function getMarketplaceInscriptionDetail(inscriptionId: string): Pr
   return data;
 }
 
+export async function getMarketplaceRareSatsBatch(inscriptionIds: string[]): Promise<{
+  items: Array<{ inscriptionId: string; rareSats?: string | null }>;
+  stats?: { requested: number; resolved: number };
+}> {
+  const ids = Array.from(new Set((inscriptionIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+  const res = await fetch(`${API_URL}/api/marketplace/v1/inscriptions/rare-sats-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inscriptionIds: ids }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to resolve rare sats batch');
+  return data;
+}
+
 export async function createMarketplaceListing(payload: {
   inscriptionId: string;
   collectionSlug: string;

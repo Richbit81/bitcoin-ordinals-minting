@@ -15,6 +15,7 @@ import {
   getMarketplaceCollections,
   getMarketplaceInscriptionDetail,
   getMarketplaceListings,
+  getMarketplaceRareSatsBatch,
   getMarketplaceRanking,
   MarketplaceCollection,
   MarketplaceCollectionInscription,
@@ -509,31 +510,26 @@ export const MarketplacePage: React.FC = () => {
     const fetchIdsInChunks = async (ids: string[], chunkSize: number) => {
       for (let i = 0; i < ids.length; i += chunkSize) {
         const chunk = ids.slice(i, i + chunkSize);
-        const details = await Promise.all(
-          chunk.map(async (id) => {
-            try {
-              const detail = await getMarketplaceInscriptionDetail(id);
-              const raw =
-                detail?.chainInfo?.rareSats ??
-                detail?.chainInfo?.rare_sats ??
-                detail?.chainInfo?.satributes ??
-                detail?.chainInfo?.sattributes ??
-                detail?.marketplaceInscription?.metadata?.rareSats ??
-                detail?.marketplaceInscription?.metadata?.rare_sats ??
-                detail?.marketplaceInscription?.metadata?.rareSat ??
-                detail?.marketplaceInscription?.metadata?.rare_sat ??
-                detail?.marketplaceInscription?.metadata?.satributes ??
-                detail?.marketplaceInscription?.metadata?.sattributes ??
-                detail?.marketplaceInscription?.metadata?.satributes?.rarity;
-              const normalized = normalizeRareSatsDisplay(raw);
-              rareSatsCacheRef.current[id] = normalized;
-              return [id, normalized] as const;
-            } catch {
-              rareSatsCacheRef.current[id] = '-';
-              return [id, '-'] as const;
-            }
-          })
-        );
+        let details: Array<readonly [string, string]> = [];
+        try {
+          const batch = await getMarketplaceRareSatsBatch(chunk);
+          const byId = new Map<string, string>();
+          for (const item of batch.items || []) {
+            const id = String(item?.inscriptionId || '').trim();
+            if (!id) continue;
+            byId.set(id, normalizeRareSatsDisplay(item?.rareSats));
+          }
+          details = chunk.map((id) => {
+            const normalized = byId.get(id) || '-';
+            rareSatsCacheRef.current[id] = normalized;
+            return [id, normalized] as const;
+          });
+        } catch {
+          details = chunk.map((id) => {
+            rareSatsCacheRef.current[id] = '-';
+            return [id, '-'] as const;
+          });
+        }
 
         if (cancelled) return;
 
