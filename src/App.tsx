@@ -26,7 +26,11 @@ import CollectionDataToolPage from './pages/CollectionDataToolPage';
 import { AvifConverterPage } from './pages/AvifConverterPage';
 import { AudioSplitterPage } from './pages/AudioSplitterPage';
 import { VideoSplitterPage } from './pages/VideoSplitterPage';
+import { MarketplacePage } from './pages/MarketplacePage';
+import { MarketplaceProfilePage } from './pages/MarketplaceProfilePage';
 import { WalletProvider } from './contexts/WalletContext';
+import { useWallet } from './contexts/WalletContext';
+import { isAdminAddress } from './config/admin';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useState } from 'react';
@@ -72,6 +76,8 @@ function AppContent() {
         <Route path="/admin/avif-converter" element={<AvifConverterPage />} />
         <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
         <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
+        <Route path="/marketplace" element={<AdminRoute><MarketplacePage /></AdminRoute>} />
+        <Route path="/marketplace/profile" element={<AdminRoute><MarketplaceProfilePage /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
@@ -81,6 +87,17 @@ function AppContent() {
       <MobileBottomNav />
     </div>
   );
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { walletState } = useWallet();
+  const connectedAddress = walletState.accounts?.[0]?.address;
+  const isAdmin = walletState.connected && !!connectedAddress && isAdminAddress(connectedAddress);
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
 }
 
 function App() {

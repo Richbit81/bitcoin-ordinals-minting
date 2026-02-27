@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "node ./node_modules/vite/bin/vite.js build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "scaffold:collection": "node create-collection-scaffold.mjs"
   },
   "dependencies": {
     "@jsquash/avif": "^2.1.1",

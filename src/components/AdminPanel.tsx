@@ -1768,7 +1768,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/admin/logs/all?adminAddress=${encodeURIComponent(adminAddress)}`);
+      const response = await fetch(`${API_URL}/api/admin/logs/all?adminAddress=${encodeURIComponent(adminAddress)}&sync=1`);
       if (response.ok) {
         const data = await response.json();
         setLogs(data);
