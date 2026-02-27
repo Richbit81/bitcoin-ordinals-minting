@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
@@ -26,6 +26,7 @@ import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const previewSourceCache = new Map<string, { sourceIndex: number; useIframeFallback: boolean }>();
 
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -34,9 +35,10 @@ const PreviewImage: React.FC<{
   imageClassName?: string;
   fit?: 'cover' | 'contain';
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
+  const cachedPreview = previewSourceCache.get(inscriptionId);
   const [loaded, setLoaded] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [useIframeFallback, setUseIframeFallback] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(cachedPreview?.sourceIndex || 0);
+  const [useIframeFallback, setUseIframeFallback] = useState(cachedPreview?.useIframeFallback || false);
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
@@ -46,6 +48,13 @@ const PreviewImage: React.FC<{
   ];
   const currentSrc = imageSources[sourceIndex];
   const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback;
+
+  useEffect(() => {
+    const cached = previewSourceCache.get(inscriptionId);
+    setLoaded(false);
+    setSourceIndex(cached?.sourceIndex || 0);
+    setUseIframeFallback(cached?.useIframeFallback || false);
+  }, [inscriptionId]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -62,7 +71,10 @@ const PreviewImage: React.FC<{
           className={`h-full w-full border-0 bg-zinc-900 ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 pointer-events-none`}
           sandbox="allow-scripts allow-same-origin"
           scrolling="no"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
+            setLoaded(true);
+          }}
         />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
@@ -75,13 +87,19 @@ const PreviewImage: React.FC<{
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            previewSourceCache.set(inscriptionId, { sourceIndex, useIframeFallback: false });
+            setLoaded(true);
+          }}
           onError={() => {
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
               if (next >= imageSources.length) {
                 setUseIframeFallback(true);
+                previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
+              } else {
+                previewSourceCache.set(inscriptionId, { sourceIndex: next, useIframeFallback: false });
               }
               return next;
             });
@@ -108,7 +126,6 @@ export const MarketplacePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('all');
   const [sortMode, setSortMode] = useState<'latest' | 'price-asc' | 'price-desc'>('latest');
-  const [showTraitFilters, setShowTraitFilters] = useState(false);
   const [selectedTraitFilters, setSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionsMeta, setCollectionsMeta] = useState<MarketplaceCollection[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -129,6 +146,11 @@ export const MarketplacePage: React.FC = () => {
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionSearch, setCollectionSearch] = useState('');
+  const [showCollectionTraitFilters, setShowCollectionTraitFilters] = useState(false);
+  const [collectionSelectedTraitFilters, setCollectionSelectedTraitFilters] = useState<Record<string, string[]>>({});
+  const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
+  const [collectionSortMode, setCollectionSortMode] = useState<'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc'>('rarity-desc');
+  const rareSatsCacheRef = useRef<Record<string, string>>({});
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
@@ -438,8 +460,17 @@ export const MarketplacePage: React.FC = () => {
         offset: 0,
       });
       setSelectedCollectionSlug(slug);
-      setCollectionInscriptions(data.inscriptions || []);
-      setCollectionRareSatsByInscription({});
+      const nextInscriptions = data.inscriptions || [];
+      setCollectionInscriptions(nextInscriptions);
+      const fromCache: Record<string, string> = {};
+      for (const ins of nextInscriptions) {
+        const cached = rareSatsCacheRef.current[ins.inscription_id];
+        if (cached && cached !== '-') fromCache[ins.inscription_id] = cached;
+      }
+      setCollectionRareSatsByInscription(fromCache);
+      setCollectionSelectedTraitFilters({});
+      setCollectionRarityFilter('all');
+      setCollectionSortMode('rarity-desc');
       setCollectionInscriptionsTotal(Number(data.total || 0));
     } catch (err: any) {
       setError(err?.message || 'Failed to load collection inscriptions');
@@ -456,16 +487,28 @@ export const MarketplacePage: React.FC = () => {
     let cancelled = false;
 
     const missingIds = collectionInscriptions
-      .filter((ins) => extractInscriptionRareSats(ins) === '-')
+      .filter((ins) => {
+        const baseValue = extractInscriptionRareSats(ins);
+        const cachedValue = rareSatsCacheRef.current[ins.inscription_id];
+        return baseValue === '-' && !cachedValue;
+      })
       .map((ins) => ins.inscription_id)
       .slice(0, 120);
 
+    const cachedVisible: Record<string, string> = {};
+    for (const ins of collectionInscriptions) {
+      const cached = rareSatsCacheRef.current[ins.inscription_id];
+      if (cached && cached !== '-') cachedVisible[ins.inscription_id] = cached;
+    }
+    if (Object.keys(cachedVisible).length > 0) {
+      setCollectionRareSatsByInscription((prev) => ({ ...prev, ...cachedVisible }));
+    }
+
     if (!missingIds.length) return;
 
-    const hydrateRareSats = async () => {
-      const chunkSize = 8;
-      for (let i = 0; i < missingIds.length; i += chunkSize) {
-        const chunk = missingIds.slice(i, i + chunkSize);
+    const fetchIdsInChunks = async (ids: string[], chunkSize: number) => {
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
         const details = await Promise.all(
           chunk.map(async (id) => {
             try {
@@ -482,8 +525,11 @@ export const MarketplacePage: React.FC = () => {
                 detail?.marketplaceInscription?.metadata?.satributes ??
                 detail?.marketplaceInscription?.metadata?.sattributes ??
                 detail?.marketplaceInscription?.metadata?.satributes?.rarity;
-              return [id, normalizeRareSatsDisplay(raw)] as const;
+              const normalized = normalizeRareSatsDisplay(raw);
+              rareSatsCacheRef.current[id] = normalized;
+              return [id, normalized] as const;
             } catch {
+              rareSatsCacheRef.current[id] = '-';
               return [id, '-'] as const;
             }
           })
@@ -499,6 +545,20 @@ export const MarketplacePage: React.FC = () => {
           setCollectionRareSatsByInscription((prev) => ({ ...prev, ...found }));
         }
       }
+    };
+
+    const hydrateRareSats = async () => {
+      // Prioritize first visible cards for faster perceived load.
+      const priorityIds = missingIds.slice(0, 28);
+      const backgroundIds = missingIds.slice(28);
+
+      await fetchIdsInChunks(priorityIds, 8);
+      if (cancelled || backgroundIds.length === 0) return;
+
+      // Let UI render before continuing background hydration.
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      if (cancelled) return;
+      await fetchIdsInChunks(backgroundIds, 6);
     };
 
     hydrateRareSats();
@@ -675,8 +735,20 @@ export const MarketplacePage: React.FC = () => {
 
   const collectionCompositeRarityByInscription = useMemo(() => {
     const rawScores = new Map<string, number>();
+    const forceTopRarityById = new Map<string, boolean>();
     for (const ins of collectionInscriptions) {
       const traits = extractInscriptionTraits(ins);
+      const hasOneOfOne = traits.some((t) => {
+        const traitType = String(t.trait_type || '').trim().toLowerCase();
+        const value = String(t.value || '').trim().toLowerCase();
+        return traitType === '1:1' || value === '1:1' || traitType === 'one of one' || value === 'one of one';
+      });
+      forceTopRarityById.set(ins.inscription_id, hasOneOfOne);
+      if (hasOneOfOne) {
+        // 1:1 items are always top rarity by explicit project rule.
+        rawScores.set(ins.inscription_id, 1_000_000_000);
+        continue;
+      }
       if (!traits.length) {
         rawScores.set(ins.inscription_id, 0);
         continue;
@@ -695,10 +767,14 @@ export const MarketplacePage: React.FC = () => {
     const percentileById = new Map<string, number>();
     if (!values.length) {
       for (const id of rawScores.keys()) percentileById.set(id, 0);
-      return { rawScores, percentileById };
+      return { rawScores, percentileById, forceTopRarityById };
     }
 
     for (const [id, score] of rawScores.entries()) {
+      if (forceTopRarityById.get(id)) {
+        percentileById.set(id, 100);
+        continue;
+      }
       if (!score || !Number.isFinite(score)) {
         percentileById.set(id, 0);
         continue;
@@ -708,7 +784,7 @@ export const MarketplacePage: React.FC = () => {
       const pct = (idx / Math.max(1, values.length - 1)) * 100;
       percentileById.set(id, pct);
     }
-    return { rawScores, percentileById };
+    return { rawScores, percentileById, forceTopRarityById };
   }, [collectionInscriptions, collectionTraitPercentByKey]);
 
   const traitPctColorClass = (pct?: number): string => {
@@ -729,6 +805,71 @@ export const MarketplacePage: React.FC = () => {
     return 'common';
   };
 
+  const collectionTraitOptions = useMemo(() => {
+    const traitMap = new Map<string, Map<string, number>>();
+    for (const ins of collectionInscriptions) {
+      for (const t of extractInscriptionTraits(ins)) {
+        if (!traitMap.has(t.trait_type)) traitMap.set(t.trait_type, new Map<string, number>());
+        const inner = traitMap.get(t.trait_type)!;
+        inner.set(t.value, (inner.get(t.value) || 0) + 1);
+      }
+    }
+    return Array.from(traitMap.entries())
+      .map(([traitType, valueMap]) => ({
+        traitType,
+        values: Array.from(valueMap.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => b.count - a.count),
+      }))
+      .sort((a, b) => a.traitType.localeCompare(b.traitType));
+  }, [collectionInscriptions]);
+
+  const selectedCollectionTraitCount = useMemo(
+    () => Object.values(collectionSelectedTraitFilters).reduce((sum, arr) => sum + (arr?.length || 0), 0),
+    [collectionSelectedTraitFilters]
+  );
+
+  const filteredCollectionInscriptions = useMemo(() => {
+    let rows = collectionInscriptions.filter((ins) => {
+      const activeTraitTypes = Object.entries(collectionSelectedTraitFilters).filter(([, vals]) => vals && vals.length > 0);
+      if (activeTraitTypes.length === 0) return true;
+      const traits = extractInscriptionTraits(ins);
+      return activeTraitTypes.every(([traitType, vals]) =>
+        traits.some((t) => t.trait_type === traitType && vals.includes(t.value))
+      );
+    });
+
+    if (collectionRarityFilter !== 'all') {
+      rows = rows.filter((ins) => {
+        const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
+        const pct = collectionCompositeRarityByInscription.percentileById.get(ins.inscription_id) || 0;
+        const label = isOneOfOne ? 'mythic' : compositeRarityLabel(pct);
+        return label === collectionRarityFilter;
+      });
+    }
+
+    rows = [...rows].sort((a, b) => {
+      if (collectionSortMode === 'name-asc') {
+        return String(a.metadata?.name || a.inscription_id).localeCompare(String(b.metadata?.name || b.inscription_id));
+      }
+      if (collectionSortMode === 'name-desc') {
+        return String(b.metadata?.name || b.inscription_id).localeCompare(String(a.metadata?.name || a.inscription_id));
+      }
+      const aPct = collectionCompositeRarityByInscription.percentileById.get(a.inscription_id) || 0;
+      const bPct = collectionCompositeRarityByInscription.percentileById.get(b.inscription_id) || 0;
+      if (collectionSortMode === 'rarity-asc') return aPct - bPct;
+      return bPct - aPct;
+    });
+
+    return rows;
+  }, [
+    collectionInscriptions,
+    collectionSelectedTraitFilters,
+    collectionRarityFilter,
+    collectionSortMode,
+    collectionCompositeRarityByInscription,
+  ]);
+
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return listings.filter((l) => {
@@ -743,30 +884,6 @@ export const MarketplacePage: React.FC = () => {
       );
     });
   }, [listings, searchQuery, collectionFilter]);
-
-  const traitOptions = useMemo(() => {
-    const traitMap = new Map<string, Map<string, number>>();
-    for (const l of baseFilteredListings) {
-      for (const t of extractTraits(l)) {
-        if (!traitMap.has(t.trait_type)) traitMap.set(t.trait_type, new Map<string, number>());
-        const inner = traitMap.get(t.trait_type)!;
-        inner.set(t.value, (inner.get(t.value) || 0) + 1);
-      }
-    }
-    return Array.from(traitMap.entries())
-      .map(([traitType, valueMap]) => ({
-        traitType,
-        values: Array.from(valueMap.entries())
-          .map(([value, count]) => ({ value, count }))
-          .sort((a, b) => b.count - a.count),
-      }))
-      .sort((a, b) => a.traitType.localeCompare(b.traitType));
-  }, [baseFilteredListings]);
-
-  const selectedTraitCount = useMemo(
-    () => Object.values(selectedTraitFilters).reduce((sum, arr) => sum + (arr?.length || 0), 0),
-    [selectedTraitFilters]
-  );
 
   const filteredListings = useMemo(() => {
     let rows = baseFilteredListings.filter((l) => {
@@ -879,7 +996,7 @@ export const MarketplacePage: React.FC = () => {
         )}
 
         <div className="mb-6 rounded-xl border border-white/15 bg-zinc-950/70 p-3 md:p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -907,68 +1024,7 @@ export const MarketplacePage: React.FC = () => {
               <option value="price-asc">Sort: Price Low -&gt; High</option>
               <option value="price-desc">Sort: Price High -&gt; Low</option>
             </select>
-            <button
-              type="button"
-              onClick={() => setShowTraitFilters((v) => !v)}
-              className="bg-black border border-white/15 rounded-lg px-3 py-2 text-sm text-left hover:bg-zinc-900"
-            >
-              Traits Filter {selectedTraitCount > 0 ? `(${selectedTraitCount})` : ''}
-            </button>
           </div>
-          {showTraitFilters && (
-            <div className="mt-3 rounded-lg border border-white/10 bg-black/40 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs text-gray-400">Select one or more trait values</div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTraitFilters({})}
-                  className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600"
-                >
-                  Clear Traits
-                </button>
-              </div>
-              {traitOptions.length === 0 ? (
-                <div className="text-xs text-gray-500">No traits available for current filters.</div>
-              ) : (
-                <div className="space-y-2 max-h-56 overflow-auto pr-1">
-                  {traitOptions.map((group) => (
-                    <div key={group.traitType} className="border border-white/10 rounded p-2">
-                      <div className="text-xs font-semibold text-gray-300 mb-1">{group.traitType}</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {group.values.slice(0, 40).map((entry) => {
-                          const selected = (selectedTraitFilters[group.traitType] || []).includes(entry.value);
-                          return (
-                            <button
-                              key={`${group.traitType}-${entry.value}`}
-                              type="button"
-                              onClick={() => {
-                                setSelectedTraitFilters((prev) => {
-                                  const current = prev[group.traitType] || [];
-                                  const nextValues = current.includes(entry.value)
-                                    ? current.filter((v) => v !== entry.value)
-                                    : [...current, entry.value];
-                                  const next = { ...prev, [group.traitType]: nextValues };
-                                  if (nextValues.length === 0) delete next[group.traitType];
-                                  return next;
-                                });
-                              }}
-                              className={`px-2 py-1 rounded text-[11px] border ${
-                                selected
-                                  ? 'bg-red-600/30 border-red-500/70 text-red-100'
-                                  : 'bg-zinc-800 border-zinc-600 text-gray-200 hover:bg-zinc-700'
-                              }`}
-                            >
-                              {entry.value} ({entry.count})
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           <div className="mt-2 text-xs text-gray-400">
             Showing {filteredListings.length} listing(s) • Avg price {avgPriceSats.toLocaleString()} sats
           </div>
@@ -1059,18 +1115,110 @@ export const MarketplacePage: React.FC = () => {
                   </button>
                 </div>
               </div>
+              <div className="px-4 py-2 border-b border-white/10 bg-zinc-950/70">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <select
+                    value={collectionSortMode}
+                    onChange={(e) => setCollectionSortMode(e.target.value as typeof collectionSortMode)}
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="rarity-desc">Sort: Rarity High -&gt; Low</option>
+                    <option value="rarity-asc">Sort: Rarity Low -&gt; High</option>
+                    <option value="name-asc">Sort: Name A -&gt; Z</option>
+                    <option value="name-desc">Sort: Name Z -&gt; A</option>
+                  </select>
+                  <select
+                    value={collectionRarityFilter}
+                    onChange={(e) => setCollectionRarityFilter(e.target.value as typeof collectionRarityFilter)}
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="all">Rarity: All</option>
+                    <option value="mythic">Mythic</option>
+                    <option value="legendary">Legendary</option>
+                    <option value="epic">Epic</option>
+                    <option value="rare">Rare</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="common">Common</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowCollectionTraitFilters((v) => !v)}
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs text-left hover:bg-zinc-900"
+                  >
+                    Traits Filter {selectedCollectionTraitCount > 0 ? `(${selectedCollectionTraitCount})` : ''}
+                  </button>
+                  <div className="text-xs text-gray-400 flex items-center">
+                    Showing {filteredCollectionInscriptions.length} / {collectionInscriptionsTotal}
+                  </div>
+                </div>
+                {showCollectionTraitFilters && (
+                  <div className="mt-2 rounded border border-white/10 bg-black/40 p-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs text-gray-400">Filter this collection by trait values</div>
+                      <button
+                        type="button"
+                        onClick={() => setCollectionSelectedTraitFilters({})}
+                        className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600"
+                      >
+                        Clear Traits
+                      </button>
+                    </div>
+                    {collectionTraitOptions.length === 0 ? (
+                      <div className="text-xs text-gray-500">No traits available.</div>
+                    ) : (
+                      <div className="space-y-2 max-h-44 overflow-auto pr-1">
+                        {collectionTraitOptions.map((group) => (
+                          <div key={group.traitType} className="border border-white/10 rounded p-2">
+                            <div className="text-xs font-semibold text-gray-300 mb-1">{group.traitType}</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {group.values.slice(0, 40).map((entry) => {
+                                const selected = (collectionSelectedTraitFilters[group.traitType] || []).includes(entry.value);
+                                return (
+                                  <button
+                                    key={`${group.traitType}-${entry.value}`}
+                                    type="button"
+                                    onClick={() => {
+                                      setCollectionSelectedTraitFilters((prev) => {
+                                        const current = prev[group.traitType] || [];
+                                        const nextValues = current.includes(entry.value)
+                                          ? current.filter((v) => v !== entry.value)
+                                          : [...current, entry.value];
+                                        const next = { ...prev, [group.traitType]: nextValues };
+                                        if (nextValues.length === 0) delete next[group.traitType];
+                                        return next;
+                                      });
+                                    }}
+                                    className={`px-2 py-1 rounded text-[11px] border ${
+                                      selected
+                                        ? 'bg-red-600/30 border-red-500/70 text-red-100'
+                                        : 'bg-zinc-800 border-zinc-600 text-gray-200 hover:bg-zinc-700'
+                                    }`}
+                                  >
+                                    {entry.value} ({entry.count})
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               {collectionLoading ? (
                 <div className="p-4 text-sm text-gray-400">Loading inscriptions...</div>
-              ) : collectionInscriptions.length === 0 ? (
+              ) : filteredCollectionInscriptions.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
               ) : (
                 <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2 p-2">
-                  {collectionInscriptions.map((ins) => {
+                  {filteredCollectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
+                    const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
                     const rarityPercentile = collectionCompositeRarityByInscription.percentileById.get(ins.inscription_id) || 0;
-                    const compositeLabel = compositeRarityLabel(rarityPercentile);
+                    const compositeLabel = isOneOfOne ? 'mythic' : compositeRarityLabel(rarityPercentile);
                     return (
                       <button
                         key={ins.inscription_id}
@@ -1093,6 +1241,11 @@ export const MarketplacePage: React.FC = () => {
                             <span className="text-[9px] px-1 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
                               Rarity: {compositeLabel}
                             </span>
+                            {isOneOfOne && (
+                              <span className="text-[9px] px-1 py-0.5 rounded border border-red-600/60 bg-red-900/30 text-red-200">
+                                1:1
+                              </span>
+                            )}
                             <span className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
                               Rare sats: {rareSats}
                             </span>
