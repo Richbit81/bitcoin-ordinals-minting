@@ -103,6 +103,7 @@ export const MarketplacePage: React.FC = () => {
   const [offerCompleteBusyId, setOfferCompleteBusyId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<'traits' | 'offers' | 'activity' | 'price' | 'details'>('traits');
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState('');
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
@@ -406,6 +407,7 @@ export const MarketplacePage: React.FC = () => {
   const loadCollectionInscriptions = async (slug: string, search = '') => {
     try {
       if (!slug) return;
+      setCollectionModalOpen(true);
       setCollectionLoading(true);
       setError(null);
       const data = await getMarketplaceCollectionInscriptions({
@@ -871,84 +873,99 @@ export const MarketplacePage: React.FC = () => {
           )}
         </div>
 
-        {selectedCollectionSlug && (
-          <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
-            <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <h2 className="font-bold">
-                Collection View: <span className="text-red-300">{selectedCollectionSlug}</span>
-              </h2>
-              <div className="flex items-center gap-2">
-                <input
-                  value={collectionSearch}
-                  onChange={(e) => setCollectionSearch(e.target.value)}
-                  placeholder="Search id/name/owner"
-                  className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => loadCollectionInscriptions(selectedCollectionSlug, collectionSearch)}
-                  className="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-xs"
-                >
-                  Search
-                </button>
-                <span className="text-xs text-gray-400">Total: {collectionInscriptionsTotal}</span>
+        {collectionModalOpen && selectedCollectionSlug && (
+          <div
+            className="fixed inset-0 z-[110] bg-black/85 p-4 overflow-auto"
+            onClick={() => setCollectionModalOpen(false)}
+          >
+            <div
+              className="max-w-7xl mx-auto bg-zinc-950 border border-white/15 rounded-xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <h2 className="font-bold">
+                  Collection View: <span className="text-red-300">{selectedCollectionSlug}</span>
+                </h2>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={collectionSearch}
+                    onChange={(e) => setCollectionSearch(e.target.value)}
+                    placeholder="Search id/name/owner"
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => loadCollectionInscriptions(selectedCollectionSlug, collectionSearch)}
+                    className="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-xs"
+                  >
+                    Search
+                  </button>
+                  <span className="text-xs text-gray-400">Total: {collectionInscriptionsTotal}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionModalOpen(false)}
+                    className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-            </div>
-            {collectionLoading ? (
-              <div className="p-4 text-sm text-gray-400">Loading inscriptions...</div>
-            ) : collectionInscriptions.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
-                {collectionInscriptions.map((ins) => {
-                  const rarity = extractInscriptionRarity(ins);
-                  const rareSats = extractInscriptionRareSats(ins);
-                  const traits = extractInscriptionTraits(ins);
-                  return (
-                    <button
-                      key={ins.inscription_id}
-                      type="button"
-                      onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
-                      className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
-                    >
-                      <PreviewImage
-                        inscriptionId={ins.inscription_id}
-                        alt={ins.inscription_id}
-                        className="w-full aspect-square"
-                        fit="contain"
-                      />
-                      <div className="p-2">
-                        <div className="text-[11px] font-mono text-gray-300 truncate">
-                          {String(ins.metadata?.name || ins.inscription_id)}
-                        </div>
-                        <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
-                            Rarity: {rarity}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
-                            Rare sats: {rareSats}
-                          </span>
-                        </div>
-                        {traits.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {traits.slice(0, 2).map((t, idx) => {
-                              const k = `${t.trait_type}::${t.value}`;
-                              const pct = collectionTraitPercentByKey.get(k);
-                              return (
-                                <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
-                                  {t.trait_type}: {t.value} {pct !== undefined ? `(${pct.toFixed(1)}%)` : ''}
-                                </span>
-                              );
-                            })}
+              {collectionLoading ? (
+                <div className="p-4 text-sm text-gray-400">Loading inscriptions...</div>
+              ) : collectionInscriptions.length === 0 ? (
+                <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
+                  {collectionInscriptions.map((ins) => {
+                    const rarity = extractInscriptionRarity(ins);
+                    const rareSats = extractInscriptionRareSats(ins);
+                    const traits = extractInscriptionTraits(ins);
+                    return (
+                      <button
+                        key={ins.inscription_id}
+                        type="button"
+                        onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
+                        className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                      >
+                        <PreviewImage
+                          inscriptionId={ins.inscription_id}
+                          alt={ins.inscription_id}
+                          className="w-full aspect-square"
+                          fit="contain"
+                        />
+                        <div className="p-2">
+                          <div className="text-[11px] font-mono text-gray-300 truncate">
+                            {String(ins.metadata?.name || ins.inscription_id)}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                          <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
+                              Rarity: {rarity}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
+                              Rare sats: {rareSats}
+                            </span>
+                          </div>
+                          {traits.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {traits.slice(0, 2).map((t, idx) => {
+                                const k = `${t.trait_type}::${t.value}`;
+                                const pct = collectionTraitPercentByKey.get(k);
+                                return (
+                                  <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
+                                    {t.trait_type}: {t.value} {pct !== undefined ? `(${pct.toFixed(1)}%)` : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
