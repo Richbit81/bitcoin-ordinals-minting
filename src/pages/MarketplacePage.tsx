@@ -76,7 +76,7 @@ const PreviewImage: React.FC<{
           src={`https://ordinals.com/preview/${encodedId}`}
           title={alt}
           loading="lazy"
-          className={`h-full w-full border-0 bg-zinc-900 ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 pointer-events-none`}
+          className="h-full w-full border-0 bg-zinc-900 pointer-events-none"
           sandbox="allow-scripts allow-same-origin"
           scrolling="no"
           onLoad={() => {
