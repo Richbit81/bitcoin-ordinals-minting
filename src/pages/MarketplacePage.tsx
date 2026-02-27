@@ -36,22 +36,34 @@ const PreviewImage: React.FC<{
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
+  const [useIframeFallback, setUseIframeFallback] = useState(false);
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
     `https://ordinals.com/preview/${encodedId}`,
     `${API_URL}/api/inscription/image/${encodedId}`,
+    `https://ordinals.com/content/${encodedId}`,
   ];
   const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length;
+  const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback;
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !noPreviewAvailable && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
+      {!loaded && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
       {isPending ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
           Pending inscription
         </div>
+      ) : useIframeFallback ? (
+        <iframe
+          src={`https://ordinals.com/content/${encodedId}`}
+          title={alt}
+          loading="lazy"
+          className={`h-full w-full border-0 bg-zinc-900 ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 pointer-events-none`}
+          sandbox="allow-scripts allow-same-origin"
+          scrolling="no"
+          onLoad={() => setLoaded(true)}
+        />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
@@ -66,7 +78,13 @@ const PreviewImage: React.FC<{
           onLoad={() => setLoaded(true)}
           onError={() => {
             setLoaded(false);
-            setSourceIndex((prev) => prev + 1);
+            setSourceIndex((prev) => {
+              const next = prev + 1;
+              if (next >= imageSources.length) {
+                setUseIframeFallback(true);
+              }
+              return next;
+            });
           }}
           className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         />
@@ -582,6 +600,62 @@ export const MarketplacePage: React.FC = () => {
     return out;
   }, [collectionInscriptions]);
 
+  const collectionCompositeRarityByInscription = useMemo(() => {
+    const rawScores = new Map<string, number>();
+    for (const ins of collectionInscriptions) {
+      const traits = extractInscriptionTraits(ins);
+      if (!traits.length) {
+        rawScores.set(ins.inscription_id, 0);
+        continue;
+      }
+      // Composite rarity: sum of inverse trait percentages (rarer traits add more score).
+      const score = traits.reduce((sum, t) => {
+        const key = `${t.trait_type}::${t.value}`;
+        const pct = collectionTraitPercentByKey.get(key);
+        if (!pct || pct <= 0) return sum;
+        return sum + 100 / pct;
+      }, 0);
+      rawScores.set(ins.inscription_id, score);
+    }
+
+    const values = Array.from(rawScores.values()).filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
+    const percentileById = new Map<string, number>();
+    if (!values.length) {
+      for (const id of rawScores.keys()) percentileById.set(id, 0);
+      return { rawScores, percentileById };
+    }
+
+    for (const [id, score] of rawScores.entries()) {
+      if (!score || !Number.isFinite(score)) {
+        percentileById.set(id, 0);
+        continue;
+      }
+      let idx = values.findIndex((v) => v >= score);
+      if (idx < 0) idx = values.length - 1;
+      const pct = (idx / Math.max(1, values.length - 1)) * 100;
+      percentileById.set(id, pct);
+    }
+    return { rawScores, percentileById };
+  }, [collectionInscriptions, collectionTraitPercentByKey]);
+
+  const traitPctColorClass = (pct?: number): string => {
+    if (pct === undefined || !Number.isFinite(pct)) return 'border-white/10 bg-zinc-900 text-gray-200';
+    if (pct <= 1) return 'border-red-500/60 bg-red-900/30 text-red-200';
+    if (pct <= 5) return 'border-orange-500/60 bg-orange-900/30 text-orange-200';
+    if (pct <= 20) return 'border-amber-500/60 bg-amber-900/30 text-amber-200';
+    if (pct <= 50) return 'border-sky-500/60 bg-sky-900/30 text-sky-200';
+    return 'border-emerald-500/60 bg-emerald-900/30 text-emerald-200';
+  };
+
+  const compositeRarityLabel = (percentile: number): string => {
+    if (percentile >= 95) return 'mythic';
+    if (percentile >= 85) return 'legendary';
+    if (percentile >= 70) return 'epic';
+    if (percentile >= 50) return 'rare';
+    if (percentile >= 30) return 'uncommon';
+    return 'common';
+  };
+
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return listings.filter((l) => {
@@ -921,7 +995,9 @@ export const MarketplacePage: React.FC = () => {
                   {collectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
                     const rareSats = extractInscriptionRareSats(ins);
-                    const traits = extractInscriptionTraits(ins);
+                    const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
+                    const rarityPercentile = collectionCompositeRarityByInscription.percentileById.get(ins.inscription_id) || 0;
+                    const compositeLabel = compositeRarityLabel(rarityPercentile);
                     return (
                       <button
                         key={ins.inscription_id}
@@ -942,25 +1018,20 @@ export const MarketplacePage: React.FC = () => {
                           <div className="text-[9px] text-gray-500 truncate">{ins.inscription_id}</div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             <span className="text-[9px] px-1 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
-                              Rarity: {rarity}
+                              Rarity: {compositeLabel}
                             </span>
                             <span className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
                               Rare sats: {rareSats}
                             </span>
+                            <span className="text-[9px] px-1 py-0.5 rounded border border-fuchsia-700/40 bg-fuchsia-900/30 text-fuchsia-200">
+                              Score: {score > 0 ? score.toFixed(1) : '-'}
+                            </span>
+                            {rarity !== '-' && (
+                              <span className="text-[9px] px-1 py-0.5 rounded border border-zinc-600/50 bg-zinc-800/40 text-zinc-200">
+                                Meta: {rarity}
+                              </span>
+                            )}
                           </div>
-                          {traits.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {traits.slice(0, 2).map((t, idx) => {
-                                const k = `${t.trait_type}::${t.value}`;
-                                const pct = collectionTraitPercentByKey.get(k);
-                                return (
-                                  <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[9px] px-1 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
-                                    {t.trait_type}: {t.value} {pct !== undefined ? `(${pct.toFixed(1)}%)` : ''}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
                         </div>
                       </button>
                     );
@@ -1416,7 +1487,16 @@ export const MarketplacePage: React.FC = () => {
                         {Array.isArray(selectedInscriptionDetail.marketplaceInscription?.attributes) &&
                         selectedInscriptionDetail.marketplaceInscription!.attributes!.length > 0 ? (
                           selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
-                            <span key={`${t?.trait_type}-${t?.value}-${idx}`} className="text-[11px] px-2 py-1 rounded bg-zinc-900 border border-white/10">
+                            <span
+                              key={`${t?.trait_type}-${t?.value}-${idx}`}
+                              className={`text-[11px] px-2 py-1 rounded border ${(() => {
+                                const traitType = String(t?.trait_type || '').trim();
+                                const value = String(t?.value || '').trim();
+                                const k = `${traitType}::${value}`;
+                                const pct = collectionTraitPercentByKey.get(k);
+                                return traitPctColorClass(pct);
+                              })()}`}
+                            >
                               {String(t?.trait_type || '?')}: {String(t?.value || '?')}
                               {(() => {
                                 const traitType = String(t?.trait_type || '').trim();
