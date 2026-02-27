@@ -160,6 +160,21 @@ const MarketplaceAdminToolPage: React.FC = () => {
   useEffect(() => {
     const raw = integrationForm.query || '';
     const q = raw.trim();
+    const qLower = q.toLowerCase();
+    const localFallback: MarketplaceBisCollectionSuggestion[] = (collections || [])
+      .filter((c) => {
+        const slug = String(c.slug || '').toLowerCase();
+        const name = String(c.name || '').toLowerCase();
+        return !!q && (slug.includes(qLower) || name.includes(qLower));
+      })
+      .slice(0, 8)
+      .map((c) => ({
+        slug: String(c.slug || ''),
+        name: String(c.name || c.slug || ''),
+        symbol: c.symbol || null,
+        image: c.cover_image || null,
+        median_number: 0,
+      }));
     if (!isAdmin || !connectedAddress || q.length < 1) {
       setIntegrationSuggestions([]);
       setIntegrationSuggestionsLoading(false);
@@ -174,16 +189,18 @@ const MarketplaceAdminToolPage: React.FC = () => {
           adminAddress: connectedAddress,
           limit: 8,
         });
-        setIntegrationSuggestions(rows);
+        // Fallback to already integrated collections if external search is empty.
+        setIntegrationSuggestions(rows.length > 0 ? rows : localFallback);
       } catch {
-        setIntegrationSuggestions([]);
+        // External provider can fail/rate-limit; keep local suggestions usable.
+        setIntegrationSuggestions(localFallback);
       } finally {
         setIntegrationSuggestionsLoading(false);
       }
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [integrationForm.query, isAdmin, connectedAddress]);
+  }, [integrationForm.query, isAdmin, connectedAddress, collections]);
 
   const handleSaveCollection = async () => {
     try {
