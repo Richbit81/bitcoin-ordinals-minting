@@ -73,7 +73,9 @@ const PreviewImage: React.FC<{
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
+      {!loaded && !isPending && !(useIframeFallback || forceIframeFallback) && (
+        <div className="absolute inset-0 animate-pulse bg-zinc-800" />
+      )}
       {isPending ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
           Pending inscription
