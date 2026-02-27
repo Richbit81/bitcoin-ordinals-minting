@@ -10,12 +10,14 @@ import {
   completeMarketplacePurchase,
   createMarketplaceOffer,
   createMarketplaceListing,
+  getMarketplaceCollectionInscriptions,
   declineMarketplaceOffer,
   getMarketplaceCollections,
   getMarketplaceInscriptionDetail,
   getMarketplaceListings,
   getMarketplaceRanking,
   MarketplaceCollection,
+  MarketplaceCollectionInscription,
   MarketplaceCollectionRanking,
   MarketplaceInscriptionDetail,
   MarketplaceListing,
@@ -84,6 +86,11 @@ export const MarketplacePage: React.FC = () => {
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
   const [offerTxids, setOfferTxids] = useState<Record<string, string>>({});
   const [offerCompleteBusyId, setOfferCompleteBusyId] = useState<string | null>(null);
+  const [selectedCollectionSlug, setSelectedCollectionSlug] = useState('');
+  const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
+  const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionSearch, setCollectionSearch] = useState('');
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
@@ -359,6 +366,29 @@ export const MarketplacePage: React.FC = () => {
       setError(err?.message || 'Failed to complete offer sale');
     } finally {
       setOfferCompleteBusyId(null);
+    }
+  };
+
+  const loadCollectionInscriptions = async (slug: string, search = '') => {
+    try {
+      if (!slug) return;
+      setCollectionLoading(true);
+      setError(null);
+      const data = await getMarketplaceCollectionInscriptions({
+        collectionSlug: slug,
+        search,
+        limit: 300,
+        offset: 0,
+      });
+      setSelectedCollectionSlug(slug);
+      setCollectionInscriptions(data.inscriptions || []);
+      setCollectionInscriptionsTotal(Number(data.total || 0));
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load collection inscriptions');
+      setCollectionInscriptions([]);
+      setCollectionInscriptionsTotal(0);
+    } finally {
+      setCollectionLoading(false);
     }
   };
 
@@ -704,6 +734,98 @@ export const MarketplacePage: React.FC = () => {
         {error && (
           <div className="mb-6 p-3 rounded border border-red-600/60 text-red-300 bg-red-900/20 text-sm">
             {error}
+          </div>
+        )}
+
+        <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
+          <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex items-center justify-between">
+            <h2 className="font-bold">Collections</h2>
+            <span className="text-xs text-gray-400">Open a collection to browse all inscriptions</span>
+          </div>
+          {loading ? (
+            <div className="p-4 text-sm text-gray-400">Loading collections...</div>
+          ) : collectionsMeta.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500">No collections available.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
+              {collectionsMeta
+                .filter((c) => c.active !== false)
+                .map((c) => (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => loadCollectionInscriptions(c.slug)}
+                    className="text-left rounded-lg border border-white/10 bg-zinc-900/60 hover:border-red-500/40 transition-colors overflow-hidden"
+                  >
+                    <div className="h-28 bg-zinc-800">
+                      {c.cover_image ? (
+                        <img src={c.cover_image} alt={c.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No cover</div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="font-semibold truncate">{c.name}</div>
+                      <div className="text-xs text-gray-500">{c.slug}</div>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {selectedCollectionSlug && (
+          <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
+            <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <h2 className="font-bold">
+                Collection View: <span className="text-red-300">{selectedCollectionSlug}</span>
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  value={collectionSearch}
+                  onChange={(e) => setCollectionSearch(e.target.value)}
+                  placeholder="Search id/name/owner"
+                  className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => loadCollectionInscriptions(selectedCollectionSlug, collectionSearch)}
+                  className="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-xs"
+                >
+                  Search
+                </button>
+                <span className="text-xs text-gray-400">Total: {collectionInscriptionsTotal}</span>
+              </div>
+            </div>
+            {collectionLoading ? (
+              <div className="p-4 text-sm text-gray-400">Loading inscriptions...</div>
+            ) : collectionInscriptions.length === 0 ? (
+              <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
+                {collectionInscriptions.map((ins) => (
+                  <a
+                    key={ins.inscription_id}
+                    href={ins.contentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                  >
+                    <PreviewImage
+                      inscriptionId={ins.inscription_id}
+                      alt={ins.inscription_id}
+                      className="w-full aspect-square"
+                    />
+                    <div className="p-2">
+                      <div className="text-[11px] font-mono text-gray-300 truncate">
+                        {String(ins.metadata?.name || ins.inscription_id)}
+                      </div>
+                      <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

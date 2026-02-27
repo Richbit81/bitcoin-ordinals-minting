@@ -375,10 +375,10 @@ const MarketplaceAdminToolPage: React.FC = () => {
     }
   };
 
-  const handleLoadHashlistEditor = async () => {
+  const handleLoadHashlistEditor = async (forcedSlug?: string) => {
     try {
       if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
-      const slug = hashlistEditorSlug.trim();
+      const slug = String(forcedSlug || hashlistEditorSlug).trim();
       if (!slug) throw new Error('Collection slug is required');
       setHashlistEditorLoading(true);
       setError(null);
@@ -732,6 +732,31 @@ const MarketplaceAdminToolPage: React.FC = () => {
               {hashlistEditorVisible ? 'Hide Text Editor' : 'Show Text Editor'}
             </button>
           </div>
+          {collections.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
+                value={hashlistEditorSlug}
+                onChange={(e) => setHashlistEditorSlug(e.target.value)}
+              >
+                <option value="">Pick collection from list</option>
+                {collections
+                  .filter((c) => c.active !== false)
+                  .map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name} ({c.slug})
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={handleLoadHashlistEditor}
+                disabled={hashlistEditorLoading || !hashlistEditorSlug}
+                className="px-4 py-2 bg-zinc-700 rounded hover:bg-zinc-600 disabled:opacity-50 font-semibold"
+              >
+                Load Selected Collection Hashlist
+              </button>
+            </div>
+          )}
 
           {hashlistEditorVisible && (
             <div className="space-y-3">
@@ -898,12 +923,24 @@ const MarketplaceAdminToolPage: React.FC = () => {
                     <td className="px-4 py-2">{c.active ? 'yes' : 'no'}</td>
                     <td className="px-4 py-2 text-xs text-gray-400">{c.updated_at ? new Date(c.updated_at).toLocaleString() : '-'}</td>
                     <td className="px-4 py-2">
-                      <button
-                        onClick={() => handleArchiveCollection(c.slug, !!c.active)}
-                        className="px-2 py-1 bg-zinc-700 rounded hover:bg-zinc-600 text-xs"
-                      >
-                        {c.active ? 'Archive' : 'Activate'}
-                      </button>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          onClick={() => {
+                            setHashlistEditorSlug(c.slug);
+                            setHashlistEditorVisible(true);
+                            handleLoadHashlistEditor(c.slug);
+                          }}
+                          className="px-2 py-1 bg-emerald-700 rounded hover:bg-emerald-600 text-xs"
+                        >
+                          Edit Hashlist
+                        </button>
+                        <button
+                          onClick={() => handleArchiveCollection(c.slug, !!c.active)}
+                          className="px-2 py-1 bg-zinc-700 rounded hover:bg-zinc-600 text-xs"
+                        >
+                          {c.active ? 'Archive' : 'Activate'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

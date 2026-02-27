@@ -27,6 +27,19 @@ export interface MarketplaceCollection {
   updated_at?: string;
 }
 
+export interface MarketplaceCollectionInscription {
+  inscription_id: string;
+  collection_slug?: string;
+  owner_address?: string;
+  listed?: boolean;
+  attributes?: Array<{ trait_type?: string; value?: string }>;
+  metadata?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+  previewUrl: string;
+  contentUrl: string;
+}
+
 export interface MarketplaceBisCollectionSuggestion {
   slug: string;
   name: string;
@@ -196,6 +209,24 @@ export async function getMarketplaceCollections(params?: {
   if (!res.ok) throw new Error('Failed to load marketplace collections');
   const data = await res.json();
   return data.collections || [];
+}
+
+export async function getMarketplaceCollectionInscriptions(params: {
+  collectionSlug: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ collectionSlug: string; total: number; inscriptions: MarketplaceCollectionInscription[] }> {
+  const query = new URLSearchParams();
+  if (params.search) query.set('search', params.search);
+  if (typeof params.limit === 'number') query.set('limit', String(params.limit));
+  if (typeof params.offset === 'number') query.set('offset', String(params.offset));
+  const res = await fetch(
+    `${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(params.collectionSlug)}/inscriptions?${query.toString()}`
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to load collection inscriptions');
+  return data;
 }
 
 export async function createMarketplaceCollection(payload: {
