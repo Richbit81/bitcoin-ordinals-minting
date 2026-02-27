@@ -35,36 +35,38 @@ const PreviewImage: React.FC<{
   fit?: 'cover' | 'contain';
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
   const isPending = String(inscriptionId || '').startsWith('pending-');
-  const proxyImageSrc = `${API_URL}/api/inscription/image/${encodeURIComponent(inscriptionId)}`;
-  const contentFallbackSrc = `https://ordinals.com/content/${encodeURIComponent(inscriptionId)}`;
+  const encodedId = encodeURIComponent(inscriptionId);
+  const imageSources = [
+    `https://ordinals.com/preview/${encodedId}`,
+    `${API_URL}/api/inscription/image/${encodedId}`,
+  ];
+  const currentSrc = imageSources[sourceIndex];
+  const noPreviewAvailable = sourceIndex >= imageSources.length;
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !failed && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
+      {!loaded && !noPreviewAvailable && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
       {isPending ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
           Pending inscription
         </div>
-      ) : failed ? (
-        <iframe
-          src={contentFallbackSrc}
-          title={alt}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          onLoad={() => setLoaded(true)}
-        />
+      ) : noPreviewAvailable ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
+          Preview unavailable
+        </div>
       ) : (
         <img
-          src={proxyImageSrc}
+          src={currentSrc}
           alt={alt}
           loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
           onLoad={() => setLoaded(true)}
           onError={() => {
-            setFailed(true);
             setLoaded(false);
+            setSourceIndex((prev) => prev + 1);
           }}
           className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         />
@@ -846,7 +848,7 @@ export const MarketplacePage: React.FC = () => {
           ) : collectionsMeta.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">No collections available.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 p-2">
               {collectionsMeta
                 .filter((c) => c.active !== false)
                 .map((c) => (
@@ -854,7 +856,7 @@ export const MarketplacePage: React.FC = () => {
                     key={c.slug}
                     type="button"
                     onClick={() => loadCollectionInscriptions(c.slug)}
-                    className="text-left rounded-lg border border-white/10 bg-zinc-900/60 hover:border-red-500/40 transition-colors overflow-hidden max-w-xs"
+                    className="text-left rounded-lg border border-white/10 bg-zinc-900/60 hover:border-red-500/40 transition-colors overflow-hidden max-w-[11rem]"
                   >
                     <div className="aspect-square bg-zinc-900">
                       {c.cover_image ? (
@@ -863,9 +865,9 @@ export const MarketplacePage: React.FC = () => {
                         <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No cover</div>
                       )}
                     </div>
-                    <div className="p-3">
-                      <div className="font-semibold truncate">{c.name}</div>
-                      <div className="text-xs text-gray-500">{c.slug}</div>
+                    <div className="p-2">
+                      <div className="text-sm font-semibold truncate">{c.name}</div>
+                      <div className="text-[11px] text-gray-500">{c.slug}</div>
                     </div>
                   </button>
                 ))}
@@ -915,7 +917,7 @@ export const MarketplacePage: React.FC = () => {
               ) : collectionInscriptions.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
+                <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2 p-2">
                   {collectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
                     const rareSats = extractInscriptionRareSats(ins);
@@ -925,7 +927,7 @@ export const MarketplacePage: React.FC = () => {
                         key={ins.inscription_id}
                         type="button"
                         onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
-                        className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                        className="rounded-md border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
                       >
                         <PreviewImage
                           inscriptionId={ins.inscription_id}
@@ -933,16 +935,16 @@ export const MarketplacePage: React.FC = () => {
                           className="w-full aspect-square"
                           fit="contain"
                         />
-                        <div className="p-2">
-                          <div className="text-[11px] font-mono text-gray-300 truncate">
+                        <div className="p-1.5">
+                          <div className="text-[10px] font-mono text-gray-300 truncate">
                             {String(ins.metadata?.name || ins.inscription_id)}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
+                          <div className="text-[9px] text-gray-500 truncate">{ins.inscription_id}</div>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
+                            <span className="text-[9px] px-1 py-0.5 rounded border border-violet-700/40 bg-violet-900/30 text-violet-200">
                               Rarity: {rarity}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
+                            <span className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
                               Rare sats: {rareSats}
                             </span>
                           </div>
@@ -952,7 +954,7 @@ export const MarketplacePage: React.FC = () => {
                                 const k = `${t.trait_type}::${t.value}`;
                                 const pct = collectionTraitPercentByKey.get(k);
                                 return (
-                                  <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
+                                  <span key={`${ins.inscription_id}-${k}-${idx}`} className="text-[9px] px-1 py-0.5 rounded border border-white/15 bg-black/30 text-gray-200">
                                     {t.trait_type}: {t.value} {pct !== undefined ? `(${pct.toFixed(1)}%)` : ''}
                                   </span>
                                 );
@@ -992,7 +994,7 @@ export const MarketplacePage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
               {filteredListings.map((l) => {
                 const isOwn = currentAddress && l.seller_address.toLowerCase() === currentAddress.toLowerCase();
                 const isBusy = busyListingId === l.id;
@@ -1006,7 +1008,7 @@ export const MarketplacePage: React.FC = () => {
                 return (
                   <div
                     key={l.id}
-                    className="group rounded-xl border border-white/15 bg-zinc-950/70 overflow-hidden hover:border-red-500/60 hover:shadow-[0_0_24px_rgba(239,68,68,0.25)] transition-all"
+                    className="group rounded-lg border border-white/15 bg-zinc-950/70 overflow-hidden hover:border-red-500/60 hover:shadow-[0_0_18px_rgba(239,68,68,0.25)] transition-all"
                   >
                     <div className="relative aspect-square bg-zinc-900">
                       <PreviewImage
@@ -1015,8 +1017,8 @@ export const MarketplacePage: React.FC = () => {
                         className="h-full w-full"
                         imageClassName="group-hover:scale-[1.03] transition-transform duration-300"
                       />
-                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-                      <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 border border-white/20 text-xs font-mono">
+                      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/20 text-[10px] font-mono">
                         {Number(l.price_sats || 0).toLocaleString()} sats
                       </div>
                       <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -1048,9 +1050,9 @@ export const MarketplacePage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="p-3 space-y-2">
+                    <div className="p-2 space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-semibold truncate">{l.collection_slug}</div>
+                        <div className="text-xs font-semibold truncate">{l.collection_slug}</div>
                         <div className="flex items-center gap-1">
                           {rarityLabel && (
                             <span className="text-[10px] uppercase tracking-wide text-violet-200 bg-violet-900/40 border border-violet-700/40 rounded px-1.5 py-0.5">
@@ -1072,13 +1074,13 @@ export const MarketplacePage: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="text-xs font-mono text-gray-400">
+                      <div className="text-[11px] font-mono text-gray-400">
                         {l.inscription_id.slice(0, 12)}...{l.inscription_id.slice(-6)}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-[11px] text-gray-400">
                         Seller: <span className="font-mono">{l.seller_address.slice(0, 8)}...{l.seller_address.slice(-6)}</span>
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-[11px] text-gray-400">
                         Rare sats: <span className="font-mono">{rareSatsLabel}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -1098,14 +1100,14 @@ export const MarketplacePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(l)}
-                            className="px-2 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold"
+                            className="px-1.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] font-semibold"
                           >
                             Details
                           </button>
                           <button
                             disabled={isBusy}
                             onClick={() => handleCancelListing(l.id)}
-                            className="px-2 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                            className="px-1.5 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[11px] font-semibold"
                           >
                             {isBusy ? 'Working...' : 'Cancel'}
                           </button>
@@ -1115,14 +1117,14 @@ export const MarketplacePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(l)}
-                            className="px-2 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold"
+                            className="px-1.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] font-semibold"
                           >
                             Details
                           </button>
                           <button
                             disabled={!walletState.connected || isBusy}
                             onClick={() => handleBuyListing(l)}
-                            className="px-2 py-2 rounded bg-red-600 hover:bg-red-500 disabled:opacity-50 text-xs font-semibold"
+                            className="px-1.5 py-1.5 rounded bg-red-600 hover:bg-red-500 disabled:opacity-50 text-[11px] font-semibold"
                             title="Simple mode: direct payment + complete"
                           >
                             {isBusy ? 'Buying...' : 'Simple Buy'}
@@ -1130,7 +1132,7 @@ export const MarketplacePage: React.FC = () => {
                           <button
                             disabled={!walletState.connected || isBusy}
                             onClick={() => handleAdvancedBuyListing(l)}
-                            className="px-2 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                            className="px-1.5 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[11px] font-semibold"
                             title="Advanced mode: wallet PSBT signing and on-chain broadcast"
                           >
                             {isBusy ? 'PSBT...' : 'PSBT Buy'}
