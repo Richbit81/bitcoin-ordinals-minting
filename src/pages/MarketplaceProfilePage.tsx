@@ -200,6 +200,47 @@ export const MarketplaceProfilePage: React.FC = () => {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="border border-white/20 rounded overflow-hidden">
+                <div className="px-4 py-3 bg-zinc-900 border-b border-white/10 font-semibold">Wallet Inscriptions</div>
+                <div className="max-h-[420px] overflow-auto">
+                  {(profile.walletInscriptions || []).length === 0 ? (
+                    <p className="p-4 text-sm text-gray-400">No inscriptions found for this wallet.</p>
+                  ) : (
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-zinc-950/80">
+                        <tr className="text-left text-gray-400">
+                          <th className="px-4 py-2">Name</th>
+                          <th className="px-4 py-2">Collection</th>
+                          <th className="px-4 py-2">Inscription</th>
+                          <th className="px-4 py-2">Open</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {profile.walletInscriptions.map((ins) => {
+                          const inscriptionName = String(ins.metadata?.name || ins.inscription_id);
+                          const collectionLabel = String(ins.collection_name || ins.collection_slug || '-');
+                          const collectionLink = ins.collection_slug
+                            ? `/marketplace?collection=${encodeURIComponent(ins.collection_slug)}&inscription=${encodeURIComponent(ins.inscription_id)}`
+                            : `/marketplace?inscription=${encodeURIComponent(ins.inscription_id)}`;
+                          return (
+                            <tr key={ins.inscription_id} className="border-t border-white/10">
+                              <td className="px-4 py-2 truncate max-w-[220px]" title={inscriptionName}>{inscriptionName}</td>
+                              <td className="px-4 py-2 truncate max-w-[180px]" title={collectionLabel}>{collectionLabel}</td>
+                              <td className="px-4 py-2 font-mono text-xs">{ins.inscription_id.slice(0, 14)}...</td>
+                              <td className="px-4 py-2">
+                                <Link to={collectionLink} className="text-red-300 hover:text-red-200 underline text-xs">
+                                  Open
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-white/20 rounded overflow-hidden">
                 <div className="px-4 py-3 bg-zinc-900 border-b border-white/10 font-semibold">Recent Listings</div>
                 <div className="max-h-[420px] overflow-auto">
                   {profile.recentListings.length === 0 ? (

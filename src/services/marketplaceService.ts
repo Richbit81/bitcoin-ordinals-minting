@@ -75,6 +75,16 @@ export interface MarketplaceProfile {
     txid?: string;
     sold_at: string;
   }>;
+  walletInscriptions: Array<{
+    inscription_id: string;
+    collection_slug?: string;
+    collection_name?: string | null;
+    owner_address?: string;
+    listed?: boolean;
+    metadata?: Record<string, any>;
+    created_at?: string;
+    updated_at?: string;
+  }>;
 }
 
 export interface MarketplaceListing {

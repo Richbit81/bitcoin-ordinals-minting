@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
 import {
@@ -27,7 +27,7 @@ import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
-const previewSourceCache = new Map<string, { sourceIndex: number }>();
+const previewSourceCache = new Map<string, { sourceIndex: number; useIframeFallback?: boolean }>();
 
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -50,8 +50,9 @@ const PreviewImage: React.FC<{
       : 0;
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(initialSourceIndex);
+  const [useIframeFallback, setUseIframeFallback] = useState(Boolean(cachedPreview?.useIframeFallback));
   const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length;
+  const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback;
 
   useEffect(() => {
     const cached = previewSourceCache.get(inscriptionId);
@@ -59,6 +60,7 @@ const PreviewImage: React.FC<{
     const nextIndex =
       cached && cached.sourceIndex >= 0 && cached.sourceIndex < imageSources.length ? cached.sourceIndex : 0;
     setSourceIndex(nextIndex);
+    setUseIframeFallback(Boolean(cached?.useIframeFallback));
   }, [inscriptionId]);
 
   return (
@@ -68,6 +70,19 @@ const PreviewImage: React.FC<{
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
           Pending inscription
         </div>
+      ) : useIframeFallback ? (
+        <iframe
+          src={`https://ordinals.com/preview/${encodedId}`}
+          title={alt}
+          loading="lazy"
+          className={`h-full w-full border-0 bg-zinc-900 ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 pointer-events-none`}
+          sandbox="allow-scripts allow-same-origin"
+          scrolling="no"
+          onLoad={() => {
+            previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
+            setLoaded(true);
+          }}
+        />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
@@ -80,14 +95,19 @@ const PreviewImage: React.FC<{
           decoding="async"
           referrerPolicy="no-referrer"
           onLoad={() => {
-            previewSourceCache.set(inscriptionId, { sourceIndex });
+            previewSourceCache.set(inscriptionId, { sourceIndex, useIframeFallback: false });
             setLoaded(true);
           }}
           onError={() => {
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
-              previewSourceCache.set(inscriptionId, { sourceIndex: next });
+              if (next >= imageSources.length) {
+                setUseIframeFallback(true);
+                previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
+              } else {
+                previewSourceCache.set(inscriptionId, { sourceIndex: next, useIframeFallback: false });
+              }
               return next;
             });
           }}
@@ -100,6 +120,7 @@ const PreviewImage: React.FC<{
 
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { walletState } = useWallet();
   const [ranking, setRanking] = useState<MarketplaceCollectionRanking[]>([]);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -145,6 +166,7 @@ export const MarketplacePage: React.FC = () => {
   });
   const currentAddress = walletState.accounts?.[0]?.address || '';
   const isAdminUser = isAdminAddress(currentAddress);
+  const autoOpenKeyRef = useRef<string>('');
 
   useEffect(() => {
     if (!isAdminUser) return;
@@ -187,6 +209,23 @@ export const MarketplacePage: React.FC = () => {
     if (!isAdminUser) return;
     loadListings();
   }, [isAdminUser]);
+
+  useEffect(() => {
+    if (!isAdminUser) return;
+    const params = new URLSearchParams(location.search || '');
+    const collectionSlug = String(params.get('collection') || '').trim();
+    const inscriptionId = String(params.get('inscription') || '').trim();
+    const key = `${collectionSlug}|${inscriptionId}`;
+    if (!collectionSlug || key === autoOpenKeyRef.current) return;
+    autoOpenKeyRef.current = key;
+    const openFromQuery = async () => {
+      await loadCollectionInscriptions(collectionSlug);
+      if (inscriptionId) {
+        await handleOpenInscriptionDetail(inscriptionId);
+      }
+    };
+    openFromQuery();
+  }, [isAdminUser, location.search]);
 
   const handleCreateListing = async () => {
     if (!isAdminUser) {
