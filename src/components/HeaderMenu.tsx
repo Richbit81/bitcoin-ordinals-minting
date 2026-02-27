@@ -199,6 +199,18 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
                         <span className="font-semibold">Marketplace</span>
                       </button>
                     )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          navigate('/admin/marketplace-tool');
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-900 text-white flex items-center gap-2 border-b border-gray-800"
+                      >
+                        <span className="w-5 h-5 flex items-center justify-center text-cyan-400">🏪</span>
+                        <span className="font-semibold">Marketplace Admin</span>
+                      </button>
+                    )}
                     {/* Admin Buttons - nur für Admins sichtbar */}
                     {isAdmin && (
                       <button

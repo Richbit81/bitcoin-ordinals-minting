@@ -28,6 +28,7 @@ import { AudioSplitterPage } from './pages/AudioSplitterPage';
 import { VideoSplitterPage } from './pages/VideoSplitterPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { MarketplaceProfilePage } from './pages/MarketplaceProfilePage';
+import MarketplaceAdminToolPage from './pages/MarketplaceAdminToolPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { useWallet } from './contexts/WalletContext';
 import { isAdminAddress } from './config/admin';
@@ -76,6 +77,7 @@ function AppContent() {
         <Route path="/admin/avif-converter" element={<AvifConverterPage />} />
         <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
         <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
+        <Route path="/admin/marketplace-tool" element={<AdminRoute><MarketplaceAdminToolPage /></AdminRoute>} />
         <Route path="/marketplace" element={<AdminRoute><MarketplacePage /></AdminRoute>} />
         <Route path="/marketplace/profile" element={<AdminRoute><MarketplaceProfilePage /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -12,6 +12,21 @@ export interface MarketplaceCollectionRanking {
   volume_sats_all: number;
 }
 
+export interface MarketplaceCollection {
+  slug: string;
+  name: string;
+  symbol?: string | null;
+  description?: string | null;
+  cover_image?: string | null;
+  verified?: boolean;
+  source?: string;
+  source_ref?: string | null;
+  metadata?: Record<string, any>;
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface MarketplaceProfile {
   address: string;
   listingStats: {
@@ -73,11 +88,123 @@ export interface MarketplaceActivity {
   txid?: string;
 }
 
+export interface MarketplaceTraitSummaryRow {
+  trait_type: string;
+  value: string;
+  count: number;
+}
+
+export interface MarketplaceRaritySummaryRow {
+  rarity: string;
+  count: number;
+}
+
 export async function getMarketplaceRanking(): Promise<MarketplaceCollectionRanking[]> {
   const res = await fetch(`${API_URL}/api/marketplace/v1/ranking/collections`);
   if (!res.ok) throw new Error('Failed to load marketplace ranking');
   const data = await res.json();
   return data.ranking || [];
+}
+
+export async function getMarketplaceCollections(params?: {
+  includeInactive?: boolean;
+  adminAddress?: string;
+}): Promise<MarketplaceCollection[]> {
+  const query = new URLSearchParams();
+  if (params?.includeInactive) query.set('includeInactive', '1');
+  if (params?.adminAddress) query.set('adminAddress', params.adminAddress);
+  const qs = query.toString();
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error('Failed to load marketplace collections');
+  const data = await res.json();
+  return data.collections || [];
+}
+
+export async function createMarketplaceCollection(payload: {
+  adminAddress: string;
+  slug: string;
+  name: string;
+  symbol?: string;
+  description?: string;
+  coverImage?: string;
+  verified?: boolean;
+  source?: string;
+  sourceRef?: string;
+  metadata?: Record<string, any>;
+}): Promise<{ success: boolean; slug: string }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to save marketplace collection');
+  return data;
+}
+
+export async function integrateMarketplaceCollectionByName(payload: {
+  adminAddress: string;
+  query: string;
+  maxInscriptionIds?: number;
+}): Promise<{
+  success: boolean;
+  query: string;
+  collection: { slug: string; name: string };
+  stats: { holdersFetched: number; inscriptionsImported: number; maxInscriptionIds: number };
+}> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections/integrate-by-name`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to integrate collection by name');
+  return data;
+}
+
+export async function importMarketplaceHashlist(payload: {
+  adminAddress: string;
+  collectionSlug: string;
+  entries: Array<Record<string, any>>;
+}): Promise<{
+  success: boolean;
+  collectionSlug: string;
+  stats: {
+    imported: number;
+    skipped: number;
+    withTraits: number;
+    rarityCounts: Record<string, number>;
+  };
+}> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(payload.collectionSlug)}/import-hashlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adminAddress: payload.adminAddress,
+      entries: payload.entries,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to import marketplace hashlist');
+  return data;
+}
+
+export async function getMarketplaceTraitsSummary(collectionSlug: string): Promise<{
+  collectionSlug: string;
+  totalInscriptions: number;
+  traits: MarketplaceTraitSummaryRow[];
+  rarity: MarketplaceRaritySummaryRow[];
+}> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(collectionSlug)}/traits-summary`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to load marketplace traits summary');
+  return data;
+}
+
+export async function getMarketplaceHealth(): Promise<{ ok: boolean; db: boolean; mode: string; timestamp: string }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/health`);
+  if (!res.ok) throw new Error('Failed to load marketplace health');
+  return res.json();
 }
 
 export async function getMarketplaceProfile(address: string): Promise<MarketplaceProfile> {
@@ -119,6 +246,42 @@ export async function createMarketplaceListing(payload: {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to create listing');
+  return data;
+}
+
+export async function updateMarketplaceListingPrice(payload: {
+  listingId: string;
+  adminAddress: string;
+  priceSats: number;
+}): Promise<{ success: boolean; listing: { id: string; price_sats: number } }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/price`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adminAddress: payload.adminAddress,
+      priceSats: payload.priceSats,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to update marketplace listing price');
+  return data;
+}
+
+export async function archiveMarketplaceCollection(payload: {
+  slug: string;
+  adminAddress: string;
+  archived?: boolean;
+}): Promise<{ success: boolean; slug: string; active: boolean }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(payload.slug)}/archive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adminAddress: payload.adminAddress,
+      archived: payload.archived !== false,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to archive marketplace collection');
   return data;
 }
 
