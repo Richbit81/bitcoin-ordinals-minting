@@ -241,11 +241,20 @@ const MarketplaceAdminToolPage: React.FC = () => {
           ? row.attributes
           : Array.isArray(row?.traits)
             ? row.traits
+            : Array.isArray(row?.meta?.attributes)
+              ? row.meta.attributes
             : [];
+        const derivedName = String(row?.name || row?.itemName || row?.meta?.name || '').trim();
+        const derivedIndexFromName = (() => {
+          const m = derivedName.match(/#\s*(\d+)/);
+          return m ? Number(m[1]) : null;
+        })();
         return {
           inscriptionId,
-          name: row?.name || row?.itemName || `Item #${index + 1}`,
-          itemIndex: Number.isFinite(Number(row?.itemIndex ?? row?.item_index)) ? Number(row?.itemIndex ?? row?.item_index) : null,
+          name: derivedName || `Item #${index + 1}`,
+          itemIndex: Number.isFinite(Number(row?.itemIndex ?? row?.item_index))
+            ? Number(row?.itemIndex ?? row?.item_index)
+            : derivedIndexFromName,
           ownerAddress: row?.ownerAddress || row?.owner_address || row?.address || '',
           rarity: row?.rarity || '',
           attributes,
