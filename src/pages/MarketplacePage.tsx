@@ -28,6 +28,7 @@ import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const previewSourceCache = new Map<string, { sourceIndex: number; useIframeFallback?: boolean }>();
+const COLLECTION_PAGE_SIZE = 120;
 
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -104,9 +105,6 @@ const PreviewImage: React.FC<{
               const next = prev + 1;
               if (next >= imageSources.length) {
                 setUseIframeFallback(true);
-                previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
-              } else {
-                previewSourceCache.set(inscriptionId, { sourceIndex: next, useIframeFallback: false });
               }
               return next;
             });
@@ -153,6 +151,7 @@ export const MarketplacePage: React.FC = () => {
   const [collectionRareSatsByInscription, setCollectionRareSatsByInscription] = useState<Record<string, string>>({});
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionLoadingMore, setCollectionLoadingMore] = useState(false);
   const [collectionSearch, setCollectionSearch] = useState('');
   const [showCollectionTraitFilters, setShowCollectionTraitFilters] = useState(false);
   const [collectionSelectedTraitFilters, setCollectionSelectedTraitFilters] = useState<Record<string, string[]>>({});
@@ -473,38 +472,51 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
-  const loadCollectionInscriptions = async (slug: string, search = '') => {
+  const loadCollectionInscriptions = async (slug: string, search = '', append = false) => {
     try {
       if (!slug) return;
       setCollectionModalOpen(true);
-      setCollectionLoading(true);
+      if (append) setCollectionLoadingMore(true);
+      else setCollectionLoading(true);
       setError(null);
+      const offset = append ? collectionInscriptions.length : 0;
       const data = await getMarketplaceCollectionInscriptions({
         collectionSlug: slug,
         search,
-        limit: 300,
-        offset: 0,
+        limit: COLLECTION_PAGE_SIZE,
+        offset,
       });
       setSelectedCollectionSlug(slug);
       const nextInscriptions = data.inscriptions || [];
-      setCollectionInscriptions(nextInscriptions);
+      setCollectionInscriptions((prev) => {
+        if (!append) return nextInscriptions;
+        const byId = new Map<string, MarketplaceCollectionInscription>();
+        for (const row of prev) byId.set(row.inscription_id, row);
+        for (const row of nextInscriptions) byId.set(row.inscription_id, row);
+        return Array.from(byId.values());
+      });
       const fromCache: Record<string, string> = {};
       for (const ins of nextInscriptions) {
         const cached = rareSatsCacheRef.current[ins.inscription_id];
         if (cached && cached !== '-') fromCache[ins.inscription_id] = cached;
       }
-      setCollectionRareSatsByInscription(fromCache);
-      setCollectionSelectedTraitFilters({});
-      setCollectionRarityFilter('all');
-      setCollectionSortMode('rarity-desc');
+      setCollectionRareSatsByInscription((prev) => (append ? { ...prev, ...fromCache } : fromCache));
+      if (!append) {
+        setCollectionSelectedTraitFilters({});
+        setCollectionRarityFilter('all');
+        setCollectionSortMode('rarity-desc');
+      }
       setCollectionInscriptionsTotal(Number(data.total || 0));
     } catch (err: any) {
       setError(err?.message || 'Failed to load collection inscriptions');
-      setCollectionInscriptions([]);
-      setCollectionRareSatsByInscription({});
-      setCollectionInscriptionsTotal(0);
+      if (!append) {
+        setCollectionInscriptions([]);
+        setCollectionRareSatsByInscription({});
+        setCollectionInscriptionsTotal(0);
+      }
     } finally {
-      setCollectionLoading(false);
+      if (append) setCollectionLoadingMore(false);
+      else setCollectionLoading(false);
     }
   };
 
@@ -1127,6 +1139,7 @@ export const MarketplacePage: React.FC = () => {
                     Search
                   </button>
                   <span className="text-xs text-gray-400">Total: {collectionInscriptionsTotal}</span>
+                  <span className="text-xs text-gray-500">Loaded: {collectionInscriptions.length}</span>
                   <button
                     type="button"
                     onClick={() => setCollectionModalOpen(false)}
@@ -1169,7 +1182,7 @@ export const MarketplacePage: React.FC = () => {
                     Traits Filter {selectedCollectionTraitCount > 0 ? `(${selectedCollectionTraitCount})` : ''}
                   </button>
                   <div className="text-xs text-gray-400 flex items-center">
-                    Showing {filteredCollectionInscriptions.length} / {collectionInscriptionsTotal}
+                    Showing {filteredCollectionInscriptions.length} / {collectionInscriptions.length} loaded
                   </div>
                 </div>
                 {showCollectionTraitFilters && (
@@ -1232,8 +1245,9 @@ export const MarketplacePage: React.FC = () => {
               ) : filteredCollectionInscriptions.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
               ) : (
-                <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2 p-2">
-                  {filteredCollectionInscriptions.map((ins) => {
+                <div className="p-2">
+                  <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
+                    {filteredCollectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
@@ -1282,7 +1296,20 @@ export const MarketplacePage: React.FC = () => {
                         </div>
                       </button>
                     );
-                  })}
+                    })}
+                  </div>
+                  {collectionInscriptions.length < collectionInscriptionsTotal && (
+                    <div className="mt-3 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => loadCollectionInscriptions(selectedCollectionSlug, collectionSearch, true)}
+                        disabled={collectionLoadingMore}
+                        className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-xs"
+                      >
+                        {collectionLoadingMore ? 'Loading more...' : 'Load more'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
