@@ -125,6 +125,7 @@ export const MarketplacePage: React.FC = () => {
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState('');
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
+  const [collectionRareSatsByInscription, setCollectionRareSatsByInscription] = useState<Record<string, string>>({});
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionSearch, setCollectionSearch] = useState('');
@@ -438,15 +439,73 @@ export const MarketplacePage: React.FC = () => {
       });
       setSelectedCollectionSlug(slug);
       setCollectionInscriptions(data.inscriptions || []);
+      setCollectionRareSatsByInscription({});
       setCollectionInscriptionsTotal(Number(data.total || 0));
     } catch (err: any) {
       setError(err?.message || 'Failed to load collection inscriptions');
       setCollectionInscriptions([]);
+      setCollectionRareSatsByInscription({});
       setCollectionInscriptionsTotal(0);
     } finally {
       setCollectionLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!collectionModalOpen || !selectedCollectionSlug || collectionInscriptions.length === 0) return;
+    let cancelled = false;
+
+    const missingIds = collectionInscriptions
+      .filter((ins) => extractInscriptionRareSats(ins) === '-')
+      .map((ins) => ins.inscription_id)
+      .slice(0, 120);
+
+    if (!missingIds.length) return;
+
+    const hydrateRareSats = async () => {
+      const chunkSize = 8;
+      for (let i = 0; i < missingIds.length; i += chunkSize) {
+        const chunk = missingIds.slice(i, i + chunkSize);
+        const details = await Promise.all(
+          chunk.map(async (id) => {
+            try {
+              const detail = await getMarketplaceInscriptionDetail(id);
+              const raw =
+                detail?.chainInfo?.rareSats ??
+                detail?.chainInfo?.rare_sats ??
+                detail?.chainInfo?.satributes ??
+                detail?.chainInfo?.sattributes ??
+                detail?.marketplaceInscription?.metadata?.rareSats ??
+                detail?.marketplaceInscription?.metadata?.rare_sats ??
+                detail?.marketplaceInscription?.metadata?.rareSat ??
+                detail?.marketplaceInscription?.metadata?.rare_sat ??
+                detail?.marketplaceInscription?.metadata?.satributes ??
+                detail?.marketplaceInscription?.metadata?.sattributes ??
+                detail?.marketplaceInscription?.metadata?.satributes?.rarity;
+              return [id, normalizeRareSatsDisplay(raw)] as const;
+            } catch {
+              return [id, '-'] as const;
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        const found: Record<string, string> = {};
+        for (const [id, value] of details) {
+          if (value && value !== '-') found[id] = value;
+        }
+        if (Object.keys(found).length > 0) {
+          setCollectionRareSatsByInscription((prev) => ({ ...prev, ...found }));
+        }
+      }
+    };
+
+    hydrateRareSats();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionModalOpen, selectedCollectionSlug, collectionInscriptions]);
 
   if (!isAdminUser) {
     return (
@@ -524,6 +583,20 @@ export const MarketplacePage: React.FC = () => {
       .filter((t) => t.trait_type && t.value);
   };
 
+  const normalizeRareSatsDisplay = (raw: any): string => {
+    if (raw === undefined || raw === null || raw === '') return '-';
+    if (typeof raw === 'number') return raw.toLocaleString();
+    if (Array.isArray(raw)) {
+      const values = raw.map((v) => String(v ?? '').trim()).filter(Boolean);
+      return values.length ? values.join(', ') : '-';
+    }
+    if (typeof raw === 'object') {
+      const values = Object.values(raw).map((v) => String(v ?? '').trim()).filter(Boolean);
+      return values.length ? values.join(', ') : '-';
+    }
+    return String(raw).trim() || '-';
+  };
+
   const extractRareSats = (l: MarketplaceListing): string => {
     const md = l.inscription_metadata || {};
     const raw =
@@ -531,10 +604,10 @@ export const MarketplacePage: React.FC = () => {
       md?.rare_sats ??
       md?.rareSat ??
       md?.rare_sat ??
+      md?.satributes ??
+      md?.sattributes ??
       md?.satributes?.rarity;
-    if (raw === undefined || raw === null || raw === '') return '-';
-    if (typeof raw === 'number') return raw.toLocaleString();
-    return String(raw);
+    return normalizeRareSatsDisplay(raw);
   };
 
   const extractInscriptionRarity = (ins: MarketplaceCollectionInscription): string => {
@@ -550,10 +623,10 @@ export const MarketplacePage: React.FC = () => {
       md?.rare_sats ??
       md?.rareSat ??
       md?.rare_sat ??
+      md?.satributes ??
+      md?.sattributes ??
       md?.satributes?.rarity;
-    if (raw === undefined || raw === null || raw === '') return '-';
-    if (typeof raw === 'number') return raw.toLocaleString();
-    return String(raw);
+    return normalizeRareSatsDisplay(raw);
   };
 
   const firstPresentValue = (...values: any[]): any => {
@@ -994,7 +1067,7 @@ export const MarketplacePage: React.FC = () => {
                 <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2 p-2">
                   {collectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
-                    const rareSats = extractInscriptionRareSats(ins);
+                    const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const rarityPercentile = collectionCompositeRarityByInscription.percentileById.get(ins.inscription_id) || 0;
                     const compositeLabel = compositeRarityLabel(rarityPercentile);
