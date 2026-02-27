@@ -37,22 +37,28 @@ const PreviewImage: React.FC<{
   fit?: 'cover' | 'contain';
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const cachedPreview = previewSourceCache.get(inscriptionId);
-  const [loaded, setLoaded] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(cachedPreview?.sourceIndex || 0);
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
-    `${API_URL}/api/inscription/image/${encodedId}`,
     `https://ordinals.com/content/${encodedId}`,
     `https://ordinals.com/preview/${encodedId}`,
+    `${API_URL}/api/inscription/image/${encodedId}`,
   ];
+  const initialSourceIndex =
+    cachedPreview && cachedPreview.sourceIndex >= 0 && cachedPreview.sourceIndex < imageSources.length
+      ? cachedPreview.sourceIndex
+      : 0;
+  const [loaded, setLoaded] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(initialSourceIndex);
   const currentSrc = imageSources[sourceIndex];
   const noPreviewAvailable = sourceIndex >= imageSources.length;
 
   useEffect(() => {
     const cached = previewSourceCache.get(inscriptionId);
     setLoaded(false);
-    setSourceIndex(cached?.sourceIndex || 0);
+    const nextIndex =
+      cached && cached.sourceIndex >= 0 && cached.sourceIndex < imageSources.length ? cached.sourceIndex : 0;
+    setSourceIndex(nextIndex);
   }, [inscriptionId]);
 
   return (
