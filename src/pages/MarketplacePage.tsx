@@ -42,7 +42,6 @@ const PreviewImage: React.FC<{
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
     `https://ordinals.com/content/${encodedId}`,
-    `https://ordinals.com/preview/${encodedId}`,
     `${API_URL}/api/inscription/image/${encodedId}`,
   ];
   const initialSourceIndex =
@@ -52,8 +51,9 @@ const PreviewImage: React.FC<{
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(initialSourceIndex);
   const [useIframeFallback, setUseIframeFallback] = useState(Boolean(cachedPreview?.useIframeFallback));
+  const [forceIframeFallback, setForceIframeFallback] = useState(false);
   const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback;
+  const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback && !forceIframeFallback;
 
   useEffect(() => {
     const cached = previewSourceCache.get(inscriptionId);
@@ -62,7 +62,14 @@ const PreviewImage: React.FC<{
       cached && cached.sourceIndex >= 0 && cached.sourceIndex < imageSources.length ? cached.sourceIndex : 0;
     setSourceIndex(nextIndex);
     setUseIframeFallback(Boolean(cached?.useIframeFallback));
+    setForceIframeFallback(false);
   }, [inscriptionId]);
+
+  useEffect(() => {
+    if (isPending || loaded || useIframeFallback || forceIframeFallback) return;
+    const t = setTimeout(() => setForceIframeFallback(true), 3500);
+    return () => clearTimeout(t);
+  }, [isPending, loaded, useIframeFallback, forceIframeFallback, inscriptionId]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -71,7 +78,7 @@ const PreviewImage: React.FC<{
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
           Pending inscription
         </div>
-      ) : useIframeFallback ? (
+      ) : (useIframeFallback || forceIframeFallback) ? (
         <iframe
           src={`https://ordinals.com/preview/${encodedId}`}
           title={alt}
