@@ -36,53 +36,91 @@ const PreviewImage: React.FC<{
   imageClassName?: string;
   fit?: 'cover' | 'contain';
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
-  const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
+  const blobUrlRef = useRef<string | null>(null);
+  const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
   const imageSources = [
-    `https://ordinals.com/content/${encodedId}`,
+    preprocessedSrc,
     `${API_URL}/api/inscription/image/${encodedId}`,
-  ];
+    `https://ordinals.com/preview/${encodedId}`,
+    `https://ordinals.com/content/${encodedId}`,
+  ].filter(Boolean) as string[];
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [useIframeFallback, setUseIframeFallback] = useState(false);
-  const [forceIframeFallback, setForceIframeFallback] = useState(false);
   const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback && !forceIframeFallback;
+  const noPreviewAvailable = sourceIndex >= imageSources.length;
 
   useEffect(() => {
     setLoaded(false);
     setSourceIndex(0);
-    setUseIframeFallback(false);
-    setForceIframeFallback(false);
+    setPreprocessedSrc(null);
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
   }, [inscriptionId]);
 
   useEffect(() => {
-    if (isPending || loaded || useIframeFallback || forceIframeFallback) return;
-    const t = setTimeout(() => setForceIframeFallback(true), 1200);
-    return () => clearTimeout(t);
-  }, [isPending, loaded, useIframeFallback, forceIframeFallback, inscriptionId]);
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const normalizeRecursiveSvg = (svgRaw: string): string => {
+      let svg = svgRaw;
+      svg = svg.replace(/(xlink:href|href|src)=["']\/content\//gi, '$1="https://ordinals.com/content/');
+      svg = svg.replace(/url\((["']?)\/content\//gi, 'url($1https://ordinals.com/content/');
+      // Some recursive SVGs omit image dimensions; force full-canvas defaults for stability.
+      svg = svg.replace(/<image(?![^>]*\swidth=)(?![^>]*\sheight=)\s/gi, '<image width="1000" height="1000" ');
+      return svg;
+    };
+
+    const hydrateRecursiveSvg = async () => {
+      const sources = [
+        `https://ordinals.com/content/${encodedId}`,
+        `https://ordinals.com/preview/${encodedId}`,
+      ];
+      for (const src of sources) {
+        try {
+          const res = await fetch(src, {
+            method: 'GET',
+            headers: { Accept: 'image/svg+xml,text/plain,*/*' },
+            signal: controller.signal,
+          });
+          if (!res.ok) continue;
+          const text = await res.text();
+          const trimmed = text.trim();
+          if (!trimmed.startsWith('<svg')) continue;
+          if (!trimmed.includes('/content/')) continue;
+          const normalized = normalizeRecursiveSvg(trimmed);
+          const blob = new Blob([normalized], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+          blobUrlRef.current = url;
+          setPreprocessedSrc(url);
+          setSourceIndex(0);
+          return;
+        } catch {
+          // try next source
+        }
+      }
+    };
+
+    hydrateRecursiveSvg();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [encodedId]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !isPending && !(useIframeFallback || forceIframeFallback) && (
+      {!loaded && !noPreviewAvailable && (
         <div className="absolute inset-0 animate-pulse bg-zinc-800" />
       )}
-      {isPending ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
-          Pending inscription
-        </div>
-      ) : (useIframeFallback || forceIframeFallback) ? (
-        <iframe
-          src={`https://ordinals.com/content/${encodedId}`}
-          title={alt}
-          loading="eager"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          onLoad={() => {
-            setLoaded(true);
-          }}
-        />
-      ) : noPreviewAvailable ? (
+      {noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
         </div>
@@ -100,9 +138,6 @@ const PreviewImage: React.FC<{
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
-              if (next >= imageSources.length) {
-                setUseIframeFallback(true);
-              }
               return next;
             });
           }}
