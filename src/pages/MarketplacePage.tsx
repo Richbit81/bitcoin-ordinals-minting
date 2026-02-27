@@ -32,7 +32,8 @@ const PreviewImage: React.FC<{
   alt: string;
   className: string;
   imageClassName?: string;
-}> = ({ inscriptionId, alt, className, imageClassName = '' }) => {
+  fit?: 'cover' | 'contain';
+}> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const isPending = String(inscriptionId || '').startsWith('pending-');
@@ -65,7 +66,7 @@ const PreviewImage: React.FC<{
             setFailed(true);
             setLoaded(false);
           }}
-          className={`h-full w-full object-cover ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+          className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         />
       )}
     </div>
@@ -1173,6 +1174,7 @@ export const MarketplacePage: React.FC = () => {
                     inscriptionId={selectedInscriptionDetail.inscriptionId}
                     alt={selectedInscriptionDetail.inscriptionId}
                     className="w-full aspect-square rounded border border-white/10"
+                    fit="contain"
                   />
                   <div className="text-xs font-mono text-gray-300 break-all">
                     {selectedInscriptionDetail.inscriptionId}

@@ -47,6 +47,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
   const [raritySummary, setRaritySummary] = useState<MarketplaceRaritySummaryRow[]>([]);
   const [traitsTotal, setTraitsTotal] = useState(0);
   const [hashlistImporting, setHashlistImporting] = useState(false);
+  const [hashlistImportReplaceMissing, setHashlistImportReplaceMissing] = useState(true);
   const [integrationForm, setIntegrationForm] = useState({
     query: '',
     maxInscriptionIds: '5000',
@@ -418,9 +419,10 @@ const MarketplaceAdminToolPage: React.FC = () => {
         adminAddress: connectedAddress,
         collectionSlug: slug,
         entries: hashlistEntries,
+        replaceMissing: hashlistImportReplaceMissing,
       });
       setMessage(
-        `Hashlist imported: ${result.stats.imported} entries (traits on ${result.stats.withTraits}).`
+        `Hashlist imported: ${result.stats.imported} entries (traits on ${result.stats.withTraits}, deleted ${result.stats.deleted || 0}).`
       );
       await loadAll();
     } catch (err: any) {
@@ -912,6 +914,14 @@ const MarketplaceAdminToolPage: React.FC = () => {
             <p className="text-xs text-gray-500">
               Supports array or objects with `items/hashlist/inscriptions`. Fields: inscriptionId, ownerAddress, name, rarity, attributes/traits.
             </p>
+            <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+              <input
+                type="checkbox"
+                checked={hashlistImportReplaceMissing}
+                onChange={(e) => setHashlistImportReplaceMissing(e.target.checked)}
+              />
+              Replace missing entries (recommended): delete DB rows not present in this file
+            </label>
             {hashlistEntries.length > 0 && (
               <div className="text-xs text-gray-300">
                 Loaded entries: <span className="font-semibold">{hashlistEntries.length}</span>

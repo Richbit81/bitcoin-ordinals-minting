@@ -290,6 +290,7 @@ export async function importMarketplaceHashlist(payload: {
   adminAddress: string;
   collectionSlug: string;
   entries: Array<Record<string, any>>;
+  replaceMissing?: boolean;
 }): Promise<{
   success: boolean;
   collectionSlug: string;
@@ -297,6 +298,7 @@ export async function importMarketplaceHashlist(payload: {
     imported: number;
     skipped: number;
     withTraits: number;
+    deleted?: number;
     rarityCounts: Record<string, number>;
   };
 }> {
@@ -306,6 +308,7 @@ export async function importMarketplaceHashlist(payload: {
     body: JSON.stringify({
       adminAddress: payload.adminAddress,
       entries: payload.entries,
+      replaceMissing: payload.replaceMissing === true,
     }),
   });
   const data = await res.json();
