@@ -27,7 +27,6 @@ import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
-const previewSourceCache = new Map<string, { sourceIndex: number; useIframeFallback?: boolean }>();
 const COLLECTION_PAGE_SIZE = 120;
 
 const PreviewImage: React.FC<{
@@ -37,31 +36,23 @@ const PreviewImage: React.FC<{
   imageClassName?: string;
   fit?: 'cover' | 'contain';
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
-  const cachedPreview = previewSourceCache.get(inscriptionId);
   const isPending = String(inscriptionId || '').startsWith('pending-');
   const encodedId = encodeURIComponent(inscriptionId);
   const imageSources = [
     `https://ordinals.com/content/${encodedId}`,
     `${API_URL}/api/inscription/image/${encodedId}`,
   ];
-  const initialSourceIndex =
-    cachedPreview && cachedPreview.sourceIndex >= 0 && cachedPreview.sourceIndex < imageSources.length
-      ? cachedPreview.sourceIndex
-      : 0;
   const [loaded, setLoaded] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(initialSourceIndex);
-  const [useIframeFallback, setUseIframeFallback] = useState(Boolean(cachedPreview?.useIframeFallback));
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [useIframeFallback, setUseIframeFallback] = useState(false);
   const [forceIframeFallback, setForceIframeFallback] = useState(false);
   const currentSrc = imageSources[sourceIndex];
   const noPreviewAvailable = sourceIndex >= imageSources.length && !useIframeFallback && !forceIframeFallback;
 
   useEffect(() => {
-    const cached = previewSourceCache.get(inscriptionId);
     setLoaded(false);
-    const nextIndex =
-      cached && cached.sourceIndex >= 0 && cached.sourceIndex < imageSources.length ? cached.sourceIndex : 0;
-    setSourceIndex(nextIndex);
-    setUseIframeFallback(Boolean(cached?.useIframeFallback));
+    setSourceIndex(0);
+    setUseIframeFallback(false);
     setForceIframeFallback(false);
   }, [inscriptionId]);
 
@@ -88,7 +79,6 @@ const PreviewImage: React.FC<{
           className="h-full w-full border-0 bg-zinc-900"
           scrolling="no"
           onLoad={() => {
-            previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
             setLoaded(true);
           }}
         />
@@ -104,7 +94,6 @@ const PreviewImage: React.FC<{
           decoding="async"
           referrerPolicy="no-referrer"
           onLoad={() => {
-            previewSourceCache.set(inscriptionId, { sourceIndex, useIframeFallback: false });
             setLoaded(true);
           }}
           onError={() => {
