@@ -27,6 +27,14 @@ export interface MarketplaceCollection {
   updated_at?: string;
 }
 
+export interface MarketplaceBisCollectionSuggestion {
+  slug: string;
+  name: string;
+  symbol?: string | null;
+  image?: string | null;
+  median_number?: number;
+}
+
 export interface MarketplaceProfile {
   address: string;
   listingStats: {
@@ -160,6 +168,21 @@ export async function integrateMarketplaceCollectionByName(payload: {
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to integrate collection by name');
   return data;
+}
+
+export async function searchMarketplaceBisCollections(payload: {
+  q: string;
+  adminAddress: string;
+  limit?: number;
+}): Promise<MarketplaceBisCollectionSuggestion[]> {
+  const query = new URLSearchParams();
+  query.set('q', payload.q);
+  query.set('adminAddress', payload.adminAddress);
+  if (typeof payload.limit === 'number') query.set('limit', String(payload.limit));
+  const res = await fetch(`${API_URL}/api/marketplace/v1/collections/search-bis?${query.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to search marketplace collections');
+  return data.collections || [];
 }
 
 export async function importMarketplaceHashlist(payload: {

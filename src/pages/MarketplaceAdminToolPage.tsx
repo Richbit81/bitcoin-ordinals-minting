@@ -15,11 +15,13 @@ import {
   importMarketplaceHashlist,
   integrateMarketplaceCollectionByName,
   MarketplaceActivity,
+  MarketplaceBisCollectionSuggestion,
   MarketplaceCollection,
   MarketplaceCollectionRanking,
   MarketplaceListing,
   MarketplaceRaritySummaryRow,
   MarketplaceTraitSummaryRow,
+  searchMarketplaceBisCollections,
   updateMarketplaceListingPrice,
 } from '../services/marketplaceService';
 
@@ -53,6 +55,9 @@ const MarketplaceAdminToolPage: React.FC = () => {
   const [hashlistEntriesPreview, setHashlistEntriesPreview] = useState<Array<Record<string, any>>>([]);
   const [hashlistEntries, setHashlistEntries] = useState<Array<Record<string, any>>>([]);
   const [listingPriceDrafts, setListingPriceDrafts] = useState<Record<string, string>>({});
+  const [integrationSuggestions, setIntegrationSuggestions] = useState<MarketplaceBisCollectionSuggestion[]>([]);
+  const [integrationSuggestionsLoading, setIntegrationSuggestionsLoading] = useState(false);
+  const [showIntegrationSuggestions, setShowIntegrationSuggestions] = useState(false);
 
   const [collectionForm, setCollectionForm] = useState({
     slug: '',
@@ -109,6 +114,34 @@ const MarketplaceAdminToolPage: React.FC = () => {
     loadAll();
   }, [isAdmin, listingStatusFilter]);
 
+  useEffect(() => {
+    const raw = integrationForm.query || '';
+    const q = raw.trim();
+    if (!isAdmin || !connectedAddress || q.length < 1) {
+      setIntegrationSuggestions([]);
+      setIntegrationSuggestionsLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIntegrationSuggestionsLoading(true);
+        const rows = await searchMarketplaceBisCollections({
+          q,
+          adminAddress: connectedAddress,
+          limit: 8,
+        });
+        setIntegrationSuggestions(rows);
+      } catch {
+        setIntegrationSuggestions([]);
+      } finally {
+        setIntegrationSuggestionsLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [integrationForm.query, isAdmin, connectedAddress]);
+
   const handleSaveCollection = async () => {
     try {
       if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
@@ -147,6 +180,8 @@ const MarketplaceAdminToolPage: React.FC = () => {
         query,
         maxInscriptionIds: Math.round(maxInscriptionIds),
       });
+      setShowIntegrationSuggestions(false);
+      setIntegrationSuggestions([]);
       setMessage(
         `Integrated ${result.collection.name} (${result.collection.slug}) with ${result.stats.inscriptionsImported} inscriptions.`
       );
@@ -382,12 +417,46 @@ const MarketplaceAdminToolPage: React.FC = () => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 space-y-3">
             <h2 className="font-bold">One-Click Integrate Collection by Name</h2>
-            <input
-              className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
-              placeholder="Collection name or slug (e.g. bitcoin-frogs)"
-              value={integrationForm.query}
-              onChange={(e) => setIntegrationForm((p) => ({ ...p, query: e.target.value }))}
-            />
+            <div className="relative">
+              <input
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
+                placeholder="Collection name or slug (type e.g. b...)"
+                value={integrationForm.query}
+                onFocus={() => setShowIntegrationSuggestions(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowIntegrationSuggestions(false), 120);
+                }}
+                onChange={(e) => {
+                  setIntegrationForm((p) => ({ ...p, query: e.target.value }));
+                  setShowIntegrationSuggestions(true);
+                }}
+              />
+              {showIntegrationSuggestions && (
+                <div className="absolute z-20 mt-1 w-full rounded border border-gray-700 bg-black/95 shadow-xl max-h-72 overflow-auto">
+                  {integrationSuggestionsLoading ? (
+                    <div className="px-3 py-2 text-xs text-gray-400">Searching collections...</div>
+                  ) : integrationSuggestions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500">No suggestions</div>
+                  ) : (
+                    integrationSuggestions.map((s) => (
+                      <button
+                        key={`${s.slug}-${s.name}`}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setIntegrationForm((p) => ({ ...p, query: s.slug || s.name }));
+                          setShowIntegrationSuggestions(false);
+                        }}
+                        className="w-full text-left px-3 py-2 border-b border-gray-800 last:border-b-0 hover:bg-gray-900"
+                      >
+                        <div className="text-sm text-white">{s.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">{s.slug}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <input
               className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
               placeholder="Max inscriptions to import (e.g. 5000)"
