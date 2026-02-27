@@ -25,6 +25,8 @@ import {
 import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+
 const PreviewImage: React.FC<{
   inscriptionId: string;
   alt: string;
@@ -33,27 +35,39 @@ const PreviewImage: React.FC<{
 }> = ({ inscriptionId, alt, className, imageClassName = '' }) => {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const src = `https://ordinals.com/content/${encodeURIComponent(inscriptionId)}`;
+  const isPending = String(inscriptionId || '').startsWith('pending-');
+  const proxyImageSrc = `${API_URL}/api/inscription/image/${encodeURIComponent(inscriptionId)}`;
+  const previewSrc = `https://ordinals.com/preview/${encodeURIComponent(inscriptionId)}`;
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !failed && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
-      {failed && (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs">
-          Preview unavailable
+      {!loaded && !failed && !isPending && <div className="absolute inset-0 animate-pulse bg-zinc-800" />}
+      {isPending ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-amber-300 text-xs">
+          Pending inscription
         </div>
+      ) : failed ? (
+        <iframe
+          src={previewSrc}
+          title={alt}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          onLoad={() => setLoaded(true)}
+        />
+      ) : (
+        <img
+          src={proxyImageSrc}
+          alt={alt}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setFailed(true);
+            setLoaded(false);
+          }}
+          className={`h-full w-full object-cover ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
+        />
       )}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        onError={() => {
-          setFailed(true);
-          setLoaded(false);
-        }}
-        className={`h-full w-full object-cover ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
-      />
     </div>
   );
 };
@@ -86,6 +100,7 @@ export const MarketplacePage: React.FC = () => {
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
   const [offerTxids, setOfferTxids] = useState<Record<string, string>>({});
   const [offerCompleteBusyId, setOfferCompleteBusyId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<'traits' | 'offers' | 'activity' | 'price' | 'details'>('traits');
   const [selectedCollectionSlug, setSelectedCollectionSlug] = useState('');
   const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
@@ -267,10 +282,28 @@ export const MarketplacePage: React.FC = () => {
       setSelectedDetailListing(listing);
       setOfferPriceSats(String(Math.max(1, Math.floor(Number(listing.price_sats || 0) * 0.95))));
       setOfferNote('');
+      setDetailTab('traits');
       const detail = await getMarketplaceInscriptionDetail(listing.inscription_id);
       setSelectedInscriptionDetail(detail);
     } catch (err: any) {
       setError(err?.message || 'Failed to load ordinal details');
+      setSelectedInscriptionDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleOpenInscriptionDetail = async (inscriptionId: string) => {
+    try {
+      setDetailLoading(true);
+      setError(null);
+      setDetailOpen(true);
+      setSelectedDetailListing(null);
+      setDetailTab('traits');
+      const detail = await getMarketplaceInscriptionDetail(inscriptionId);
+      setSelectedInscriptionDetail(detail);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load inscription details');
       setSelectedInscriptionDetail(null);
     } finally {
       setDetailLoading(false);
@@ -804,11 +837,10 @@ export const MarketplacePage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 p-3">
                 {collectionInscriptions.map((ins) => (
-                  <a
+                  <button
                     key={ins.inscription_id}
-                    href={ins.contentUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                    type="button"
+                    onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
                     className="rounded-lg border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
                   >
                     <PreviewImage
@@ -822,7 +854,7 @@ export const MarketplacePage: React.FC = () => {
                       </div>
                       <div className="text-[10px] text-gray-500 truncate">{ins.inscription_id}</div>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             )}
@@ -1156,6 +1188,38 @@ export const MarketplacePage: React.FC = () => {
                 </div>
 
                 <div className="xl:col-span-2 space-y-4">
+                  <div className="rounded border border-white/10 p-3">
+                    <div className="text-lg font-semibold">{String(selectedInscriptionDetail.marketplaceInscription?.metadata?.name || 'Ordinal')}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {String(selectedInscriptionDetail.marketplaceInscription?.collection_slug || selectedDetailListing?.collection_slug || '')}
+                      {' '}• Recursive • On-Chain
+                    </div>
+                    <div className="mt-3 border-b border-white/10">
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          { id: 'traits', label: 'Traits' },
+                          { id: 'offers', label: 'Offers' },
+                          { id: 'activity', label: 'Activity' },
+                          { id: 'price', label: 'Price History' },
+                          { id: 'details', label: 'Details' },
+                        ].map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setDetailTab(tab.id as typeof detailTab)}
+                            className={`px-3 py-1.5 text-xs rounded-t ${
+                              detailTab === tab.id
+                                ? 'bg-zinc-800 text-white border border-white/15 border-b-0'
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {selectedDetailListing && (
                     <div className="rounded border border-white/10 p-3">
                       <div className="text-xs text-gray-400 mb-2">Offer / Buy</div>
@@ -1215,39 +1279,45 @@ export const MarketplacePage: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="rounded border border-white/10 p-3">
-                    <div className="text-xs text-gray-400 mb-2">Details</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-gray-500">ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
-                      <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{String(selectedInscriptionDetail.marketplaceInscription?.owner_address || selectedInscriptionDetail.chainInfo?.ownerAddress || selectedInscriptionDetail.chainInfo?.address || '-')}</span></div>
-                      <div><span className="text-gray-500">Content:</span> <span className="font-mono break-all">{selectedInscriptionDetail.contentUrl}</span></div>
-                      <div><span className="text-gray-500">Created:</span> {String(selectedInscriptionDetail.chainInfo?.timestamp || selectedInscriptionDetail.chainInfo?.created || selectedInscriptionDetail.marketplaceInscription?.created_at || '-')}</div>
-                      <div><span className="text-gray-500">Block:</span> {String(selectedInscriptionDetail.chainInfo?.blockHeight || selectedInscriptionDetail.chainInfo?.block_height || selectedInscriptionDetail.chainInfo?.height || '-')}</div>
-                      <div><span className="text-gray-500">Rare sats:</span> {String(selectedInscriptionDetail.chainInfo?.rareSats || selectedInscriptionDetail.chainInfo?.rare_sats || '-')}</div>
-                      <div><span className="text-gray-500">Sat number:</span> {String(selectedInscriptionDetail.chainInfo?.satNumber || selectedInscriptionDetail.chainInfo?.sat_number || selectedInscriptionDetail.chainInfo?.sat || '-')}</div>
-                      <div><span className="text-gray-500">Rarity:</span> {String(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier || selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity || '-')}</div>
+                  {detailTab === 'details' && (
+                    <div className="rounded border border-white/10 p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <div><span className="text-gray-500">Inscription ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
+                        <div><span className="text-gray-500">Inscription Number:</span> {String(selectedInscriptionDetail.chainInfo?.inscriptionNumber || selectedInscriptionDetail.chainInfo?.inscription_number || '-')}</div>
+                        <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{String(selectedInscriptionDetail.marketplaceInscription?.owner_address || selectedInscriptionDetail.chainInfo?.ownerAddress || selectedInscriptionDetail.chainInfo?.address || '-')}</span></div>
+                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={selectedInscriptionDetail.contentUrl}>Link</a></div>
+                        <div><span className="text-gray-500">Content Type:</span> {String(selectedInscriptionDetail.chainInfo?.contentType || selectedInscriptionDetail.chainInfo?.content_type || '-')}</div>
+                        <div><span className="text-gray-500">Created:</span> {String(selectedInscriptionDetail.chainInfo?.timestamp || selectedInscriptionDetail.chainInfo?.created || selectedInscriptionDetail.marketplaceInscription?.created_at || '-')}</div>
+                        <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.genesisTransaction || selectedInscriptionDetail.chainInfo?.genesis_txid || '-')}</span></div>
+                        <div><span className="text-gray-500">Genesis Block:</span> {String(selectedInscriptionDetail.chainInfo?.genesisTransactionBlock || selectedInscriptionDetail.chainInfo?.genesis_block || '-')}</div>
+                        <div><span className="text-gray-500">Location:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.location || '-')}</span></div>
+                        <div><span className="text-gray-500">Output:</span> <span className="font-mono">{String(selectedInscriptionDetail.chainInfo?.output || '-')}</span></div>
+                        <div><span className="text-gray-500">Rarity:</span> {String(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier || selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity || selectedInscriptionDetail.chainInfo?.rarity || '-')}</div>
+                        <div><span className="text-gray-500">Rare sats:</span> {String(selectedInscriptionDetail.chainInfo?.rareSats || selectedInscriptionDetail.chainInfo?.rare_sats || '-')}</div>
+                        <div><span className="text-gray-500">Sat number:</span> {String(selectedInscriptionDetail.chainInfo?.satNumber || selectedInscriptionDetail.chainInfo?.sat_number || selectedInscriptionDetail.chainInfo?.sat || '-')}</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="rounded border border-white/10 p-3">
-                    <div className="text-xs text-gray-400 mb-2">Traits</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {Array.isArray(selectedInscriptionDetail.marketplaceInscription?.attributes) &&
-                      selectedInscriptionDetail.marketplaceInscription!.attributes!.length > 0 ? (
-                        selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
-                          <span key={`${t?.trait_type}-${t?.value}-${idx}`} className="text-[11px] px-2 py-1 rounded bg-zinc-900 border border-white/10">
-                            {String(t?.trait_type || '?')}: {String(t?.value || '?')}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-500">No traits</span>
-                      )}
+                  {detailTab === 'traits' && (
+                    <div className="rounded border border-white/10 p-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.isArray(selectedInscriptionDetail.marketplaceInscription?.attributes) &&
+                        selectedInscriptionDetail.marketplaceInscription!.attributes!.length > 0 ? (
+                          selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
+                            <span key={`${t?.trait_type}-${t?.value}-${idx}`} className="text-[11px] px-2 py-1 rounded bg-zinc-900 border border-white/10">
+                              {String(t?.trait_type || '?')}: {String(t?.value || '?')}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-500">No traits</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
-                      <div className="text-xs text-gray-400 mb-2">Price History</div>
+                  {detailTab === 'price' && (
+                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
                       {selectedInscriptionDetail.salesHistory.length === 0 ? (
                         <div className="text-xs text-gray-500">No sales yet.</div>
                       ) : (
@@ -1259,9 +1329,10 @@ export const MarketplacePage: React.FC = () => {
                         ))
                       )}
                     </div>
+                  )}
 
-                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
-                      <div className="text-xs text-gray-400 mb-2">Activity</div>
+                  {detailTab === 'activity' && (
+                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
                       {selectedInscriptionDetail.activity.length === 0 ? (
                         <div className="text-xs text-gray-500">No activity.</div>
                       ) : (
@@ -1273,8 +1344,10 @@ export const MarketplacePage: React.FC = () => {
                         ))
                       )}
                     </div>
-                    <div className="rounded border border-white/10 p-3 max-h-60 overflow-auto">
-                      <div className="text-xs text-gray-400 mb-2">Offers</div>
+                  )}
+
+                  {detailTab === 'offers' && (
+                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
                       {selectedInscriptionDetail.offersHistory?.length === 0 ? (
                         <div className="text-xs text-gray-500">No offers yet.</div>
                       ) : (
@@ -1355,7 +1428,7 @@ export const MarketplacePage: React.FC = () => {
                         ))
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

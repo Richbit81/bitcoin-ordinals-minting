@@ -111,6 +111,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
     metadataJson: '{}',
   });
   const [collectionCoverFileName, setCollectionCoverFileName] = useState('');
+  const [editingCollectionSlug, setEditingCollectionSlug] = useState('');
 
   const [listingForm, setListingForm] = useState({
     inscriptionId: '',
@@ -221,6 +222,43 @@ const MarketplaceAdminToolPage: React.FC = () => {
     } catch (err: any) {
       setError(err?.message || 'Failed to save collection');
     }
+  };
+
+  const handleLoadCollectionForEdit = (slug: string) => {
+    const row = collections.find((c) => String(c.slug || '') === String(slug || ''));
+    if (!row) {
+      setError(`Collection not found: ${slug}`);
+      return;
+    }
+    setCollectionForm({
+      slug: String(row.slug || ''),
+      name: String(row.name || ''),
+      symbol: String(row.symbol || ''),
+      description: String(row.description || ''),
+      coverImage: String(row.cover_image || ''),
+      verified: !!row.verified,
+      metadataJson: JSON.stringify(row.metadata || {}, null, 2),
+    });
+    setCollectionCoverFileName('');
+    setEditingCollectionSlug(String(row.slug || ''));
+    setMessage(`Editing collection: ${row.slug}`);
+    setError(null);
+  };
+
+  const handleResetCollectionForm = () => {
+    setCollectionForm({
+      slug: '',
+      name: '',
+      symbol: '',
+      description: '',
+      coverImage: '',
+      verified: false,
+      metadataJson: '{}',
+    });
+    setCollectionCoverFileName('');
+    setEditingCollectionSlug('');
+    setError(null);
+    setMessage('Collection form reset. Create mode active.');
   };
 
   const handleCollectionCoverFileSelect = async (file: File | null) => {
@@ -659,8 +697,52 @@ const MarketplaceAdminToolPage: React.FC = () => {
           </div>
 
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 space-y-3">
-            <h2 className="font-bold">Create / Update Collection</h2>
-            <input className="w-full px-3 py-2 bg-black border border-gray-700 rounded" placeholder="Slug (e.g. badcats)" value={collectionForm.slug} onChange={(e) => setCollectionForm((p) => ({ ...p, slug: e.target.value }))} />
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold">Create / Update Collection</h2>
+              <span className={`text-xs px-2 py-1 rounded ${editingCollectionSlug ? 'bg-amber-900/40 text-amber-200 border border-amber-700/50' : 'bg-zinc-800 text-zinc-200 border border-zinc-600'}`}>
+                {editingCollectionSlug ? `Edit: ${editingCollectionSlug}` : 'Create mode'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select
+                className="w-full px-3 py-2 bg-black border border-gray-700 rounded"
+                value={editingCollectionSlug}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  setEditingCollectionSlug(slug);
+                  if (slug) handleLoadCollectionForEdit(slug);
+                }}
+              >
+                <option value="">Load existing collection for edit...</option>
+                {collections.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.name} ({c.slug})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => editingCollectionSlug && handleLoadCollectionForEdit(editingCollectionSlug)}
+                disabled={!editingCollectionSlug}
+                className="px-3 py-2 bg-zinc-700 rounded hover:bg-zinc-600 disabled:opacity-50 text-sm font-semibold"
+              >
+                Reload Selected
+              </button>
+              <button
+                type="button"
+                onClick={handleResetCollectionForm}
+                className="px-3 py-2 bg-zinc-800 rounded hover:bg-zinc-700 text-sm font-semibold"
+              >
+                New Collection
+              </button>
+            </div>
+            <input
+              className="w-full px-3 py-2 bg-black border border-gray-700 rounded disabled:opacity-70"
+              placeholder="Slug (e.g. badcats)"
+              value={collectionForm.slug}
+              onChange={(e) => setCollectionForm((p) => ({ ...p, slug: e.target.value }))}
+              disabled={!!editingCollectionSlug}
+            />
             <input className="w-full px-3 py-2 bg-black border border-gray-700 rounded" placeholder="Name" value={collectionForm.name} onChange={(e) => setCollectionForm((p) => ({ ...p, name: e.target.value }))} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input className="w-full px-3 py-2 bg-black border border-gray-700 rounded" placeholder="Symbol" value={collectionForm.symbol} onChange={(e) => setCollectionForm((p) => ({ ...p, symbol: e.target.value }))} />
@@ -704,7 +786,9 @@ const MarketplaceAdminToolPage: React.FC = () => {
               Verified
             </label>
             <div>
-              <button onClick={handleSaveCollection} className="px-4 py-2 bg-red-600 rounded hover:bg-red-500 font-semibold">Save Collection</button>
+              <button onClick={handleSaveCollection} className="px-4 py-2 bg-red-600 rounded hover:bg-red-500 font-semibold">
+                {editingCollectionSlug ? 'Update Collection' : 'Save Collection'}
+              </button>
             </div>
           </div>
 
@@ -950,6 +1034,12 @@ const MarketplaceAdminToolPage: React.FC = () => {
                           className="px-2 py-1 bg-emerald-700 rounded hover:bg-emerald-600 text-xs"
                         >
                           Edit Hashlist
+                        </button>
+                        <button
+                          onClick={() => handleLoadCollectionForEdit(c.slug)}
+                          className="px-2 py-1 bg-sky-700 rounded hover:bg-sky-600 text-xs"
+                        >
+                          Edit Collection
                         </button>
                         <button
                           onClick={() => handleArchiveCollection(c.slug, !!c.active)}
