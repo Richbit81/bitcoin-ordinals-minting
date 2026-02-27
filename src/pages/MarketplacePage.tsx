@@ -31,6 +31,8 @@ export const MarketplacePage: React.FC = () => {
     collectionSlug: '',
     priceSats: '10000',
   });
+  const currentAddress = walletState.accounts?.[0]?.address || '';
+  const isAdminUser = isAdminAddress(currentAddress);
 
   useEffect(() => {
     if (!isAdminUser) return;
@@ -69,9 +71,6 @@ export const MarketplacePage: React.FC = () => {
     if (!isAdminUser) return;
     loadListings();
   }, [isAdminUser]);
-
-  const currentAddress = walletState.accounts?.[0]?.address || '';
-  const isAdminUser = isAdminAddress(currentAddress);
 
   const handleCreateListing = async () => {
     if (!isAdminUser) {
