@@ -28,6 +28,20 @@ import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const COLLECTION_PAGE_SIZE = 120;
+const PREVIEW_DEBUG_STORAGE_KEY = 'marketplacePreviewDebug';
+
+const isPreviewDebugEnabled = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    return (
+      params.has('debugPreview') ||
+      window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === '1'
+    );
+  } catch {
+    return false;
+  }
+};
 
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -39,9 +53,11 @@ const PreviewImage: React.FC<{
   const encodedId = encodeURIComponent(inscriptionId);
   const blobUrlRef = useRef<string | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
+  const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
+  const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const imageSources = [
     preprocessedSrc,
-    `${API_URL}/api/inscription/image/${encodedId}`,
+    apiImageUrl,
     `https://ordinals.com/preview/${encodedId}`,
     `https://ordinals.com/content/${encodedId}`,
   ].filter(Boolean) as string[];
@@ -49,6 +65,10 @@ const PreviewImage: React.FC<{
   const [sourceIndex, setSourceIndex] = useState(0);
   const currentSrc = imageSources[sourceIndex];
   const noPreviewAvailable = sourceIndex >= imageSources.length;
+  const debugLog = (...args: any[]) => {
+    if (!debugEnabled) return;
+    console.log('[MarketplacePreview]', inscriptionId, ...args);
+  };
 
   useEffect(() => {
     setLoaded(false);
@@ -58,6 +78,7 @@ const PreviewImage: React.FC<{
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
     }
+    debugLog('reset', { imageSources });
   }, [inscriptionId]);
 
   useEffect(() => {
@@ -78,18 +99,29 @@ const PreviewImage: React.FC<{
         `https://ordinals.com/content/${encodedId}`,
         `https://ordinals.com/preview/${encodedId}`,
       ];
+      debugLog('preprocess-start', { sources });
       for (const src of sources) {
         try {
+          debugLog('preprocess-try', { src });
           const res = await fetch(src, {
             method: 'GET',
             headers: { Accept: 'image/svg+xml,text/plain,*/*' },
             signal: controller.signal,
           });
-          if (!res.ok) continue;
+          if (!res.ok) {
+            debugLog('preprocess-skip-status', { src, status: res.status });
+            continue;
+          }
           const text = await res.text();
           const trimmed = text.trim();
-          if (!trimmed.startsWith('<svg')) continue;
-          if (!trimmed.includes('/content/')) continue;
+          if (!trimmed.startsWith('<svg')) {
+            debugLog('preprocess-skip-not-svg', { src, length: trimmed.length });
+            continue;
+          }
+          if (!trimmed.includes('/content/')) {
+            debugLog('preprocess-skip-no-recursive-content', { src });
+            continue;
+          }
           const normalized = normalizeRecursiveSvg(trimmed);
           const blob = new Blob([normalized], { type: 'image/svg+xml' });
           const url = URL.createObjectURL(blob);
@@ -101,11 +133,13 @@ const PreviewImage: React.FC<{
           blobUrlRef.current = url;
           setPreprocessedSrc(url);
           setSourceIndex(0);
+          debugLog('preprocess-success', { src, blobSize: blob.size });
           return;
         } catch {
-          // try next source
+          debugLog('preprocess-error', { src });
         }
       }
+      debugLog('preprocess-no-result');
     };
 
     hydrateRecursiveSvg();
@@ -114,6 +148,11 @@ const PreviewImage: React.FC<{
       controller.abort();
     };
   }, [encodedId]);
+
+  useEffect(() => {
+    if (!noPreviewAvailable) return;
+    debugLog('all-sources-failed', { imageSources });
+  }, [noPreviewAvailable, inscriptionId, imageSources.length]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -133,11 +172,13 @@ const PreviewImage: React.FC<{
           referrerPolicy="no-referrer"
           onLoad={() => {
             setLoaded(true);
+            debugLog('img-load-success', { currentSrc, sourceIndex });
           }}
           onError={() => {
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
+              debugLog('img-load-error-next-source', { currentSrc, prev, next });
               return next;
             });
           }}
