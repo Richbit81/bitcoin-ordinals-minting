@@ -67,7 +67,7 @@ const PreviewImage: React.FC<{
 
   useEffect(() => {
     if (isPending || loaded || useIframeFallback || forceIframeFallback) return;
-    const t = setTimeout(() => setForceIframeFallback(true), 3500);
+    const t = setTimeout(() => setForceIframeFallback(true), 1200);
     return () => clearTimeout(t);
   }, [isPending, loaded, useIframeFallback, forceIframeFallback, inscriptionId]);
 
@@ -80,11 +80,10 @@ const PreviewImage: React.FC<{
         </div>
       ) : (useIframeFallback || forceIframeFallback) ? (
         <iframe
-          src={`https://ordinals.com/preview/${encodedId}`}
+          src={`https://ordinals.com/content/${encodedId}`}
           title={alt}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900 pointer-events-none"
-          sandbox="allow-scripts allow-same-origin"
+          loading="eager"
+          className="h-full w-full border-0 bg-zinc-900"
           scrolling="no"
           onLoad={() => {
             previewSourceCache.set(inscriptionId, { sourceIndex: imageSources.length, useIframeFallback: true });
