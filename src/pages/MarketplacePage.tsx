@@ -28,7 +28,8 @@ import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const COLLECTION_PAGE_SIZE = 80;
-const PREVIEW_DEBUG_STORAGE_KEY = 'marketplacePreviewDebug';
+const INITIAL_LISTINGS_VISIBLE = 24;
+const LISTINGS_LOAD_STEP = 24;
 const MARKETPLACE_COLLECTIONS_CACHE_KEY = 'marketplaceCollectionsCacheV1';
 const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
 
@@ -36,10 +37,7 @@ const isPreviewDebugEnabled = (): boolean => {
   if (typeof window === 'undefined') return false;
   try {
     const params = new URLSearchParams(window.location.search || '');
-    return (
-      params.has('debugPreview') ||
-      window.localStorage.getItem(PREVIEW_DEBUG_STORAGE_KEY) === '1'
-    );
+    return params.has('debugPreview') || import.meta.env.DEV;
   } catch {
     return false;
   }
@@ -54,18 +52,26 @@ const PreviewImage: React.FC<{
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const encodedId = encodeURIComponent(inscriptionId);
   const blobUrlRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
   const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
   const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
   const [docProbeRequested, setDocProbeRequested] = useState(false);
+  const [isNearViewport, setIsNearViewport] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
-  const imageSources = [
-    preprocessedSrc,
-    apiImageUrl,
-    `https://ordinals.com/preview/${encodedId}`,
-    `https://ordinals.com/content/${encodedId}`,
-  ].filter(Boolean) as string[];
+  const imageSources = (debugEnabled
+    ? [
+        preprocessedSrc,
+        apiImageUrl,
+        `https://ordinals.com/preview/${encodedId}`,
+        `https://ordinals.com/content/${encodedId}`,
+      ]
+    : [
+        preprocessedSrc,
+        apiImageUrl,
+        `https://ordinals.com/content/${encodedId}`,
+      ]).filter(Boolean) as string[];
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [iframeFallback, setIframeFallback] = useState(false);
@@ -77,6 +83,29 @@ const PreviewImage: React.FC<{
   };
 
   useEffect(() => {
+    const node = containerRef.current;
+    if (!node || isNearViewport) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsNearViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting || entry.intersectionRatio > 0) {
+            setIsNearViewport(true);
+          }
+        });
+      },
+      { rootMargin: '300px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isNearViewport, inscriptionId]);
+
+  useEffect(() => {
     setLoaded(false);
     setSourceIndex(0);
     setPreprocessedSrc(null);
@@ -84,6 +113,7 @@ const PreviewImage: React.FC<{
     setHtmlPreviewDoc(null);
     setDocProbeRequested(false);
     setIframeFallback(false);
+    setIsNearViewport(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
@@ -92,7 +122,7 @@ const PreviewImage: React.FC<{
   }, [inscriptionId]);
 
   useEffect(() => {
-    if (!docProbeRequested) return;
+    if (!docProbeRequested || !debugEnabled) return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -188,7 +218,7 @@ const PreviewImage: React.FC<{
       cancelled = true;
       controller.abort();
     };
-  }, [encodedId]);
+  }, [encodedId, docProbeRequested, debugEnabled]);
 
   useEffect(() => {
     if (!noPreviewAvailable) return;
@@ -196,11 +226,11 @@ const PreviewImage: React.FC<{
   }, [noPreviewAvailable, inscriptionId, imageSources.length]);
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div ref={containerRef} className={`relative overflow-hidden ${className}`}>
       {!loaded && !noPreviewAvailable && (
         <div className="absolute inset-0 animate-pulse bg-zinc-800" />
       )}
-      {recursiveSvgDoc ? (
+      {!isNearViewport ? null : recursiveSvgDoc ? (
         <iframe
           title={alt}
           srcDoc={recursiveSvgDoc}
@@ -265,9 +295,11 @@ const PreviewImage: React.FC<{
             setSourceIndex((prev) => {
               const next = prev + 1;
               if (next >= imageSources.length) {
-                // Expensive HTML/SVG probe only runs for cards that fail normal image paths.
-                setDocProbeRequested(true);
-                setIframeFallback(true);
+                // Expensive HTML/SVG probing only in explicit debug mode.
+                if (debugEnabled) {
+                  setDocProbeRequested(true);
+                  setIframeFallback(true);
+                }
               }
               debugLog('img-load-error-next-source', { currentSrc, prev, next });
               return next;
@@ -297,6 +329,7 @@ export const MarketplacePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('all');
   const [sortMode, setSortMode] = useState<'latest' | 'price-asc' | 'price-desc'>('latest');
+  const [visibleListingsCount, setVisibleListingsCount] = useState(INITIAL_LISTINGS_VISIBLE);
   const [selectedTraitFilters, setSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionsMeta, setCollectionsMeta] = useState<MarketplaceCollection[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -323,6 +356,7 @@ export const MarketplacePage: React.FC = () => {
   const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
   const [collectionSortMode, setCollectionSortMode] = useState<'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc'>('rarity-desc');
   const rareSatsCacheRef = useRef<Record<string, string>>({});
+  const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
@@ -1130,6 +1164,36 @@ export const MarketplacePage: React.FC = () => {
     return rows;
   }, [baseFilteredListings, selectedTraitFilters, sortMode]);
 
+  const visibleFilteredListings = useMemo(
+    () => filteredListings.slice(0, visibleListingsCount),
+    [filteredListings, visibleListingsCount]
+  );
+  const hasMoreFilteredListings = visibleListingsCount < filteredListings.length;
+
+  useEffect(() => {
+    setVisibleListingsCount(INITIAL_LISTINGS_VISIBLE);
+  }, [searchQuery, collectionFilter, sortMode, selectedTraitFilters, listings.length]);
+
+  useEffect(() => {
+    if (listingsLoading || !hasMoreFilteredListings) return;
+    const node = listingsLoadMoreRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        setVisibleListingsCount((prev) =>
+          Math.min(prev + LISTINGS_LOAD_STEP, filteredListings.length)
+        );
+      },
+      { rootMargin: '600px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [listingsLoading, hasMoreFilteredListings, filteredListings.length]);
+
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -1253,7 +1317,7 @@ export const MarketplacePage: React.FC = () => {
             </select>
           </div>
           <div className="mt-2 text-xs text-gray-400">
-            Showing {filteredListings.length} listing(s) • Avg price {avgPriceSats.toLocaleString()} sats
+            Showing {visibleFilteredListings.length} of {filteredListings.length} listing(s) • Avg price {avgPriceSats.toLocaleString()} sats
           </div>
         </div>
 
@@ -1534,7 +1598,7 @@ export const MarketplacePage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
-              {filteredListings.map((l) => {
+              {visibleFilteredListings.map((l) => {
                 const isOwn = currentAddress && l.seller_address.toLowerCase() === currentAddress.toLowerCase();
                 const isBusy = busyListingId === l.id;
                 const rarityLabel = String(
@@ -1682,6 +1746,19 @@ export const MarketplacePage: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+          {!listingsLoading && filteredListings.length > 0 && hasMoreFilteredListings && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <div ref={listingsLoadMoreRef} className="h-1 w-full" />
+              <button
+                type="button"
+                onClick={() => setVisibleListingsCount((prev) => prev + LISTINGS_LOAD_STEP)}
+                className="px-4 py-2 rounded-lg bg-zinc-800 border border-white/15 hover:bg-zinc-700 text-sm font-semibold"
+              >
+                Load more ({Math.min(LISTINGS_LOAD_STEP, filteredListings.length - visibleListingsCount)} more)
+              </button>
+              <div className="text-[11px] text-gray-500">Auto-loading while scrolling</div>
             </div>
           )}
         </div>

@@ -14,6 +14,7 @@ interface MempoolFeesBannerProps {
 }
 
 export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsClick }) => {
+  const isDebug = import.meta.env.DEV;
   const [fees, setFees] = useState<FeeRates | null>(null);
   const [feeHistory, setFeeHistory] = useState<FeeHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   // Fetch data - verwendet jetzt denselben Service wie FeeRateSelector
   const fetchData = async () => {
-    console.log('[MempoolBanner] 🔄 Fetching mempool data...');
+    if (isDebug) console.log('[MempoolBanner] 🔄 Fetching mempool data...');
     try {
       const [feesData, historyData] = await Promise.all([
         getCurrentFeeRates(),
@@ -30,7 +31,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
       ]);
       
       if (feesData) {
-        console.log('[MempoolBanner] ✅ Fee Rates:', feesData);
+        if (isDebug) console.log('[MempoolBanner] ✅ Fee Rates:', feesData);
         setFees(feesData);
         setFeeHistory(historyData);
         setError(false);
@@ -39,7 +40,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
         setError(true);
       }
     } catch (err) {
-      console.error('[MempoolBanner] ❌ Error fetching data:', err);
+      if (isDebug) console.error('[MempoolBanner] ❌ Error fetching data:', err);
       setError(true);
     } finally {
       setLoading(false);
@@ -48,17 +49,17 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
 
   // Initial fetch + auto-refresh every 60 seconds
   useEffect(() => {
-    console.log('[MempoolBanner] 🚀 Component mounted, starting fetch...');
+    if (isDebug) console.log('[MempoolBanner] 🚀 Component mounted, starting fetch...');
     fetchData();
     const interval = setInterval(fetchData, 60000); // 60s
     return () => {
-      console.log('[MempoolBanner] 🛑 Component unmounted');
+      if (isDebug) console.log('[MempoolBanner] 🛑 Component unmounted');
       clearInterval(interval);
     };
-  }, []);
+  }, [isDebug]);
 
   if (loading) {
-    console.log('[MempoolBanner] 🔄 Rendering: LOADING state');
+    if (isDebug) console.log('[MempoolBanner] 🔄 Rendering: LOADING state');
     return (
       <div className="fixed top-4 right-52 md:right-64 z-40">
         <div className="animate-pulse text-orange-500 text-sm font-semibold">
@@ -69,7 +70,7 @@ export const MempoolFeesBanner: React.FC<MempoolFeesBannerProps> = ({ onDetailsC
   }
 
   if (error || !fees) {
-    console.log('[MempoolBanner] ❌ Rendering: ERROR state (hiding component)');
+    if (isDebug) console.log('[MempoolBanner] ❌ Rendering: ERROR state (hiding component)');
     return null; // Hide on error - no need to show error state
   }
 
