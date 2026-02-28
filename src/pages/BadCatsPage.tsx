@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { FeeRateSelector } from '../components/FeeRateSelector';
@@ -196,6 +196,16 @@ export const BadCatsPage: React.FC = () => {
   };
 
   const isMintPublic = secondsUntilMint <= 0;
+  const recentMintPreviewByIndex = useMemo(() => {
+    const map = new Map<number, string>();
+    const generated = collectionData?.generated || [];
+    for (const item of generated) {
+      if (item?.index && typeof item.svg === 'string' && item.svg.length > 0) {
+        map.set(item.index, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(item.svg)}`);
+      }
+    }
+    return map;
+  }, [collectionData]);
 
   useEffect(() => {
     if (!document.querySelector(`link[href="${COMIC_FONT_LINK}"]`)) {
@@ -348,13 +358,25 @@ export const BadCatsPage: React.FC = () => {
   async function loadRecentMints() {
     try {
       const res = await fetch(`${API_URL}/api/badcats/recent`);
-      const data = res.ok ? await res.json() : { recent: [] };
+      const data = res.ok ? await res.json() : { recent: [] as any[] };
+      const list = data.recent || data.mints || [];
       const minTs = new Date(BADCATS_RECENT_MINTS_START_AT).getTime();
-      const filtered = (data.recent || [])
+      const filtered = list
         .filter((mint: any) => {
-          const ts = new Date(mint.timestamp || 0).getTime();
+          const ts = typeof mint.timestamp === 'number'
+            ? mint.timestamp
+            : new Date(mint.timestamp || 0).getTime();
           return Number.isFinite(ts) && ts >= minTs;
         })
+        .map((mint: any) => ({
+          itemIndex: Number(mint.itemIndex || 0),
+          itemName: String(mint.itemName || `BadCats #${mint.itemIndex || '?'}`),
+          timestamp: typeof mint.timestamp === 'number'
+            ? new Date(mint.timestamp).toISOString()
+            : String(mint.timestamp || ''),
+          walletAddress: mint.walletAddress || null,
+          inscriptionId: mint.inscriptionId || null,
+        }))
         .slice(0, 10);
       setRecentMints(filtered);
     } catch {
@@ -442,6 +464,8 @@ export const BadCatsPage: React.FC = () => {
             itemIndex: result.item.index,
             priceInSats: isFreeForUser ? 0 : BADCATS_PRICE_SATS,
             paymentTxid: result.paymentTxid || null,
+            isFree: isFreeForUser,
+            timestamp: Date.now(),
           }),
         });
       } catch (e) {
@@ -503,7 +527,24 @@ export const BadCatsPage: React.FC = () => {
       });
       setMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
-      loadRecentMints();
+      setRecentMints(prev => {
+        const nextEntry = {
+          itemIndex: result.item.index,
+          itemName: `BadCats #${result.item.index}`,
+          timestamp: new Date().toISOString(),
+          walletAddress: userAddress,
+          inscriptionId: result.inscriptionId || null,
+        };
+        const withNew = [nextEntry, ...prev];
+        const seen = new Set<string>();
+        const deduped = withNew.filter((mint) => {
+          const key = mint.inscriptionId || `idx-${mint.itemIndex}-${mint.timestamp}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return deduped.slice(0, 10);
+      });
     } catch (error: any) {
       console.error('[BadCats] Mint error:', error);
       setMintingStatus({
@@ -885,20 +926,11 @@ export const BadCatsPage: React.FC = () => {
                       className="w-16 h-16 bg-black border-2 border-red-900 rounded-md overflow-hidden"
                       style={{ boxShadow: '3px 3px 0 #000' }}
                     >
-                      {mint.inscriptionId ? (
+                      {recentMintPreviewByIndex.has(mint.itemIndex) ? (
                         <img
-                          src={`https://ordinals.com/preview/${mint.inscriptionId}`}
+                          src={recentMintPreviewByIndex.get(mint.itemIndex)}
                           alt={mint.itemName || `BadCats #${mint.itemIndex}`}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            if (!img.dataset.fallback) {
-                              img.dataset.fallback = '1';
-                              img.src = `https://ordinals.com/content/${mint.inscriptionId}`;
-                            } else {
-                              img.style.display = 'none';
-                            }
-                          }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-red-400 text-[10px]">N/A</div>
