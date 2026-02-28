@@ -1591,6 +1591,7 @@ export const MarketplacePage: React.FC = () => {
                         alt={l.inscription_id}
                         className="h-full w-full"
                         imageClassName="group-hover:scale-[1.03] transition-transform duration-300"
+                        fit="contain"
                       />
                       <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
                       <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/20 text-[10px] font-mono">
@@ -1762,6 +1763,7 @@ export const MarketplacePage: React.FC = () => {
                         inscriptionId={s.inscription_id}
                         alt={s.inscription_id}
                         className="w-16 h-16 rounded border border-white/10 shrink-0"
+                        fit="contain"
                       />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{s.collection_slug}</div>
