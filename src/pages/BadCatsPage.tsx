@@ -567,7 +567,13 @@ export const BadCatsPage: React.FC = () => {
                           <span className="text-red-500 text-5xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ fontFamily: subFont, textShadow: '3px 3px 0 #000, -1px -1px 0 #000' }}>
                             MINT SOON
                           </span>
-                          <p className="text-white text-2xl font-bold mt-1" style={{ fontFamily: subFont, textShadow: '2px 2px 0 #000' }}>
+                          <p
+                            className="text-red-500 text-3xl font-extrabold mt-1"
+                            style={{
+                              fontFamily: subFont,
+                              textShadow: '0 0 8px rgba(239,68,68,0.95), 0 0 18px rgba(239,68,68,0.85), 2px 2px 0 #000, -1px -1px 0 #000',
+                            }}
+                          >
                             {formatCountdown(secondsUntilMint)}
                           </p>
                         </div>

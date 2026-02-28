@@ -378,8 +378,10 @@ export const HomePage: React.FC = () => {
                         MINT SOON
                       </span>
                       <p
-                        className="mt-1 text-white text-lg font-bold"
-                        style={{ textShadow: '2px 2px 0 #000' }}
+                        className="mt-1 text-red-500 text-2xl font-extrabold"
+                        style={{
+                          textShadow: '0 0 6px rgba(239,68,68,0.95), 0 0 14px rgba(239,68,68,0.85), 2px 2px 0 #000, -1px -1px 0 #000',
+                        }}
                       >
                         {formatCountdown(badCatsSecondsRemaining)}
                       </p>
