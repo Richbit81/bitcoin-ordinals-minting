@@ -28,6 +28,21 @@ export const HomePage: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
   const [isMempoolModalOpen, setIsMempoolModalOpen] = useState(false);
+  const [badCatsSecondsRemaining, setBadCatsSecondsRemaining] = useState(0);
+
+  const getSecondsUntilBadCatsMint = () => {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(20, 0, 0, 0);
+    return Math.max(0, Math.floor((target.getTime() - now.getTime()) / 1000));
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
 
   // Statische Projekte (immer vorhanden)
   const staticProjects = [
@@ -145,6 +160,13 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     loadCollections();
+  }, []);
+
+  useEffect(() => {
+    const update = () => setBadCatsSecondsRemaining(getSecondsUntilBadCatsMint());
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   // Render SLUMS preview from on-chain AVIF layers
@@ -348,12 +370,20 @@ export const HomePage: React.FC = () => {
                     scrolling="no"
                   />
                   <div className="absolute inset-0 flex items-start justify-center pt-6 pointer-events-none">
-                    <span className="text-red-500 text-3xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                      style={{
-                        textShadow: '3px 3px 0 #000, -1px -1px 0 #000',
-                      }}>
-                      MINT SOON
-                    </span>
+                    <div className="text-center">
+                      <span className="text-red-500 text-3xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                        style={{
+                          textShadow: '3px 3px 0 #000, -1px -1px 0 #000',
+                        }}>
+                        MINT SOON
+                      </span>
+                      <p
+                        className="mt-1 text-white text-lg font-bold"
+                        style={{ textShadow: '2px 2px 0 #000' }}
+                      >
+                        {formatCountdown(badCatsSecondsRemaining)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : project.thumbnail ? (

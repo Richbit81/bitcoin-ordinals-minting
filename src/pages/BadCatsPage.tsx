@@ -14,7 +14,6 @@ import { isAdminAddress } from '../config/admin';
 const BADCATS_PRICE_SATS = 10000;
 const BADCATS_TOTAL_SUPPLY = 500;
 const MINT_ACTIVE = true;
-const MINT_PUBLIC = false;
 const API_URL = getApiUrl();
 
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Creepster&family=Bangers&display=swap';
@@ -168,9 +167,26 @@ export const BadCatsPage: React.FC = () => {
   const [freeMintFromWhitelist, setFreeMintFromWhitelist] = useState(0);
   const [freeMintUsed, setFreeMintUsed] = useState(0);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const [secondsUntilMint, setSecondsUntilMint] = useState(0);
 
   const comicFont = "'Creepster', cursive";
   const subFont = "'Bangers', cursive";
+
+  const getSecondsUntilMintStart = () => {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(20, 0, 0, 0);
+    return Math.max(0, Math.floor((target.getTime() - now.getTime()) / 1000));
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const isMintPublic = secondsUntilMint <= 0;
 
   useEffect(() => {
     if (!document.querySelector(`link[href="${COMIC_FONT_LINK}"]`)) {
@@ -192,6 +208,13 @@ export const BadCatsPage: React.FC = () => {
     });
     loadMintCount();
     loadMintedIndices();
+  }, []);
+
+  useEffect(() => {
+    const update = () => setSecondsUntilMint(getSecondsUntilMintStart());
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const checkFreeMintEligibility = useCallback(async (address: string) => {
@@ -538,11 +561,16 @@ export const BadCatsPage: React.FC = () => {
                       sandbox="allow-scripts allow-same-origin"
                       scrolling="no"
                     />
-                    {!MINT_PUBLIC && (
+                    {!isMintPublic && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-red-500 text-5xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ fontFamily: subFont, textShadow: '3px 3px 0 #000, -1px -1px 0 #000' }}>
-                          MINT SOON
-                        </span>
+                        <div className="text-center">
+                          <span className="text-red-500 text-5xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ fontFamily: subFont, textShadow: '3px 3px 0 #000, -1px -1px 0 #000' }}>
+                            MINT SOON
+                          </span>
+                          <p className="text-white text-2xl font-bold mt-1" style={{ fontFamily: subFont, textShadow: '2px 2px 0 #000' }}>
+                            {formatCountdown(secondsUntilMint)}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -667,11 +695,11 @@ export const BadCatsPage: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleMint}
-                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || !!collectionConsistencyWarning || (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address))}
+                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || !!collectionConsistencyWarning || (!isMintPublic && !isAdminAddress(walletState.accounts?.[0]?.address))}
                       className="w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95"
                       style={{
                         fontFamily: comicFont,
-                        background: isSoldOut ? '#555' : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? '#333' : 'linear-gradient(180deg, #e11d48 0%, #9f1239 100%)',
+                        background: isSoldOut ? '#555' : (!isMintPublic && !isAdminAddress(walletState.accounts?.[0]?.address)) ? '#333' : 'linear-gradient(180deg, #e11d48 0%, #9f1239 100%)',
                         color: '#fff',
                         border: '3px solid #000',
                         boxShadow: '4px 4px 0 #000',
@@ -685,7 +713,7 @@ export const BadCatsPage: React.FC = () => {
                           </svg>
                           MINTING...
                         </span>
-                      ) : collectionConsistencyWarning ? 'COLLECTION MISMATCH' : checkingEligibility ? 'CHECKING ELIGIBILITY...' : (!MINT_PUBLIC && !isAdminAddress(walletState.accounts?.[0]?.address)) ? 'MINT STARTING SOON...' : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
+                      ) : collectionConsistencyWarning ? 'COLLECTION MISMATCH' : checkingEligibility ? 'CHECKING ELIGIBILITY...' : (!isMintPublic && !isAdminAddress(walletState.accounts?.[0]?.address)) ? `MINT STARTS IN ${formatCountdown(secondsUntilMint)}` : isFreeForUser ? 'MINT FREE!' : 'MINT RANDOM!'}
                     </button>
                   )}
                 </div>
