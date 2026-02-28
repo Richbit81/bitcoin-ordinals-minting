@@ -141,7 +141,10 @@ const PreviewImage: React.FC<{
             const looksLikeHtml =
               /^<!doctype html/i.test(trimmed) ||
               /<html[\s>]/i.test(trimmed) ||
-              /<body[\s>]/i.test(trimmed);
+              /<body[\s>]/i.test(trimmed) ||
+              /<script[\s>]/i.test(trimmed) ||
+              /<div[\s>]/i.test(trimmed) ||
+              /data-l=/i.test(trimmed);
             if (looksLikeHtml) {
               const normalizedHtml = normalizeHtmlDoc(trimmed);
               setHtmlPreviewDoc(normalizedHtml);
@@ -214,7 +217,7 @@ const PreviewImage: React.FC<{
           loading="lazy"
           className="h-full w-full border-0 bg-zinc-900"
           scrolling="no"
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts"
           onLoad={() => {
             setLoaded(true);
             debugLog('iframe-html-srcdoc-load-success');
