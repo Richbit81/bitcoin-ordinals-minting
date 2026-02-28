@@ -64,8 +64,9 @@ const PreviewImage: React.FC<{
   ].filter(Boolean) as string[];
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
+  const [iframeFallback, setIframeFallback] = useState(false);
   const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length;
+  const noPreviewAvailable = sourceIndex >= imageSources.length && !iframeFallback;
   const debugLog = (...args: any[]) => {
     if (!debugEnabled) return;
     console.log('[MarketplacePreview]', inscriptionId, ...args);
@@ -76,6 +77,7 @@ const PreviewImage: React.FC<{
     setSourceIndex(0);
     setPreprocessedSrc(null);
     setRecursiveSvgDoc(null);
+    setIframeFallback(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
@@ -175,6 +177,18 @@ const PreviewImage: React.FC<{
             debugLog('iframe-srcdoc-load-success');
           }}
         />
+      ) : iframeFallback ? (
+        <iframe
+          title={alt}
+          src={`https://ordinals.com/preview/${encodedId}`}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          scrolling="no"
+          onLoad={() => {
+            setLoaded(true);
+            debugLog('iframe-preview-load-success');
+          }}
+        />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
@@ -194,6 +208,9 @@ const PreviewImage: React.FC<{
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
+              if (next >= imageSources.length) {
+                setIframeFallback(true);
+              }
               debugLog('img-load-error-next-source', { currentSrc, prev, next });
               return next;
             });
