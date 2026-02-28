@@ -54,6 +54,7 @@ const PreviewImage: React.FC<{
   const blobUrlRef = useRef<string | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
   const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
+  const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const imageSources = [
@@ -77,6 +78,7 @@ const PreviewImage: React.FC<{
     setSourceIndex(0);
     setPreprocessedSrc(null);
     setRecursiveSvgDoc(null);
+    setHtmlPreviewDoc(null);
     setIframeFallback(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -96,6 +98,20 @@ const PreviewImage: React.FC<{
       // Some recursive SVGs omit image dimensions; force full-canvas defaults for stability.
       svg = svg.replace(/<image(?![^>]*\swidth=)(?![^>]*\sheight=)\s/gi, '<image width="1000" height="1000" ');
       return svg;
+    };
+    const normalizeHtmlDoc = (htmlRaw: string): string => {
+      let html = htmlRaw;
+      html = html.replace(/(xlink:href|href|src)=["']\/content\//gi, '$1="https://ordinals.com/content/');
+      html = html.replace(/url\((["']?)\/content\//gi, 'url($1https://ordinals.com/content/');
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(
+          /<head([^>]*)>/i,
+          '<head$1><base href="https://ordinals.com/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style>'
+        );
+      } else {
+        html = `<head><base href="https://ordinals.com/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style></head>${html}`;
+      }
+      return html;
     };
 
     const hydrateRecursiveSvg = async () => {
@@ -119,6 +135,17 @@ const PreviewImage: React.FC<{
           const text = await res.text();
           const trimmed = text.trim();
           if (!trimmed.startsWith('<svg')) {
+            const looksLikeHtml =
+              /^<!doctype html/i.test(trimmed) ||
+              /<html[\s>]/i.test(trimmed) ||
+              /<body[\s>]/i.test(trimmed);
+            if (looksLikeHtml) {
+              const normalizedHtml = normalizeHtmlDoc(trimmed);
+              setHtmlPreviewDoc(normalizedHtml);
+              setSourceIndex(0);
+              debugLog('preprocess-html-success', { src, length: normalizedHtml.length });
+              return;
+            }
             debugLog('preprocess-skip-not-svg', { src, length: trimmed.length });
             continue;
           }
@@ -175,6 +202,19 @@ const PreviewImage: React.FC<{
           onLoad={() => {
             setLoaded(true);
             debugLog('iframe-srcdoc-load-success');
+          }}
+        />
+      ) : htmlPreviewDoc ? (
+        <iframe
+          title={alt}
+          srcDoc={htmlPreviewDoc}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          scrolling="no"
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={() => {
+            setLoaded(true);
+            debugLog('iframe-html-srcdoc-load-success');
           }}
         />
       ) : iframeFallback ? (
