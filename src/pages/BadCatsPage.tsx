@@ -368,15 +368,27 @@ export const BadCatsPage: React.FC = () => {
             : new Date(mint.timestamp || 0).getTime();
           return Number.isFinite(ts) && ts >= minTs;
         })
-        .map((mint: any) => ({
-          itemIndex: Number(mint.itemIndex || 0),
-          itemName: String(mint.itemName || `BadCats #${mint.itemIndex || '?'}`),
-          timestamp: typeof mint.timestamp === 'number'
-            ? new Date(mint.timestamp).toISOString()
-            : String(mint.timestamp || ''),
-          walletAddress: mint.walletAddress || null,
-          inscriptionId: mint.inscriptionId || null,
-        }))
+        .map((mint: any) => {
+          const rawIndex = mint.itemIndex ?? mint.item_index;
+          const parsedFromName = String(mint.itemName || mint.item_name || '')
+            .match(/#(\d+)/)?.[1];
+          const itemIndex = Number(rawIndex ?? parsedFromName ?? 0);
+          const itemName = String(
+            mint.itemName ||
+            mint.item_name ||
+            (itemIndex > 0 ? `BadCats #${itemIndex}` : 'BadCats')
+          );
+          return {
+            itemIndex,
+            itemName,
+            timestamp: typeof mint.timestamp === 'number'
+              ? new Date(mint.timestamp).toISOString()
+              : String(mint.timestamp || ''),
+            walletAddress: mint.walletAddress || mint.wallet_address || null,
+            inscriptionId: mint.inscriptionId || mint.inscription_id || null,
+          };
+        })
+        .filter((mint: any) => mint.itemIndex > 0)
         .slice(0, 10);
       setRecentMints(filtered);
     } catch {
