@@ -15,6 +15,8 @@ const BADCATS_PRICE_SATS = 10000;
 const BADCATS_TOTAL_SUPPLY = 500;
 const MINT_ACTIVE = true;
 const API_URL = getApiUrl();
+// Show recent mints only from this rollout onward.
+const BADCATS_RECENT_MINTS_START_AT = '2026-02-28T16:45:00.000Z';
 
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Creepster&family=Bangers&display=swap';
 
@@ -161,6 +163,13 @@ export const BadCatsPage: React.FC = () => {
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
   const [collectionConsistencyWarning, setCollectionConsistencyWarning] = useState<string | null>(null);
+  const [recentMints, setRecentMints] = useState<Array<{
+    itemIndex: number;
+    itemName: string;
+    timestamp: string;
+    walletAddress: string | null;
+    inscriptionId: string | null;
+  }>>([]);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -208,6 +217,7 @@ export const BadCatsPage: React.FC = () => {
     });
     loadMintCount();
     loadMintedIndices();
+    loadRecentMints();
   }, []);
 
   useEffect(() => {
@@ -334,6 +344,23 @@ export const BadCatsPage: React.FC = () => {
       console.warn('[BadCats] Could not load minted indices');
     }
   };
+
+  async function loadRecentMints() {
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/recent`);
+      const data = res.ok ? await res.json() : { recent: [] };
+      const minTs = new Date(BADCATS_RECENT_MINTS_START_AT).getTime();
+      const filtered = (data.recent || [])
+        .filter((mint: any) => {
+          const ts = new Date(mint.timestamp || 0).getTime();
+          return Number.isFinite(ts) && ts >= minTs;
+        })
+        .slice(0, 10);
+      setRecentMints(filtered);
+    } catch {
+      setRecentMints([]);
+    }
+  }
 
   const freeMintsRemaining = Math.max(0, freeMintEntitlement - freeMintUsed);
   const isFreeForUser = freeMintsRemaining > 0;
@@ -476,6 +503,7 @@ export const BadCatsPage: React.FC = () => {
       });
       setMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
+      loadRecentMints();
     } catch (error: any) {
       console.error('[BadCats] Mint error:', error);
       setMintingStatus({
@@ -841,6 +869,49 @@ export const BadCatsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {recentMints.length > 0 && (
+            <div className="w-full mt-3 mb-5">
+              <h3
+                className="text-center text-xl text-red-400 mb-3"
+                style={{ fontFamily: comicFont, textShadow: '2px 2px 0 #000' }}
+              >
+                RECENT MINTS
+              </h3>
+              <div className="flex flex-wrap justify-center gap-3">
+                {recentMints.map((mint, i) => (
+                  <div key={`${mint.inscriptionId || mint.itemIndex}-${i}`} className="flex flex-col items-center">
+                    <div
+                      className="w-16 h-16 bg-black border-2 border-red-900 rounded-md overflow-hidden"
+                      style={{ boxShadow: '3px 3px 0 #000' }}
+                    >
+                      {mint.inscriptionId ? (
+                        <img
+                          src={`https://ordinals.com/preview/${mint.inscriptionId}`}
+                          alt={mint.itemName || `BadCats #${mint.itemIndex}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (!img.dataset.fallback) {
+                              img.dataset.fallback = '1';
+                              img.src = `https://ordinals.com/content/${mint.inscriptionId}`;
+                            } else {
+                              img.style.display = 'none';
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-red-400 text-[10px]">N/A</div>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: subFont }}>
+                      #{mint.itemIndex}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           </>
         )}
 
