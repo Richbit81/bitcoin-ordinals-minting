@@ -3,15 +3,22 @@ import path from 'path';
 import { BadCatsData, BadCatsLogEntry, BadCatsWhitelistEntry } from '../types/badcats';
 
 const configuredDataPath = String(process.env.BADCATS_DATA_PATH || '').trim();
+const postgresUrl = String(
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRESQL_URL ||
+  ''
+).trim();
+const postgresConfigured = postgresUrl.length > 0;
 const persistentStorageConfigured = configuredDataPath.length > 0;
 
-if (process.env.NODE_ENV === 'production' && !persistentStorageConfigured) {
-  throw new Error(
-    '[BadCats] Missing BADCATS_DATA_PATH in production. Configure a persistent volume path (e.g. /data/badcats).'
+if (process.env.NODE_ENV === 'production' && !persistentStorageConfigured && !postgresConfigured) {
+  console.warn(
+    '[BadCats] No persistent storage configured in production. Set DATABASE_URL (preferred) or BADCATS_DATA_PATH.'
   );
 }
 
-if (!persistentStorageConfigured && process.env.NODE_ENV !== 'test') {
+if (!postgresConfigured && !persistentStorageConfigured && process.env.NODE_ENV !== 'test') {
   console.warn(
     '[BadCats] BADCATS_DATA_PATH not set. Using local data folder (non-persistent on redeploy).'
   );
@@ -23,7 +30,43 @@ const DATA_DIR = persistentStorageConfigured
 
 const dataFile = () => path.join(DATA_DIR, 'badcats-data.json');
 
+let pgPool: any = null;
+let schemaEnsured = false;
+
+const getPgPool = () => {
+  if (!postgresConfigured) return null;
+  if (pgPool) return pgPool;
+  const requireFn = eval('require');
+  const { Pool } = requireFn('pg');
+  pgPool = new Pool({
+    connectionString: postgresUrl,
+    ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+  });
+  return pgPool;
+};
+
+const ensurePostgresSchema = async () => {
+  if (!postgresConfigured || schemaEnsured) return;
+  const pool = getPgPool();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS badcats_state (
+      id SMALLINT PRIMARY KEY,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(
+    `INSERT INTO badcats_state (id, payload)
+     VALUES (1, $1::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    [JSON.stringify({ logs: [], hashlist: [], whitelistAddresses: [], freeMintUsed: {} })]
+  );
+  schemaEnsured = true;
+};
+
 export const getBadCatsStorageInfo = () => ({
+  mode: postgresConfigured ? 'postgres' : 'file',
+  postgresConfigured,
   dataDir: DATA_DIR,
   dataFile: dataFile(),
   persistentStorageConfigured,
@@ -68,6 +111,19 @@ const normalizeWhitelistEntries = (input: unknown): BadCatsWhitelistEntry[] => {
 };
 
 const readData = async (): Promise<BadCatsData> => {
+  if (postgresConfigured) {
+    await ensurePostgresSchema();
+    const pool = getPgPool();
+    const result = await pool.query(`SELECT payload FROM badcats_state WHERE id = 1 LIMIT 1`);
+    const parsed = (result.rows?.[0]?.payload || {}) as Partial<BadCatsData> & { whitelistAddresses?: unknown };
+    return {
+      logs: Array.isArray(parsed.logs) ? parsed.logs : [],
+      hashlist: Array.isArray(parsed.hashlist) ? parsed.hashlist : [],
+      whitelistAddresses: normalizeWhitelistEntries(parsed.whitelistAddresses),
+      freeMintUsed: parsed.freeMintUsed && typeof parsed.freeMintUsed === 'object' ? parsed.freeMintUsed : {},
+    };
+  }
+
   await ensureDir();
   try {
     const raw = await fs.readFile(dataFile(), 'utf-8');
@@ -84,6 +140,16 @@ const readData = async (): Promise<BadCatsData> => {
 };
 
 const writeData = async (data: BadCatsData): Promise<void> => {
+  if (postgresConfigured) {
+    await ensurePostgresSchema();
+    const pool = getPgPool();
+    await pool.query(
+      `UPDATE badcats_state SET payload = $1::jsonb, updated_at = NOW() WHERE id = 1`,
+      [JSON.stringify(data)]
+    );
+    return;
+  }
+
   await ensureDir();
   await fs.writeFile(dataFile(), JSON.stringify(data, null, 2));
 };
