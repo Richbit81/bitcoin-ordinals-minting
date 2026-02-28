@@ -170,7 +170,7 @@ export const BadCatsPage: React.FC = () => {
     walletAddress: string | null;
     inscriptionId: string | null;
   }>>([]);
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ svgDoc: string; name: string } | null>(null);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -206,7 +206,8 @@ export const BadCatsPage: React.FC = () => {
           /href=(["'])\/content\//g,
           'href=$1https://ordinals.com/content/'
         );
-        map.set(item.index, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(normalizedSvg)}`);
+        const svgDoc = `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;">${normalizedSvg}</body></html>`;
+        map.set(item.index, svgDoc);
       }
     }
     return map;
@@ -943,20 +944,23 @@ export const BadCatsPage: React.FC = () => {
                       className="w-24 h-24 bg-black border-2 border-red-900 rounded-md overflow-hidden cursor-pointer transition-transform hover:scale-105"
                       style={{ boxShadow: '3px 3px 0 #000' }}
                       onClick={() => {
-                        const previewUrl = recentMintPreviewByIndex.get(mint.itemIndex);
-                        if (previewUrl) {
+                        const previewDoc = recentMintPreviewByIndex.get(mint.itemIndex);
+                        if (previewDoc) {
                           setLightboxImage({
-                            url: previewUrl,
+                            svgDoc: previewDoc,
                             name: mint.itemName || `BadCats #${mint.itemIndex}`,
                           });
                         }
                       }}
                     >
                       {recentMintPreviewByIndex.has(mint.itemIndex) ? (
-                        <img
-                          src={recentMintPreviewByIndex.get(mint.itemIndex)}
-                          alt={mint.itemName || `BadCats #${mint.itemIndex}`}
-                          className="w-full h-full object-cover"
+                        <iframe
+                          srcDoc={recentMintPreviewByIndex.get(mint.itemIndex)}
+                          title={mint.itemName || `BadCats #${mint.itemIndex}`}
+                          className="w-full h-full border-0 pointer-events-none bg-black"
+                          sandbox="allow-scripts allow-same-origin"
+                          loading="lazy"
+                          scrolling="no"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-red-400 text-[10px]">N/A</div>
@@ -987,12 +991,15 @@ export const BadCatsPage: React.FC = () => {
               >
                 ✕ CLOSE
               </button>
-              <img
-                src={lightboxImage.url}
-                alt={lightboxImage.name}
-                className="w-full h-auto rounded-lg border-[3px] border-red-900 bg-black"
-                style={{ boxShadow: '6px 6px 0 #000' }}
-              />
+              <div className="w-full aspect-square rounded-lg border-[3px] border-red-900 bg-black overflow-hidden" style={{ boxShadow: '6px 6px 0 #000' }}>
+                <iframe
+                  srcDoc={lightboxImage.svgDoc}
+                  title={lightboxImage.name}
+                  className="w-full h-full border-0 bg-black"
+                  sandbox="allow-scripts allow-same-origin"
+                  scrolling="no"
+                />
+              </div>
               <p className="text-center text-red-400 font-bold mt-3" style={{ fontFamily: subFont }}>
                 {lightboxImage.name}
               </p>
