@@ -29,6 +29,8 @@ import { isAdminAddress } from '../config/admin';
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 const COLLECTION_PAGE_SIZE = 80;
 const PREVIEW_DEBUG_STORAGE_KEY = 'marketplacePreviewDebug';
+const MARKETPLACE_COLLECTIONS_CACHE_KEY = 'marketplaceCollectionsCacheV1';
+const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
 
 const isPreviewDebugEnabled = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -285,7 +287,8 @@ export const MarketplacePage: React.FC = () => {
   const [ranking, setRanking] = useState<MarketplaceCollectionRanking[]>([]);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [soldListings, setSoldListings] = useState<MarketplaceListing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rankingLoading, setRankingLoading] = useState(true);
+  const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [listingsLoading, setListingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -331,24 +334,53 @@ export const MarketplacePage: React.FC = () => {
 
   useEffect(() => {
     if (!isAdminUser) return;
+    const loadCollections = async () => {
+      try {
+        setCollectionsLoading(true);
+        setError(null);
+        if (typeof window !== 'undefined') {
+          const raw = window.sessionStorage.getItem(MARKETPLACE_COLLECTIONS_CACHE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as { ts: number; data: MarketplaceCollection[] };
+            if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTIONS_CACHE_TTL_MS) {
+              setCollectionsMeta(parsed.data);
+              setCollectionsLoading(false);
+            }
+          }
+        }
+        const collectionsData = await getMarketplaceCollections({ includeInactive: false, adminAddress: currentAddress });
+        setCollectionsMeta(collectionsData);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            MARKETPLACE_COLLECTIONS_CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: collectionsData })
+          );
+        }
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load marketplace collections');
+      } finally {
+        setCollectionsLoading(false);
+      }
+    };
+    loadCollections();
+  }, [isAdminUser, currentAddress]);
+
+  useEffect(() => {
+    if (!isAdminUser) return;
     const loadRanking = async () => {
       try {
-        setLoading(true);
+        setRankingLoading(true);
         setError(null);
-        const [rankingData, collectionsData] = await Promise.all([
-          getMarketplaceRanking(),
-          getMarketplaceCollections({ includeInactive: true, adminAddress: currentAddress }),
-        ]);
+        const rankingData = await getMarketplaceRanking();
         setRanking(rankingData);
-        setCollectionsMeta(collectionsData);
       } catch (err: any) {
         setError(err?.message || 'Failed to load ranking');
       } finally {
-        setLoading(false);
+        setRankingLoading(false);
       }
     };
     loadRanking();
-  }, [isAdminUser, currentAddress]);
+  }, [isAdminUser]);
 
   const loadListings = async () => {
     try {
@@ -1241,7 +1273,7 @@ export const MarketplacePage: React.FC = () => {
             <h2 className="font-bold">Collections</h2>
             <span className="text-xs text-gray-400">Open a collection to browse all inscriptions</span>
           </div>
-          {loading ? (
+          {collectionsLoading ? (
             <div className="p-4 text-sm text-gray-400">Loading collections...</div>
           ) : collectionsMeta.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">No collections available.</div>
@@ -1718,7 +1750,7 @@ export const MarketplacePage: React.FC = () => {
           <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10">
             <h2 className="font-bold">Collection Ranking</h2>
           </div>
-          {loading ? (
+          {rankingLoading ? (
             <div className="p-4 text-sm text-gray-400">Loading ranking...</div>
           ) : ranking.length === 0 ? (
             <div className="p-4 text-sm text-gray-400 flex items-center gap-2">
