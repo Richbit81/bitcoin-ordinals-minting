@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { BadCatsData, BadCatsLogEntry } from '../types/badcats';
+import { BadCatsData, BadCatsLogEntry, BadCatsWhitelistEntry } from '../types/badcats';
 
 const DATA_DIR = process.env.BADCATS_DATA_PATH
   ? path.resolve(process.env.BADCATS_DATA_PATH)
@@ -12,11 +12,46 @@ const ensureDir = async () => {
   try { await fs.access(DATA_DIR); } catch { await fs.mkdir(DATA_DIR, { recursive: true }); }
 };
 
+const normalizeWhitelistEntries = (input: unknown): BadCatsWhitelistEntry[] => {
+  const bucket = new Map<string, BadCatsWhitelistEntry>();
+  const add = (addressRaw: string, countRaw: number) => {
+    const address = String(addressRaw || '').trim();
+    if (!address) return;
+    const key = address.toLowerCase();
+    const nextCount = Math.max(1, Math.floor(Number(countRaw) || 1));
+    const prev = bucket.get(key);
+    if (prev) {
+      prev.count += nextCount;
+      return;
+    }
+    bucket.set(key, { address, count: nextCount });
+  };
+
+  if (Array.isArray(input)) {
+    for (const entry of input) {
+      if (typeof entry === 'string') {
+        add(entry, 1);
+      } else if (entry && typeof entry === 'object') {
+        const obj = entry as { address?: unknown; count?: unknown };
+        add(String(obj.address || ''), Number(obj.count || 1));
+      }
+    }
+  }
+
+  return [...bucket.values()];
+};
+
 const readData = async (): Promise<BadCatsData> => {
   await ensureDir();
   try {
     const raw = await fs.readFile(dataFile(), 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<BadCatsData> & { whitelistAddresses?: unknown };
+    return {
+      logs: Array.isArray(parsed.logs) ? parsed.logs : [],
+      hashlist: Array.isArray(parsed.hashlist) ? parsed.hashlist : [],
+      whitelistAddresses: normalizeWhitelistEntries(parsed.whitelistAddresses),
+      freeMintUsed: parsed.freeMintUsed && typeof parsed.freeMintUsed === 'object' ? parsed.freeMintUsed : {},
+    };
   } catch {
     return { logs: [], hashlist: [], whitelistAddresses: [], freeMintUsed: {} };
   }
@@ -96,23 +131,60 @@ export const syncHashlistFromLogs = async (): Promise<number> => {
 
 // ── Whitelist Addresses ──
 
-export const getWhitelistAddresses = async (): Promise<string[]> => {
+export const getWhitelistEntries = async (): Promise<BadCatsWhitelistEntry[]> => {
   return (await readData()).whitelistAddresses;
 };
 
-export const addWhitelistAddress = async (address: string): Promise<boolean> => {
+export const getWhitelistAddresses = async (): Promise<string[]> => {
+  const entries = await getWhitelistEntries();
+  const expanded: string[] = [];
+  for (const entry of entries) {
+    for (let i = 0; i < entry.count; i++) expanded.push(entry.address);
+  }
+  return expanded;
+};
+
+export const getWhitelistMintAllowance = async (address: string): Promise<number> => {
+  const entries = await getWhitelistEntries();
+  const found = entries.find(entry => entry.address.toLowerCase() === address.toLowerCase());
+  return found?.count || 0;
+};
+
+export const addWhitelistAddress = async (address: string, count = 1): Promise<number> => {
   const data = await readData();
-  const lower = address.toLowerCase();
-  if (data.whitelistAddresses.some(a => a.toLowerCase() === lower)) return false;
-  data.whitelistAddresses.push(address);
+  const trimmed = String(address || '').trim();
+  const lower = trimmed.toLowerCase();
+  const addCount = Math.max(1, Math.floor(Number(count) || 1));
+  const existing = data.whitelistAddresses.find(a => a.address.toLowerCase() === lower);
+  if (existing) {
+    existing.count += addCount;
+    await writeData(data);
+    return existing.count;
+  }
+  data.whitelistAddresses.push({ address: trimmed, count: addCount });
   await writeData(data);
-  return true;
+  return addCount;
+};
+
+export const setWhitelistAddressCount = async (address: string, count: number): Promise<number> => {
+  const data = await readData();
+  const trimmed = String(address || '').trim();
+  const lower = trimmed.toLowerCase();
+  const nextCount = Math.max(1, Math.floor(Number(count) || 1));
+  const existing = data.whitelistAddresses.find(a => a.address.toLowerCase() === lower);
+  if (existing) {
+    existing.count = nextCount;
+  } else {
+    data.whitelistAddresses.push({ address: trimmed, count: nextCount });
+  }
+  await writeData(data);
+  return nextCount;
 };
 
 export const removeWhitelistAddress = async (address: string): Promise<boolean> => {
   const data = await readData();
   const lower = address.toLowerCase();
-  const idx = data.whitelistAddresses.findIndex(a => a.toLowerCase() === lower);
+  const idx = data.whitelistAddresses.findIndex(a => a.address.toLowerCase() === lower);
   if (idx === -1) return false;
   data.whitelistAddresses.splice(idx, 1);
   await writeData(data);

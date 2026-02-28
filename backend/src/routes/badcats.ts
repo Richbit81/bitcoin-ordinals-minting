@@ -3,7 +3,7 @@ import {
   addLog, getLogs, getRecentLogs, getLogsByAddress,
   getMintCount, getMintedIndices,
   getHashlist, addToHashlist, syncHashlistFromLogs,
-  getWhitelistAddresses, addWhitelistAddress, removeWhitelistAddress,
+  getWhitelistAddresses, getWhitelistEntries, getWhitelistMintAllowance, addWhitelistAddress, setWhitelistAddressCount, removeWhitelistAddress,
   getFreeMintUsed, recordFreeMintUsed,
 } from '../services/badcats';
 
@@ -116,7 +116,11 @@ router.post('/hashlist/sync', async (_req, res) => {
 // ── GET /api/badcats/whitelist-addresses ──
 router.get('/whitelist-addresses', async (_req, res) => {
   try {
-    res.json({ addresses: await getWhitelistAddresses() });
+    const [addresses, entries] = await Promise.all([
+      getWhitelistAddresses(),
+      getWhitelistEntries(),
+    ]);
+    res.json({ addresses, entries });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -125,11 +129,26 @@ router.get('/whitelist-addresses', async (_req, res) => {
 // ── POST /api/badcats/whitelist-addresses ──
 router.post('/whitelist-addresses', async (req, res) => {
   try {
-    const { address } = req.body;
+    const { address, count } = req.body;
     if (!address) return res.status(400).json({ error: 'address required' });
-    const added = await addWhitelistAddress(address);
-    if (!added) return res.status(409).json({ error: 'Address already exists' });
-    res.json({ success: true });
+    const newCount = await addWhitelistAddress(address, count);
+    res.json({ success: true, count: newCount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PUT /api/badcats/whitelist-addresses ──
+router.put('/whitelist-addresses', async (req, res) => {
+  try {
+    const { address, count } = req.body;
+    if (!address) return res.status(400).json({ error: 'address required' });
+    const parsedCount = Number(count);
+    if (!Number.isFinite(parsedCount) || parsedCount < 1) {
+      return res.status(400).json({ error: 'count must be >= 1' });
+    }
+    const updatedCount = await setWhitelistAddressCount(address, parsedCount);
+    res.json({ success: true, count: updatedCount });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -143,6 +162,18 @@ router.delete('/whitelist-addresses', async (req, res) => {
     const removed = await removeWhitelistAddress(address);
     if (!removed) return res.status(404).json({ error: 'Address not found' });
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/badcats/whitelist-allowance?address=... ──
+router.get('/whitelist-allowance', async (req, res) => {
+  try {
+    const address = req.query.address as string;
+    if (!address) return res.status(400).json({ error: 'address required' });
+    const allowance = await getWhitelistMintAllowance(address);
+    res.json({ allowance });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

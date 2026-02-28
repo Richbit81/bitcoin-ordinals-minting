@@ -238,9 +238,15 @@ export const BadCatsPage: React.FC = () => {
         const wlRes = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
         if (wlRes.ok) {
           const wlData = await wlRes.json();
-          const wlAddrs: string[] = wlData.addresses || [];
-          if (wlAddrs.some(a => a.toLowerCase() === address.toLowerCase())) {
-            addressBonus = 1;
+          const wlEntries: Array<{ address: string; count?: number }> = wlData.entries || [];
+          const found = wlEntries.find(entry => String(entry.address || '').toLowerCase() === address.toLowerCase());
+          if (found) {
+            addressBonus = Math.max(1, Number(found.count || 1));
+          } else {
+            const wlAddrs: string[] = wlData.addresses || [];
+            if (wlAddrs.some(a => a.toLowerCase() === address.toLowerCase())) {
+              addressBonus = 1;
+            }
           }
         }
       } catch {
@@ -599,7 +605,10 @@ export const BadCatsPage: React.FC = () => {
                           <p>🐱 You hold {freeMintFromInscriptions} whitelisted ordinal{freeMintFromInscriptions > 1 ? 's' : ''} (Bone Cat / Halloween Bad Cats)</p>
                         )}
                         {freeMintFromWhitelist > 0 && (
-                          <p>⭐ Your address is on the free mint whitelist</p>
+                          <p>
+                            ⭐ Your address is on the free mint whitelist
+                            {freeMintFromWhitelist > 1 ? ` (+${freeMintFromWhitelist} mints)` : ''}
+                          </p>
                         )}
                         <p className="mt-1">
                           ✅ <strong>{freeMintsRemaining} free mint{freeMintsRemaining !== 1 ? 's' : ''} remaining</strong>

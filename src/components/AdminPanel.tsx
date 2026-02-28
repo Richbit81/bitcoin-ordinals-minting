@@ -1758,7 +1758,8 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [loading, setLoading] = useState(true);
   const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats'>('blackAndWild');
   const [badCatsWhitelistInput, setBadCatsWhitelistInput] = useState('');
-  const [badCatsWhitelistAddresses, setBadCatsWhitelistAddresses] = useState<string[]>([]);
+  const [badCatsWhitelistCountInput, setBadCatsWhitelistCountInput] = useState('1');
+  const [badCatsWhitelistEntries, setBadCatsWhitelistEntries] = useState<Array<{ address: string; count: number }>>([]);
   const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1787,7 +1788,15 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
       if (res.ok) {
         const data = await res.json();
-        setBadCatsWhitelistAddresses(data.addresses || []);
+        const entries = Array.isArray(data.entries)
+          ? data.entries
+              .map((entry: any) => ({
+                address: String(entry?.address || '').trim(),
+                count: Math.max(1, Number(entry?.count || 1)),
+              }))
+              .filter((entry: { address: string }) => entry.address)
+          : [];
+        setBadCatsWhitelistEntries(entries);
       }
     } catch { console.warn('Could not load BadCats whitelist'); }
   };
@@ -1797,20 +1806,40 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const addBadCatsWhitelistAddress = async (address: string) => {
     const trimmed = address.trim();
     if (!trimmed) return;
+    const count = Math.max(1, parseInt(badCatsWhitelistCountInput || '1', 10) || 1);
     try {
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: trimmed }),
+        body: JSON.stringify({ address: trimmed, count }),
       });
       if (res.ok) {
         setBadCatsWhitelistInput('');
+        setBadCatsWhitelistCountInput('1');
         loadBadCatsWhitelist();
       } else {
         alert('Failed to add address');
       }
     } catch {
       alert('Failed to add address');
+    }
+  };
+
+  const setBadCatsWhitelistAddressCount = async (address: string, count: number) => {
+    const nextCount = Math.max(1, Math.floor(Number(count) || 1));
+    try {
+      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, count: nextCount }),
+      });
+      if (res.ok) {
+        loadBadCatsWhitelist();
+      } else {
+        alert('Failed to update count');
+      }
+    } catch {
+      alert('Failed to update count');
     }
   };
 
@@ -1832,10 +1861,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const downloadBadCatsWhitelist = async () => {
     try {
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses/download?adminAddress=${encodeURIComponent(adminAddress)}`);
-      let payload: { addresses: string[]; exportedAt?: string; count?: number } = {
-        addresses: badCatsWhitelistAddresses,
+      let payload: { addresses: string[]; entries: Array<{ address: string; count: number }>; exportedAt?: string; count?: number } = {
+        addresses: badCatsWhitelistEntries.flatMap((entry) => Array.from({ length: entry.count }, () => entry.address)),
+        entries: badCatsWhitelistEntries,
         exportedAt: new Date().toISOString(),
-        count: badCatsWhitelistAddresses.length,
+        count: badCatsWhitelistEntries.reduce((sum, entry) => sum + entry.count, 0),
       };
       if (res.ok) {
         payload = await res.json();
@@ -2325,7 +2355,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         <div className="bg-gray-900 border border-red-700 rounded p-4">
           <h3 className="text-sm font-bold text-red-400 mb-3">🐱 BadCats Free-Mint Whitelist Addresses</h3>
           <p className="text-xs text-gray-400 mb-3">
-            Adressen die hier eingetragen werden bekommen je 1 Free Mint. Die Liste wird auf dem Server gespeichert und bleibt nach Deploys erhalten.
+            Pro Adresse kann eine Free-Mint-Anzahl gesetzt werden (Standard: 1). Die Liste wird serverseitig gespeichert.
           </p>
           <div className="flex gap-2 mb-3">
             <input
@@ -2335,6 +2365,14 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
               placeholder="bc1p... oder andere Adresse eingeben"
               className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
               onKeyDown={e => { if (e.key === 'Enter') addBadCatsWhitelistAddress(badCatsWhitelistInput); }}
+            />
+            <input
+              type="number"
+              min={1}
+              value={badCatsWhitelistCountInput}
+              onChange={e => setBadCatsWhitelistCountInput(String(Math.max(1, parseInt(e.target.value || '1', 10) || 1)))}
+              className="w-24 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white"
+              title="Anzahl Free Mints"
             />
             <button
               onClick={() => addBadCatsWhitelistAddress(badCatsWhitelistInput)}
@@ -2365,22 +2403,46 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
               }}
             />
           </div>
-          {badCatsWhitelistAddresses.length === 0 ? (
+          {badCatsWhitelistEntries.length === 0 ? (
             <p className="text-xs text-gray-500">Keine Adressen eingetragen.</p>
           ) : (
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {badCatsWhitelistAddresses.map((addr, i) => (
-                <div key={i} className="flex items-center justify-between bg-gray-800 rounded px-3 py-1.5">
-                  <span className="text-xs text-gray-300 font-mono">{addr}</span>
-                  <button
-                    onClick={() => removeBadCatsWhitelistAddress(addr)}
-                    className="text-red-400 hover:text-red-300 text-xs font-bold ml-2"
-                  >
-                    ✕
-                  </button>
+              {badCatsWhitelistEntries.map((entry, i) => (
+                <div key={`${entry.address}-${i}`} className="flex items-center justify-between bg-gray-800 rounded px-3 py-1.5 gap-2">
+                  <span className="text-xs text-gray-300 font-mono truncate">{entry.address}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setBadCatsWhitelistAddressCount(entry.address, entry.count - 1)}
+                      disabled={entry.count <= 1}
+                      className="px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-xs"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={entry.count}
+                      onChange={e => setBadCatsWhitelistAddressCount(entry.address, parseInt(e.target.value || '1', 10) || 1)}
+                      className="w-16 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-xs text-center text-white"
+                    />
+                    <button
+                      onClick={() => setBadCatsWhitelistAddressCount(entry.address, entry.count + 1)}
+                      className="px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-xs"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => removeBadCatsWhitelistAddress(entry.address)}
+                      className="text-red-400 hover:text-red-300 text-xs font-bold ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))}
-              <p className="text-xs text-gray-500 mt-1">{badCatsWhitelistAddresses.length} Adresse(n) eingetragen</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {badCatsWhitelistEntries.length} Adresse(n) · {badCatsWhitelistEntries.reduce((sum, entry) => sum + entry.count, 0)} Free-Mint Slots
+              </p>
             </div>
           )}
         </div>

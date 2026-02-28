@@ -8,9 +8,14 @@ export interface BadCatsLogEntry {
   timestamp: number;
 }
 
+export interface BadCatsWhitelistEntry {
+  address: string;
+  count: number;
+}
+
 export interface BadCatsData {
   logs: BadCatsLogEntry[];
   hashlist: string[];
-  whitelistAddresses: string[];
+  whitelistAddresses: BadCatsWhitelistEntry[];
   freeMintUsed: Record<string, number>;
 }
