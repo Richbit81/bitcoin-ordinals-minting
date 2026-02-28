@@ -10,7 +10,7 @@ import {
   mintSlumsRandom,
   loadSlumsCollection,
 } from '../services/slumsMintService';
-import { getOrdinalAddress } from '../utils/wallet';
+import { getOrdinalAddress, getUnisatTaprootAddress } from '../utils/wallet';
 import { getApiUrl } from '../utils/apiUrl';
 
 const SLUMS_PRICE_SATS = 3000;
@@ -255,7 +255,30 @@ export const SlumsPage: React.FC = () => {
       return;
     }
 
-    const userAddress = getOrdinalAddress(walletState.accounts);
+    let userAddress = getOrdinalAddress(walletState.accounts);
+    if (walletState.walletType === 'unisat' && !userAddress.startsWith('bc1p')) {
+      try {
+        const unisatTaproot = await getUnisatTaprootAddress();
+        if (unisatTaproot) {
+          userAddress = unisatTaproot;
+        }
+      } catch {
+        // keep current address and let the explicit validation below handle feedback
+      }
+    }
+
+    if (!userAddress.startsWith('bc1p')) {
+      setMintingStatus({
+        packId: 'slums',
+        status: 'failed',
+        progress: 0,
+        error:
+          `Taproot address required for SLUMS minting.\n` +
+          `Detected address: ${userAddress || 'none'}\n\n` +
+          `Please switch UniSat to Taproot (bc1p) and reconnect.`,
+      });
+      return;
+    }
 
     // Free-phase limit check (client-side, also enforced server-side)
     if (mintCount < SLUMS_FREE_MINTS && addressMintCount >= SLUMS_FREE_LIMIT_PER_ADDRESS) {
