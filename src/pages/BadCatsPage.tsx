@@ -923,7 +923,7 @@ export const BadCatsPage: React.FC = () => {
                 {recentMints.map((mint, i) => (
                   <div key={`${mint.inscriptionId || mint.itemIndex}-${i}`} className="flex flex-col items-center">
                     <div
-                      className="w-16 h-16 bg-black border-2 border-red-900 rounded-md overflow-hidden"
+                      className="w-24 h-24 bg-black border-2 border-red-900 rounded-md overflow-hidden"
                       style={{ boxShadow: '3px 3px 0 #000' }}
                     >
                       {recentMintPreviewByIndex.has(mint.itemIndex) ? (
@@ -936,7 +936,7 @@ export const BadCatsPage: React.FC = () => {
                         <div className="w-full h-full flex items-center justify-center text-red-400 text-[10px]">N/A</div>
                       )}
                     </div>
-                    <p className="text-[9px] text-gray-400 mt-1 text-center" style={{ fontFamily: subFont }}>
+                    <p className="text-xs text-gray-400 mt-1 text-center" style={{ fontFamily: subFont }}>
                       #{mint.itemIndex}
                     </p>
                   </div>
