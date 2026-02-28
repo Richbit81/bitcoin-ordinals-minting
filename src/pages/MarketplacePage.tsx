@@ -178,17 +178,25 @@ const PreviewImage: React.FC<{
           }}
         />
       ) : iframeFallback ? (
-        <iframe
-          title={alt}
-          src={`https://ordinals.com/preview/${encodedId}`}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          onLoad={() => {
-            setLoaded(true);
-            debugLog('iframe-preview-load-success');
-          }}
-        />
+        <div className="absolute inset-0 overflow-hidden bg-zinc-900">
+          <iframe
+            title={alt}
+            src={`https://ordinals.com/preview/${encodedId}`}
+            loading="lazy"
+            scrolling="no"
+            className="absolute border-0 bg-zinc-900"
+            style={{
+              width: '170%',
+              height: '170%',
+              transform: 'translate(-20%, -20%) scale(0.6)',
+              transformOrigin: 'top left',
+            }}
+            onLoad={() => {
+              setLoaded(true);
+              debugLog('iframe-preview-load-success');
+            }}
+          />
+        </div>
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
