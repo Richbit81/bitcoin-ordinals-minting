@@ -27,7 +27,7 @@ import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
-const COLLECTION_PAGE_SIZE = 120;
+const COLLECTION_PAGE_SIZE = 80;
 const PREVIEW_DEBUG_STORAGE_KEY = 'marketplacePreviewDebug';
 
 const isPreviewDebugEnabled = (): boolean => {
@@ -55,6 +55,7 @@ const PreviewImage: React.FC<{
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
   const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
   const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
+  const [docProbeRequested, setDocProbeRequested] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const imageSources = [
@@ -79,6 +80,7 @@ const PreviewImage: React.FC<{
     setPreprocessedSrc(null);
     setRecursiveSvgDoc(null);
     setHtmlPreviewDoc(null);
+    setDocProbeRequested(false);
     setIframeFallback(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -88,6 +90,7 @@ const PreviewImage: React.FC<{
   }, [inscriptionId]);
 
   useEffect(() => {
+    if (!docProbeRequested) return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -257,6 +260,8 @@ const PreviewImage: React.FC<{
             setSourceIndex((prev) => {
               const next = prev + 1;
               if (next >= imageSources.length) {
+                // Expensive HTML/SVG probe only runs for cards that fail normal image paths.
+                setDocProbeRequested(true);
                 setIframeFallback(true);
               }
               debugLog('img-load-error-next-source', { currentSrc, prev, next });
