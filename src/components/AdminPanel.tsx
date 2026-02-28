@@ -1760,6 +1760,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [badCatsWhitelistInput, setBadCatsWhitelistInput] = useState('');
   const [badCatsWhitelistCountInput, setBadCatsWhitelistCountInput] = useState('1');
   const [badCatsWhitelistEntries, setBadCatsWhitelistEntries] = useState<Array<{ address: string; count: number }>>([]);
+  const [badCatsWhitelistSupportsCount, setBadCatsWhitelistSupportsCount] = useState(false);
   const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1788,6 +1789,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
       if (res.ok) {
         const data = await res.json();
+        setBadCatsWhitelistSupportsCount(Array.isArray(data.entries));
         const entries = Array.isArray(data.entries)
           ? data.entries
               .map((entry: any) => ({
@@ -1844,6 +1846,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   };
 
   const setBadCatsWhitelistAddressCount = async (address: string, count: number) => {
+    if (!badCatsWhitelistSupportsCount) {
+      alert('Current backend does not support per-address counts yet.');
+      return;
+    }
     const nextCount = Math.max(1, Math.floor(Number(count) || 1));
     try {
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
@@ -2376,6 +2382,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           <p className="text-xs text-gray-400 mb-3">
             Pro Adresse kann eine Free-Mint-Anzahl gesetzt werden (Standard: 1). Die Liste wird serverseitig gespeichert.
           </p>
+          {!badCatsWhitelistSupportsCount && (
+            <p className="text-xs text-amber-300 mb-3">
+              Hinweis: Laufendes Backend liefert nur Legacy-Whitelist (ohne Count). Count-Änderungen sind dort nicht verfügbar.
+            </p>
+          )}
           <div className="flex gap-2 mb-3">
             <input
               type="text"
@@ -2392,6 +2403,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
               onChange={e => setBadCatsWhitelistCountInput(String(Math.max(1, parseInt(e.target.value || '1', 10) || 1)))}
               className="w-24 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white"
               title="Anzahl Free Mints"
+              disabled={!badCatsWhitelistSupportsCount}
             />
             <button
               onClick={() => addBadCatsWhitelistAddress(badCatsWhitelistInput)}
@@ -2443,10 +2455,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       value={entry.count}
                       onChange={e => setBadCatsWhitelistAddressCount(entry.address, parseInt(e.target.value || '1', 10) || 1)}
                       className="w-16 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-xs text-center text-white"
+                      disabled={!badCatsWhitelistSupportsCount}
                     />
                     <button
                       onClick={() => setBadCatsWhitelistAddressCount(entry.address, entry.count + 1)}
-                      className="px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-xs"
+                      disabled={!badCatsWhitelistSupportsCount}
+                      className="px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-xs"
                     >
                       +
                     </button>
