@@ -9,7 +9,6 @@ import {
   MarketplaceActivity,
   MarketplaceProfile,
 } from '../services/marketplaceService';
-import { isAdminAddress } from '../config/admin';
 
 export const MarketplaceProfilePage: React.FC = () => {
   const { walletState } = useWallet();
@@ -20,11 +19,10 @@ export const MarketplaceProfilePage: React.FC = () => {
   const [activity, setActivity] = useState<MarketplaceActivity[]>([]);
 
   const address = walletState.accounts?.[0]?.address || '';
-  const isAdminUser = isAdminAddress(address);
 
   useEffect(() => {
     const load = async () => {
-      if (!walletState.connected || !address || !isAdminUser) {
+      if (!walletState.connected || !address) {
         setProfile(null);
         setActivity([]);
         return;
@@ -45,10 +43,10 @@ export const MarketplaceProfilePage: React.FC = () => {
       }
     };
     load();
-  }, [walletState.connected, address, isAdminUser]);
+  }, [walletState.connected, address]);
 
   const reloadProfile = async () => {
-    if (!address || !isAdminUser) return;
+    if (!address) return;
     const [data, activityData] = await Promise.all([
       getMarketplaceProfile(address),
       getMarketplaceActivity({ address, limit: 40 }),
@@ -78,23 +76,6 @@ export const MarketplaceProfilePage: React.FC = () => {
           <h1 className="text-2xl font-bold mb-4">My Marketplace Profile</h1>
           <p className="text-sm text-gray-400 mb-6">Connect UniSat, Xverse or OKX to view your profile.</p>
           <WalletConnect />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdminUser) {
-    return (
-      <div className="min-h-screen bg-black text-white p-4 md:p-6">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-bold mb-4">My Marketplace Profile</h1>
-          <p className="text-sm text-red-300 mb-2">Admin wallet required.</p>
-          <p className="text-sm text-gray-400 mb-6">
-            Marketplace profile is currently available only for authorized admin wallet addresses.
-          </p>
-          <Link to="/" className="text-sm text-red-400 hover:text-red-300 underline">
-            Back to Home
-          </Link>
         </div>
       </div>
     );

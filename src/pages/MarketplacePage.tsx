@@ -52,12 +52,10 @@ const PreviewImage: React.FC<{
 }> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
   const encodedId = encodeURIComponent(inscriptionId);
   const blobUrlRef = useRef<string | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
   const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
   const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
   const [docProbeRequested, setDocProbeRequested] = useState(false);
-  const [isNearViewport, setIsNearViewport] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const imageSources = [
@@ -77,29 +75,6 @@ const PreviewImage: React.FC<{
   };
 
   useEffect(() => {
-    const node = containerRef.current;
-    if (!node || isNearViewport) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      setIsNearViewport(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting || entry.intersectionRatio > 0) {
-            setIsNearViewport(true);
-          }
-        });
-      },
-      { rootMargin: '300px 0px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [isNearViewport, inscriptionId]);
-
-  useEffect(() => {
     setLoaded(false);
     setSourceIndex(0);
     setPreprocessedSrc(null);
@@ -107,7 +82,6 @@ const PreviewImage: React.FC<{
     setHtmlPreviewDoc(null);
     setDocProbeRequested(false);
     setIframeFallback(false);
-    setIsNearViewport(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
@@ -174,6 +148,8 @@ const PreviewImage: React.FC<{
             if (looksLikeHtml) {
               const normalizedHtml = normalizeHtmlDoc(trimmed);
               setHtmlPreviewDoc(normalizedHtml);
+              // HTML inscriptions render more reliably through ordinals preview iframe.
+              setIframeFallback(true);
               setSourceIndex(0);
               debugLog('preprocess-html-success', { src, length: normalizedHtml.length });
               return;
@@ -220,11 +196,11 @@ const PreviewImage: React.FC<{
   }, [noPreviewAvailable, inscriptionId, imageSources.length]);
 
   return (
-    <div ref={containerRef} className={`relative overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${className}`}>
       {!loaded && !noPreviewAvailable && (
         <div className="absolute inset-0 animate-pulse bg-zinc-800" />
       )}
-      {!isNearViewport ? null : recursiveSvgDoc ? (
+      {recursiveSvgDoc ? (
         <iframe
           title={alt}
           srcDoc={recursiveSvgDoc}
@@ -234,19 +210,6 @@ const PreviewImage: React.FC<{
           onLoad={() => {
             setLoaded(true);
             debugLog('iframe-srcdoc-load-success');
-          }}
-        />
-      ) : htmlPreviewDoc ? (
-        <iframe
-          title={alt}
-          srcDoc={htmlPreviewDoc}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          sandbox="allow-scripts"
-          onLoad={() => {
-            setLoaded(true);
-            debugLog('iframe-html-srcdoc-load-success');
           }}
         />
       ) : iframeFallback ? (
@@ -269,6 +232,19 @@ const PreviewImage: React.FC<{
             }}
           />
         </div>
+      ) : htmlPreviewDoc ? (
+        <iframe
+          title={alt}
+          srcDoc={htmlPreviewDoc}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          scrolling="no"
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={() => {
+            setLoaded(true);
+            debugLog('iframe-html-srcdoc-load-success');
+          }}
+        />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
