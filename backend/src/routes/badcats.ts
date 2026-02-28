@@ -130,9 +130,15 @@ router.get('/whitelist-addresses', async (_req, res) => {
 // ── POST /api/badcats/whitelist-addresses ──
 router.post('/whitelist-addresses', async (req, res) => {
   try {
-    const { address, count } = req.body;
+    const { address, count, setExact } = req.body;
     if (!address) return res.status(400).json({ error: 'address required' });
-    const newCount = await addWhitelistAddress(address, count);
+    const parsedCount = Number(count);
+    if (!Number.isFinite(parsedCount) || parsedCount < 1) {
+      return res.status(400).json({ error: 'count must be >= 1' });
+    }
+    const newCount = setExact
+      ? await setWhitelistAddressCount(address, parsedCount)
+      : await addWhitelistAddress(address, parsedCount);
     res.json({ success: true, count: newCount });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

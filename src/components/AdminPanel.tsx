@@ -1847,14 +1847,15 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     const nextCount = Math.max(1, Math.floor(Number(count) || 1));
     try {
       const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, count: nextCount }),
+        body: JSON.stringify({ address, count: nextCount, setExact: true }),
       });
       if (res.ok) {
         loadBadCatsWhitelist();
       } else {
-        alert('Failed to update count');
+        const err = await res.json().catch(() => ({}));
+        alert(err?.error || 'Failed to update count');
       }
     } catch {
       alert('Failed to update count');
