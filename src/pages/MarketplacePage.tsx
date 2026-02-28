@@ -258,6 +258,11 @@ const PreviewImage: React.FC<{
           referrerPolicy="no-referrer"
           onLoad={() => {
             setLoaded(true);
+            // Some recursive ordinals "load" in <img> but still render blank.
+            // Trigger doc probing after first successful load so we can upgrade to srcDoc when needed.
+            if (!docProbeRequested) {
+              setDocProbeRequested(true);
+            }
             debugLog('img-load-success', { currentSrc, sourceIndex });
           }}
           onError={() => {
