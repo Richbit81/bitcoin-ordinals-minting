@@ -53,6 +53,7 @@ const PreviewImage: React.FC<{
   const encodedId = encodeURIComponent(inscriptionId);
   const blobUrlRef = useRef<string | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
+  const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const imageSources = [
@@ -74,6 +75,7 @@ const PreviewImage: React.FC<{
     setLoaded(false);
     setSourceIndex(0);
     setPreprocessedSrc(null);
+    setRecursiveSvgDoc(null);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
@@ -123,6 +125,8 @@ const PreviewImage: React.FC<{
             continue;
           }
           const normalized = normalizeRecursiveSvg(trimmed);
+          // For recursive SVGs, iframe srcDoc rendering is more reliable than <img src=blob>.
+          setRecursiveSvgDoc(normalized);
           const blob = new Blob([normalized], { type: 'image/svg+xml' });
           const url = URL.createObjectURL(blob);
           if (cancelled) {
@@ -159,7 +163,19 @@ const PreviewImage: React.FC<{
       {!loaded && !noPreviewAvailable && (
         <div className="absolute inset-0 animate-pulse bg-zinc-800" />
       )}
-      {noPreviewAvailable ? (
+      {recursiveSvgDoc ? (
+        <iframe
+          title={alt}
+          srcDoc={recursiveSvgDoc}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          scrolling="no"
+          onLoad={() => {
+            setLoaded(true);
+            debugLog('iframe-srcdoc-load-success');
+          }}
+        />
+      ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
         </div>
