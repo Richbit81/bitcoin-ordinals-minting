@@ -170,6 +170,7 @@ export const BadCatsPage: React.FC = () => {
     walletAddress: string | null;
     inscriptionId: string | null;
   }>>([]);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -201,7 +202,11 @@ export const BadCatsPage: React.FC = () => {
     const generated = collectionData?.generated || [];
     for (const item of generated) {
       if (item?.index && typeof item.svg === 'string' && item.svg.length > 0) {
-        map.set(item.index, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(item.svg)}`);
+        const normalizedSvg = item.svg.replace(
+          /href=(["'])\/content\//g,
+          'href=$1https://ordinals.com/content/'
+        );
+        map.set(item.index, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(normalizedSvg)}`);
       }
     }
     return map;
@@ -935,8 +940,17 @@ export const BadCatsPage: React.FC = () => {
                 {recentMints.map((mint, i) => (
                   <div key={`${mint.inscriptionId || mint.itemIndex}-${i}`} className="flex flex-col items-center">
                     <div
-                      className="w-24 h-24 bg-black border-2 border-red-900 rounded-md overflow-hidden"
+                      className="w-24 h-24 bg-black border-2 border-red-900 rounded-md overflow-hidden cursor-pointer transition-transform hover:scale-105"
                       style={{ boxShadow: '3px 3px 0 #000' }}
+                      onClick={() => {
+                        const previewUrl = recentMintPreviewByIndex.get(mint.itemIndex);
+                        if (previewUrl) {
+                          setLightboxImage({
+                            url: previewUrl,
+                            name: mint.itemName || `BadCats #${mint.itemIndex}`,
+                          });
+                        }
+                      }}
                     >
                       {recentMintPreviewByIndex.has(mint.itemIndex) ? (
                         <img
@@ -957,6 +971,33 @@ export const BadCatsPage: React.FC = () => {
             </div>
           )}
           </>
+        )}
+
+        {/* Lightbox Modal */}
+        {lightboxImage && (
+          <div
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setLightboxImage(null)}
+          >
+            <div className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setLightboxImage(null)}
+                className="absolute -top-10 right-0 text-gray-400 hover:text-red-400 text-sm font-bold"
+                style={{ fontFamily: subFont }}
+              >
+                ✕ CLOSE
+              </button>
+              <img
+                src={lightboxImage.url}
+                alt={lightboxImage.name}
+                className="w-full h-auto rounded-lg border-[3px] border-red-900 bg-black"
+                style={{ boxShadow: '6px 6px 0 #000' }}
+              />
+              <p className="text-center text-red-400 font-bold mt-3" style={{ fontFamily: subFont }}>
+                {lightboxImage.name}
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Wallet Connect Modal */}
