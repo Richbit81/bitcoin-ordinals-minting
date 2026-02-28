@@ -60,9 +60,23 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (isUnisatInstalled()) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {
+          const currentAddress = accounts[0];
+          const normalizedAccounts: WalletAccount[] = [];
+
+          if (currentAddress.startsWith('bc1p')) {
+            localStorage.setItem('unisat_taproot_address', currentAddress);
+            normalizedAccounts.push({ address: currentAddress, purpose: 'ordinals' });
+          } else {
+            normalizedAccounts.push({ address: currentAddress, purpose: 'payment' });
+            const savedTaproot = localStorage.getItem('unisat_taproot_address');
+            if (savedTaproot && savedTaproot.startsWith('bc1p')) {
+              normalizedAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+            }
+          }
+
           setWalletState(prev => ({
             ...prev,
-            accounts: accounts.map(addr => ({ address: addr })),
+            accounts: normalizedAccounts,
             connected: true,
             walletType: 'unisat',
           }));

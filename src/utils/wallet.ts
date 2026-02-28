@@ -291,7 +291,25 @@ export const getUnisatAccounts = async (): Promise<WalletAccount[]> => {
 
   try {
     const accounts = await window.unisat!.getAccounts();
-    return accounts.map(addr => ({ address: addr }));
+    if (!accounts || accounts.length === 0) return [];
+
+    const currentAddress = accounts[0];
+    const walletAccounts: WalletAccount[] = [];
+
+    if (currentAddress.startsWith('bc1p')) {
+      // Persist the last known taproot address for auto-reconnect flows.
+      localStorage.setItem('unisat_taproot_address', currentAddress);
+      walletAccounts.push({ address: currentAddress, purpose: 'ordinals' });
+    } else {
+      walletAccounts.push({ address: currentAddress, purpose: 'payment' });
+
+      const savedTaproot = localStorage.getItem('unisat_taproot_address');
+      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
+        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+      }
+    }
+
+    return walletAccounts;
   } catch {
     return [];
   }
