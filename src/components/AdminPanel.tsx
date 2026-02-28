@@ -1795,7 +1795,20 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                 count: Math.max(1, Number(entry?.count || 1)),
               }))
               .filter((entry: { address: string }) => entry.address)
-          : [];
+          : Array.isArray(data.addresses)
+            ? (() => {
+                const grouped = new Map<string, { address: string; count: number }>();
+                for (const raw of data.addresses) {
+                  const address = String(raw || '').trim();
+                  if (!address) continue;
+                  const key = address.toLowerCase();
+                  const existing = grouped.get(key);
+                  if (existing) existing.count += 1;
+                  else grouped.set(key, { address, count: 1 });
+                }
+                return [...grouped.values()];
+              })()
+            : [];
         setBadCatsWhitelistEntries(entries);
       }
     } catch { console.warn('Could not load BadCats whitelist'); }
@@ -1818,7 +1831,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         setBadCatsWhitelistCountInput('1');
         loadBadCatsWhitelist();
       } else {
-        alert('Failed to add address');
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          alert('Address already exists. Use + / count field to increase allowance.');
+        } else {
+          alert(err?.error || 'Failed to add address');
+        }
       }
     } catch {
       alert('Failed to add address');
