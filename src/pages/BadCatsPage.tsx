@@ -169,8 +169,9 @@ export const BadCatsPage: React.FC = () => {
     timestamp: string;
     walletAddress: string | null;
     inscriptionId: string | null;
+    previewDoc?: string | null;
   }>>([]);
-  const [lightboxImage, setLightboxImage] = useState<{ svgDoc: string; name: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ previewDoc: string; name: string } | null>(null);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -201,17 +202,46 @@ export const BadCatsPage: React.FC = () => {
     const map = new Map<number, string>();
     const generated = collectionData?.generated || [];
     for (const item of generated) {
-      if (item?.index && typeof item.svg === 'string' && item.svg.length > 0) {
-        const normalizedSvg = item.svg.replace(
-          /href=(["'])\/content\//g,
-          'href=$1https://ordinals.com/content/'
-        );
-        const svgDoc = `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;">${normalizedSvg}</body></html>`;
-        map.set(item.index, svgDoc);
-      }
+      if (!item?.index || !Array.isArray(item.layers) || item.layers.length === 0) continue;
+      const layerTags = item.layers
+        .map((layer: any) => String(layer?.trait?.inscriptionId || '').trim())
+        .filter(Boolean)
+        .map((id: string) => (
+          `<img src="https://ordinals.com/content/${id}" ` +
+          `style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" />`
+        ))
+        .join('');
+      if (!layerTags) continue;
+      const previewDoc =
+        '<!doctype html><html><head><meta charset="utf-8"></head>' +
+        '<body style="margin:0;background:#000;overflow:hidden;">' +
+        '<div style="position:relative;width:100vw;height:100vh;">' +
+        layerTags +
+        '</div></body></html>';
+      map.set(item.index, previewDoc);
     }
     return map;
   }, [collectionData]);
+
+  const buildPreviewDocFromResultItem = (item: any): string | null => {
+    if (!item || !Array.isArray(item.layers) || item.layers.length === 0) return null;
+    const layerTags = item.layers
+      .map((layer: any) => String(layer?.trait?.inscriptionId || '').trim())
+      .filter(Boolean)
+      .map((id: string) => (
+        `<img src="https://ordinals.com/content/${id}" ` +
+        `style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" />`
+      ))
+      .join('');
+    if (!layerTags) return null;
+    return (
+      '<!doctype html><html><head><meta charset="utf-8"></head>' +
+      '<body style="margin:0;background:#000;overflow:hidden;">' +
+      '<div style="position:relative;width:100vw;height:100vh;">' +
+      layerTags +
+      '</div></body></html>'
+    );
+  };
 
   useEffect(() => {
     if (!document.querySelector(`link[href="${COMIC_FONT_LINK}"]`)) {
@@ -392,6 +422,7 @@ export const BadCatsPage: React.FC = () => {
               : String(mint.timestamp || ''),
             walletAddress: mint.walletAddress || mint.wallet_address || null,
             inscriptionId: mint.inscriptionId || mint.inscription_id || null,
+            previewDoc: null,
           };
         })
         .filter((mint: any) => mint.itemIndex > 0)
@@ -546,12 +577,14 @@ export const BadCatsPage: React.FC = () => {
       setMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
       setRecentMints(prev => {
+        const resultPreviewDoc = buildPreviewDocFromResultItem(result.item);
         const nextEntry = {
           itemIndex: result.item.index,
           itemName: `BadCats #${result.item.index}`,
           timestamp: new Date().toISOString(),
           walletAddress: userAddress,
           inscriptionId: result.inscriptionId || null,
+          previewDoc: resultPreviewDoc || null,
         };
         const withNew = [nextEntry, ...prev];
         const seen = new Set<string>();
@@ -926,18 +959,18 @@ export const BadCatsPage: React.FC = () => {
                       className="w-24 h-24 bg-black border-2 border-red-900 rounded-md overflow-hidden cursor-pointer transition-transform hover:scale-105"
                       style={{ boxShadow: '3px 3px 0 #000' }}
                       onClick={() => {
-                        const previewDoc = recentMintPreviewByIndex.get(mint.itemIndex);
+                        const previewDoc = mint.previewDoc || recentMintPreviewByIndex.get(mint.itemIndex);
                         if (previewDoc) {
                           setLightboxImage({
-                            svgDoc: previewDoc,
+                            previewDoc,
                             name: mint.itemName || `BadCats #${mint.itemIndex}`,
                           });
                         }
                       }}
                     >
-                      {recentMintPreviewByIndex.has(mint.itemIndex) ? (
+                      {mint.previewDoc || recentMintPreviewByIndex.has(mint.itemIndex) ? (
                         <iframe
-                          srcDoc={recentMintPreviewByIndex.get(mint.itemIndex)}
+                          srcDoc={mint.previewDoc || recentMintPreviewByIndex.get(mint.itemIndex)}
                           title={mint.itemName || `BadCats #${mint.itemIndex}`}
                           className="w-full h-full border-0 pointer-events-none bg-black"
                           sandbox="allow-scripts allow-same-origin"
@@ -975,7 +1008,7 @@ export const BadCatsPage: React.FC = () => {
               </button>
               <div className="w-full aspect-square rounded-lg border-[3px] border-red-900 bg-black overflow-hidden" style={{ boxShadow: '6px 6px 0 #000' }}>
                 <iframe
-                  srcDoc={lightboxImage.svgDoc}
+                  srcDoc={lightboxImage.previewDoc}
                   title={lightboxImage.name}
                   className="w-full h-full border-0 bg-black"
                   sandbox="allow-scripts allow-same-origin"
