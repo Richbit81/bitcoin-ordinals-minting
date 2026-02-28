@@ -148,8 +148,8 @@ const PreviewImage: React.FC<{
             if (looksLikeHtml) {
               const normalizedHtml = normalizeHtmlDoc(trimmed);
               setHtmlPreviewDoc(normalizedHtml);
-              // HTML inscriptions render more reliably through ordinals preview iframe.
-              setIframeFallback(true);
+              // Prefer srcDoc rendering for recursive HTML inscriptions.
+              setIframeFallback(false);
               setSourceIndex(0);
               debugLog('preprocess-html-success', { src, length: normalizedHtml.length });
               return;
@@ -212,6 +212,19 @@ const PreviewImage: React.FC<{
             debugLog('iframe-srcdoc-load-success');
           }}
         />
+      ) : htmlPreviewDoc ? (
+        <iframe
+          title={alt}
+          srcDoc={htmlPreviewDoc}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          scrolling="no"
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={() => {
+            setLoaded(true);
+            debugLog('iframe-html-srcdoc-load-success');
+          }}
+        />
       ) : iframeFallback ? (
         <div className="absolute inset-0 overflow-hidden bg-zinc-900">
           <iframe
@@ -232,19 +245,6 @@ const PreviewImage: React.FC<{
             }}
           />
         </div>
-      ) : htmlPreviewDoc ? (
-        <iframe
-          title={alt}
-          srcDoc={htmlPreviewDoc}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          sandbox="allow-scripts allow-same-origin"
-          onLoad={() => {
-            setLoaded(true);
-            debugLog('iframe-html-srcdoc-load-success');
-          }}
-        />
       ) : noPreviewAvailable ? (
         <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
           Preview unavailable
@@ -799,7 +799,7 @@ export const MarketplacePage: React.FC = () => {
     return (
       <div className="min-h-screen bg-black text-white p-4 md:p-6">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Ordinals Marketplace</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Marketplace</h1>
           <p className="text-sm text-gray-400 mb-6">
             Marketplace is currently visible for admin wallet only.
           </p>
@@ -1167,7 +1167,7 @@ export const MarketplacePage: React.FC = () => {
         <div className="mb-6 rounded-2xl border border-red-600/40 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-5 md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight">Ordinals Marketplace</h1>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight">Marketplace</h1>
               <p className="text-sm text-gray-400 mt-1">
                 Visual, non-custodial trading hub with rich previews and admin-safe execution.
               </p>
