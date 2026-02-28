@@ -60,18 +60,12 @@ const PreviewImage: React.FC<{
   const [isNearViewport, setIsNearViewport] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
-  const imageSources = (debugEnabled
-    ? [
-        preprocessedSrc,
-        apiImageUrl,
-        `https://ordinals.com/preview/${encodedId}`,
-        `https://ordinals.com/content/${encodedId}`,
-      ]
-    : [
-        preprocessedSrc,
-        apiImageUrl,
-        `https://ordinals.com/content/${encodedId}`,
-      ]).filter(Boolean) as string[];
+  const imageSources = [
+    preprocessedSrc,
+    apiImageUrl,
+    `https://ordinals.com/preview/${encodedId}`,
+    `https://ordinals.com/content/${encodedId}`,
+  ].filter(Boolean) as string[];
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [iframeFallback, setIframeFallback] = useState(false);
@@ -122,7 +116,7 @@ const PreviewImage: React.FC<{
   }, [inscriptionId]);
 
   useEffect(() => {
-    if (!docProbeRequested || !debugEnabled) return;
+    if (!docProbeRequested) return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -295,11 +289,8 @@ const PreviewImage: React.FC<{
             setSourceIndex((prev) => {
               const next = prev + 1;
               if (next >= imageSources.length) {
-                // Expensive HTML/SVG probing only in explicit debug mode.
-                if (debugEnabled) {
-                  setDocProbeRequested(true);
-                  setIframeFallback(true);
-                }
+                setDocProbeRequested(true);
+                setIframeFallback(true);
               }
               debugLog('img-load-error-next-source', { currentSrc, prev, next });
               return next;
