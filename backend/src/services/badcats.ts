@@ -2,11 +2,32 @@ import fs from 'fs/promises';
 import path from 'path';
 import { BadCatsData, BadCatsLogEntry, BadCatsWhitelistEntry } from '../types/badcats';
 
-const DATA_DIR = process.env.BADCATS_DATA_PATH
-  ? path.resolve(process.env.BADCATS_DATA_PATH)
+const configuredDataPath = String(process.env.BADCATS_DATA_PATH || '').trim();
+const persistentStorageConfigured = configuredDataPath.length > 0;
+
+if (process.env.NODE_ENV === 'production' && !persistentStorageConfigured) {
+  throw new Error(
+    '[BadCats] Missing BADCATS_DATA_PATH in production. Configure a persistent volume path (e.g. /data/badcats).'
+  );
+}
+
+if (!persistentStorageConfigured && process.env.NODE_ENV !== 'test') {
+  console.warn(
+    '[BadCats] BADCATS_DATA_PATH not set. Using local data folder (non-persistent on redeploy).'
+  );
+}
+
+const DATA_DIR = persistentStorageConfigured
+  ? path.resolve(configuredDataPath)
   : path.join(process.cwd(), 'data', 'badcats');
 
 const dataFile = () => path.join(DATA_DIR, 'badcats-data.json');
+
+export const getBadCatsStorageInfo = () => ({
+  dataDir: DATA_DIR,
+  dataFile: dataFile(),
+  persistentStorageConfigured,
+});
 
 const ensureDir = async () => {
   try { await fs.access(DATA_DIR); } catch { await fs.mkdir(DATA_DIR, { recursive: true }); }
@@ -35,6 +56,11 @@ const normalizeWhitelistEntries = (input: unknown): BadCatsWhitelistEntry[] => {
         const obj = entry as { address?: unknown; count?: unknown };
         add(String(obj.address || ''), Number(obj.count || 1));
       }
+    }
+  } else if (input && typeof input === 'object') {
+    // Support legacy map format: { "<address>": <count> }
+    for (const [address, count] of Object.entries(input as Record<string, unknown>)) {
+      add(address, Number(count || 1));
     }
   }
 

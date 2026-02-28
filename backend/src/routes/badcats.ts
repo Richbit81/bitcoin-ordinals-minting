@@ -5,6 +5,7 @@ import {
   getHashlist, addToHashlist, syncHashlistFromLogs,
   getWhitelistAddresses, getWhitelistEntries, getWhitelistMintAllowance, addWhitelistAddress, setWhitelistAddressCount, removeWhitelistAddress,
   getFreeMintUsed, recordFreeMintUsed,
+  getBadCatsStorageInfo,
 } from '../services/badcats';
 
 const router = express.Router();
@@ -174,6 +175,15 @@ router.get('/whitelist-allowance', async (req, res) => {
     if (!address) return res.status(400).json({ error: 'address required' });
     const allowance = await getWhitelistMintAllowance(address);
     res.json({ allowance });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/badcats/storage-info ──
+router.get('/storage-info', async (_req, res) => {
+  try {
+    res.json(getBadCatsStorageInfo());
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
