@@ -184,6 +184,7 @@ export const BadCatsPage: React.FC = () => {
   const subFont = "'Bangers', cursive";
 
   const getSecondsUntilMintStart = () => {
+    if (MINT_ACTIVE) return 0;
     const now = new Date();
     const target = new Date(now);
     target.setHours(20, 0, 0, 0);
@@ -198,40 +199,48 @@ export const BadCatsPage: React.FC = () => {
   };
 
   const isMintPublic = secondsUntilMint <= 0;
-  const recentMintPreviewByIndex = useMemo(() => {
-    const map = new Map<number, string>();
-    const generated = collectionData?.generated || [];
-    for (const item of generated) {
-      if (!item?.index || !Array.isArray(item.layers) || item.layers.length === 0) continue;
-      const layerTags = item.layers
-        .map((layer: any) => String(layer?.trait?.inscriptionId || '').trim())
-        .filter(Boolean)
-        .map((id: string) => (
-          `<img src="https://ordinals.com/content/${id}" ` +
-          `style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" />`
-        ))
-        .join('');
-      if (!layerTags) continue;
-      const previewDoc =
-        '<!doctype html><html><head><meta charset="utf-8"></head>' +
-        '<body style="margin:0;background:#000;overflow:hidden;">' +
-        '<div style="position:relative;width:100vw;height:100vh;">' +
-        layerTags +
-        '</div></body></html>';
-      map.set(item.index, previewDoc);
-    }
-    return map;
-  }, [collectionData]);
+  const toSvgDoc = (svgRaw: string): string => {
+    const normalizedSvg = String(svgRaw || '')
+      .replace(/(xlink:href|href|src)=["']\/content\//gi, '$1="https://ordinals.com/content/')
+      .replace(/url\((["']?)\/content\//gi, 'url($1https://ordinals.com/content/')
+      .replace(/<svg\b([^>]*)>/i, (_m, attrs) => {
+        let nextAttrs = String(attrs || '');
+        if (/style\s*=/i.test(nextAttrs)) {
+          nextAttrs = nextAttrs.replace(
+            /style=(["'])(.*?)\1/i,
+            (_sm, q, styleValue) => `style=${q}${styleValue};width:100%;height:100%;display:block;${q}`
+          );
+        } else {
+          nextAttrs += ' style="width:100%;height:100%;display:block;"';
+        }
+        return `<svg${nextAttrs}>`;
+      });
+    return (
+      '<!doctype html><html><head><meta charset="utf-8">' +
+      '<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}svg{width:100%;height:100%;display:block}</style>' +
+      '</head><body>' +
+      normalizedSvg +
+      '</body></html>'
+    );
+  };
 
-  const buildPreviewDocFromResultItem = (item: any): string | null => {
-    if (!item || !Array.isArray(item.layers) || item.layers.length === 0) return null;
-    const layerTags = item.layers
-      .map((layer: any) => String(layer?.trait?.inscriptionId || '').trim())
+  const buildLayerPreviewDoc = (layers: any[]): string | null => {
+    if (!Array.isArray(layers) || layers.length === 0) return null;
+    const layerTags = layers
+      .map((layer: any) => {
+        const id = String(layer?.trait?.inscriptionId || '').trim();
+        if (!id) return null;
+        const ox = Number(layer?.offsetX || 0);
+        const oy = Number(layer?.offsetY || 0);
+        const sc = Number(layer?.scale || 1);
+        return (
+          `<img src="https://ordinals.com/content/${id}" ` +
+          `style="position:absolute;left:50%;top:50%;width:100%;height:100%;` +
+          `object-fit:contain;transform:translate(-50%,-50%) translate(${ox}px,${oy}px) scale(${sc});` +
+          `transform-origin:center center;" />`
+        );
+      })
       .filter(Boolean)
-      .map((id: string) => (
-        `<img src="https://ordinals.com/content/${id}" ` +
-        `style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" />`
-      ))
       .join('');
     if (!layerTags) return null;
     return (
@@ -241,6 +250,29 @@ export const BadCatsPage: React.FC = () => {
       layerTags +
       '</div></body></html>'
     );
+  };
+
+  const recentMintPreviewByIndex = useMemo(() => {
+    const map = new Map<number, string>();
+    const generated = collectionData?.generated || [];
+    for (const item of generated) {
+      if (!item?.index) continue;
+      if (typeof item?.svg === 'string' && item.svg.trim().startsWith('<svg')) {
+        map.set(item.index, toSvgDoc(item.svg));
+        continue;
+      }
+      const fallbackDoc = buildLayerPreviewDoc(item?.layers || []);
+      if (fallbackDoc) map.set(item.index, fallbackDoc);
+    }
+    return map;
+  }, [collectionData]);
+
+  const buildPreviewDocFromResultItem = (item: any): string | null => {
+    if (!item) return null;
+    if (typeof item?.svg === 'string' && item.svg.trim().startsWith('<svg')) {
+      return toSvgDoc(item.svg);
+    }
+    return buildLayerPreviewDoc(item.layers || []);
   };
 
   useEffect(() => {
