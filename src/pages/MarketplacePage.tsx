@@ -778,6 +778,7 @@ export const MarketplacePage: React.FC = () => {
             if (!id) continue;
             byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
+          await hydrateRareSatsFromDetailFallback(chunk, byId);
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
             if (normalized !== '-') {
@@ -1007,6 +1008,47 @@ export const MarketplacePage: React.FC = () => {
       md?.sattributes ??
       md?.satributes?.rarity;
     return normalizeRareSatsDisplay(raw);
+  };
+
+  const extractRareSatsFromDetail = (detail: MarketplaceInscriptionDetail | null | undefined): string => {
+    const md = detail?.marketplaceInscription?.metadata || {};
+    const chain = detail?.chainInfo || {};
+    const raw =
+      chain?.rareSats ??
+      chain?.rare_sats ??
+      chain?.rareSat ??
+      chain?.rare_sat ??
+      chain?.satributes ??
+      chain?.sattributes ??
+      chain?.satributes?.rarity ??
+      chain?.sat_rarity ??
+      chain?.rarity ??
+      md?.rareSats ??
+      md?.rare_sats ??
+      md?.rareSat ??
+      md?.rare_sat ??
+      md?.satributes ??
+      md?.sattributes ??
+      md?.satributes?.rarity;
+    return normalizeRareSatsDisplay(raw);
+  };
+
+  const hydrateRareSatsFromDetailFallback = async (
+    ids: string[],
+    byId: Map<string, string>
+  ): Promise<void> => {
+    for (const id of ids) {
+      if ((byId.get(id) || '-') !== '-') continue;
+      try {
+        const detail = await getMarketplaceInscriptionDetail(id);
+        const normalized = extractRareSatsFromDetail(detail);
+        if (normalized !== '-') {
+          byId.set(id, normalized);
+        }
+      } catch {
+        // Ignore detail errors for individual inscriptions.
+      }
+    }
   };
 
   const firstPresentValue = (...values: any[]): any => {
@@ -1288,6 +1330,7 @@ export const MarketplacePage: React.FC = () => {
             if (!id) continue;
             byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
+          await hydrateRareSatsFromDetailFallback(chunk, byId);
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
             if (normalized !== '-') {
