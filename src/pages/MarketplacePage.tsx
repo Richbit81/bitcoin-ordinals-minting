@@ -773,25 +773,25 @@ export const MarketplacePage: React.FC = () => {
       for (let i = 0; i < ids.length; i += chunkSize) {
         const chunk = ids.slice(i, i + chunkSize);
         let details: Array<readonly [string, string]> = [];
+        const byId = new Map<string, string>();
         try {
           const batch = await getMarketplaceRareSatsBatch(chunk);
-          const byId = new Map<string, string>();
           for (const item of batch.items || []) {
             const id = getBatchItemId(item);
             if (!id) continue;
             byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
-          await hydrateRareSatsFromDetailFallback(chunk, byId);
-          details = chunk.map((id) => {
-            const normalized = byId.get(id) || '-';
-            if (normalized !== '-') {
-              rareSatsCacheRef.current[id] = normalized;
-            }
-            return [id, normalized] as const;
-          });
         } catch {
-          details = [];
+          // Ignore batch errors and continue with detail fallback.
         }
+        await hydrateRareSatsFromDetailFallback(chunk, byId);
+        details = chunk.map((id) => {
+          const normalized = byId.get(id) || '-';
+          if (normalized !== '-') {
+            rareSatsCacheRef.current[id] = normalized;
+          }
+          return [id, normalized] as const;
+        });
 
         if (cancelled) return;
 
@@ -1345,25 +1345,25 @@ export const MarketplacePage: React.FC = () => {
       for (let i = 0; i < missingIds.length; i += 12) {
         const chunk = missingIds.slice(i, i + 12);
         let details: Array<readonly [string, string]> = [];
+        const byId = new Map<string, string>();
         try {
           const batch = await getMarketplaceRareSatsBatch(chunk);
-          const byId = new Map<string, string>();
           for (const item of batch.items || []) {
             const id = getBatchItemId(item);
             if (!id) continue;
             byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
-          await hydrateRareSatsFromDetailFallback(chunk, byId);
-          details = chunk.map((id) => {
-            const normalized = byId.get(id) || '-';
-            if (normalized !== '-') {
-              rareSatsCacheRef.current[id] = normalized;
-            }
-            return [id, normalized] as const;
-          });
         } catch {
-          details = [];
+          // Ignore batch errors and continue with detail fallback.
         }
+        await hydrateRareSatsFromDetailFallback(chunk, byId);
+        details = chunk.map((id) => {
+          const normalized = byId.get(id) || '-';
+          if (normalized !== '-') {
+            rareSatsCacheRef.current[id] = normalized;
+          }
+          return [id, normalized] as const;
+        });
 
         if (cancelled) return;
         const found: Record<string, string> = {};
