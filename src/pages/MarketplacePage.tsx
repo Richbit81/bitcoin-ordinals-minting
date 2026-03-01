@@ -35,6 +35,9 @@ const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
 const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX_EXCLUSIVE = 95_000_000_000_000;
 const VINTAGE_SAT_MAX_EXCLUSIVE = 5_000_000_000_000;
+const RARE_SAT_OVERRIDES_BY_INSCRIPTION: Record<string, string> = {
+  '6efa80055d144fd67b477c828e4778e3c0582e0b6e728bb8f222c05b73ac3723i0': 'silk road',
+};
 
 const isPreviewDebugEnabled = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -1079,6 +1082,8 @@ export const MarketplacePage: React.FC = () => {
     item?.satributes?.rarity;
 
   const extractRareSats = (l: MarketplaceListing): string => {
+    const manual = RARE_SAT_OVERRIDES_BY_INSCRIPTION[String(l.inscription_id || '').trim()];
+    if (manual) return manual;
     const md = l.inscription_metadata || {};
     const raw =
       md?.rareSats ??
@@ -1098,6 +1103,8 @@ export const MarketplacePage: React.FC = () => {
   };
 
   const extractInscriptionRareSats = (ins: MarketplaceCollectionInscription): string => {
+    const manual = RARE_SAT_OVERRIDES_BY_INSCRIPTION[String(ins.inscription_id || '').trim()];
+    if (manual) return manual;
     const md = ins.metadata || {};
     const raw =
       md?.rareSats ??
@@ -1111,6 +1118,8 @@ export const MarketplacePage: React.FC = () => {
   };
 
   const extractRareSatsFromDetail = (detail: MarketplaceInscriptionDetail | null | undefined): string => {
+    const manual = RARE_SAT_OVERRIDES_BY_INSCRIPTION[String(detail?.inscriptionId || '').trim()];
+    if (manual) return manual;
     const md = detail?.marketplaceInscription?.metadata || {};
     const chain = detail?.chainInfo || {};
     const raw =
