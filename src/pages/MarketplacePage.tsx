@@ -922,44 +922,95 @@ export const MarketplacePage: React.FC = () => {
       .replace(/-+/g, '-')
       .trim();
 
+  const splitRareSatTokens = (raw: any): string[] =>
+    normalizeRareSatsDisplay(raw)
+      .split(/[,+/|]/g)
+      .map((v) => String(v || '').trim())
+      .filter(Boolean);
+
   const RARE_SAT_SYMBOLS: Record<string, string> = {
     uncommon: '◍',
     rare: '◈',
     epic: '✶',
     legendary: '✧',
     mythic: '☉',
+    black: '⬤',
+    'black-sat': '⬤',
+    'black-sats': '⬤',
     'black-uncommon': '⬤◍',
+    blackuncommon: '⬤◍',
     'black-rare': '⬤◈',
+    blackrare: '⬤◈',
     'black-epic': '⬤✶',
+    blackepic: '⬤✶',
     'black-legendary': '⬤✧',
+    blacklegendary: '⬤✧',
     'black-mythic': '⬤☉',
+    blackmythic: '⬤☉',
     palindrome: '↔',
     palindrom: '↔',
     'number-palindrome': '↔',
     alpha: 'α',
+    'alpha-sat': 'α',
     omega: 'ω',
+    'omega-sat': 'ω',
     vintage: '⌛',
     pizza: '🍕',
     nakamoto: '₿',
     hitman: '🎯',
+    'silk-road': '🕸',
+    silkroad: '🕸',
     legacy: '🏛',
     jpeg: '🖼',
     'first-transaction': '①',
+    firsttransaction: '①',
     'first-tx': '①',
     'block-9': '⑨',
+    block9: '⑨',
     'block-78': '78',
+    block78: '78',
     'block-286': '286',
+    block286: '286',
     'block-666': '666',
+    block666: '666',
     'block-999': '999',
+    block999: '999',
+  };
+
+  const RARE_SAT_DEFINITIONS: Record<string, string> = {
+    uncommon: 'First sat of a block.',
+    rare: 'First sat of a difficulty adjustment period.',
+    epic: 'First sat of a halving epoch.',
+    legendary: 'First sat where halving and difficulty cycles align.',
+    mythic: 'The very first sat (genesis sat).',
+    black: 'Marks the end of a Bitcoin cycle/event.',
+    'black-uncommon': 'Last sat of a block.',
+    'black-rare': 'Last sat of a difficulty period.',
+    'black-epic': 'Last sat of a halving epoch.',
+    'black-legendary': 'Last sat of a full cycle alignment.',
+    'black-mythic': 'Last sat in the mythic classification context.',
+    palindrome: 'Sat number reads the same forward and backward.',
+    'number-palindrome': 'Sat number reads the same forward and backward.',
+    alpha: 'First sat in a bitcoin (ordinal convention).',
+    omega: 'Last sat in a bitcoin (ordinal convention).',
+    vintage: 'Sat mined in Bitcoin’s first 1,000 blocks.',
+    pizza: 'Sat tied to the 10,000 BTC Pizza transaction.',
+    nakamoto: 'Sat from early Satoshi-mined era range.',
+    hitman: 'Sat linked to Silk Road hitman-related historical flow.',
+    'silk-road': 'Sat linked to Silk Road historical flow.',
+    legacy: 'Legacy-classified satribute from scanner providers.',
+    jpeg: 'JPEG-classified satribute from scanner providers.',
+    'first-transaction': 'Sat tied to Bitcoin’s first transaction history.',
+    'block-9': 'Sat from block 9.',
+    'block-78': 'Sat from block 78.',
+    'block-286': 'Sat from block 286.',
+    'block-666': 'Sat from block 666.',
+    'block-999': 'Sat from block 999.',
   };
 
   const toRareSatSymbols = (raw: any): string => {
-    const label = normalizeRareSatsDisplay(raw);
-    if (label === '-') return '-';
-    const tokens = label
-      .split(/[,+/|]/g)
-      .map((v) => v.trim())
-      .filter(Boolean);
+    const tokens = splitRareSatTokens(raw);
+    if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '-')) return '-';
     const symbols = tokens
       .map((token) => {
         const key = normalizeRareSatKey(token);
@@ -967,6 +1018,19 @@ export const MarketplacePage: React.FC = () => {
       })
       .filter(Boolean);
     return symbols.length ? symbols.join(' ') : '◌';
+  };
+
+  const toRareSatTooltip = (raw: any): string => {
+    const tokens = splitRareSatTokens(raw);
+    if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '-')) return 'No satribute data';
+    return tokens
+      .map((token) => {
+        const key = normalizeRareSatKey(token);
+        const symbol = RARE_SAT_SYMBOLS[key] || '◌';
+        const def = RARE_SAT_DEFINITIONS[key] || 'Rare sat attribute.';
+        return `${symbol} ${token}: ${def}`;
+      })
+      .join(' | ');
   };
 
   const getBatchItemId = (item: any): string =>
@@ -1753,7 +1817,7 @@ export const MarketplacePage: React.FC = () => {
                             )}
                             <span
                               className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200 font-mono"
-                              title={rareSats}
+                              title={toRareSatTooltip(rareSats)}
                             >
                               {toRareSatSymbols(rareSats)}
                             </span>
@@ -1899,7 +1963,7 @@ export const MarketplacePage: React.FC = () => {
                       <div className="text-[11px] text-gray-400">
                         Seller: <span className="font-mono">{l.seller_address.slice(0, 8)}...{l.seller_address.slice(-6)}</span>
                       </div>
-                      <div className="text-[11px] text-gray-400 font-mono" title={rareSatsLabel}>
+                      <div className="text-[11px] text-gray-400 font-mono" title={toRareSatTooltip(rareSatsLabel)}>
                         {toRareSatSymbols(rareSatsLabel)}
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -2241,7 +2305,7 @@ export const MarketplacePage: React.FC = () => {
                           <span className="text-gray-500">Satribute:</span>{' '}
                           <span
                             className="font-mono"
-                            title={detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity)}
+                            title={toRareSatTooltip(detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity))}
                           >
                             {toRareSatSymbols(detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity))}
                           </span>
