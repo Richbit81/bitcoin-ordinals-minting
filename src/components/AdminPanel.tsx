@@ -1767,13 +1767,91 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     loadLogs();
   }, [adminAddress]);
 
+  const isBadCatsLogEntry = (log: any): boolean => {
+    const haystack = [
+      log?.packId,
+      log?.packName,
+      log?.itemName,
+      log?.collectionSlug,
+      log?.collection_slug,
+    ]
+      .map((v) => String(v || '').toLowerCase())
+      .join(' ');
+    return haystack.includes('badcats') || haystack.includes('bad cats');
+  };
+
+  const dedupeLogs = (rows: any[]): any[] => {
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const row of rows || []) {
+      const key = String(
+        row?.id ||
+        row?.inscriptionId ||
+        row?.inscription_id ||
+        `${row?.walletAddress || row?.wallet_address || 'x'}-${row?.timestamp || row?.created_at || Math.random()}`
+      );
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(row);
+    }
+    return result;
+  };
+
   const loadLogs = async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/all?adminAddress=${encodeURIComponent(adminAddress)}&sync=1`);
       if (response.ok) {
         const data = await response.json();
-        setLogs(data);
+        const normalized: any = { ...(data || {}) };
+        if (!normalized.badCats && normalized.badcats) normalized.badCats = normalized.badcats;
+        if (!normalized.badCats) normalized.badCats = { logs: [], totalMints: 0 };
+        if (!normalized.blackAndWild) normalized.blackAndWild = { logs: [], totalMints: 0 };
+
+        const bwLogs = Array.isArray(normalized.blackAndWild.logs) ? normalized.blackAndWild.logs : [];
+        const badLogs = Array.isArray(normalized.badCats.logs) ? normalized.badCats.logs : [];
+        const misplacedBadCats = bwLogs.filter(isBadCatsLogEntry);
+        if (misplacedBadCats.length > 0) {
+          const cleanedBw = bwLogs.filter((log: any) => !isBadCatsLogEntry(log));
+          normalized.blackAndWild.logs = cleanedBw;
+          normalized.badCats.logs = dedupeLogs([...badLogs, ...misplacedBadCats]);
+          normalized.blackAndWild.totalMints = Math.max(
+            cleanedBw.length,
+            Math.max(0, Number(normalized.blackAndWild.totalMints || 0) - misplacedBadCats.length)
+          );
+        }
+
+        // Safety net: BadCats totals should come from dedicated BadCats endpoints.
+        try {
+          const [countRes, logsRes] = await Promise.all([
+            fetch(`${API_URL}/api/badcats/count`),
+            fetch(`${API_URL}/api/badcats/logs`),
+          ]);
+          let endpointCount = 0;
+          let endpointLogs: any[] = [];
+          if (countRes.ok) {
+            const countData = await countRes.json();
+            endpointCount = Number(countData?.totalMints || 0);
+          }
+          if (logsRes.ok) {
+            const logsData = await logsRes.json();
+            endpointLogs = Array.isArray(logsData?.logs) ? logsData.logs : [];
+          }
+          const mergedBad = dedupeLogs([
+            ...(Array.isArray(normalized.badCats.logs) ? normalized.badCats.logs : []),
+            ...endpointLogs,
+          ]);
+          normalized.badCats.logs = mergedBad;
+          normalized.badCats.totalMints = Math.max(
+            endpointCount,
+            mergedBad.length,
+            Number(normalized.badCats.totalMints || 0)
+          );
+        } catch {
+          // Ignore fallback issues; keep normalized admin response.
+        }
+
+        setLogs(normalized);
       } else {
         console.error('Failed to load logs');
       }

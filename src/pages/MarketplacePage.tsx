@@ -333,7 +333,9 @@ export const MarketplacePage: React.FC = () => {
   const [showCollectionTraitFilters, setShowCollectionTraitFilters] = useState(false);
   const [collectionSelectedTraitFilters, setCollectionSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
-  const [collectionSortMode, setCollectionSortMode] = useState<'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc'>('rarity-desc');
+  const [collectionSortMode, setCollectionSortMode] = useState<
+    'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc' | 'score-desc' | 'score-asc'
+  >('rarity-desc');
   const rareSatsCacheRef = useRef<Record<string, string>>({});
   const externalSatLookupCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -708,22 +710,63 @@ export const MarketplacePage: React.FC = () => {
       if (append) setCollectionLoadingMore(true);
       else setCollectionLoading(true);
       setError(null);
-      const offset = append ? collectionInscriptions.length : 0;
-      const data = await getMarketplaceCollectionInscriptions({
-        collectionSlug: slug,
-        search,
-        limit: COLLECTION_PAGE_SIZE,
-        offset,
-      });
-      setSelectedCollectionSlug(slug);
-      const nextInscriptions = data.inscriptions || [];
-      setCollectionInscriptions((prev) => {
-        if (!append) return nextInscriptions;
+      const mergeById = (
+        base: MarketplaceCollectionInscription[],
+        next: MarketplaceCollectionInscription[]
+      ): MarketplaceCollectionInscription[] => {
         const byId = new Map<string, MarketplaceCollectionInscription>();
-        for (const row of prev) byId.set(row.inscription_id, row);
-        for (const row of nextInscriptions) byId.set(row.inscription_id, row);
+        for (const row of base) byId.set(row.inscription_id, row);
+        for (const row of next) byId.set(row.inscription_id, row);
         return Array.from(byId.values());
-      });
+      };
+
+      let nextInscriptions: MarketplaceCollectionInscription[] = [];
+      let total = 0;
+
+      if (append) {
+        const offset = collectionInscriptions.length;
+        const data = await getMarketplaceCollectionInscriptions({
+          collectionSlug: slug,
+          search,
+          limit: COLLECTION_PAGE_SIZE,
+          offset,
+        });
+        nextInscriptions = data.inscriptions || [];
+        total = Number(data.total || 0);
+        setCollectionInscriptions((prev) => mergeById(prev, nextInscriptions));
+      } else {
+        // Fully hydrate collection so trait counts/filters are based on all loaded inscriptions.
+        const firstPage = await getMarketplaceCollectionInscriptions({
+          collectionSlug: slug,
+          search,
+          limit: COLLECTION_PAGE_SIZE,
+          offset: 0,
+        });
+
+        total = Number(firstPage.total || 0);
+        let merged = mergeById([], firstPage.inscriptions || []);
+        let offset = merged.length;
+        let pagesFetched = 1;
+
+        while (offset < total && pagesFetched < 200) {
+          const page = await getMarketplaceCollectionInscriptions({
+            collectionSlug: slug,
+            search,
+            limit: COLLECTION_PAGE_SIZE,
+            offset,
+          });
+          const rows = page.inscriptions || [];
+          if (rows.length === 0) break;
+          merged = mergeById(merged, rows);
+          offset = merged.length;
+          pagesFetched += 1;
+        }
+
+        nextInscriptions = merged;
+        setCollectionInscriptions(nextInscriptions);
+      }
+
+      setSelectedCollectionSlug(slug);
       const fromCache: Record<string, string> = {};
       for (const ins of nextInscriptions) {
         const cached = rareSatsCacheRef.current[ins.inscription_id];
@@ -735,7 +778,7 @@ export const MarketplacePage: React.FC = () => {
         setCollectionRarityFilter('all');
         setCollectionSortMode('rarity-desc');
       }
-      setCollectionInscriptionsTotal(Number(data.total || 0));
+      setCollectionInscriptionsTotal(total);
     } catch (err: any) {
       setError(err?.message || 'Failed to load collection inscriptions');
       if (!append) {
@@ -894,6 +937,21 @@ export const MarketplacePage: React.FC = () => {
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [listings]);
+
+  const orderedCollectionsMeta = useMemo(() => {
+    const getDisplayOrder = (c: MarketplaceCollection): number => {
+      const md = (c?.metadata || {}) as Record<string, any>;
+      const raw = md.displayOrder ?? md.display_order ?? md.sortOrder ?? md.sort_order;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
+    return [...collectionsMeta].sort((a, b) => {
+      const ao = getDisplayOrder(a);
+      const bo = getDisplayOrder(b);
+      if (ao !== bo) return ao - bo;
+      return String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || ''));
+    });
+  }, [collectionsMeta]);
 
   const extractTraits = (l: MarketplaceListing): Array<{ trait_type: string; value: string }> => {
     const rows = Array.isArray(l.inscription_attributes) ? l.inscription_attributes : [];
@@ -1395,6 +1453,12 @@ export const MarketplacePage: React.FC = () => {
       if (collectionSortMode === 'name-desc') {
         return String(b.metadata?.name || b.inscription_id).localeCompare(String(a.metadata?.name || a.inscription_id));
       }
+      if (collectionSortMode === 'score-desc' || collectionSortMode === 'score-asc') {
+        const aScore = collectionCompositeRarityByInscription.rawScores.get(a.inscription_id) || 0;
+        const bScore = collectionCompositeRarityByInscription.rawScores.get(b.inscription_id) || 0;
+        if (collectionSortMode === 'score-asc') return aScore - bScore;
+        return bScore - aScore;
+      }
       const aPct = collectionCompositeRarityByInscription.percentileById.get(a.inscription_id) || 0;
       const bPct = collectionCompositeRarityByInscription.percentileById.get(b.inscription_id) || 0;
       if (collectionSortMode === 'rarity-asc') return aPct - bPct;
@@ -1710,7 +1774,7 @@ export const MarketplacePage: React.FC = () => {
             <div className="p-4 text-sm text-gray-500">No collections available.</div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 p-2">
-              {collectionsMeta
+              {orderedCollectionsMeta
                 .filter((c) => c.active !== false)
                 .map((c) => (
                   <button
@@ -1783,6 +1847,8 @@ export const MarketplacePage: React.FC = () => {
                   >
                     <option value="rarity-desc">Sort: Rarity High -&gt; Low</option>
                     <option value="rarity-asc">Sort: Rarity Low -&gt; High</option>
+                    <option value="score-desc">Sort: Score High -&gt; Low</option>
+                    <option value="score-asc">Sort: Score Low -&gt; High</option>
                     <option value="name-asc">Sort: Name A -&gt; Z</option>
                     <option value="name-desc">Sort: Name Z -&gt; A</option>
                   </select>
@@ -1806,8 +1872,20 @@ export const MarketplacePage: React.FC = () => {
                   >
                     Traits Filter {selectedCollectionTraitCount > 0 ? `(${selectedCollectionTraitCount})` : ''}
                   </button>
-                  <div className="text-xs text-gray-400 flex items-center">
-                    Showing {filteredCollectionInscriptions.length} / {collectionInscriptions.length} loaded
+                  <div className="text-xs text-gray-400 flex items-center gap-2">
+                    <span>
+                      Showing {filteredCollectionInscriptions.length} / {collectionInscriptions.length} loaded
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded border ${
+                        collectionInscriptionsTotal > 0 && collectionInscriptions.length >= collectionInscriptionsTotal
+                          ? 'border-emerald-600/60 bg-emerald-900/20 text-emerald-300'
+                          : 'border-amber-600/60 bg-amber-900/20 text-amber-300'
+                      }`}
+                      title="Trait counts are calculated from currently loaded inscriptions"
+                    >
+                      Traits based on {collectionInscriptions.length}/{collectionInscriptionsTotal || 0}
+                    </span>
                   </div>
                 </div>
                 {showCollectionTraitFilters && (

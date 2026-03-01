@@ -67,6 +67,8 @@ const MarketplaceAdminToolPage: React.FC = () => {
   const [hashlistEditorVisible, setHashlistEditorVisible] = useState(false);
   const [hashlistEditorLoading, setHashlistEditorLoading] = useState(false);
   const [hashlistEditorReplaceMissing, setHashlistEditorReplaceMissing] = useState(false);
+  const [collectionOrderBusy, setCollectionOrderBusy] = useState(false);
+  const [collectionOrderDraftBySlug, setCollectionOrderDraftBySlug] = useState<Record<string, string>>({});
 
   const getTraitRarityBand = (percent: number): {
     label: string;
@@ -130,6 +132,33 @@ const MarketplaceAdminToolPage: React.FC = () => {
     () => listingForm.buyerReceiveAddress || connectedAddress,
     [listingForm.buyerReceiveAddress, connectedAddress]
   );
+
+  const getCollectionDisplayOrder = (collection: MarketplaceCollection, fallback = Number.MAX_SAFE_INTEGER): number => {
+    const md = (collection?.metadata || {}) as Record<string, any>;
+    const raw = md.displayOrder ?? md.display_order ?? md.sortOrder ?? md.sort_order;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const orderedCollections = useMemo(() => {
+    return [...collections].sort((a, b) => {
+      const ao = getCollectionDisplayOrder(a);
+      const bo = getCollectionDisplayOrder(b);
+      if (ao !== bo) return ao - bo;
+      return String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || ''));
+    });
+  }, [collections]);
+
+  useEffect(() => {
+    setCollectionOrderDraftBySlug((prev) => {
+      const next: Record<string, string> = {};
+      orderedCollections.forEach((c, idx) => {
+        const key = String(c.slug || '');
+        next[key] = prev[key] ?? String(idx + 1);
+      });
+      return next;
+    });
+  }, [orderedCollections]);
 
   const loadAll = async () => {
     if (!isAdmin) return;
@@ -595,6 +624,144 @@ const MarketplaceAdminToolPage: React.FC = () => {
     }
   };
 
+  const saveCollectionDisplayOrder = async (collection: MarketplaceCollection, displayOrder: number) => {
+    if (!isAdmin || !connectedAddress) throw new Error('Admin wallet required');
+    const nextMetadata = {
+      ...(collection.metadata || {}),
+      displayOrder,
+      display_order: displayOrder,
+    };
+    await createMarketplaceCollection({
+      adminAddress: connectedAddress,
+      slug: String(collection.slug || '').trim(),
+      name: String(collection.name || collection.slug || '').trim(),
+      symbol: String(collection.symbol || '').trim() || undefined,
+      description: String(collection.description || '').trim() || undefined,
+      coverImage: String(collection.cover_image || '').trim() || undefined,
+      verified: !!collection.verified,
+      source: collection.source || undefined,
+      sourceRef: collection.source_ref || undefined,
+      metadata: nextMetadata,
+    });
+  };
+
+  const handleMoveCollection = async (slug: string, direction: 'up' | 'down') => {
+    try {
+      if (collectionOrderBusy) return;
+      const index = orderedCollections.findIndex((c) => String(c.slug || '') === String(slug || ''));
+      if (index < 0) return;
+      const swapIndex = direction === 'up' ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= orderedCollections.length) return;
+      setCollectionOrderBusy(true);
+
+      const nextOrdered = [...orderedCollections];
+      const [moved] = nextOrdered.splice(index, 1);
+      nextOrdered.splice(swapIndex, 0, moved);
+
+      const normalizedOrders = new Map<string, number>();
+      nextOrdered.forEach((row, idx) => normalizedOrders.set(row.slug, (idx + 1) * 10));
+
+      const changed = nextOrdered.filter((row) => {
+        const nextOrder = normalizedOrders.get(row.slug)!;
+        const currentOrder = getCollectionDisplayOrder(
+          collections.find((c) => c.slug === row.slug) || row,
+          Number.MAX_SAFE_INTEGER
+        );
+        return currentOrder !== nextOrder;
+      });
+
+      await Promise.all(
+        changed.map((row) => saveCollectionDisplayOrder(row, normalizedOrders.get(row.slug)!))
+      );
+
+      setCollections((prev) =>
+        prev.map((row) => {
+          const nextOrder = normalizedOrders.get(row.slug);
+          if (nextOrder === undefined) return row;
+          return {
+            ...row,
+            metadata: { ...(row.metadata || {}), displayOrder: nextOrder, display_order: nextOrder },
+          };
+        })
+      );
+      setCollectionOrderDraftBySlug(
+        Object.fromEntries(nextOrdered.map((row, idx) => [row.slug, String(idx + 1)]))
+      );
+
+      setMessage(`Collection order updated: ${moved.slug} ${direction === 'up' ? 'up' : 'down'}.`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to move collection');
+    } finally {
+      setCollectionOrderBusy(false);
+    }
+  };
+
+  const handleSetCollectionPosition = async (slug: string, inputPosition: number) => {
+    try {
+      if (collectionOrderBusy) return;
+      const fromIndex = orderedCollections.findIndex((c) => String(c.slug || '') === String(slug || ''));
+      if (fromIndex < 0) return;
+      const targetIndex = Math.max(0, Math.min(orderedCollections.length - 1, Math.floor(Number(inputPosition) - 1)));
+      if (targetIndex === fromIndex) return;
+      setCollectionOrderBusy(true);
+
+      const nextOrdered = [...orderedCollections];
+      const [moved] = nextOrdered.splice(fromIndex, 1);
+      nextOrdered.splice(targetIndex, 0, moved);
+
+      const normalizedOrders = new Map<string, number>();
+      nextOrdered.forEach((row, idx) => normalizedOrders.set(row.slug, (idx + 1) * 10));
+
+      const changed = nextOrdered.filter((row) => {
+        const nextOrder = normalizedOrders.get(row.slug)!;
+        const currentOrder = getCollectionDisplayOrder(
+          collections.find((c) => c.slug === row.slug) || row,
+          Number.MAX_SAFE_INTEGER
+        );
+        return currentOrder !== nextOrder;
+      });
+
+      await Promise.all(
+        changed.map((row) => saveCollectionDisplayOrder(row, normalizedOrders.get(row.slug)!))
+      );
+
+      setCollections((prev) =>
+        prev.map((row) => {
+          const nextOrder = normalizedOrders.get(row.slug);
+          if (nextOrder === undefined) return row;
+          return {
+            ...row,
+            metadata: { ...(row.metadata || {}), displayOrder: nextOrder, display_order: nextOrder },
+          };
+        })
+      );
+      setCollectionOrderDraftBySlug(
+        Object.fromEntries(nextOrdered.map((row, idx) => [row.slug, String(idx + 1)]))
+      );
+      setMessage(`Collection moved to position ${targetIndex + 1}: ${moved.slug}`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to set collection position');
+    } finally {
+      setCollectionOrderBusy(false);
+    }
+  };
+
+  const getDraftPosition = (slug: string, fallbackIndex: number): number => {
+    const raw = String(collectionOrderDraftBySlug[slug] ?? String(fallbackIndex + 1)).trim();
+    const parsed = Math.floor(Number(raw));
+    if (!Number.isFinite(parsed)) return fallbackIndex + 1;
+    return Math.max(1, Math.min(orderedCollections.length, parsed));
+  };
+
+  const isDraftDirty = (slug: string, index: number): boolean => {
+    return getDraftPosition(slug, index) !== index + 1;
+  };
+
+  const handleSaveDraftPosition = async (slug: string, index: number) => {
+    const target = getDraftPosition(slug, index);
+    await handleSetCollectionPosition(slug, target);
+  };
+
   if (!walletState.connected) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -728,7 +895,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
                 }}
               >
                 <option value="">Load existing collection for edit...</option>
-                {collections.map((c) => (
+                {orderedCollections.map((c, index) => (
                   <option key={c.slug} value={c.slug}>
                     {c.name} ({c.slug})
                   </option>
@@ -855,7 +1022,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
                 onChange={(e) => setHashlistEditorSlug(e.target.value)}
               >
                 <option value="">Pick collection from list</option>
-                {collections
+                {orderedCollections
                   .filter((c) => c.active !== false)
                   .map((c) => (
                     <option key={c.slug} value={c.slug}>
@@ -1024,11 +1191,17 @@ const MarketplaceAdminToolPage: React.FC = () => {
         </div>
 
         <div className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-700 font-semibold">Collections</div>
-          <div className="max-h-[260px] overflow-auto">
+          <div className="px-4 py-3 border-b border-gray-700 font-semibold flex items-center justify-between gap-3">
+            <span>Collections</span>
+            <span className="text-xs text-gray-400">
+              Position im Feld aendern und mit <span className="text-emerald-300">Save</span> speichern
+            </span>
+          </div>
+          <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-800 sticky top-0">
                 <tr className="text-left text-gray-400">
+                  <th className="px-4 py-2">Order</th>
                   <th className="px-4 py-2">Slug</th>
                   <th className="px-4 py-2">Name</th>
                   <th className="px-4 py-2">Verified</th>
@@ -1038,8 +1211,57 @@ const MarketplaceAdminToolPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {collections.map((c) => (
+                {orderedCollections.map((c, index) => (
                   <tr key={c.slug} className="border-t border-gray-800">
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMoveCollection(c.slug, 'up')}
+                          disabled={index === 0 || collectionOrderBusy}
+                          className="px-2 py-0.5 bg-zinc-800 rounded hover:bg-zinc-700 text-xs disabled:opacity-40"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => handleMoveCollection(c.slug, 'down')}
+                          disabled={index === orderedCollections.length - 1 || collectionOrderBusy}
+                          className="px-2 py-0.5 bg-zinc-800 rounded hover:bg-zinc-700 text-xs disabled:opacity-40"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={orderedCollections.length}
+                          value={collectionOrderDraftBySlug[c.slug] ?? String(index + 1)}
+                          disabled={collectionOrderBusy}
+                          className="w-14 px-1.5 py-0.5 bg-black border border-gray-700 rounded text-[11px] font-mono text-right disabled:opacity-50"
+                          title="Set exact position (1 = top)"
+                          onChange={(e) => {
+                            setCollectionOrderDraftBySlug((prev) => ({ ...prev, [c.slug]: e.target.value }));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveDraftPosition(c.slug, index);
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSaveDraftPosition(c.slug, index)}
+                          disabled={collectionOrderBusy || !isDraftDirty(c.slug, index)}
+                          className="px-2 py-0.5 bg-emerald-700 rounded hover:bg-emerald-600 text-[11px] disabled:opacity-40"
+                          title="Save position"
+                        >
+                          Save
+                        </button>
+                        <span className="text-[11px] text-gray-400 font-mono min-w-[2rem] text-right">
+                          {Number.isFinite(getCollectionDisplayOrder(c)) ? getCollectionDisplayOrder(c) : '-'}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-2 font-mono">{c.slug}</td>
                     <td className="px-4 py-2">{c.name}</td>
                     <td className="px-4 py-2">{c.verified ? 'yes' : 'no'}</td>
@@ -1074,7 +1296,7 @@ const MarketplaceAdminToolPage: React.FC = () => {
                   </tr>
                 ))}
                 {collections.length === 0 && (
-                  <tr><td className="px-4 py-3 text-gray-500" colSpan={6}>No collections yet</td></tr>
+                  <tr><td className="px-4 py-3 text-gray-500" colSpan={7}>No collections yet</td></tr>
                 )}
               </tbody>
             </table>
