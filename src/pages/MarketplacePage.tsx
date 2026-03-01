@@ -335,7 +335,6 @@ export const MarketplacePage: React.FC = () => {
   const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
   const [collectionSortMode, setCollectionSortMode] = useState<'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc'>('rarity-desc');
   const rareSatsCacheRef = useRef<Record<string, string>>({});
-  const rareSatsNoHitRef = useRef<Set<string>>(new Set());
   const externalSatLookupCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
@@ -758,7 +757,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((ins) => {
         const baseValue = extractInscriptionRareSats(ins);
         const cachedValue = rareSatsCacheRef.current[ins.inscription_id];
-        return baseValue === '-' && cachedValue === undefined && !rareSatsNoHitRef.current.has(ins.inscription_id);
+        return baseValue === '-' && cachedValue === undefined;
       })
       .map((ins) => ins.inscription_id)
       .slice(0, 120);
@@ -1223,12 +1222,9 @@ export const MarketplacePage: React.FC = () => {
         }
         if (normalized !== '-') {
           byId.set(id, normalized);
-          rareSatsNoHitRef.current.delete(id);
-        } else {
-          rareSatsNoHitRef.current.add(id);
         }
       } catch {
-        rareSatsNoHitRef.current.add(id);
+        // Retry on later hydration cycles; don't mark as permanent no-hit on transient API errors.
       }
     }
   };
@@ -1493,7 +1489,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((listing) => {
         const base = getBaseRareSats(listing);
         const cached = rareSatsCacheRef.current[listing.inscription_id];
-        return base === '-' && cached === undefined && !rareSatsNoHitRef.current.has(listing.inscription_id);
+        return base === '-' && cached === undefined;
       })
       .map((listing) => listing.inscription_id)
       .slice(0, 120);
