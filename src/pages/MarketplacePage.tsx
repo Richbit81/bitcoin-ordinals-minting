@@ -753,9 +753,9 @@ export const MarketplacePage: React.FC = () => {
           const batch = await getMarketplaceRareSatsBatch(chunk);
           const byId = new Map<string, string>();
           for (const item of batch.items || []) {
-            const id = String(item?.inscriptionId || '').trim();
+            const id = getBatchItemId(item);
             if (!id) continue;
-            byId.set(id, normalizeRareSatsDisplay(item?.rareSats));
+            byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
@@ -943,6 +943,18 @@ export const MarketplacePage: React.FC = () => {
       .filter(Boolean);
     return symbols.length ? symbols.join(' ') : '◌';
   };
+
+  const getBatchItemId = (item: any): string =>
+    String(item?.inscriptionId || item?.inscription_id || item?.id || '').trim();
+
+  const getBatchItemRareSats = (item: any): any =>
+    item?.rareSats ??
+    item?.rare_sats ??
+    item?.rareSat ??
+    item?.rare_sat ??
+    item?.satributes ??
+    item?.sattributes ??
+    item?.satributes?.rarity;
 
   const extractRareSats = (l: MarketplaceListing): string => {
     const md = l.inscription_metadata || {};
@@ -1251,9 +1263,9 @@ export const MarketplacePage: React.FC = () => {
           const batch = await getMarketplaceRareSatsBatch(chunk);
           const byId = new Map<string, string>();
           for (const item of batch.items || []) {
-            const id = String(item?.inscriptionId || '').trim();
+            const id = getBatchItemId(item);
             if (!id) continue;
-            byId.set(id, normalizeRareSatsDisplay(item?.rareSats));
+            byId.set(id, normalizeRareSatsDisplay(getBatchItemRareSats(item)));
           }
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
