@@ -18,6 +18,22 @@ export interface PointsData {
   createdAt: string | null;
 }
 
+const normalizePointsData = (walletAddress: string, raw: any): PointsData => {
+  const history = Array.isArray(raw?.history) ? raw.history : [];
+  return {
+    walletAddress: String(raw?.walletAddress || walletAddress || ''),
+    points: Number(raw?.points ?? raw?.total ?? raw?.totalPoints ?? 0) || 0,
+    history: history.map((entry: any) => ({
+      points: Number(entry?.points ?? 0) || 0,
+      reason: String(entry?.reason || ''),
+      timestamp: String(entry?.timestamp || ''),
+      details: entry?.details ?? {},
+    })),
+    firstMint: raw?.firstMint || raw?.first_mint_at || null,
+    createdAt: raw?.createdAt || raw?.created_at || null,
+  };
+};
+
 export interface PointsAddResult {
   success: boolean;
   walletAddress: string;
@@ -44,7 +60,7 @@ export const getPoints = async (walletAddress: string): Promise<PointsData> => {
   }
   
   const data = await response.json();
-  return data;
+  return normalizePointsData(walletAddress, data);
 };
 
 /**
