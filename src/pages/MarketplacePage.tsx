@@ -335,6 +335,8 @@ export const MarketplacePage: React.FC = () => {
   const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
   const [collectionSortMode, setCollectionSortMode] = useState<'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc'>('rarity-desc');
   const rareSatsCacheRef = useRef<Record<string, string>>({});
+  const rareSatsNoHitRef = useRef<Set<string>>(new Set());
+  const externalSatLookupCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     inscriptionId: '',
@@ -756,7 +758,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((ins) => {
         const baseValue = extractInscriptionRareSats(ins);
         const cachedValue = rareSatsCacheRef.current[ins.inscription_id];
-        return baseValue === '-' && cachedValue === undefined;
+        return baseValue === '-' && cachedValue === undefined && !rareSatsNoHitRef.current.has(ins.inscription_id);
       })
       .map((ins) => ins.inscription_id)
       .slice(0, 120);
@@ -1162,6 +1164,41 @@ export const MarketplacePage: React.FC = () => {
     return derived.length ? Array.from(new Set(derived)).join(', ') : '-';
   };
 
+  const fetchExternalSatributesBySatNumber = async (satNumber: number): Promise<string> => {
+    if (!Number.isFinite(satNumber) || satNumber < 0) return '-';
+    const key = String(Math.trunc(satNumber));
+    const cached = externalSatLookupCacheRef.current[key];
+    if (cached !== undefined) return cached;
+    try {
+      const res = await fetch(`https://r.jina.ai/http://ordiscan.com/sat/${encodeURIComponent(key)}`);
+      if (!res.ok) {
+        externalSatLookupCacheRef.current[key] = '-';
+        return '-';
+      }
+      const text = await res.text();
+      const match = text.match(/Satributes\s+([\s\S]*?)\n\s*---/i);
+      if (!match) {
+        externalSatLookupCacheRef.current[key] = '-';
+        return '-';
+      }
+      const section = String(match[1] || '');
+      const tokens = section
+        .split('\n')
+        .map((line) => line.trim())
+        .map((line) => line.replace(/\[(.*?)\]\(.*?\)/g, '$1'))
+        .map((line) => line.replace(/[*#>`_-]/g, '').trim())
+        .filter(Boolean)
+        .filter((line) => !/^satributes$/i.test(line))
+        .filter((line) => !/^common$/i.test(line));
+      const normalized = tokens.length ? tokens.join(', ') : '-';
+      externalSatLookupCacheRef.current[key] = normalized;
+      return normalized;
+    } catch {
+      externalSatLookupCacheRef.current[key] = '-';
+      return '-';
+    }
+  };
+
   const hydrateRareSatsFromDetailFallback = async (
     ids: string[],
     byId: Map<string, string>
@@ -1170,12 +1207,28 @@ export const MarketplacePage: React.FC = () => {
       if ((byId.get(id) || '-') !== '-') continue;
       try {
         const detail = await getMarketplaceInscriptionDetail(id);
-        const normalized = extractRareSatsFromDetail(detail);
+        let normalized = extractRareSatsFromDetail(detail);
+        if (normalized === '-') {
+          const satCandidate = Number(
+            detail?.chainInfo?.satNumber ??
+            detail?.chainInfo?.sat_number ??
+            detail?.chainInfo?.sat ??
+            detail?.marketplaceInscription?.metadata?.satNumber ??
+            detail?.marketplaceInscription?.metadata?.sat_number ??
+            detail?.marketplaceInscription?.metadata?.sat
+          );
+          if (Number.isFinite(satCandidate) && satCandidate >= 0) {
+            normalized = await fetchExternalSatributesBySatNumber(satCandidate);
+          }
+        }
         if (normalized !== '-') {
           byId.set(id, normalized);
+          rareSatsNoHitRef.current.delete(id);
+        } else {
+          rareSatsNoHitRef.current.add(id);
         }
       } catch {
-        // Ignore detail errors for individual inscriptions.
+        rareSatsNoHitRef.current.add(id);
       }
     }
   };
@@ -1440,7 +1493,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((listing) => {
         const base = getBaseRareSats(listing);
         const cached = rareSatsCacheRef.current[listing.inscription_id];
-        return base === '-' && cached === undefined;
+        return base === '-' && cached === undefined && !rareSatsNoHitRef.current.has(listing.inscription_id);
       })
       .map((listing) => listing.inscription_id)
       .slice(0, 120);
