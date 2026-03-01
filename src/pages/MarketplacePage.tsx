@@ -729,7 +729,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((ins) => {
         const baseValue = extractInscriptionRareSats(ins);
         const cachedValue = rareSatsCacheRef.current[ins.inscription_id];
-        return baseValue === '-' && !cachedValue;
+        return baseValue === '-' && cachedValue === undefined;
       })
       .map((ins) => ins.inscription_id)
       .slice(0, 120);
@@ -759,14 +759,13 @@ export const MarketplacePage: React.FC = () => {
           }
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
-            rareSatsCacheRef.current[id] = normalized;
+            if (normalized !== '-') {
+              rareSatsCacheRef.current[id] = normalized;
+            }
             return [id, normalized] as const;
           });
         } catch {
-          details = chunk.map((id) => {
-            rareSatsCacheRef.current[id] = '-';
-            return [id, '-'] as const;
-          });
+          details = [];
         }
 
         if (cancelled) return;
@@ -889,6 +888,60 @@ export const MarketplacePage: React.FC = () => {
       return values.length ? values.join(', ') : '-';
     }
     return String(raw).trim() || '-';
+  };
+
+  const normalizeRareSatKey = (value: string): string =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[_\s]+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+
+  const RARE_SAT_SYMBOLS: Record<string, string> = {
+    uncommon: '◍',
+    rare: '◈',
+    epic: '✶',
+    legendary: '✧',
+    mythic: '☉',
+    'black-uncommon': '⬤◍',
+    'black-rare': '⬤◈',
+    'black-epic': '⬤✶',
+    'black-legendary': '⬤✧',
+    'black-mythic': '⬤☉',
+    palindrome: '↔',
+    palindrom: '↔',
+    'number-palindrome': '↔',
+    alpha: 'α',
+    omega: 'ω',
+    vintage: '⌛',
+    pizza: '🍕',
+    nakamoto: '₿',
+    hitman: '🎯',
+    legacy: '🏛',
+    jpeg: '🖼',
+    'first-transaction': '①',
+    'first-tx': '①',
+    'block-9': '⑨',
+    'block-78': '78',
+    'block-286': '286',
+    'block-666': '666',
+    'block-999': '999',
+  };
+
+  const toRareSatSymbols = (raw: any): string => {
+    const label = normalizeRareSatsDisplay(raw);
+    if (label === '-') return '-';
+    const tokens = label
+      .split(/[,+/|]/g)
+      .map((v) => v.trim())
+      .filter(Boolean);
+    const symbols = tokens
+      .map((token) => {
+        const key = normalizeRareSatKey(token);
+        return RARE_SAT_SYMBOLS[key] || '';
+      })
+      .filter(Boolean);
+    return symbols.length ? symbols.join(' ') : '◌';
   };
 
   const extractRareSats = (l: MarketplaceListing): string => {
@@ -1183,7 +1236,7 @@ export const MarketplacePage: React.FC = () => {
       .filter((listing) => {
         const base = getBaseRareSats(listing);
         const cached = rareSatsCacheRef.current[listing.inscription_id];
-        return base === '-' && !cached;
+        return base === '-' && cached === undefined;
       })
       .map((listing) => listing.inscription_id)
       .slice(0, 120);
@@ -1204,14 +1257,13 @@ export const MarketplacePage: React.FC = () => {
           }
           details = chunk.map((id) => {
             const normalized = byId.get(id) || '-';
-            rareSatsCacheRef.current[id] = normalized;
+            if (normalized !== '-') {
+              rareSatsCacheRef.current[id] = normalized;
+            }
             return [id, normalized] as const;
           });
         } catch {
-          details = chunk.map((id) => {
-            rareSatsCacheRef.current[id] = '-';
-            return [id, '-'] as const;
-          });
+          details = [];
         }
 
         if (cancelled) return;
@@ -1600,8 +1652,11 @@ export const MarketplacePage: React.FC = () => {
                                 1:1
                               </span>
                             )}
-                            <span className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200">
-                              Rare sats: {rareSats}
+                            <span
+                              className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200 font-mono"
+                              title={rareSats}
+                            >
+                              {toRareSatSymbols(rareSats)}
                             </span>
                             <span className="text-[9px] px-1 py-0.5 rounded border border-fuchsia-700/40 bg-fuchsia-900/30 text-fuchsia-200">
                               Score: {score > 0 ? score.toFixed(1) : '-'}
@@ -1745,8 +1800,8 @@ export const MarketplacePage: React.FC = () => {
                       <div className="text-[11px] text-gray-400">
                         Seller: <span className="font-mono">{l.seller_address.slice(0, 8)}...{l.seller_address.slice(-6)}</span>
                       </div>
-                      <div className="text-[11px] text-gray-400">
-                        Rare sats: <span className="font-mono">{rareSatsLabel}</span>
+                      <div className="text-[11px] text-gray-400 font-mono" title={rareSatsLabel}>
+                        {toRareSatSymbols(rareSatsLabel)}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {extractTraits(l)
@@ -2083,7 +2138,15 @@ export const MarketplacePage: React.FC = () => {
                         <div><span className="text-gray-500">Location:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.location, selectedInscriptionDetail.chainInfo?.satpoint, selectedInscriptionDetail.chainInfo?.sat_point, selectedInscriptionDetail.marketplaceInscription?.metadata?.location, selectedInscriptionDetail.marketplaceInscription?.metadata?.satpoint)}</span></div>
                         <div><span className="text-gray-500">Output:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.output, selectedInscriptionDetail.chainInfo?.outpoint, selectedInscriptionDetail.marketplaceInscription?.metadata?.output, selectedInscriptionDetail.marketplaceInscription?.metadata?.outpoint)}</span></div>
                         <div><span className="text-gray-500">Rarity:</span> {detailTextValue(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier, selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity, selectedInscriptionDetail.chainInfo?.rarity, selectedInscriptionDetail.chainInfo?.sat_rarity, selectedInscriptionDetail.chainInfo?.satributes?.rarity)}</div>
-                        <div><span className="text-gray-500">Rare sats:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity)}</div>
+                        <div>
+                          <span className="text-gray-500">Satribute:</span>{' '}
+                          <span
+                            className="font-mono"
+                            title={detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity)}
+                          >
+                            {toRareSatSymbols(detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity))}
+                          </span>
+                        </div>
                         <div><span className="text-gray-500">Sat number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.satNumber, selectedInscriptionDetail.chainInfo?.sat_number, selectedInscriptionDetail.chainInfo?.sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satNumber, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat_number, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat)}</div>
                       </div>
                     </div>
