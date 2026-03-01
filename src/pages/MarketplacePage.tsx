@@ -1008,14 +1008,47 @@ export const MarketplacePage: React.FC = () => {
     'block-999': 'Sat from block 999.',
   };
 
+  const resolveRareSatMeta = (token: string): { symbol: string; definition: string } | null => {
+    const key = normalizeRareSatKey(token);
+    const exactSymbol = RARE_SAT_SYMBOLS[key];
+    if (exactSymbol) {
+      return {
+        symbol: exactSymbol,
+        definition: RARE_SAT_DEFINITIONS[key] || 'Rare sat attribute.',
+      };
+    }
+
+    // Fuzzy fallbacks for provider-specific combined labels, e.g. "silkroad uncommon".
+    if (key.includes('silk') && key.includes('road')) return { symbol: '🕸', definition: RARE_SAT_DEFINITIONS['silk-road'] };
+    if (key.includes('nakamoto')) return { symbol: '₿', definition: RARE_SAT_DEFINITIONS.nakamoto };
+    if (key.includes('vintage')) return { symbol: '⌛', definition: RARE_SAT_DEFINITIONS.vintage };
+    if (key.includes('pizza')) return { symbol: '🍕', definition: RARE_SAT_DEFINITIONS.pizza };
+    if (key.includes('palindrome') || key.includes('palindrom')) return { symbol: '↔', definition: RARE_SAT_DEFINITIONS.palindrome };
+    if (key.includes('alpha')) return { symbol: 'α', definition: RARE_SAT_DEFINITIONS.alpha };
+    if (key.includes('omega')) return { symbol: 'ω', definition: RARE_SAT_DEFINITIONS.omega };
+    if (key.includes('hitman')) return { symbol: '🎯', definition: RARE_SAT_DEFINITIONS.hitman };
+    if (key.includes('legacy')) return { symbol: '🏛', definition: RARE_SAT_DEFINITIONS.legacy };
+    if (key.includes('jpeg')) return { symbol: '🖼', definition: RARE_SAT_DEFINITIONS.jpeg };
+    if (key.includes('first') && key.includes('transaction')) return { symbol: '①', definition: RARE_SAT_DEFINITIONS['first-transaction'] };
+    if (key.includes('block-9') || key.includes('block9')) return { symbol: '⑨', definition: RARE_SAT_DEFINITIONS['block-9'] };
+    if (key.includes('block-78') || key.includes('block78')) return { symbol: '78', definition: RARE_SAT_DEFINITIONS['block-78'] };
+    if (key.includes('block-286') || key.includes('block286')) return { symbol: '286', definition: RARE_SAT_DEFINITIONS['block-286'] };
+    if (key.includes('block-666') || key.includes('block666')) return { symbol: '666', definition: RARE_SAT_DEFINITIONS['block-666'] };
+    if (key.includes('block-999') || key.includes('block999')) return { symbol: '999', definition: RARE_SAT_DEFINITIONS['block-999'] };
+    if (key.includes('black')) return { symbol: '⬤', definition: RARE_SAT_DEFINITIONS.black };
+    if (key.includes('mythic')) return { symbol: '☉', definition: RARE_SAT_DEFINITIONS.mythic };
+    if (key.includes('legendary')) return { symbol: '✧', definition: RARE_SAT_DEFINITIONS.legendary };
+    if (key.includes('epic')) return { symbol: '✶', definition: RARE_SAT_DEFINITIONS.epic };
+    if (key.includes('rare')) return { symbol: '◈', definition: RARE_SAT_DEFINITIONS.rare };
+    if (key.includes('uncommon')) return { symbol: '◍', definition: RARE_SAT_DEFINITIONS.uncommon };
+    return null;
+  };
+
   const toRareSatSymbols = (raw: any): string => {
     const tokens = splitRareSatTokens(raw);
     if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '-')) return '-';
     const symbols = tokens
-      .map((token) => {
-        const key = normalizeRareSatKey(token);
-        return RARE_SAT_SYMBOLS[key] || '';
-      })
+      .map((token) => resolveRareSatMeta(token)?.symbol || '')
       .filter(Boolean);
     return symbols.length ? symbols.join(' ') : '◌';
   };
@@ -1025,9 +1058,9 @@ export const MarketplacePage: React.FC = () => {
     if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '-')) return 'No satribute data';
     return tokens
       .map((token) => {
-        const key = normalizeRareSatKey(token);
-        const symbol = RARE_SAT_SYMBOLS[key] || '◌';
-        const def = RARE_SAT_DEFINITIONS[key] || 'Rare sat attribute.';
+        const meta = resolveRareSatMeta(token);
+        const symbol = meta?.symbol || '◌';
+        const def = meta?.definition || 'Rare sat attribute.';
         return `${symbol} ${token}: ${def}`;
       })
       .join(' | ');
