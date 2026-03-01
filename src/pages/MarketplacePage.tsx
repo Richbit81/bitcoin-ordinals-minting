@@ -319,6 +319,7 @@ export const MarketplacePage: React.FC = () => {
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
   const [collectionRareSatsByInscription, setCollectionRareSatsByInscription] = useState<Record<string, string>>({});
+  const [listingRareSatsByInscription, setListingRareSatsByInscription] = useState<Record<string, string>>({});
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionLoadingMore, setCollectionLoadingMore] = useState(false);
@@ -1143,6 +1144,94 @@ export const MarketplacePage: React.FC = () => {
   const hasMoreFilteredListings = visibleListingsCount < filteredListings.length;
 
   useEffect(() => {
+    if (visibleFilteredListings.length === 0) return;
+    let cancelled = false;
+
+    const getBaseRareSats = (listing: MarketplaceListing): string => {
+      const md = listing.inscription_metadata || {};
+      const raw =
+        md?.rareSats ??
+        md?.rare_sats ??
+        md?.rareSat ??
+        md?.rare_sat ??
+        md?.satributes ??
+        md?.sattributes ??
+        md?.satributes?.rarity;
+      if (raw === undefined || raw === null || raw === '') return '-';
+      if (typeof raw === 'number') return raw.toLocaleString();
+      if (Array.isArray(raw)) {
+        const values = raw.map((v) => String(v ?? '').trim()).filter(Boolean);
+        return values.length ? values.join(', ') : '-';
+      }
+      if (typeof raw === 'object') {
+        const values = Object.values(raw).map((v) => String(v ?? '').trim()).filter(Boolean);
+        return values.length ? values.join(', ') : '-';
+      }
+      return String(raw).trim() || '-';
+    };
+
+    const cachedVisible: Record<string, string> = {};
+    for (const listing of visibleFilteredListings) {
+      const cached = rareSatsCacheRef.current[listing.inscription_id];
+      if (cached && cached !== '-') cachedVisible[listing.inscription_id] = cached;
+    }
+    if (Object.keys(cachedVisible).length > 0) {
+      setListingRareSatsByInscription((prev) => ({ ...prev, ...cachedVisible }));
+    }
+
+    const missingIds = visibleFilteredListings
+      .filter((listing) => {
+        const base = getBaseRareSats(listing);
+        const cached = rareSatsCacheRef.current[listing.inscription_id];
+        return base === '-' && !cached;
+      })
+      .map((listing) => listing.inscription_id)
+      .slice(0, 120);
+
+    if (!missingIds.length) return;
+
+    const hydrate = async () => {
+      for (let i = 0; i < missingIds.length; i += 12) {
+        const chunk = missingIds.slice(i, i + 12);
+        let details: Array<readonly [string, string]> = [];
+        try {
+          const batch = await getMarketplaceRareSatsBatch(chunk);
+          const byId = new Map<string, string>();
+          for (const item of batch.items || []) {
+            const id = String(item?.inscriptionId || '').trim();
+            if (!id) continue;
+            byId.set(id, normalizeRareSatsDisplay(item?.rareSats));
+          }
+          details = chunk.map((id) => {
+            const normalized = byId.get(id) || '-';
+            rareSatsCacheRef.current[id] = normalized;
+            return [id, normalized] as const;
+          });
+        } catch {
+          details = chunk.map((id) => {
+            rareSatsCacheRef.current[id] = '-';
+            return [id, '-'] as const;
+          });
+        }
+
+        if (cancelled) return;
+        const found: Record<string, string> = {};
+        for (const [id, value] of details) {
+          if (value && value !== '-') found[id] = value;
+        }
+        if (Object.keys(found).length > 0) {
+          setListingRareSatsByInscription((prev) => ({ ...prev, ...found }));
+        }
+      }
+    };
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleFilteredListings]);
+
+  useEffect(() => {
     setVisibleListingsCount(INITIAL_LISTINGS_VISIBLE);
   }, [searchQuery, collectionFilter, sortMode, selectedTraitFilters, listings.length]);
 
@@ -1579,7 +1668,7 @@ export const MarketplacePage: React.FC = () => {
                   ''
                 ).trim();
                 const traitsCount = extractTraits(l).length;
-                const rareSatsLabel = extractRareSats(l);
+                const rareSatsLabel = listingRareSatsByInscription[l.inscription_id] || extractRareSats(l);
                 return (
                   <div
                     key={l.id}
