@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
-import { getPoints, PointsData } from '../services/pointsService';
+import { getPointsForWalletAddresses, PointsData } from '../services/pointsService';
 import { getAllCollections, Collection } from '../services/collectionService';
 import { CollectionCard } from '../components/CollectionCard';
 import { NewsBanner } from '../components/NewsBanner';
@@ -191,7 +191,8 @@ export const HomePage: React.FC = () => {
     
     setLoading(true);
     try {
-      const data = await getPoints(walletState.accounts[0].address);
+      const addresses = walletState.accounts.map((acc) => acc.address).filter(Boolean);
+      const data = await getPointsForWalletAddresses(addresses);
       setPointsData(data);
     } catch (error) {
       console.error('Error loading points:', error);

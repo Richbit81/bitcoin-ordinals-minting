@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { getPoints, PointsData } from '../services/pointsService';
+import { getPointsForWalletAddresses, PointsData } from '../services/pointsService';
 
 export const PointsDisplay: React.FC = () => {
   const { walletState } = useWallet();
@@ -20,7 +20,8 @@ export const PointsDisplay: React.FC = () => {
     
     setLoading(true);
     try {
-      const data = await getPoints(walletState.accounts[0].address);
+      const addresses = walletState.accounts.map((acc) => acc.address).filter(Boolean);
+      const data = await getPointsForWalletAddresses(addresses);
       setPointsData(data);
     } catch (error) {
       console.error('Error loading points:', error);

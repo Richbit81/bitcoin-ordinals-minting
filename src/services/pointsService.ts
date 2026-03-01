@@ -48,6 +48,67 @@ export const getPoints = async (walletAddress: string): Promise<PointsData> => {
 };
 
 /**
+ * Hole und kombiniere Punkte über mehrere Wallet-Adressen.
+ * Wichtig für Wallets mit getrennten Payment/Ordinals-Adressen.
+ */
+export const getPointsForWalletAddresses = async (walletAddresses: string[]): Promise<PointsData> => {
+  const addresses = Array.from(
+    new Set((walletAddresses || []).map((a) => String(a || '').trim()).filter(Boolean))
+  );
+
+  if (addresses.length === 0) {
+    throw new Error('No wallet addresses provided');
+  }
+
+  const results = await Promise.all(
+    addresses.map(async (address) => {
+      try {
+        return await getPoints(address);
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const validResults = results.filter(Boolean) as PointsData[];
+  if (validResults.length === 0) {
+    return {
+      walletAddress: addresses[0],
+      points: 0,
+      history: [],
+      firstMint: null,
+      createdAt: null,
+    };
+  }
+
+  const history = validResults.flatMap((entry) => (Array.isArray(entry.history) ? entry.history : []));
+  history.sort((a, b) => {
+    const at = Date.parse(a?.timestamp || '');
+    const bt = Date.parse(b?.timestamp || '');
+    return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
+  });
+
+  const firstMintCandidates = validResults
+    .map((entry) => entry.firstMint)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value));
+  const createdAtCandidates = validResults
+    .map((entry) => entry.createdAt)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value));
+
+  return {
+    walletAddress: addresses.join(','),
+    points: validResults.reduce((sum, entry) => sum + (Number(entry.points) || 0), 0),
+    history,
+    firstMint: firstMintCandidates.length ? new Date(Math.min(...firstMintCandidates)).toISOString() : null,
+    createdAt: createdAtCandidates.length ? new Date(Math.min(...createdAtCandidates)).toISOString() : null,
+  };
+};
+
+/**
  * Füge Punkte nach erfolgreichem Minting hinzu
  */
 export const addPointsAfterMinting = async (
