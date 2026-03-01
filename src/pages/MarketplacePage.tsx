@@ -346,22 +346,43 @@ export const MarketplacePage: React.FC = () => {
         setCollectionsLoading(true);
         setError(null);
         if (typeof window !== 'undefined') {
-          const raw = window.sessionStorage.getItem(MARKETPLACE_COLLECTIONS_CACHE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw) as { ts: number; data: MarketplaceCollection[] };
-            if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTIONS_CACHE_TTL_MS) {
-              setCollectionsMeta(parsed.data);
-              setCollectionsLoading(false);
+          try {
+            const raw = window.sessionStorage.getItem(MARKETPLACE_COLLECTIONS_CACHE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw) as { ts: number; data: MarketplaceCollection[] };
+              if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTIONS_CACHE_TTL_MS) {
+                setCollectionsMeta(parsed.data);
+                setCollectionsLoading(false);
+              }
             }
+          } catch {
+            // Ignore malformed cache and continue with fresh fetch.
           }
         }
         const collectionsData = await getMarketplaceCollections({ includeInactive: false, adminAddress: currentAddress });
         setCollectionsMeta(collectionsData);
         if (typeof window !== 'undefined') {
-          window.sessionStorage.setItem(
-            MARKETPLACE_COLLECTIONS_CACHE_KEY,
-            JSON.stringify({ ts: Date.now(), data: collectionsData })
-          );
+          try {
+            // Keep cache payload compact to avoid Storage quota errors.
+            const compactCollections = collectionsData.map((c) => ({
+              slug: c.slug,
+              name: c.name,
+              symbol: c.symbol ?? null,
+              cover_image: c.cover_image ?? null,
+              verified: !!c.verified,
+              source: c.source,
+              source_ref: c.source_ref ?? null,
+              active: c.active !== false,
+              created_at: c.created_at,
+              updated_at: c.updated_at,
+            }));
+            window.sessionStorage.setItem(
+              MARKETPLACE_COLLECTIONS_CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), data: compactCollections })
+            );
+          } catch {
+            // Storage quota exceeded - safe to skip cache write.
+          }
         }
       } catch (err: any) {
         setError(err?.message || 'Failed to load marketplace collections');
