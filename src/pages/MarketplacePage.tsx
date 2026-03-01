@@ -32,6 +32,9 @@ const INITIAL_LISTINGS_VISIBLE = 24;
 const LISTINGS_LOAD_STEP = 24;
 const MARKETPLACE_COLLECTIONS_CACHE_KEY = 'marketplaceCollectionsCacheV1';
 const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
+const SATS_PER_BTC = 100_000_000;
+const NAKAMOTO_SAT_MAX_EXCLUSIVE = 95_000_000_000;
+const VINTAGE_SAT_MAX_EXCLUSIVE = 5_000_000_000_000;
 
 const isPreviewDebugEnabled = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -1030,7 +1033,27 @@ export const MarketplacePage: React.FC = () => {
       md?.satributes ??
       md?.sattributes ??
       md?.satributes?.rarity;
-    return normalizeRareSatsDisplay(raw);
+    const normalized = normalizeRareSatsDisplay(raw);
+    if (normalized !== '-') return normalized;
+
+    const satCandidate = Number(
+      chain?.satNumber ??
+      chain?.sat_number ??
+      chain?.sat ??
+      md?.satNumber ??
+      md?.sat_number ??
+      md?.sat
+    );
+    if (!Number.isFinite(satCandidate) || satCandidate < 0) return '-';
+    const sat = Math.trunc(satCandidate);
+    const derived: string[] = [];
+    if (sat < NAKAMOTO_SAT_MAX_EXCLUSIVE) derived.push('nakamoto');
+    if (sat < VINTAGE_SAT_MAX_EXCLUSIVE) derived.push('vintage');
+    if (sat % SATS_PER_BTC === 0) derived.push('alpha');
+    if (sat % SATS_PER_BTC === SATS_PER_BTC - 1) derived.push('omega');
+    const satText = String(sat);
+    if (satText === satText.split('').reverse().join('')) derived.push('palindrome');
+    return derived.length ? Array.from(new Set(derived)).join(', ') : '-';
   };
 
   const hydrateRareSatsFromDetailFallback = async (
