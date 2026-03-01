@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { getOrdinalAddress } from '../utils/wallet';
+import { addMintPoints } from '../services/pointsService';
 
 // Random Stuff Collection Items
 const RANDOM_ITEMS = [
@@ -144,6 +145,17 @@ export const RandomStuffPage: React.FC = () => {
         });
       } catch (logError) {
         console.warn('[RandomStuff] Could not save mint log:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'Random Stuff',
+          itemName: item.name,
+          inscriptionId: result.inscriptionId,
+          mintLogSource: 'random-stuff',
+        });
+      } catch (pointsError) {
+        console.warn('[RandomStuff] Could not add mint points:', pointsError);
       }
 
       setMintingStatus({

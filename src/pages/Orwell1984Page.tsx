@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { getOrdinalAddress } from '../utils/wallet';
+import { addMintPoints } from '../services/pointsService';
 
 // 1984 Collection Items
 const ITEMS_1984 = [
@@ -99,6 +100,17 @@ export const Orwell1984Page: React.FC = () => {
         });
       } catch (logError) {
         console.warn('[1984] Could not save mint log:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: '1984',
+          itemName: item.name,
+          inscriptionId: result.inscriptionId,
+          mintLogSource: '1984',
+        });
+      } catch (pointsError) {
+        console.warn('[1984] Could not add mint points:', pointsError);
       }
 
       setMintingStatus({

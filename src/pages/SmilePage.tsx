@@ -6,6 +6,7 @@ import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { logMinting } from '../services/mintingLog';
+import { addMintPoints } from '../services/pointsService';
 import {
   mintSmileRandom,
   loadSmileCollection,
@@ -224,6 +225,18 @@ export const SmilePage: React.FC = () => {
         console.log('[SmilePage] Minting-Log gespeichert');
       } catch (logErr) {
         console.warn('[SmilePage] Log speichern fehlgeschlagen:', logErr);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'Smile A Bit',
+          itemName: `Smile A Bit #${result.item.index}`,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid || null,
+          source: 'smile-mint',
+        });
+      } catch (pointsErr) {
+        console.warn('[SmilePage] Punkte konnten nicht hinzugefuegt werden:', pointsErr);
       }
 
       // Hashlist aktualisieren

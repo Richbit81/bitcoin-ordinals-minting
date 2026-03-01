@@ -6,7 +6,7 @@ import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
-import { addPoints } from '../services/pointsService';
+import { addMintPoints } from '../services/pointsService';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
@@ -238,27 +238,6 @@ export const TechGamesPage: React.FC = () => {
         item.price // Item-Preis in sats (z.B. 2000 für TimeBIT, 10000 für TACTICAL)
       );
 
-      // Füge Punkte hinzu basierend auf Item-Preis
-      // Items über 8000 sats: 20 Punkte, Items unter 8000 sats: 5 Punkte
-      try {
-        const pointsToAdd = item.price >= 8000 ? 20 : 5;
-        await addPoints(
-          userAddress,
-          pointsToAdd,
-          `Minted Tech & Games item: ${item.name} (${item.price} sats)`,
-          {
-            collection: 'Tech & Games',
-            itemName: item.name,
-            itemPrice: item.price,
-            inscriptionId: result.inscriptionId
-          }
-        );
-        console.log(`[TechGames] ✅ Added ${pointsToAdd} points for minting ${item.name}`);
-      } catch (pointsError) {
-        console.error('[TechGames] ⚠️ Failed to add points:', pointsError);
-        // Fehler beim Hinzufügen von Punkten sollte den Mint-Erfolg nicht beeinträchtigen
-      }
-
       setMintingStatus({
         progress: 100,
         status: 'success',
@@ -284,6 +263,19 @@ export const TechGamesPage: React.FC = () => {
         console.log(`[TechGames] ✅ Mint logged for ${item.name}`);
       } catch (logError) {
         console.warn('[TechGames] ⚠️ Failed to log mint:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'Tech & Games',
+          itemName: item.name,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid || null,
+          mintLogSource: 'techgames',
+        });
+        console.log('[TechGames] ✅ Added 10 mint points');
+      } catch (pointsError) {
+        console.warn('[TechGames] ⚠️ Failed to add mint points:', pointsError);
       }
     } catch (err: any) {
       console.error('Minting error:', err);

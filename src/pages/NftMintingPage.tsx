@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { getOrdinalAddress } from '../utils/wallet';
+import { addMintPoints } from '../services/pointsService';
 
 // NFT Item Configuration
 const NFT_ITEM = {
@@ -87,6 +88,17 @@ export const NftMintingPage: React.FC = () => {
         });
       } catch (logError) {
         console.warn('[NFT] Could not save mint log:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'NFT',
+          itemName: NFT_ITEM.name,
+          inscriptionId: result.inscriptionId,
+          mintLogSource: 'nft',
+        });
+      } catch (pointsError) {
+        console.warn('[NFT] Could not add mint points:', pointsError);
       }
 
       setMintingStatus({

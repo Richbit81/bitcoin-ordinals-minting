@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { addMintPoints } from '../services/pointsService';
 
 // Free Stuff Collection Items
 const FREE_ITEMS = [
@@ -93,6 +94,17 @@ export const FreeStuffPage: React.FC = () => {
         });
       } catch (logError) {
         console.warn('[FreeStuff] Could not save mint log:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'Free Stuff',
+          itemName: item.name,
+          inscriptionId: result.inscriptionId,
+          mintLogSource: 'free-stuff',
+        });
+      } catch (pointsError) {
+        console.warn('[FreeStuff] Could not add mint points:', pointsError);
       }
 
       setMintingStatus({

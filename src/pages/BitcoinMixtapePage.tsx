@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { addMintPoints } from '../services/pointsService';
 
 // Bitcoin Mixtape Konfiguration
 const MIXTAPE_CONFIG = {
@@ -126,6 +127,17 @@ export const BitcoinMixtapePage: React.FC = () => {
         });
       } catch (logError) {
         console.warn('[BitcoinMixtape] Could not save mint log:', logError);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'Bitcoin Mixtape',
+          itemName: MIXTAPE_CONFIG.name,
+          inscriptionId: result.inscriptionId,
+          mintLogSource: 'mixtape',
+        });
+      } catch (pointsError) {
+        console.warn('[BitcoinMixtape] Could not add mint points:', pointsError);
       }
 
       // Erfolg!

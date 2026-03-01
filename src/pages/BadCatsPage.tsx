@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { logMinting } from '../services/mintingLog';
 import { mintBadCatsRandom, loadBadCatsCollection } from '../services/badcatsMintService';
+import { addMintPoints } from '../services/pointsService';
 import { getOrdinalAddress } from '../utils/wallet';
 import { getApiUrl } from '../utils/apiUrl';
 import { isAdminAddress } from '../config/admin';
@@ -569,6 +570,18 @@ export const BadCatsPage: React.FC = () => {
           paymentTxid: result.paymentTxid,
         });
       } catch { /* backup log failed */ }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'BadCats',
+          itemName: `BadCats #${result.item.index}`,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid || null,
+          source: 'badcats-mint',
+        });
+      } catch (pointsErr) {
+        console.warn('[BadCats] Punkte konnten nicht hinzugefuegt werden:', pointsErr);
+      }
 
       try {
         const attributes = result.item.layers.map(layer => ({

@@ -7,6 +7,7 @@ import { createSingleDelegate } from '../services/collectionMinting';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
+import { addMintPoints } from '../services/pointsService';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
 
@@ -106,6 +107,21 @@ export const CollectionMintingPage: React.FC = () => {
       alert('Error: Invalid item selected. Please try again.');
       return;
     }
+
+    const awardMintPoints = async (inscriptionId?: string, txid?: string) => {
+      try {
+        await addMintPoints(userAddress, {
+          collection: collection.name,
+          itemName: itemToMint.name,
+          itemType: itemToMint.type,
+          inscriptionId: inscriptionId || itemToMint.inscriptionId,
+          txid: txid || null,
+          mintLogSource: 'collection-minting',
+        });
+      } catch (pointsError) {
+        console.warn('[CollectionMinting] Failed to add mint points:', pointsError);
+      }
+    };
     
     setMintingItemId(itemToMint.inscriptionId);
     setMintingStatus({
@@ -132,6 +148,8 @@ export const CollectionMintingPage: React.FC = () => {
           undefined, // contentType wird auto-detected basierend auf collectionName
           itemPriceSats // Collection-Preis in sats (falls vorhanden)
         );
+
+        await awardMintPoints(result.inscriptionId, result.txid);
 
         setMintingStatus({
           progress: 100,
@@ -268,6 +286,8 @@ export const CollectionMintingPage: React.FC = () => {
             } catch (recordError) {
               console.warn('[CollectionMinting] Failed to record mint:', recordError);
             }
+
+            await awardMintPoints(itemToMint.inscriptionId, txid);
             
             setMintingStatus({
               progress: 100,
@@ -356,6 +376,8 @@ export const CollectionMintingPage: React.FC = () => {
             console.warn('[CollectionMinting] Failed to record mint:', recordError);
             // Nicht kritisch, weiter mit Success
           }
+
+          await awardMintPoints(data.inscriptionId || itemToMint.inscriptionId, data.txid);
           
           setMintingStatus({
             progress: 100,
@@ -385,6 +407,8 @@ export const CollectionMintingPage: React.FC = () => {
             console.warn('[CollectionMinting] Failed to record mint:', recordError);
             // Nicht kritisch, weiter mit Success
           }
+
+          await awardMintPoints(data.inscriptionId || itemToMint.inscriptionId, data.txid);
           
           setMintingStatus({
             progress: 100,

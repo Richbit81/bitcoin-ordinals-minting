@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { getPointShopItems, mintPointShopItem, PointShopItem } from '../services/pointShopService';
-import { getPoints } from '../services/pointsService';
+import { addMintPoints, getPoints } from '../services/pointsService';
 import { getOrdinalAddress } from '../utils/wallet';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -95,6 +95,19 @@ export const PointShopPage: React.FC = () => {
       let successMessage = `Minting successful! Inscription ID: ${result.inscriptionId}`;
       if (result.seriesInfo) {
         successMessage += `\nSeries: #${result.seriesInfo.currentNumber}/${result.seriesInfo.totalCount} (${result.seriesInfo.remaining} remaining)`;
+      }
+
+      try {
+        await addMintPoints(getOrdinalAddress(walletState.accounts), {
+          collection: 'Point Shop',
+          itemName: item.title,
+          itemId: item.id,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid || null,
+          source: 'pointshop-mint',
+        });
+      } catch (pointsErr) {
+        console.warn('[PointShop] Punkte konnten nicht vergeben werden:', pointsErr);
       }
       
       alert(successMessage);

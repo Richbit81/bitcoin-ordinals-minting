@@ -3,6 +3,7 @@
  */
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+export const MINT_POINTS = 10;
 
 export interface PointsData {
   walletAddress: string;
@@ -55,24 +56,18 @@ export const addPointsAfterMinting = async (
   packName: string,
   cardCount: number
 ): Promise<PointsAddResult> => {
-  const response = await fetch(`${API_URL}/api/points/add`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      walletAddress,
+  return addPoints(
+    walletAddress,
+    MINT_POINTS,
+    `Mint reward: ${packName || packId || 'Mint'}`,
+    {
+      type: 'mint',
       packId,
       packName,
-      cardCount
-    })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || 'Failed to add points');
-  }
-  
-  const data = await response.json();
-  return data;
+      cardCount,
+      pointsPerMint: MINT_POINTS,
+    }
+  );
 };
 
 /**
@@ -102,6 +97,25 @@ export const addPoints = async (
   
   const data = await response.json();
   return data;
+};
+
+/**
+ * Einheitliche Mint-Belohnung: immer 10 Punkte pro erfolgreichem Mint.
+ */
+export const addMintPoints = async (
+  walletAddress: string,
+  details?: Record<string, any>
+): Promise<PointsAddResult> => {
+  return addPoints(
+    walletAddress,
+    MINT_POINTS,
+    'Mint reward (+10)',
+    {
+      type: 'mint',
+      pointsPerMint: MINT_POINTS,
+      ...(details || {}),
+    }
+  );
 };
 
 /**

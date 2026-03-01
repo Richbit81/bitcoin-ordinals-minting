@@ -1743,6 +1743,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
 // Minting Logs Management Component
 const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddress }) => {
   const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const RETRO_POINTS_BACKFILL_DONE_KEY = 'retro_points_backfill_v1_done';
   const [logs, setLogs] = useState<{
     blackAndWild: { logs: any[]; totalMints: number };
     techAndGames: { logs: any[]; totalMints: number };
@@ -1761,6 +1762,8 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [badCatsWhitelistCountInput, setBadCatsWhitelistCountInput] = useState('1');
   const [badCatsWhitelistEntries, setBadCatsWhitelistEntries] = useState<Array<{ address: string; count: number }>>([]);
   const [badCatsWhitelistSupportsCount, setBadCatsWhitelistSupportsCount] = useState(false);
+  const [retroPointsBusy, setRetroPointsBusy] = useState(false);
+  const [retroPointsSummary, setRetroPointsSummary] = useState('');
   const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -2133,6 +2136,130 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     URL.revokeObjectURL(url);
   };
 
+  const runRetroactivePointsBackfill = async () => {
+    if (!logs || retroPointsBusy) return;
+    try {
+      const doneAt = typeof window !== 'undefined' ? window.localStorage.getItem(RETRO_POINTS_BACKFILL_DONE_KEY) : null;
+      if (doneAt) {
+        const proceed = window.confirm(
+          `Retroactive backfill wurde bereits ausgefuehrt (${new Date(doneAt).toLocaleString()}).\n\nNochmal ausfuehren fuegt Punkte erneut hinzu. Fortfahren?`
+        );
+        if (!proceed) return;
+      }
+    } catch {
+      // ignore localStorage issues
+    }
+    setRetroPointsBusy(true);
+    setRetroPointsSummary('');
+
+    try {
+      const buckets: Array<{ key: string; label: string; rows: any[] }> = [
+        { key: 'blackAndWild', label: 'Black & Wild', rows: logs.blackAndWild?.logs || [] },
+        { key: 'techAndGames', label: 'Tech & Games', rows: logs.techAndGames?.logs || [] },
+        { key: 'mixtape', label: 'Mixtape', rows: logs.mixtape?.logs || [] },
+        { key: '1984', label: '1984', rows: logs['1984']?.logs || [] },
+        { key: 'nft', label: 'NFT', rows: logs.nft?.logs || [] },
+        { key: 'randomStuff', label: 'Random Stuff', rows: logs.randomStuff?.logs || [] },
+        { key: 'freeStuff', label: 'Free Stuff', rows: logs.freeStuff?.logs || [] },
+        { key: 'smileABit', label: 'Smile A Bit', rows: logs.smileABit?.logs || [] },
+        { key: 'slums', label: 'SLUMS', rows: logs.slums?.logs || [] },
+        { key: 'badCats', label: 'BadCats', rows: logs.badCats?.logs || [] },
+      ];
+
+      const unique = new Map<string, { walletAddress: string; label: string; inscriptionId?: string; txid?: string; timestamp?: any }>();
+      let skippedNoWallet = 0;
+
+      buckets.forEach((bucket) => {
+        bucket.rows.forEach((row: any, idx: number) => {
+          const walletAddress = String(row?.walletAddress || row?.wallet_address || '').trim();
+          if (!walletAddress) {
+            skippedNoWallet += 1;
+            return;
+          }
+
+          const inscriptionId = String(
+            row?.inscriptionId ||
+            row?.inscription_id ||
+            (Array.isArray(row?.inscriptionIds) ? row.inscriptionIds[0] : '') ||
+            ''
+          ).trim();
+
+          const txid = String(
+            row?.txid ||
+            (Array.isArray(row?.txids) ? row.txids[0] : '') ||
+            row?.paymentTxid ||
+            ''
+          ).trim();
+
+          const id = String(row?.id || '').trim();
+          const ts = row?.timestamp || row?.created_at || '';
+          const dedupeKey = inscriptionId
+            ? `ins:${inscriptionId.toLowerCase()}`
+            : txid
+              ? `tx:${txid.toLowerCase()}:${walletAddress.toLowerCase()}`
+              : id
+                ? `id:${bucket.key}:${id}`
+                : `row:${bucket.key}:${walletAddress.toLowerCase()}:${String(ts)}:${idx}`;
+
+          if (!unique.has(dedupeKey)) {
+            unique.set(dedupeKey, {
+              walletAddress,
+              label: bucket.label,
+              inscriptionId: inscriptionId || undefined,
+              txid: txid || undefined,
+              timestamp: ts || undefined,
+            });
+          }
+        });
+      });
+
+      let success = 0;
+      let failed = 0;
+
+      for (const item of unique.values()) {
+        try {
+          const res = await fetch(`${API_URL}/api/points/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              walletAddress: item.walletAddress,
+              points: 10,
+              reason: 'Mint reward (+10) [retroactive]',
+              details: {
+                type: 'mint-retroactive',
+                collection: item.label,
+                inscriptionId: item.inscriptionId || null,
+                txid: item.txid || null,
+                timestamp: item.timestamp || null,
+              },
+            }),
+          });
+          if (res.ok) success += 1;
+          else failed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const summary = `Retroactive +10 points: ${success} applied, ${failed} failed, ${skippedNoWallet} skipped (no wallet), ${unique.size} unique mint logs.`;
+      setRetroPointsSummary(summary);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(RETRO_POINTS_BACKFILL_DONE_KEY, new Date().toISOString());
+        }
+      } catch {
+        // ignore localStorage issues
+      }
+      alert(summary);
+    } catch (err: any) {
+      const message = err?.message || 'Retroactive points backfill failed';
+      setRetroPointsSummary(message);
+      alert(message);
+    } finally {
+      setRetroPointsBusy(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-white text-center py-8">Loading logs...</div>;
   }
@@ -2319,6 +2446,17 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         >
           📥 CSV
         </button>
+        <button
+          onClick={runRetroactivePointsBackfill}
+          disabled={!logs || retroPointsBusy}
+          className="px-3 sm:px-4 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 rounded text-xs sm:text-sm font-semibold"
+          title="Vergibt rueckwirkend 10 Punkte pro eindeutigem Mint-Log"
+        >
+          {retroPointsBusy ? '⭐ Backfill läuft...' : '⭐ Backfill +10 Points'}
+        </button>
+        {retroPointsSummary && (
+          <div className="w-full text-xs text-emerald-300 mt-1">{retroPointsSummary}</div>
+        )}
         {activeLogTab === 'smileABit' && (
           <>
             <button

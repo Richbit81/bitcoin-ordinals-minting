@@ -6,6 +6,7 @@ import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { logMinting } from '../services/mintingLog';
+import { addMintPoints } from '../services/pointsService';
 import {
   mintSlumsRandom,
   loadSlumsCollection,
@@ -356,6 +357,18 @@ export const SlumsPage: React.FC = () => {
         console.log('[SlumsPage] Backup-Log gespeichert (generisch)');
       } catch (logErr) {
         console.warn('[SlumsPage] Backup-Log fehlgeschlagen:', logErr);
+      }
+
+      try {
+        await addMintPoints(userAddress, {
+          collection: 'SLUMS',
+          itemName: `SLUMS #${result.item.index}`,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid || null,
+          source: 'slums-mint',
+        });
+      } catch (pointsErr) {
+        console.warn('[SlumsPage] Punkte konnten nicht hinzugefuegt werden:', pointsErr);
       }
 
       try {
