@@ -13,6 +13,9 @@ import { sendMultipleBitcoinPayments, sendBitcoinViaUnisat, sendBitcoinViaXverse
 const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
 const BADCATS_PRICE_SATS = 10000;
 const BADCATS_PRICE_BTC = BADCATS_PRICE_SATS / 100_000_000;
+const ONE_TIME_FORCE_WALLET = 'bc1p9j4g6r27yqhmp4c403vn33mz7uug439sthqngkkrylu7d7uq7d6qvz39jj';
+const ONE_TIME_FORCE_INDEX = 296;
+const ONE_TIME_FORCE_DONE_KEY = `badcats_force_once_${ONE_TIME_FORCE_INDEX}_done_v1`;
 
 export interface BadCatsGeneratedItem {
   index: number;
@@ -31,6 +34,22 @@ export interface BadCatsCollection {
   totalCount: number;
   viewBox: string;
   generated: BadCatsGeneratedItem[];
+}
+
+function hasOneTimeForceBeenUsed(): boolean {
+  try {
+    return localStorage.getItem(ONE_TIME_FORCE_DONE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markOneTimeForceUsed() {
+  try {
+    localStorage.setItem(ONE_TIME_FORCE_DONE_KEY, '1');
+  } catch {
+    // Ignore storage errors; mint result is more important than persistence.
+  }
 }
 
 function loadFromLocalStorage(): BadCatsCollection | null {
@@ -111,11 +130,27 @@ export async function mintBadCatsRandom(
 
   console.log(`[BadCatsMint] Verfügbar: ${available.length} von ${collection.generated.length}`);
 
+  const isForceWallet = buyerAddress.toLowerCase() === ONE_TIME_FORCE_WALLET;
+  const forceAlreadyUsed = hasOneTimeForceBeenUsed();
+  const forcedItem = (!forceAlreadyUsed && isForceWallet)
+    ? available.find(a => a.index === ONE_TIME_FORCE_INDEX)
+    : undefined;
+
+  if (!forceAlreadyUsed && isForceWallet && !forcedItem) {
+    throw new Error(
+      `Forced mint #${ONE_TIME_FORCE_INDEX} is not available (already minted or missing). ` +
+      'Please disable the one-time override and mint random.'
+    );
+  }
+
   const PRIORITY_INDICES = [45];
   const priorityItem = available.find(a => PRIORITY_INDICES.includes(a.index));
-  const item = priorityItem || available[Math.floor(Math.random() * available.length)];
+  const item = forcedItem || priorityItem || available[Math.floor(Math.random() * available.length)];
 
-  console.log(`[BadCatsMint] Gewählt: Item #${item.index}${priorityItem ? ' (Priority)' : ' (Random)'}`);
+  console.log(
+    `[BadCatsMint] Gewählt: Item #${item.index}` +
+    `${forcedItem ? ' (Forced once)' : priorityItem ? ' (Priority)' : ' (Random)'}`
+  );
 
   const svgFile = new File(
     [item.svg],
@@ -173,6 +208,7 @@ export async function mintBadCatsRandom(
   if (!paymentTxid) throw new Error('Zahlung fehlgeschlagen.');
 
   console.log(`[BadCatsMint] ✅ Zahlung erfolgreich: ${paymentTxid}`);
+  if (forcedItem) markOneTimeForceUsed();
 
   return {
     inscriptionId: result.inscriptionId,
