@@ -411,11 +411,12 @@ const PreviewImage: React.FC<{
             loading="lazy"
             scrolling="no"
             className="absolute border-0 bg-zinc-900"
+            sandbox="allow-scripts allow-same-origin"
             style={{
-              width: '170%',
-              height: '170%',
-              transform: 'translate(-20%, -20%) scale(0.6)',
-              transformOrigin: 'top left',
+              width: preferIframe ? '100%' : '170%',
+              height: preferIframe ? '100%' : '170%',
+              transform: preferIframe ? 'none' : 'translate(-20%, -20%) scale(0.6)',
+              transformOrigin: preferIframe ? 'center center' : 'top left',
             }}
             onLoad={() => {
               setLoaded(true);
