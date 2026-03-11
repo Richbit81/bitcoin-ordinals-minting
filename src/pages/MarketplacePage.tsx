@@ -17,6 +17,8 @@ import {
   prepareMarketplacePurchaseAdvanced,
   prepareMarketplaceListingPsbt,
   getMarketplaceProfile,
+  getMarketplaceWalletInscriptionsByCollectionScan,
+  getMarketplaceWalletInscriptionsViaUnisat,
   getMarketplaceRareSatsBatch,
   getMarketplaceRanking,
   MarketplaceCollection,
@@ -721,6 +723,22 @@ export const MarketplacePage: React.FC = () => {
           }
         } catch {
           // profile endpoint unavailable
+        }
+        if (walletRows.length === 0) {
+          try {
+            walletRows = await getMarketplaceWalletInscriptionsViaUnisat(taprootAddress);
+            if (walletRows.length > 0) source = 'unisat';
+          } catch {
+            // UniSat indexer unavailable or no rows
+          }
+        }
+        if (walletRows.length === 0) {
+          try {
+            walletRows = await getMarketplaceWalletInscriptionsByCollectionScan(taprootAddress);
+            if (walletRows.length > 0) source = 'collection-scan';
+          } catch {
+            // fallback optional
+          }
         }
         if (walletRows.length === 0 && typeof window !== 'undefined') {
           try {
@@ -3061,7 +3079,8 @@ export const MarketplacePage: React.FC = () => {
                     const preferIframePreview =
                       contentTypeHint.includes('text/html') ||
                       contentTypeHint.includes('application/xhtml') ||
-                      contentTypeHint.includes('image/svg+xml');
+                      contentTypeHint.includes('image/svg+xml') ||
+                      /(badcats|bad-cats|bchalloween|halloween)/i.test(String(selectedCollectionSlug || ''));
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
