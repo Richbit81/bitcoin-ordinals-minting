@@ -2627,14 +2627,14 @@ export const MarketplacePage: React.FC = () => {
     [myWalletInscriptionIds]
   );
   useEffect(() => {
-    const visible = new Set(myWalletIdsForGallery);
+    const visible = new Set(Array.from(myWalletInscriptionIds));
     setSelectedMyItemIds((prev) => {
       if (prev.size === 0) return prev;
       const next = new Set(Array.from(prev).filter((id) => visible.has(id)));
       if (next.size === prev.size) return prev;
       return next;
     });
-  }, [myWalletIdsForGallery]);
+  }, [myWalletInscriptionIds]);
 
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -3294,9 +3294,71 @@ export const MarketplacePage: React.FC = () => {
               {collectionLoading ? (
                 <div className="p-4 text-sm text-gray-400">Loading inscriptions...</div>
               ) : filteredCollectionInscriptions.length === 0 ? (
-                <div className="p-4 text-sm text-gray-500">No inscriptions found for this collection.</div>
+                <div className="p-4 text-sm text-gray-500">
+                  {collectionItemsFilter === 'my-items' && !walletState.connected
+                    ? 'Wallet verbinden um Items zu sehen.'
+                    : 'No inscriptions found for this collection.'}
+                </div>
               ) : (
                 <div className="p-2">
+                  {collectionItemsFilter === 'my-items' && (
+                    <div className="mb-2 rounded border border-white/10 bg-zinc-900/40 p-2">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-gray-300">My Items selection in Collection View</span>
+                        <span className="text-gray-500">Selected: {selectedMyItemIds.size}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedMyItemIds(new Set(filteredCollectionInscriptions.map((ins) => ins.inscription_id)))
+                          }
+                          disabled={bulkListRunning || filteredCollectionInscriptions.length === 0}
+                          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+                        >
+                          Select visible
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMyItemIds(new Set())}
+                          disabled={bulkListRunning || selectedMyItemIds.size === 0}
+                          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                        <input
+                          value={bulkListBasePriceSats}
+                          onChange={(e) => setBulkListBasePriceSats(e.target.value)}
+                          placeholder="Base price (sats)"
+                          className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                        />
+                        <input
+                          value={bulkListStepSats}
+                          onChange={(e) => setBulkListStepSats(e.target.value)}
+                          placeholder="Ladder step (sats)"
+                          className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                        />
+                        <select
+                          value={bulkListDirection}
+                          onChange={(e) => setBulkListDirection(e.target.value as 'up' | 'down')}
+                          className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                        >
+                          <option value="up">Ladder: up (+step)</option>
+                          <option value="down">Ladder: down (-step)</option>
+                        </select>
+                        <div className="md:col-span-2">
+                          <button
+                            type="button"
+                            onClick={handleBulkListMyItems}
+                            disabled={!walletState.connected || bulkListRunning || selectedMyItemIds.size === 0}
+                            className="w-full px-3 py-1.5 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
+                          >
+                            {bulkListRunning ? 'Listing selected items...' : `List selected (${selectedMyItemIds.size})`}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
@@ -3330,8 +3392,31 @@ export const MarketplacePage: React.FC = () => {
                     return (
                       <div
                         key={ins.inscription_id}
-                        className="rounded-md border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                        className={`relative rounded-md border bg-zinc-900/60 overflow-hidden transition-colors ${
+                          selectedMyItemIds.has(ins.inscription_id)
+                            ? 'border-red-500/70'
+                            : 'border-white/10 hover:border-red-500/40'
+                        }`}
                       >
+                        {collectionItemsFilter === 'my-items' && (
+                          <div className="absolute z-10 mt-1 ml-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedMyItemIds.has(ins.inscription_id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedMyItemIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(ins.inscription_id)) next.delete(ins.inscription_id);
+                                  else next.add(ins.inscription_id);
+                                  return next;
+                                });
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-3.5 w-3.5 accent-red-600"
+                            />
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
