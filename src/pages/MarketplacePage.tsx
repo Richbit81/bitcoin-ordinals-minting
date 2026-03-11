@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
@@ -991,6 +991,35 @@ export const MarketplacePage: React.FC = () => {
     openFromQuery();
   }, [location.search]);
 
+  const syncDetailQuery = useCallback(
+    (collectionSlug?: string, inscriptionId?: string) => {
+      const params = new URLSearchParams(location.search || '');
+      const normalizedCollection = String(collectionSlug || '').trim();
+      const normalizedInscription = String(inscriptionId || '').trim();
+      if (normalizedCollection) {
+        params.set('collection', normalizedCollection);
+      } else {
+        params.delete('collection');
+      }
+      if (normalizedInscription) {
+        params.set('inscription', normalizedInscription);
+      } else {
+        params.delete('inscription');
+      }
+      const nextSearchRaw = params.toString();
+      const currentSearchRaw = String(location.search || '').replace(/^\?/, '');
+      if (nextSearchRaw === currentSearchRaw) return;
+      navigate(
+        {
+          pathname: '/marketplace',
+          search: nextSearchRaw ? `?${nextSearchRaw}` : '',
+        },
+        { replace: true }
+      );
+    },
+    [location.search, navigate]
+  );
+
   const handleCreateListing = async () => {
     if (!walletState.connected || !currentAddress) {
       setError('Please connect wallet first');
@@ -1065,6 +1094,11 @@ export const MarketplacePage: React.FC = () => {
       if (!listing.signed_psbt_base64) {
         throw new Error('Legacy listing without PSBT data. Seller must relist with PSBT.');
       }
+      // Persist open detail in URL so wallet popups/reloads do not drop context.
+      syncDetailQuery(
+        String(listing.collection_slug || selectedCollectionSlug || '').trim(),
+        String(listing.inscription_id || '').trim()
+      );
       await handleAdvancedBuyListing(listing);
     } catch (err: any) {
       setError(err?.message || 'Failed to buy listing');
@@ -1451,6 +1485,7 @@ export const MarketplacePage: React.FC = () => {
       setDetailLoading(true);
       setError(null);
       setDetailOpen(true);
+      syncDetailQuery(listing.collection_slug, listing.inscription_id);
       setSelectedDetailListing(listing);
       setOfferPriceSats(String(Math.max(1, Math.floor(Number(listing.price_sats || 0) * 0.95))));
       setOfferNote('');
@@ -1504,6 +1539,7 @@ export const MarketplacePage: React.FC = () => {
       setDetailLoading(true);
       setError(null);
       setDetailOpen(true);
+      syncDetailQuery(selectedCollectionSlug, inscriptionId);
       setSelectedDetailListing(null);
       setDetailTab('traits');
       const detail = await getMarketplaceInscriptionDetail(inscriptionId);
@@ -2300,6 +2336,7 @@ export const MarketplacePage: React.FC = () => {
   const collectionCompositeRarityByInscription = useMemo(() => {
     const rawScores = new Map<string, number>();
     const forceTopRarityById = new Map<string, boolean>();
+    const oneOfOneIds: string[] = [];
     for (const ins of collectionInscriptions) {
       const traits = extractInscriptionTraits(ins);
       const hasOneOfOne = traits.some((t) => {
@@ -2309,8 +2346,8 @@ export const MarketplacePage: React.FC = () => {
       });
       forceTopRarityById.set(ins.inscription_id, hasOneOfOne);
       if (hasOneOfOne) {
-        // 1:1 items are always top rarity by explicit project rule.
-        rawScores.set(ins.inscription_id, 1_000_000_000);
+        // 1:1 items stay top rarity, but score remains in a realistic range.
+        oneOfOneIds.push(ins.inscription_id);
         continue;
       }
       if (!traits.length) {
@@ -2325,6 +2362,16 @@ export const MarketplacePage: React.FC = () => {
         return sum + 100 / pct;
       }, 0);
       rawScores.set(ins.inscription_id, score);
+    }
+
+    // Keep 1:1 scores just above the highest regular score (instead of 1,000,000,000).
+    if (oneOfOneIds.length > 0) {
+      const normalScores = Array.from(rawScores.values()).filter((v) => Number.isFinite(v) && v > 0);
+      const maxNormalScore = normalScores.length > 0 ? Math.max(...normalScores) : 0;
+      const oneOfOneScore = Math.max(100, maxNormalScore + 10);
+      for (const id of oneOfOneIds) {
+        rawScores.set(id, oneOfOneScore);
+      }
     }
 
     const values = Array.from(rawScores.values()).filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
@@ -3427,6 +3474,9 @@ export const MarketplacePage: React.FC = () => {
               {soldListings.slice(0, 12).map((s) => {
                 const source = String(s.sale_metadata?.source || '');
                 const advanced = source.includes('advanced-psbt');
+                const soldPreferIframe = /(badcats|bad-cats|bchalloween|halloween)/i.test(
+                  String(s.collection_slug || '')
+                );
                 return (
                   <div key={s.id} className="rounded-lg border border-white/10 bg-zinc-900/60 p-3 hover:border-red-500/40 transition-colors">
                     <div className="flex items-start gap-3">
@@ -3435,7 +3485,8 @@ export const MarketplacePage: React.FC = () => {
                         alt={s.inscription_id}
                         className="w-16 h-16 rounded border border-white/10 shrink-0"
                         fit="contain"
-                        lightweight
+                        lightweight={!soldPreferIframe}
+                        preferIframe={soldPreferIframe}
                       />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{s.collection_slug}</div>
@@ -3527,6 +3578,7 @@ export const MarketplacePage: React.FC = () => {
                   setDetailOpen(false);
                   setSelectedInscriptionDetail(null);
                   setSelectedDetailListing(null);
+                  syncDetailQuery(selectedCollectionSlug, '');
                 }}
                 className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
               >

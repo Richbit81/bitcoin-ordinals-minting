@@ -28,6 +28,7 @@ export const HomePage: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
   const [isMempoolModalOpen, setIsMempoolModalOpen] = useState(false);
+  const TEMP_HIDDEN_PROJECT_IDS = new Set(['cattack']);
 
   // Statische Projekte (immer vorhanden)
   const staticProjects = [
@@ -74,11 +75,25 @@ export const HomePage: React.FC = () => {
       order: 6,
     },
     {
+      id: 'cattack',
+      name: 'CATTACK',
+      thumbnail: '/images/cattack-card.png',
+      description: 'Holder-gated game for Bad Cats owners',
+      order: 10,
+    },
+    {
+      id: 'marketplace',
+      name: 'Marketplace',
+      thumbnail: '/images/marketplace-symbol.png',
+      description: 'Trade Ordinals on RichArt',
+      order: 999,
+    },
+    {
       id: 'point-shop',
       name: 'Point Shop',
       thumbnail: '/pointshop.png',
       description: 'Mint exclusive Ordinals with your points',
-      order: 7,
+      order: 8,
     },
     {
       id: '1984',
@@ -95,11 +110,18 @@ export const HomePage: React.FC = () => {
       order: 9,
     },
     {
+      id: 'books-onchain',
+      name: 'Books Onchain',
+      thumbnail: '/images/books-onchain.png',
+      description: 'Books that live forever on Bitcoin',
+      order: 10,
+    },
+    {
       id: 'random-stuff',
       name: 'Random Stuff',
       thumbnail: `https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0`,
       description: 'Random Ordinals Collection',
-      order: 10,
+      order: 7,
     },
   ];
 
@@ -142,6 +164,7 @@ export const HomePage: React.FC = () => {
     ...staticProjects,
     ...dynamicProjects.filter(p => !staticProjects.some(sp => sp.id === p.id)),
   ].sort((a, b) => (a.order || 999) - (b.order || 999));
+  const visibleProjects = projects.filter((project) => !TEMP_HIDDEN_PROJECT_IDS.has(project.id));
 
   useEffect(() => {
     loadCollections();
@@ -277,8 +300,8 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* Projekte und Kollektionen */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 max-w-5xl w-full items-stretch">
-        {projects.map((project, index) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-6xl w-full items-stretch">
+        {visibleProjects.map((project, index) => {
           // Bestimme die Route basierend auf project.id oder collectionId
           const route = (project as any).collectionId 
             ? `/collection/${(project as any).collectionId}`
@@ -295,12 +318,15 @@ export const HomePage: React.FC = () => {
               project.id === 'slums' ? 'md:order-4' :
               project.id === 'black-wild' ? 'md:order-5' :
               (project as any).collectionId ? 'md:order-6' :
-              project.id === 'tech-games' ? 'md:order-7' : 
-              project.id === 'point-shop' ? 'md:order-8' :
-              project.id === 'free-stuff' ? 'md:order-9' :
-              project.id === 'random-stuff' ? 'md:order-10' :
-              project.order >= 8 ? 'md:order-11' :
-              'md:order-12'
+              project.id === 'tech-games' ? 'md:order-7' :
+              project.id === 'random-stuff' ? 'md:order-8' :
+              project.id === 'point-shop' ? 'md:order-9' :
+              project.id === 'free-stuff' ? 'md:order-10' :
+              project.id === 'books-onchain' ? 'md:order-11' :
+              project.id === 'cattack' ? 'md:order-12' :
+              project.id === 'marketplace' ? 'md:order-last' :
+              project.order >= 8 ? 'md:order-12' :
+              'md:order-13'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
