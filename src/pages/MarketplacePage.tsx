@@ -17,7 +17,6 @@ import {
   prepareMarketplacePurchaseAdvanced,
   prepareMarketplaceListingPsbt,
   getMarketplaceProfile,
-  getMarketplaceWalletInscriptionsByCollectionScan,
   getMarketplaceRareSatsBatch,
   getMarketplaceRanking,
   MarketplaceCollection,
@@ -721,14 +720,6 @@ export const MarketplacePage: React.FC = () => {
           }
         } catch {
           // profile endpoint unavailable
-        }
-        if (walletRows.length === 0) {
-          try {
-            walletRows = await getMarketplaceWalletInscriptionsByCollectionScan(taprootAddress);
-            if (walletRows.length > 0) source = 'collection-scan';
-          } catch {
-            // fallback optional
-          }
         }
         if (walletRows.length === 0 && typeof window !== 'undefined') {
           try {
