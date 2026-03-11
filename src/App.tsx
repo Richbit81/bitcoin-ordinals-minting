@@ -1,40 +1,41 @@
 // Force redeploy - Environment Variable Update
-import React from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HeaderMenu } from './components/HeaderMenu';
-import { HomePage } from './pages/HomePage';
-import { MintingPage } from './pages/MintingPage';
-import { TradingPage } from './pages/TradingPage';
-import { HistoryPage } from './pages/HistoryPage';
-import { GamePage } from './pages/GamePage';
-import { PointShopPage } from './pages/PointShopPage';
-import { TechGamesPage } from './pages/TechGamesPage';
-import { CollectionMintingPage } from './pages/CollectionMintingPage';
-import { LinkGalleryPage } from './pages/LinkGalleryPage';
-import { SmilePage } from './pages/SmilePage';
-import { SlumsPage } from './pages/SlumsPage';
-import { BadCatsPage } from './pages/BadCatsPage';
-import { BitcoinMixtapePage } from './pages/BitcoinMixtapePage';
-import { Orwell1984Page } from './pages/Orwell1984Page';
-// NftMintingPage moved into RandomStuffPage
-import { RandomStuffPage } from './pages/RandomStuffPage';
-import { FreeStuffPage } from './pages/FreeStuffPage';
-import { PalindromSoundBoxPage } from './pages/PalindromSoundBoxPage';
-import { GalleryInscriptionToolPage } from './pages/GalleryInscriptionToolPage';
-import RecursiveCollectionToolPage from './pages/RecursiveCollectionToolPage';
-import CollectionDataToolPage from './pages/CollectionDataToolPage';
-import { AvifConverterPage } from './pages/AvifConverterPage';
-import { AudioSplitterPage } from './pages/AudioSplitterPage';
-import { VideoSplitterPage } from './pages/VideoSplitterPage';
-import { MarketplacePage } from './pages/MarketplacePage';
-import { MarketplaceProfilePage } from './pages/MarketplaceProfilePage';
-import MarketplaceAdminToolPage from './pages/MarketplaceAdminToolPage';
 import { WalletProvider } from './contexts/WalletContext';
 import { useWallet } from './contexts/WalletContext';
 import { isAdminAddress } from './config/admin';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { useState } from 'react';
+import { MarketplacePage } from './pages/MarketplacePage';
+import { MarketplaceProfilePage } from './pages/MarketplaceProfilePage';
+
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const MintingPage = lazy(() => import('./pages/MintingPage').then((m) => ({ default: m.MintingPage })));
+const PointShopPage = lazy(() => import('./pages/PointShopPage').then((m) => ({ default: m.PointShopPage })));
+const TechGamesPage = lazy(() => import('./pages/TechGamesPage').then((m) => ({ default: m.TechGamesPage })));
+const BitcoinMixtapePage = lazy(() => import('./pages/BitcoinMixtapePage').then((m) => ({ default: m.BitcoinMixtapePage })));
+const Orwell1984Page = lazy(() => import('./pages/Orwell1984Page').then((m) => ({ default: m.Orwell1984Page })));
+const FreeStuffPage = lazy(() => import('./pages/FreeStuffPage').then((m) => ({ default: m.FreeStuffPage })));
+const BooksOnchainPage = lazy(() => import('./pages/BooksOnchainPage').then((m) => ({ default: m.BooksOnchainPage })));
+const RandomStuffPage = lazy(() => import('./pages/RandomStuffPage').then((m) => ({ default: m.RandomStuffPage })));
+const CollectionMintingPage = lazy(() => import('./pages/CollectionMintingPage').then((m) => ({ default: m.CollectionMintingPage })));
+const TradingPage = lazy(() => import('./pages/TradingPage').then((m) => ({ default: m.TradingPage })));
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const GamePage = lazy(() => import('./pages/GamePage').then((m) => ({ default: m.GamePage })));
+const LinkGalleryPage = lazy(() => import('./pages/LinkGalleryPage').then((m) => ({ default: m.LinkGalleryPage })));
+const SmilePage = lazy(() => import('./pages/SmilePage').then((m) => ({ default: m.SmilePage })));
+const SlumsPage = lazy(() => import('./pages/SlumsPage').then((m) => ({ default: m.SlumsPage })));
+const BadCatsPage = lazy(() => import('./pages/BadCatsPage').then((m) => ({ default: m.BadCatsPage })));
+const CatWarPage = lazy(() => import('./pages/CatWarPage').then((m) => ({ default: m.CatWarPage })));
+const PalindromSoundBoxPage = lazy(() => import('./pages/PalindromSoundBoxPage').then((m) => ({ default: m.PalindromSoundBoxPage })));
+const GalleryInscriptionToolPage = lazy(() => import('./pages/GalleryInscriptionToolPage').then((m) => ({ default: m.GalleryInscriptionToolPage })));
+const RecursiveCollectionToolPage = lazy(() => import('./pages/RecursiveCollectionToolPage'));
+const CollectionDataToolPage = lazy(() => import('./pages/CollectionDataToolPage'));
+const AvifConverterPage = lazy(() => import('./pages/AvifConverterPage').then((m) => ({ default: m.AvifConverterPage })));
+const AudioSplitterPage = lazy(() => import('./pages/AudioSplitterPage').then((m) => ({ default: m.AudioSplitterPage })));
+const VideoSplitterPage = lazy(() => import('./pages/VideoSplitterPage').then((m) => ({ default: m.VideoSplitterPage })));
+const MarketplaceAdminToolPage = lazy(() => import('./pages/MarketplaceAdminToolPage'));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -52,36 +53,41 @@ function AppContent() {
         showMintingMenu={isMintingPage}
       />
       
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/black-wild" element={<MintingPage />} />
-        <Route path="/point-shop" element={<PointShopPage />} />
-        <Route path="/tech-games" element={<TechGamesPage />} />
-        <Route path="/bitcoin-mixtape" element={<BitcoinMixtapePage />} />
-        <Route path="/1984" element={<Orwell1984Page />} />
-        {/* NFT moved into /random-stuff */}
-        <Route path="/free-stuff" element={<FreeStuffPage />} />
-        <Route path="/random-stuff" element={<RandomStuffPage />} />
-        <Route path="/collection/:id" element={<CollectionMintingPage />} />
-        <Route path="/trade" element={<TradingPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/play" element={<GamePage />} />
-        <Route path="/link-gallery" element={<LinkGalleryPage />} />
-        <Route path="/smile-a-bit" element={<SmilePage />} />
-        <Route path="/slums" element={<SlumsPage />} />
-        <Route path="/badcats" element={<BadCatsPage />} />
-        <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
-        <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
-        <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
-        <Route path="/admin/collection-data" element={<CollectionDataToolPage />} />
-        <Route path="/admin/avif-converter" element={<AvifConverterPage />} />
-        <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
-        <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
-        <Route path="/admin/marketplace-tool" element={<AdminRoute><MarketplaceAdminToolPage /></AdminRoute>} />
-        <Route path="/marketplace" element={<AdminRoute><MarketplacePage /></AdminRoute>} />
-        <Route path="/marketplace/profile" element={<AdminRoute><MarketplaceProfilePage /></AdminRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<div className="px-4 py-6 text-sm text-gray-300">Loading page...</div>}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/black-wild" element={<MintingPage />} />
+          <Route path="/point-shop" element={<PointShopPage />} />
+          <Route path="/tech-games" element={<TechGamesPage />} />
+          <Route path="/bitcoin-mixtape" element={<BitcoinMixtapePage />} />
+          <Route path="/1984" element={<Orwell1984Page />} />
+          {/* NFT moved into /random-stuff */}
+          <Route path="/free-stuff" element={<FreeStuffPage />} />
+          <Route path="/books-onchain" element={<BooksOnchainPage />} />
+          <Route path="/random-stuff" element={<RandomStuffPage />} />
+          <Route path="/collection/:id" element={<CollectionMintingPage />} />
+          <Route path="/trade" element={<TradingPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/play" element={<GamePage />} />
+          <Route path="/link-gallery" element={<LinkGalleryPage />} />
+          <Route path="/smile-a-bit" element={<SmilePage />} />
+          <Route path="/slums" element={<SlumsPage />} />
+          <Route path="/badcats" element={<BadCatsPage />} />
+          <Route path="/cattack" element={<CatWarPage />} />
+          <Route path="/catwar" element={<Navigate to="/cattack" replace />} />
+          <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
+          <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
+          <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
+          <Route path="/admin/collection-data" element={<CollectionDataToolPage />} />
+          <Route path="/admin/avif-converter" element={<AvifConverterPage />} />
+          <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
+          <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
+          <Route path="/admin/marketplace-tool" element={<AdminRoute><MarketplaceAdminToolPage /></AdminRoute>} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/marketplace/profile" element={<MarketplaceProfilePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
 
       {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
       
