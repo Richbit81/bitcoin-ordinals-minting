@@ -84,7 +84,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'marketplace',
       name: 'Marketplace',
-      thumbnail: '/images/marketplace-symbol.png',
+      thumbnail: '/images/books-onchain.png',
       description: 'Trade Ordinals on RichArt',
       order: 999,
     },
@@ -112,7 +112,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'books-onchain',
       name: 'Books Onchain',
-      thumbnail: '/images/books-onchain.png',
+      thumbnail: '/images/marketplace-symbol.png',
       description: 'Books that live forever on Bitcoin',
       order: 10,
     },

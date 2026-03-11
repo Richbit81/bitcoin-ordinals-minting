@@ -486,6 +486,7 @@ export const MarketplacePage: React.FC = () => {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   const [showAdminTools, setShowAdminTools] = useState(false);
+  const [showActiveListingsSection, setShowActiveListingsSection] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('all');
   const [sortMode, setSortMode] = useState<'latest' | 'price-asc' | 'price-desc'>('latest');
@@ -2733,13 +2734,14 @@ export const MarketplacePage: React.FC = () => {
     return rows;
   }, [baseFilteredListings, selectedTraitFilters, sortMode]);
 
-  const visibleFilteredListings = useMemo(
-    () => filteredListings.slice(0, visibleListingsCount),
-    [filteredListings, visibleListingsCount]
-  );
-  const hasMoreFilteredListings = visibleListingsCount < filteredListings.length;
+  const visibleFilteredListings = useMemo(() => {
+    if (!showActiveListingsSection) return [];
+    return filteredListings.slice(0, visibleListingsCount);
+  }, [filteredListings, visibleListingsCount, showActiveListingsSection]);
+  const hasMoreFilteredListings = showActiveListingsSection && visibleListingsCount < filteredListings.length;
 
   useEffect(() => {
+    if (!showActiveListingsSection) return;
     if (visibleFilteredListings.length === 0) return;
     let cancelled = false;
 
@@ -2825,13 +2827,14 @@ export const MarketplacePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [visibleFilteredListings]);
+  }, [visibleFilteredListings, showActiveListingsSection]);
 
   useEffect(() => {
     setVisibleListingsCount(INITIAL_LISTINGS_VISIBLE);
   }, [searchQuery, collectionFilter, sortMode, selectedTraitFilters, listings.length]);
 
   useEffect(() => {
+    if (!showActiveListingsSection) return;
     if (listingsLoading || !hasMoreFilteredListings) return;
     const node = listingsLoadMoreRef.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
@@ -2849,7 +2852,7 @@ export const MarketplacePage: React.FC = () => {
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [listingsLoading, hasMoreFilteredListings, filteredListings.length]);
+  }, [listingsLoading, hasMoreFilteredListings, filteredListings.length, showActiveListingsSection]);
 
   useEffect(() => {
     if (walletState.connected) {
@@ -2988,7 +2991,9 @@ export const MarketplacePage: React.FC = () => {
             </select>
           </div>
           <div className="mt-2 text-xs text-gray-400">
-            Showing {visibleFilteredListings.length} of {filteredListings.length} listing(s) • Avg price {avgPriceSats.toLocaleString()} sats
+            {showActiveListingsSection
+              ? `Showing ${visibleFilteredListings.length} of ${filteredListings.length} listing(s) • Avg price ${avgPriceSats.toLocaleString()} sats`
+              : `Active listings hidden for faster loading • ${filteredListings.length} listing(s) available`}
           </div>
         </div>
 
@@ -3586,9 +3591,22 @@ export const MarketplacePage: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold">Active Listings</h2>
-            <span className="text-xs text-gray-400">Preview-first cards</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Preview-first cards</span>
+              <button
+                type="button"
+                onClick={() => setShowActiveListingsSection((prev) => !prev)}
+                className="px-3 py-1.5 rounded border border-white/15 bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold"
+              >
+                {showActiveListingsSection ? 'Hide Active Listings' : 'Show Active Listings'}
+              </button>
+            </div>
           </div>
-          {listingsLoading ? (
+          {!showActiveListingsSection ? (
+            <div className="rounded-xl border border-white/15 p-4 text-sm text-gray-400 bg-zinc-950/60">
+              Active listings are hidden by default for faster page loading.
+            </div>
+          ) : listingsLoading ? (
             <div className="rounded-xl border border-white/15 p-4 text-sm text-gray-400">Loading listings...</div>
           ) : filteredListings.length === 0 ? (
             <div className="rounded-xl border border-white/15 p-8 text-center bg-zinc-950/60">
