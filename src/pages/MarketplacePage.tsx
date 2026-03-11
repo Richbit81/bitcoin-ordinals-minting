@@ -676,8 +676,9 @@ export const MarketplacePage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const wantsMyItems = collectionViewMode === 'my-items' || collectionItemsFilter === 'my-items';
     const loadMyCollections = async () => {
-      if (collectionViewMode !== 'my-items') {
+      if (!wantsMyItems) {
         setMyCollectionsLoading(false);
         return;
       }
@@ -805,7 +806,7 @@ export const MarketplacePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [walletState.connected, taprootAddress, collectionViewMode]);
+  }, [walletState.connected, taprootAddress, collectionViewMode, collectionItemsFilter]);
 
   useEffect(() => {
     if (collectionViewMode === 'my-items') {
@@ -2411,7 +2412,9 @@ export const MarketplacePage: React.FC = () => {
       if (collectionItemsFilter === 'my-items') {
         const owner = String(ins.owner_address || '').trim().toLowerCase();
         const idMatch = myWalletInscriptionIds.has(String(ins.inscription_id || '').trim());
-        const ownerMatch = !!currentAddress && owner === currentAddress.toLowerCase();
+        const ownerMatch =
+          (!!currentAddress && owner === currentAddress.toLowerCase()) ||
+          (!!taprootAddress && owner === taprootAddress.toLowerCase());
         if (!idMatch && !ownerMatch) return false;
       }
       const activeTraitTypes = Object.entries(collectionSelectedTraitFilters).filter(([, vals]) => vals && vals.length > 0);
@@ -2469,6 +2472,7 @@ export const MarketplacePage: React.FC = () => {
     collectionInscriptions,
     collectionItemsFilter,
     currentAddress,
+    taprootAddress,
     myWalletInscriptionIds,
     collectionSelectedTraitFilters,
     collectionRarityFilter,
