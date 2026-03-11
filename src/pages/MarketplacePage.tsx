@@ -366,8 +366,8 @@ const PreviewImage: React.FC<{
   useEffect(() => {
     if (lightweight) return;
     if (!iframeFallback || loaded || noPreviewAvailable || iframeFallbackUsePreview) return;
-    // Some HTML inscriptions need a bit more time; only then switch to preview endpoint.
-    const timeoutMs = 9000;
+    // Keep collection cards responsive: switch to preview endpoint quickly when content stalls.
+    const timeoutMs = 2500;
     const timer = window.setTimeout(() => {
       setIframeFallbackUsePreview(true);
       debugLog('iframe-fallback-switch-to-preview', { timeoutMs, inscriptionId });
@@ -3362,26 +3362,9 @@ export const MarketplacePage: React.FC = () => {
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
-                    const contentTypeHint = String(
-                      ins?.contentType ||
-                      ins?.content_type ||
-                      ins?.mimeType ||
-                      ins?.mime_type ||
-                      ins?.metadata?.mimeType ||
-                      ins?.metadata?.mime_type ||
-                      ins?.metadata?.contentType ||
-                      ins?.metadata?.content_type ||
-                      ins?.metadata?.type ||
-                      ''
-                    ).toLowerCase();
-                    const preferIframePreview =
-                      contentTypeHint.includes('text/html') ||
-                      contentTypeHint.includes('application/xhtml') ||
-                      contentTypeHint.includes('image/svg+xml') ||
-                      contentTypeHint.includes('svg') ||
-                      /(badcats|bad-cats|bchalloween|halloween|ganja|ganja-onchain)/i.test(
-                        String(selectedCollectionSlug || '')
-                      );
+                    // Collection view must be resilient across mixed media types (AVIF/SVG/HTML/3D/recursive).
+                    // Force iframe-capable rendering path here for maximum compatibility.
+                    const preferIframePreview = true;
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
