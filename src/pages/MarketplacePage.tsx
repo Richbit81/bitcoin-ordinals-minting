@@ -221,7 +221,8 @@ const PreviewImage: React.FC<{
     setRecursiveSvgDoc(null);
     setHtmlPreviewDoc(null);
     setDocProbeRequested(preferIframe && !lightweight);
-    setIframeFallback(preferIframe && !lightweight);
+    // Fast-first: try direct image sources first, fallback to iframe only when needed.
+    setIframeFallback(false);
     setIframeFallbackUsePreview(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -348,7 +349,7 @@ const PreviewImage: React.FC<{
     if (lightweight) return;
     if (loaded || iframeFallback || noPreviewAvailable) return;
     if (!currentSrc) return;
-    const timeoutMs = 3500;
+    const timeoutMs = preferIframe ? 1400 : 3500;
     const timer = window.setTimeout(() => {
       setLoaded(false);
       setSourceIndex((prev) => {
@@ -361,7 +362,7 @@ const PreviewImage: React.FC<{
       });
     }, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, lightweight]);
+  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, lightweight, preferIframe]);
 
   useEffect(() => {
     if (lightweight) return;
@@ -524,6 +525,7 @@ export const MarketplacePage: React.FC = () => {
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionLoadingMore, setCollectionLoadingMore] = useState(false);
+  const [collectionAutoLoadingAll, setCollectionAutoLoadingAll] = useState(false);
   const [collectionSearch, setCollectionSearch] = useState('');
   const [showCollectionTraitFilters, setShowCollectionTraitFilters] = useState(false);
   const [collectionSelectedTraitFilters, setCollectionSelectedTraitFilters] = useState<Record<string, string[]>>({});
@@ -540,6 +542,7 @@ export const MarketplacePage: React.FC = () => {
   const rareSatsCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const myItemsSlugHydrationKeyRef = useRef<string>('');
+  const collectionAutoLoadRunningRef = useRef(false);
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
@@ -1954,7 +1957,7 @@ export const MarketplacePage: React.FC = () => {
         return baseValue === '-' && cachedValue === undefined;
       })
       .map((ins) => ins.inscription_id)
-      .slice(0, 120);
+      .slice(0, 48);
 
     const cachedVisible: Record<string, string> = {};
     for (const ins of collectionInscriptions) {
@@ -2022,6 +2025,67 @@ export const MarketplacePage: React.FC = () => {
       cancelled = true;
     };
   }, [collectionModalOpen, selectedCollectionSlug, collectionInscriptions]);
+
+  useEffect(() => {
+    if (!collectionModalOpen || !selectedCollectionSlug) return;
+    if (collectionSearch.trim()) return;
+    if (collectionLoading || collectionLoadingMore) return;
+    if (collectionInscriptions.length === 0) return;
+    if (collectionInscriptions.length >= collectionInscriptionsTotal) return;
+    if (collectionAutoLoadRunningRef.current) return;
+
+    let cancelled = false;
+    collectionAutoLoadRunningRef.current = true;
+
+    const mergeById = (
+      base: MarketplaceCollectionInscription[],
+      next: MarketplaceCollectionInscription[]
+    ): MarketplaceCollectionInscription[] => {
+      const byId = new Map<string, MarketplaceCollectionInscription>();
+      for (const row of base) byId.set(row.inscription_id, row);
+      for (const row of next) byId.set(row.inscription_id, row);
+      return Array.from(byId.values());
+    };
+
+    const loadAllInBackground = async () => {
+      try {
+        setCollectionAutoLoadingAll(true);
+        let offset = collectionInscriptions.length;
+        while (!cancelled && offset < collectionInscriptionsTotal) {
+          const data = await getMarketplaceCollectionInscriptions({
+            collectionSlug: selectedCollectionSlug,
+            search: '',
+            limit: COLLECTION_PAGE_SIZE,
+            offset,
+          });
+          const nextRows = Array.isArray(data?.inscriptions) ? data.inscriptions : [];
+          if (nextRows.length === 0) break;
+          offset += nextRows.length;
+          setCollectionInscriptions((prev) => mergeById(prev, nextRows));
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
+        }
+      } catch {
+        // Keep modal responsive if background paging fails.
+      } finally {
+        collectionAutoLoadRunningRef.current = false;
+        if (!cancelled) setCollectionAutoLoadingAll(false);
+      }
+    };
+
+    loadAllInBackground();
+    return () => {
+      cancelled = true;
+      collectionAutoLoadRunningRef.current = false;
+    };
+  }, [
+    collectionModalOpen,
+    selectedCollectionSlug,
+    collectionSearch,
+    collectionLoading,
+    collectionLoadingMore,
+    collectionInscriptions.length,
+    collectionInscriptionsTotal,
+  ]);
 
   const totalListed = listings.length;
   const floorPriceSats = listings.reduce((min, l) => {
@@ -3224,6 +3288,11 @@ export const MarketplacePage: React.FC = () => {
                     <span>
                       Showing {filteredCollectionInscriptions.length} / {collectionInscriptions.length} loaded
                     </span>
+                    {collectionAutoLoadingAll && (
+                      <span className="px-2 py-0.5 rounded border border-sky-600/50 bg-sky-900/20 text-sky-300">
+                        Loading all in background...
+                      </span>
+                    )}
                     <span
                       className={`px-2 py-0.5 rounded border ${
                         collectionInscriptionsTotal > 0 && collectionInscriptions.length >= collectionInscriptionsTotal
