@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
 
 export interface MarketplaceCollectionRanking {
   slug: string;
@@ -415,23 +415,184 @@ export async function getMarketplaceProfile(address: string): Promise<Marketplac
   return res.json();
 }
 
+export async function getMarketplaceWalletInscriptionsByCollectionScan(
+  address: string
+): Promise<MarketplaceProfile['walletInscriptions']> {
+  const normalizedAddress = String(address || '').trim();
+  if (!normalizedAddress) return [];
+  const normalizedLower = normalizedAddress.toLowerCase();
+
+  const collections = await getMarketplaceCollections({ includeInactive: false, adminAddress: normalizedAddress });
+  const byId = new Map<string, MarketplaceProfile['walletInscriptions'][number]>();
+
+  for (const collection of collections) {
+    const slug = String(collection.slug || '').trim();
+    if (!slug || collection.active === false) continue;
+
+    let offset = 0;
+    let total = Infinity;
+    let pageGuard = 0;
+    const limit = 120;
+
+    while (offset < total && pageGuard < 200) {
+      const page = await getMarketplaceCollectionInscriptions({
+        collectionSlug: slug,
+        limit,
+        offset,
+      });
+      total = Number(page.total || 0);
+      const rows = page.inscriptions || [];
+      if (rows.length === 0) break;
+
+      for (const row of rows) {
+        const owner = String(row.owner_address || '').trim().toLowerCase();
+        if (owner !== normalizedLower) continue;
+        const inscriptionId = String(row.inscription_id || '').trim();
+        if (!inscriptionId) continue;
+        byId.set(inscriptionId, {
+          inscription_id: inscriptionId,
+          collection_slug: slug,
+          collection_name: collection.name || slug,
+          owner_address: row.owner_address,
+          listed: row.listed,
+          metadata: row.metadata,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        });
+      }
+
+      offset += rows.length;
+      pageGuard += 1;
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
+export async function getMarketplaceWalletInscriptionsViaUnisat(
+  address: string
+): Promise<MarketplaceProfile['walletInscriptions']> {
+  const normalizedAddress = String(address || '').trim();
+  if (!normalizedAddress) return [];
+
+  const pageSize = 100;
+  let cursor = 0;
+  let total = Number.POSITIVE_INFINITY;
+  let guard = 0;
+  const byId = new Map<string, MarketplaceProfile['walletInscriptions'][number]>();
+
+  while (cursor < total && guard < 300) {
+    try {
+      const res = await fetch(
+        `${API_URL}/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) {
+        // Keep already collected rows if UniSat rate-limits/CORS-blocks later pages.
+        break;
+      }
+      const json = await res.json();
+      if (Number(json?.code) !== 0) {
+        break;
+      }
+
+      const data = json?.data || {};
+      const rows = Array.isArray(data?.inscription) ? data.inscription : [];
+      total = Number(data?.total || 0);
+
+      for (const row of rows) {
+        const inscriptionId = String(row?.inscriptionId || row?.inscription_id || '').trim();
+        if (!inscriptionId) continue;
+        byId.set(inscriptionId, {
+          inscription_id: inscriptionId,
+          owner_address: normalizedAddress,
+          listed: false,
+          metadata: {
+            name: String(row?.inscriptionNumber ?? '').trim() ? `#${row.inscriptionNumber}` : inscriptionId,
+            inscriptionNumber: row?.inscriptionNumber,
+            contentType: row?.contentType,
+            contentLength: row?.contentLength,
+          },
+        });
+      }
+
+      if (rows.length < pageSize) break;
+      cursor += pageSize;
+      guard += 1;
+    } catch {
+      // Network/CORS failure: return partial results instead of failing whole My-Items flow.
+      break;
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
 export async function getMarketplaceListings(params?: {
   status?: 'active' | 'sold' | 'cancelled' | 'all';
   sellerAddress?: string;
   collectionSlug?: string;
+  inscriptionId?: string;
   limit?: number;
   offset?: number;
+  lightweight?: boolean;
 }): Promise<MarketplaceListing[]> {
-  const query = new URLSearchParams();
-  if (params?.status) query.set('status', params.status);
-  if (params?.sellerAddress) query.set('sellerAddress', params.sellerAddress);
-  if (params?.collectionSlug) query.set('collectionSlug', params.collectionSlug);
-  if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
-  if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
-  const res = await fetch(`${API_URL}/api/marketplace/v1/listings?${query.toString()}`);
-  if (!res.ok) throw new Error('Failed to load marketplace listings');
-  const data = await res.json();
-  return data.listings || [];
+  const buildQuery = (input?: {
+    status?: 'active' | 'sold' | 'cancelled' | 'all';
+    sellerAddress?: string;
+    collectionSlug?: string;
+    inscriptionId?: string;
+    limit?: number;
+    offset?: number;
+    lightweight?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    if (input?.status) query.set('status', input.status);
+    if (input?.sellerAddress) query.set('sellerAddress', input.sellerAddress);
+    if (input?.collectionSlug) query.set('collectionSlug', input.collectionSlug);
+    if (input?.inscriptionId) query.set('inscriptionId', input.inscriptionId);
+    if (typeof input?.limit === 'number') query.set('limit', String(input.limit));
+    if (typeof input?.offset === 'number') query.set('offset', String(input.offset));
+    if (input?.lightweight) query.set('lightweight', '1');
+    return query;
+  };
+
+  const primaryQuery = buildQuery(params);
+  const primaryRes = await fetch(`${API_URL}/api/marketplace/v1/listings?${primaryQuery.toString()}`);
+  if (primaryRes.ok) {
+    const data = await primaryRes.json();
+    return data.listings || [];
+  }
+
+  const shouldRetryUnfiltered = Boolean(params?.collectionSlug || params?.inscriptionId);
+  if (!shouldRetryUnfiltered) {
+    throw new Error('Failed to load marketplace listings');
+  }
+
+  // Backend fallback: some deployments throw 500 on filtered listings queries.
+  // Retry with broad query, then filter client-side.
+  const retryParams = {
+    status: params?.status,
+    sellerAddress: params?.sellerAddress,
+    limit: Math.max(Number(params?.limit || 0), 200) || 200,
+    offset: 0,
+    lightweight: params?.lightweight,
+  };
+  const fallbackQuery = buildQuery(retryParams);
+  const fallbackRes = await fetch(`${API_URL}/api/marketplace/v1/listings?${fallbackQuery.toString()}`);
+  if (!fallbackRes.ok) {
+    throw new Error('Failed to load marketplace listings');
+  }
+  const fallbackData = await fallbackRes.json();
+  const baseListings = Array.isArray(fallbackData?.listings) ? fallbackData.listings : [];
+  const targetSlug = String(params?.collectionSlug || '').trim().toLowerCase();
+  const targetInscription = String(params?.inscriptionId || '').trim();
+
+  return baseListings.filter((row: MarketplaceListing) => {
+    if (targetSlug && String(row?.collection_slug || '').trim().toLowerCase() !== targetSlug) return false;
+    if (targetInscription && String(row?.inscription_id || '').trim() !== targetInscription) return false;
+    return true;
+  });
 }
 
 export async function getMarketplaceInscriptionDetail(inscriptionId: string): Promise<MarketplaceInscriptionDetail> {
@@ -460,6 +621,7 @@ export async function createMarketplaceListing(payload: {
   inscriptionId: string;
   collectionSlug: string;
   sellerAddress: string;
+  sellerPaymentAddress?: string;
   buyerReceiveAddress: string;
   priceSats: number;
 }): Promise<{ listingId: string }> {
@@ -470,6 +632,55 @@ export async function createMarketplaceListing(payload: {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to create listing');
+  return data;
+}
+
+export async function prepareMarketplaceListingPsbt(payload: {
+  inscriptionId: string;
+  collectionSlug: string;
+  sellerAddress: string;
+  sellerPaymentAddress?: string;
+  sellerPublicKey?: string;
+  buyerReceiveAddress: string;
+  priceSats: number;
+  feeRate?: number;
+}): Promise<{ listingId: string; psbtBase64: string; ownerAddress?: string }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/listings/prepare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      inscriptionId: payload.inscriptionId,
+      collectionSlug: payload.collectionSlug,
+      sellerAddress: payload.sellerAddress,
+      sellerPaymentAddress: payload.sellerPaymentAddress || payload.sellerAddress,
+      sellerPublicKey: payload.sellerPublicKey || '',
+      buyerReceiveAddress: payload.buyerReceiveAddress,
+      priceSats: payload.priceSats,
+      feeRate: payload.feeRate || null,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || data?.message || 'Failed to prepare marketplace listing PSBT');
+  return data;
+}
+
+export async function finalizeMarketplaceListingPsbt(payload: {
+  listingId: string;
+  walletAddress: string;
+  signedPsbtHex?: string;
+  signedPsbtBase64?: string;
+}): Promise<{ listingId: string; txid?: string }> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/finalize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      walletAddress: payload.walletAddress,
+      signedPsbtHex: payload.signedPsbtHex || null,
+      signedPsbtBase64: payload.signedPsbtBase64 || null,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || data?.message || 'Failed to finalize marketplace listing PSBT');
   return data;
 }
 
@@ -552,9 +763,77 @@ export async function completeMarketplacePurchaseAdvanced(payload: {
       signedPsbtBase64: payload.signedPsbtBase64 || null,
     }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || 'Failed to complete advanced PSBT purchase');
+  const rawText = await res.text();
+  let data: any = {};
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    data = {};
+  }
+  if (!res.ok) {
+    const backendMsg = String(data?.error || '').trim();
+    if (backendMsg) throw new Error(backendMsg);
+    if (res.status === 400) {
+      throw new Error('PSBT buy failed: wallet did not provide funded buyer inputs (outputs > inputs).');
+    }
+    throw new Error(`Failed to complete advanced PSBT purchase (HTTP ${res.status})`);
+  }
   return data;
+}
+
+export async function prepareMarketplacePurchaseAdvanced(payload: {
+  listingId: string;
+  buyerAddress: string;
+  fundingAddress?: string;
+  fundingAddressCandidates?: string[];
+  fundingPublicKey?: string;
+  fundingPublicKeys?: string[];
+  fundingRedeemScripts?: string[];
+  feeRate?: number;
+}): Promise<{
+  fundedPsbtBase64: string;
+  funding?: {
+    addedInputCount?: number;
+    addedInputTotalSats?: number;
+    requiredPaymentSats?: number;
+    estimatedFeeSats?: number;
+    estimatedBuyerDebitSats?: number;
+    changeSats?: number;
+    signingAddress?: string;
+    buyerSigningIndexes?: number[];
+  };
+}> {
+  const res = await fetch(`${API_URL}/api/marketplace/v1/listings/${encodeURIComponent(payload.listingId)}/buy-prepare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      buyerAddress: payload.buyerAddress,
+      fundingAddress: payload.fundingAddress || payload.buyerAddress,
+      fundingAddressCandidates: Array.isArray(payload.fundingAddressCandidates)
+        ? payload.fundingAddressCandidates
+        : [],
+      fundingPublicKey: payload.fundingPublicKey || '',
+      fundingPublicKeys: Array.isArray(payload.fundingPublicKeys) ? payload.fundingPublicKeys : [],
+      fundingRedeemScripts: Array.isArray(payload.fundingRedeemScripts) ? payload.fundingRedeemScripts : [],
+      feeRate: payload.feeRate || 2,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const baseError = String(data?.error || '').trim() || 'Failed to prepare advanced PSBT purchase';
+    const hint = String(data?.hint || '').trim();
+    const diagnostics = data?.diagnostics && typeof data.diagnostics === 'object'
+      ? ` diagnostics=${JSON.stringify(data.diagnostics)}`
+      : '';
+    const details = [hint, diagnostics].filter(Boolean).join(' ');
+    throw new Error(details ? `${baseError} (${details})` : baseError);
+  }
+  const prepared = String(data?.fundedPsbtBase64 || '').trim();
+  if (!prepared) throw new Error('Backend returned no funded PSBT payload');
+  return {
+    fundedPsbtBase64: prepared,
+    funding: data?.funding || {},
+  };
 }
 
 export async function createMarketplaceOffer(payload: {
