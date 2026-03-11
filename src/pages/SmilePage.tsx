@@ -519,7 +519,7 @@ export const SmilePage: React.FC = () => {
 
                 <div className="text-center mt-4">
                   <a
-                    href="https://magiceden.io/ordinals/marketplace/smile"
+                    href="/marketplace?collection=smile"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm font-bold text-purple-400 hover:text-purple-300 underline transition-colors"

@@ -7,14 +7,18 @@ import {
   cancelMarketplaceListing,
   completeMarketplaceOfferSale,
   completeMarketplacePurchaseAdvanced,
-  completeMarketplacePurchase,
   createMarketplaceOffer,
-  createMarketplaceListing,
+  finalizeMarketplaceListingPsbt,
   getMarketplaceCollectionInscriptions,
   declineMarketplaceOffer,
   getMarketplaceCollections,
   getMarketplaceInscriptionDetail,
   getMarketplaceListings,
+  prepareMarketplacePurchaseAdvanced,
+  prepareMarketplaceListingPsbt,
+  getMarketplaceProfile,
+  getMarketplaceWalletInscriptionsByCollectionScan,
+  getMarketplaceWalletInscriptionsViaUnisat,
   getMarketplaceRareSatsBatch,
   getMarketplaceRanking,
   MarketplaceCollection,
@@ -23,20 +27,125 @@ import {
   MarketplaceInscriptionDetail,
   MarketplaceListing,
 } from '../services/marketplaceService';
-import { sendMultipleBitcoinPayments, signPSBT } from '../utils/wallet';
+import { connectXverse, getOrdinalAddress, getPaymentAddress, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || 'https://api.richart.app').replace(/\/+$/, '');
 const COLLECTION_PAGE_SIZE = 80;
 const INITIAL_LISTINGS_VISIBLE = 24;
 const LISTINGS_LOAD_STEP = 24;
+const INITIAL_ACTIVE_LISTINGS_LIMIT = 24;
+const INITIAL_SOLD_LISTINGS_LIMIT = 8;
+const FULL_ACTIVE_LISTINGS_LIMIT = 100;
+const FULL_SOLD_LISTINGS_LIMIT = 20;
 const MARKETPLACE_COLLECTIONS_CACHE_KEY = 'marketplaceCollectionsCacheV1';
 const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
+const MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY = 'marketplaceCollectionTotalsCacheV1';
+const MARKETPLACE_COLLECTION_TOTALS_CACHE_TTL_MS = 300_000;
+const MARKETPLACE_LISTINGS_CACHE_KEY = 'marketplaceListingsCacheV1';
+const MARKETPLACE_LISTINGS_CACHE_TTL_MS = 45_000;
+const MARKETPLACE_RANKING_CACHE_KEY = 'marketplaceRankingCacheV1';
+const MARKETPLACE_RANKING_CACHE_TTL_MS = 30_000;
+const MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX = 'marketplaceWalletRowsV1:';
+const MARKETPLACE_WALLET_ROWS_LAST_KEY = 'marketplaceWalletRowsLastV1';
 const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX_EXCLUSIVE = 95_000_000_000_000;
 const VINTAGE_SAT_MAX_EXCLUSIVE = 5_000_000_000_000;
 const RARE_SAT_OVERRIDES_BY_INSCRIPTION: Record<string, string> = {
   '6efa80055d144fd67b477c828e4778e3c0582e0b6e728bb8f222c05b73ac3723i0': 'silk road',
+};
+const ordContentUrl = (id: string) => `${ORD_SERVER_URL}/content/${encodeURIComponent(String(id || '').trim())}`;
+const ordPreviewUrl = (id: string) => `${ORD_SERVER_URL}/preview/${encodeURIComponent(String(id || '').trim())}`;
+const ordinalsContentUrl = (id: string) => `https://ordinals.com/content/${encodeURIComponent(String(id || '').trim())}`;
+const ordinalsPreviewUrl = (id: string) => `https://ordinals.com/preview/${encodeURIComponent(String(id || '').trim())}`;
+const safeReadCache = <T,>(key: string): T | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromSession = window.sessionStorage.getItem(key);
+    if (fromSession) return JSON.parse(fromSession) as T;
+  } catch {}
+  try {
+    const fromLocal = window.localStorage.getItem(key);
+    if (fromLocal) return JSON.parse(fromLocal) as T;
+  } catch {}
+  return null;
+};
+const safeWriteCache = (key: string, value: unknown) => {
+  if (typeof window === 'undefined') return;
+  const serialized = JSON.stringify(value);
+  try {
+    window.sessionStorage.setItem(key, serialized);
+  } catch {}
+  try {
+    window.localStorage.setItem(key, serialized);
+  } catch {}
+};
+const walletRowInscriptionId = (row: any): string =>
+  String(row?.inscription_id || row?.inscriptionId || '').trim();
+const walletRowCollectionSlug = (row: any): string =>
+  String(row?.collection_slug || row?.collectionSlug || '').trim();
+const readWalletPublicKeyFromEntry = (entry: any): string => {
+  if (!entry || typeof entry !== 'object') return '';
+  const candidates = [
+    entry.publicKey,
+    entry.publicKeyHex,
+    entry.pubKey,
+    entry.pubkey,
+    entry.public_key,
+    entry.paymentPublicKey,
+    entry.paymentPublicKeyHex,
+    entry.paymentPubkey,
+    entry.ordinalsPublicKey,
+    entry.addressPublicKey,
+    entry.btcPublicKey,
+    entry?.keys?.payment?.publicKey,
+    entry?.keys?.payment?.publicKeyHex,
+    entry?.keys?.ordinals?.publicKey,
+    entry?.account?.publicKey,
+  ];
+  for (const value of candidates) {
+    const normalized = String(value || '').trim();
+    if (normalized) return normalized;
+  }
+  return '';
+};
+const readWalletRedeemScriptFromEntry = (entry: any): string => {
+  if (!entry || typeof entry !== 'object') return '';
+  const candidates = [
+    entry.redeemScript,
+    entry.redeem_script,
+    entry.paymentRedeemScript,
+    entry?.keys?.payment?.redeemScript,
+    entry?.keys?.ordinals?.redeemScript,
+    entry?.payment?.redeemScript,
+  ];
+  for (const value of candidates) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^0x/i, '');
+    if (normalized && /^[0-9a-f]+$/i.test(normalized) && normalized.length % 2 === 0) return normalized;
+  }
+  return '';
+};
+const extractXverseAddressRows = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.result)) return payload.result;
+  if (Array.isArray(payload?.addresses)) return payload.addresses;
+  if (Array.isArray(payload?.addressses)) return payload.addressses;
+  if (Array.isArray(payload?.result?.addresses)) return payload.result.addresses;
+  if (Array.isArray(payload?.result?.addressses)) return payload.result.addressses;
+  if (Array.isArray(payload?.data?.addresses)) return payload.data.addresses;
+  if (Array.isArray(payload?.data?.addressses)) return payload.data.addressses;
+  return [];
+};
+const extractXverseProviderAccounts = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.accounts)) return payload.accounts;
+  if (Array.isArray(payload?.result?.accounts)) return payload.result.accounts;
+  if (Array.isArray(payload?.result)) return payload.result;
+  if (Array.isArray(payload?.data?.accounts)) return payload.data.accounts;
+  return [];
 };
 
 const isPreviewDebugEnabled = (): boolean => {
@@ -55,7 +164,19 @@ const PreviewImage: React.FC<{
   className: string;
   imageClassName?: string;
   fit?: 'cover' | 'contain';
-}> = ({ inscriptionId, alt, className, imageClassName = '', fit = 'cover' }) => {
+  preferredSources?: string[];
+  lightweight?: boolean;
+  preferIframe?: boolean;
+}> = ({
+  inscriptionId,
+  alt,
+  className,
+  imageClassName = '',
+  fit = 'cover',
+  preferredSources = [],
+  lightweight = false,
+  preferIframe = false,
+}) => {
   const encodedId = encodeURIComponent(inscriptionId);
   const blobUrlRef = useRef<string | null>(null);
   const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
@@ -64,15 +185,28 @@ const PreviewImage: React.FC<{
   const [docProbeRequested, setDocProbeRequested] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
-  const imageSources = [
-    preprocessedSrc,
-    apiImageUrl,
-    `https://ordinals.com/preview/${encodedId}`,
-    `https://ordinals.com/content/${encodedId}`,
-  ].filter(Boolean) as string[];
+  const normalizedPreferred = (preferredSources || [])
+    .map((src) => String(src || '').trim())
+    .filter(Boolean);
+  const imageSources = Array.from(
+    new Set(
+      (lightweight
+        ? [...normalizedPreferred, ordinalsPreviewUrl(inscriptionId), apiImageUrl]
+        : [
+            preprocessedSrc,
+            ...normalizedPreferred,
+            apiImageUrl,
+            ordContentUrl(inscriptionId),
+            ordinalsPreviewUrl(inscriptionId),
+            ordinalsContentUrl(inscriptionId),
+          ]
+      ).filter(Boolean) as string[]
+    )
+  );
   const [loaded, setLoaded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [iframeFallback, setIframeFallback] = useState(false);
+  const [iframeFallbackUsePreview, setIframeFallbackUsePreview] = useState(false);
   const currentSrc = imageSources[sourceIndex];
   const noPreviewAvailable = sourceIndex >= imageSources.length && !iframeFallback;
   const debugLog = (...args: any[]) => {
@@ -86,51 +220,60 @@ const PreviewImage: React.FC<{
     setPreprocessedSrc(null);
     setRecursiveSvgDoc(null);
     setHtmlPreviewDoc(null);
-    setDocProbeRequested(false);
-    setIframeFallback(false);
+    setDocProbeRequested(preferIframe && !lightweight);
+    setIframeFallback(preferIframe && !lightweight);
+    setIframeFallbackUsePreview(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
     }
     debugLog('reset', { imageSources });
-  }, [inscriptionId]);
+  }, [inscriptionId, preferIframe, lightweight]);
 
   useEffect(() => {
+    if (lightweight) return;
     if (!docProbeRequested) return;
     let cancelled = false;
     const controller = new AbortController();
 
-    const normalizeRecursiveSvg = (svgRaw: string): string => {
+    const getContentBaseUrl = (src: string): string => {
+      try {
+        return new URL(src).origin;
+      } catch {
+        return ORD_SERVER_URL;
+      }
+    };
+    const normalizeRecursiveSvg = (svgRaw: string, contentBaseUrl: string): string => {
       let svg = svgRaw;
-      svg = svg.replace(/(xlink:href|href|src)=["']\/content\//gi, '$1="https://ordinals.com/content/');
-      svg = svg.replace(/url\((["']?)\/content\//gi, 'url($1https://ordinals.com/content/');
+      svg = svg.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
+      svg = svg.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
       // Some recursive SVGs omit image dimensions; force full-canvas defaults for stability.
       svg = svg.replace(/<image(?![^>]*\swidth=)(?![^>]*\sheight=)\s/gi, '<image width="1000" height="1000" ');
       return svg;
     };
-    const normalizeHtmlDoc = (htmlRaw: string): string => {
+    const normalizeHtmlDoc = (htmlRaw: string, contentBaseUrl: string): string => {
       let html = htmlRaw;
-      html = html.replace(/(xlink:href|href|src)=["']\/content\//gi, '$1="https://ordinals.com/content/');
-      html = html.replace(/url\((["']?)\/content\//gi, 'url($1https://ordinals.com/content/');
+      html = html.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
+      html = html.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(
           /<head([^>]*)>/i,
-          '<head$1><base href="https://ordinals.com/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style>'
+          `<head$1><base href="${contentBaseUrl}/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style>`
         );
       } else {
-        html = `<head><base href="https://ordinals.com/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style></head>${html}`;
+        html = `<head><base href="${contentBaseUrl}/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style></head>${html}`;
       }
       return html;
     };
 
     const hydrateRecursiveSvg = async () => {
-      const sources = [
-        `https://ordinals.com/content/${encodedId}`,
-        `https://ordinals.com/preview/${encodedId}`,
-      ];
+      // Avoid cross-origin CORS noise from API content endpoints here.
+      // Direct ordinals.com content fetch works better for srcDoc probing.
+      const sources = [ordinalsContentUrl(inscriptionId)];
       debugLog('preprocess-start', { sources });
       for (const src of sources) {
         try {
+          const contentBaseUrl = getContentBaseUrl(src);
           debugLog('preprocess-try', { src });
           const res = await fetch(src, {
             method: 'GET',
@@ -152,7 +295,7 @@ const PreviewImage: React.FC<{
               /<div[\s>]/i.test(trimmed) ||
               /data-l=/i.test(trimmed);
             if (looksLikeHtml) {
-              const normalizedHtml = normalizeHtmlDoc(trimmed);
+              const normalizedHtml = normalizeHtmlDoc(trimmed, contentBaseUrl);
               setHtmlPreviewDoc(normalizedHtml);
               // Prefer srcDoc rendering for recursive HTML inscriptions.
               setIframeFallback(false);
@@ -167,7 +310,7 @@ const PreviewImage: React.FC<{
             debugLog('preprocess-skip-no-recursive-content', { src });
             continue;
           }
-          const normalized = normalizeRecursiveSvg(trimmed);
+          const normalized = normalizeRecursiveSvg(trimmed, contentBaseUrl);
           // For recursive SVGs, iframe srcDoc rendering is more reliable than <img src=blob>.
           setRecursiveSvgDoc(normalized);
           const blob = new Blob([normalized], { type: 'image/svg+xml' });
@@ -194,19 +337,50 @@ const PreviewImage: React.FC<{
       cancelled = true;
       controller.abort();
     };
-  }, [encodedId, docProbeRequested, debugEnabled]);
+  }, [encodedId, docProbeRequested, debugEnabled, lightweight]);
 
   useEffect(() => {
     if (!noPreviewAvailable) return;
     debugLog('all-sources-failed', { imageSources });
   }, [noPreviewAvailable, inscriptionId, imageSources.length]);
 
+  useEffect(() => {
+    if (lightweight) return;
+    if (loaded || iframeFallback || noPreviewAvailable) return;
+    if (!currentSrc) return;
+    const timeoutMs = 3500;
+    const timer = window.setTimeout(() => {
+      setLoaded(false);
+      setSourceIndex((prev) => {
+        const next = prev + 1;
+        if (next >= imageSources.length) {
+          setIframeFallback(true);
+        }
+        debugLog('img-load-timeout-next-source', { currentSrc, prev, next, timeoutMs });
+        return next;
+      });
+    }, timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, lightweight]);
+
+  useEffect(() => {
+    if (lightweight) return;
+    if (!iframeFallback || loaded || noPreviewAvailable || iframeFallbackUsePreview) return;
+    // Some HTML inscriptions need a bit more time; only then switch to preview endpoint.
+    const timeoutMs = 9000;
+    const timer = window.setTimeout(() => {
+      setIframeFallbackUsePreview(true);
+      debugLog('iframe-fallback-switch-to-preview', { timeoutMs, inscriptionId });
+    }, timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview, lightweight]);
+
   return (
     <div className={`relative overflow-hidden ${className}`}>
       {!loaded && !noPreviewAvailable && (
         <div className="absolute inset-0 animate-pulse bg-zinc-800" />
       )}
-      {recursiveSvgDoc ? (
+      {!lightweight && recursiveSvgDoc ? (
         <iframe
           title={alt}
           srcDoc={recursiveSvgDoc}
@@ -218,7 +392,7 @@ const PreviewImage: React.FC<{
             debugLog('iframe-srcdoc-load-success');
           }}
         />
-      ) : htmlPreviewDoc ? (
+      ) : !lightweight && htmlPreviewDoc ? (
         <iframe
           title={alt}
           srcDoc={htmlPreviewDoc}
@@ -231,11 +405,11 @@ const PreviewImage: React.FC<{
             debugLog('iframe-html-srcdoc-load-success');
           }}
         />
-      ) : iframeFallback ? (
+      ) : !lightweight && iframeFallback ? (
         <div className="absolute inset-0 overflow-hidden bg-zinc-900">
           <iframe
             title={alt}
-            src={`https://ordinals.com/preview/${encodedId}`}
+            src={iframeFallbackUsePreview ? ordinalsPreviewUrl(inscriptionId) : ordinalsContentUrl(inscriptionId)}
             loading="lazy"
             scrolling="no"
             className="absolute border-0 bg-zinc-900"
@@ -262,11 +436,13 @@ const PreviewImage: React.FC<{
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onLoad={() => {
+          onLoad={(e) => {
             setLoaded(true);
             // Some recursive ordinals "load" in <img> but still render blank.
-            // Trigger doc probing after first successful load so we can upgrade to srcDoc when needed.
-            if (!docProbeRequested) {
+            // Trigger doc probing only for suspiciously blank image loads.
+            const img = e.currentTarget;
+            const maybeBlank = !img || img.naturalWidth <= 1 || img.naturalHeight <= 1;
+            if (!lightweight && maybeBlank && !docProbeRequested) {
               setDocProbeRequested(true);
             }
             debugLog('img-load-success', { currentSrc, sourceIndex });
@@ -275,9 +451,12 @@ const PreviewImage: React.FC<{
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
-              if (next >= imageSources.length) {
-                setDocProbeRequested(true);
+              if (!lightweight && next >= imageSources.length) {
+                // Always use iframe preview fallback after image sources are exhausted.
                 setIframeFallback(true);
+                if (!docProbeRequested) {
+                  setDocProbeRequested(true);
+                }
               }
               debugLog('img-load-error-next-source', { currentSrc, prev, next });
               return next;
@@ -300,6 +479,7 @@ export const MarketplacePage: React.FC = () => {
   const [rankingLoading, setRankingLoading] = useState(true);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [listingsLoading, setListingsLoading] = useState(true);
+  const [walletConnectModalOpen, setWalletConnectModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
@@ -310,10 +490,23 @@ export const MarketplacePage: React.FC = () => {
   const [visibleListingsCount, setVisibleListingsCount] = useState(INITIAL_LISTINGS_VISIBLE);
   const [selectedTraitFilters, setSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionsMeta, setCollectionsMeta] = useState<MarketplaceCollection[]>([]);
+  const [collectionTotalsBySlug, setCollectionTotalsBySlug] = useState<Record<string, number>>({});
+  const [myItemCollectionSlugs, setMyItemCollectionSlugs] = useState<string[]>([]);
+  const [myWalletInscriptionIds, setMyWalletInscriptionIds] = useState<Set<string>>(new Set());
+  const [myCollectionsLoading, setMyCollectionsLoading] = useState(false);
+  const [myItemsDebug, setMyItemsDebug] = useState<{
+    source: string;
+    rows: number;
+    ids: number;
+    slugs: number;
+    error?: string;
+  }>({ source: 'idle', rows: 0, ids: 0, slugs: 0 });
+  const [collectionViewMode, setCollectionViewMode] = useState<'all' | 'my-items'>('all');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedInscriptionDetail, setSelectedInscriptionDetail] = useState<MarketplaceInscriptionDetail | null>(null);
   const [selectedDetailListing, setSelectedDetailListing] = useState<MarketplaceListing | null>(null);
+  const [detailListPriceSats, setDetailListPriceSats] = useState('10000');
   const [offerPriceSats, setOfferPriceSats] = useState('');
   const [offerNote, setOfferNote] = useState('');
   const [offerSubmitting, setOfferSubmitting] = useState(false);
@@ -325,6 +518,7 @@ export const MarketplacePage: React.FC = () => {
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [collectionInscriptions, setCollectionInscriptions] = useState<MarketplaceCollectionInscription[]>([]);
   const [collectionRareSatsByInscription, setCollectionRareSatsByInscription] = useState<Record<string, string>>({});
+  const [collectionActiveListingsByInscription, setCollectionActiveListingsByInscription] = useState<Record<string, MarketplaceListing>>({});
   const [listingRareSatsByInscription, setListingRareSatsByInscription] = useState<Record<string, string>>({});
   const [collectionInscriptionsTotal, setCollectionInscriptionsTotal] = useState(0);
   const [collectionLoading, setCollectionLoading] = useState(false);
@@ -333,42 +527,71 @@ export const MarketplacePage: React.FC = () => {
   const [showCollectionTraitFilters, setShowCollectionTraitFilters] = useState(false);
   const [collectionSelectedTraitFilters, setCollectionSelectedTraitFilters] = useState<Record<string, string[]>>({});
   const [collectionRarityFilter, setCollectionRarityFilter] = useState<'all' | 'mythic' | 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common'>('all');
+  const [collectionItemsFilter, setCollectionItemsFilter] = useState<'all' | 'my-items'>('all');
   const [collectionSortMode, setCollectionSortMode] = useState<
-    'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc' | 'score-desc' | 'score-asc'
-  >('rarity-desc');
+    'price-asc' | 'price-desc' | 'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc' | 'score-desc' | 'score-asc'
+  >('price-asc');
   const rareSatsCacheRef = useRef<Record<string, string>>({});
-  const externalSatLookupCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const myItemsSlugHydrationKeyRef = useRef<string>('');
   const [form, setForm] = useState({
     inscriptionId: '',
     collectionSlug: '',
     priceSats: '10000',
   });
-  const currentAddress = walletState.accounts?.[0]?.address || '';
-  const isAdminUser = isAdminAddress(currentAddress);
+  const currentAddress = getOrdinalAddress(walletState.accounts || []);
+  const isAdminWallet = useMemo(
+    () => walletState.connected && !!currentAddress && isAdminAddress(currentAddress),
+    [walletState.connected, currentAddress]
+  );
+  const paymentAddress = getPaymentAddress(walletState.accounts || []);
+  const paymentPublicKey = useMemo(() => {
+    const rows = walletState.accounts || [];
+    const paymentByPurpose = rows.find((acc: any) => String(acc?.purpose || '').toLowerCase() === 'payment');
+    const keyByPurpose = readWalletPublicKeyFromEntry(paymentByPurpose);
+    if (keyByPurpose) {
+      return keyByPurpose;
+    }
+    const paymentByAddress = rows.find((acc: any) => String(acc?.address || '').trim() === String(paymentAddress || '').trim());
+    return readWalletPublicKeyFromEntry(paymentByAddress);
+  }, [walletState.accounts, paymentAddress]);
+  const ordinalsPublicKey = useMemo(() => {
+    const rows = walletState.accounts || [];
+    const ordByPurpose = rows.find((acc: any) => String(acc?.purpose || '').toLowerCase() === 'ordinals');
+    const keyByPurpose = readWalletPublicKeyFromEntry(ordByPurpose);
+    if (keyByPurpose) return keyByPurpose;
+    const ordByAddress = rows.find((acc: any) => String(acc?.address || '').trim() === String(currentAddress || '').trim());
+    return readWalletPublicKeyFromEntry(ordByAddress);
+  }, [walletState.accounts, currentAddress]);
+  const taprootAddress = useMemo(() => {
+    const direct = String(currentAddress || '').trim().toLowerCase();
+    if (direct.startsWith('bc1p')) return direct;
+    const fromAccounts = (walletState.accounts || [])
+      .map((acc) => String(acc?.address || '').trim().toLowerCase())
+      .find((addr) => addr.startsWith('bc1p'));
+    return fromAccounts || direct;
+  }, [currentAddress, walletState.accounts]);
   const autoOpenKeyRef = useRef<string>('');
 
   useEffect(() => {
-    if (!isAdminUser) return;
+    let cancelled = false;
     const loadCollections = async () => {
       try {
         setCollectionsLoading(true);
         setError(null);
         if (typeof window !== 'undefined') {
           try {
-            const raw = window.sessionStorage.getItem(MARKETPLACE_COLLECTIONS_CACHE_KEY);
-            if (raw) {
-              const parsed = JSON.parse(raw) as { ts: number; data: MarketplaceCollection[] };
-              if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTIONS_CACHE_TTL_MS) {
-                setCollectionsMeta(parsed.data);
-                setCollectionsLoading(false);
-              }
+            const parsed = safeReadCache<{ ts: number; data: MarketplaceCollection[] }>(MARKETPLACE_COLLECTIONS_CACHE_KEY);
+            if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTIONS_CACHE_TTL_MS) {
+              setCollectionsMeta(parsed.data);
+              setCollectionsLoading(false);
             }
           } catch {
             // Ignore malformed cache and continue with fresh fetch.
           }
         }
         const collectionsData = await getMarketplaceCollections({ includeInactive: false, adminAddress: currentAddress });
+        if (cancelled) return;
         setCollectionsMeta(collectionsData);
         if (typeof window !== 'undefined') {
           try {
@@ -385,63 +608,372 @@ export const MarketplacePage: React.FC = () => {
               created_at: c.created_at,
               updated_at: c.updated_at,
             }));
-            window.sessionStorage.setItem(
-              MARKETPLACE_COLLECTIONS_CACHE_KEY,
-              JSON.stringify({ ts: Date.now(), data: compactCollections })
-            );
+            safeWriteCache(MARKETPLACE_COLLECTIONS_CACHE_KEY, { ts: Date.now(), data: compactCollections });
           } catch {
             // Storage quota exceeded - safe to skip cache write.
           }
         }
+        // Totals nur teilweise und verzögert nachladen (sonst zu viele Requests beim Initial-Load).
+        setTimeout(async () => {
+          if (cancelled) return;
+          try {
+            const parsed = safeReadCache<{ ts: number; data: Record<string, number> }>(
+              MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY
+            );
+            if (parsed?.data && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTION_TOTALS_CACHE_TTL_MS) {
+              setCollectionTotalsBySlug(parsed.data);
+              return;
+            }
+          } catch {
+            // ignore malformed totals cache
+          }
+
+          const activeSlugs = collectionsData
+            .filter((c) => c.active !== false)
+            .map((c) => String(c.slug || '').trim())
+            .filter(Boolean)
+            .slice(0, 12);
+          const nextTotals: Record<string, number> = {};
+          const queue = [...activeSlugs];
+          const workers = Array.from({ length: Math.min(3, queue.length) }).map(async () => {
+            while (queue.length > 0) {
+              const slug = queue.shift();
+              if (!slug) return;
+              try {
+                const data = await getMarketplaceCollectionInscriptions({
+                  collectionSlug: slug,
+                  limit: 1,
+                  offset: 0,
+                });
+                nextTotals[slug] = Number(data?.total || 0);
+              } catch {
+                // ignore per-slug total error
+              }
+            }
+          });
+          await Promise.allSettled(workers);
+          if (!cancelled) {
+            setCollectionTotalsBySlug(nextTotals);
+            try {
+              safeWriteCache(MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY, { ts: Date.now(), data: nextTotals });
+            } catch {
+              // storage optional
+            }
+          }
+        }, 1200);
       } catch (err: any) {
-        setError(err?.message || 'Failed to load marketplace collections');
+        if (!cancelled) setError(err?.message || 'Failed to load marketplace collections');
       } finally {
-        setCollectionsLoading(false);
+        if (!cancelled) setCollectionsLoading(false);
       }
     };
     loadCollections();
-  }, [isAdminUser, currentAddress]);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAddress]);
 
   useEffect(() => {
-    if (!isAdminUser) return;
+    let cancelled = false;
+    const loadMyCollections = async () => {
+      if (collectionViewMode !== 'my-items') {
+        setMyCollectionsLoading(false);
+        return;
+      }
+      if (!walletState.connected || !taprootAddress) {
+        setMyCollectionsLoading(false);
+        setMyItemCollectionSlugs([]);
+        setMyWalletInscriptionIds(new Set());
+        setMyItemsDebug({ source: 'inactive', rows: 0, ids: 0, slugs: 0 });
+        return;
+      }
+      try {
+        setMyCollectionsLoading(true);
+        let walletRows: any[] = [];
+        let source = 'none';
+        if (typeof window !== 'undefined') {
+          try {
+            const cacheByAddress = window.sessionStorage.getItem(
+              `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`
+            );
+            const cacheLast = window.sessionStorage.getItem(MARKETPLACE_WALLET_ROWS_LAST_KEY);
+            const parsedByAddress = cacheByAddress ? (JSON.parse(cacheByAddress) as { ts: number; data: any[] }) : null;
+            const parsedLast = cacheLast ? (JSON.parse(cacheLast) as { ts: number; address?: string; data: any[] }) : null;
+            if (Array.isArray(parsedByAddress?.data) && parsedByAddress!.data.length > 0) {
+              walletRows = parsedByAddress!.data;
+              source = 'cache-address';
+            } else if (
+              Array.isArray(parsedLast?.data) &&
+              parsedLast!.data.length > 0 &&
+              String(parsedLast?.address || '').toLowerCase() === taprootAddress.toLowerCase()
+            ) {
+              walletRows = parsedLast!.data;
+              source = 'cache-last';
+            }
+          } catch {
+            // cache optional
+          }
+        }
+        try {
+          if (walletRows.length === 0) {
+            const profile = await getMarketplaceProfile(taprootAddress);
+            walletRows = profile.walletInscriptions || [];
+            if (walletRows.length > 0) source = 'profile';
+          }
+        } catch {
+          // profile endpoint unavailable
+        }
+        if (walletRows.length === 0) {
+          try {
+            walletRows = await getMarketplaceWalletInscriptionsViaUnisat(taprootAddress);
+            if (walletRows.length > 0) source = 'unisat';
+          } catch {
+            // UniSat indexer unavailable or no rows
+          }
+        }
+        if (walletRows.length === 0) {
+          try {
+            walletRows = await getMarketplaceWalletInscriptionsByCollectionScan(taprootAddress);
+            if (walletRows.length > 0) source = 'collection-scan';
+          } catch {
+            // fallback optional
+          }
+        }
+        if (walletRows.length === 0 && typeof window !== 'undefined') {
+          try {
+            const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`;
+            const raw = window.sessionStorage.getItem(cacheKey);
+            if (raw) {
+              const parsed = JSON.parse(raw) as { ts: number; data: any[] };
+              if (Array.isArray(parsed?.data)) {
+                walletRows = parsed.data;
+              }
+            }
+          } catch {
+            // cache optional
+          }
+        }
+        if (cancelled) return;
+        const slugs = Array.from(
+          new Set(
+            walletRows
+              .map((ins) => walletRowCollectionSlug(ins))
+              .filter(Boolean)
+          )
+        );
+        const ids = new Set(
+          walletRows
+            .map((ins) => walletRowInscriptionId(ins))
+            .filter(Boolean)
+        );
+        setMyItemCollectionSlugs(slugs);
+        setMyWalletInscriptionIds(ids);
+        setMyItemsDebug({
+          source,
+          rows: walletRows.length,
+          ids: ids.size,
+          slugs: slugs.length,
+        });
+        if (typeof window !== 'undefined' && walletRows.length > 0) {
+          try {
+            const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`;
+            window.sessionStorage.setItem(
+              cacheKey,
+              JSON.stringify({ ts: Date.now(), data: walletRows })
+            );
+            window.sessionStorage.setItem(
+              MARKETPLACE_WALLET_ROWS_LAST_KEY,
+              JSON.stringify({ ts: Date.now(), address: taprootAddress.toLowerCase(), data: walletRows })
+            );
+          } catch {
+            // storage optional
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          const msg = String(err?.message || 'load failed');
+          setMyItemCollectionSlugs([]);
+          setMyWalletInscriptionIds(new Set());
+          setMyItemsDebug({ source: 'error', rows: 0, ids: 0, slugs: 0, error: msg });
+        }
+      } finally {
+        if (!cancelled) setMyCollectionsLoading(false);
+      }
+    };
+    loadMyCollections();
+    return () => {
+      cancelled = true;
+    };
+  }, [walletState.connected, taprootAddress, collectionViewMode]);
+
+  useEffect(() => {
+    if (collectionViewMode === 'my-items') {
+      setCollectionItemsFilter('my-items');
+    }
+  }, [collectionViewMode]);
+
+  useEffect(() => {
+    if (collectionViewMode !== 'my-items') return;
+    if (!walletState.connected || !taprootAddress) return;
+    if (myWalletInscriptionIds.size === 0) return;
+    if (myItemCollectionSlugs.length > 0) return;
+
+    const hydrationKey = `${taprootAddress}:${myWalletInscriptionIds.size}`;
+    if (myItemsSlugHydrationKeyRef.current === hydrationKey) return;
+    myItemsSlugHydrationKeyRef.current = hydrationKey;
+
+    let cancelled = false;
+    const hydrateCollectionSlugs = async () => {
+      const ids = Array.from(myWalletInscriptionIds).slice(0, 180);
+      const foundSlugs = new Set<string>();
+      const queue = [...ids];
+      const workers = Array.from({ length: Math.min(8, queue.length) }).map(async () => {
+        while (queue.length > 0 && !cancelled) {
+          const inscriptionId = queue.shift();
+          if (!inscriptionId) return;
+          try {
+            const detail = await getMarketplaceInscriptionDetail(inscriptionId);
+            const slug = String(detail?.marketplaceInscription?.collection_slug || '').trim();
+            if (slug) foundSlugs.add(slug);
+          } catch {
+            // ignore per-id failure
+          }
+        }
+      });
+      await Promise.allSettled(workers);
+      if (!cancelled && foundSlugs.size > 0) {
+        setMyItemCollectionSlugs(Array.from(foundSlugs));
+      }
+    };
+
+    hydrateCollectionSlugs();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionViewMode, walletState.connected, taprootAddress, myWalletInscriptionIds, myItemCollectionSlugs.length]);
+
+  useEffect(() => {
+    let cancelled = false;
     const loadRanking = async () => {
       try {
         setRankingLoading(true);
-        setError(null);
+        if (typeof window !== 'undefined') {
+          try {
+            const parsed = safeReadCache<{ ts: number; data: MarketplaceCollectionRanking[] }>(
+              MARKETPLACE_RANKING_CACHE_KEY
+            );
+            if (Array.isArray(parsed?.data) && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_RANKING_CACHE_TTL_MS) {
+              setRanking(parsed.data);
+              setRankingLoading(false);
+            }
+          } catch {
+            // cache optional
+          }
+        }
         const rankingData = await getMarketplaceRanking();
-        setRanking(rankingData);
+        if (!cancelled) {
+          setRanking(rankingData);
+          if (typeof window !== 'undefined') {
+            try {
+              safeWriteCache(MARKETPLACE_RANKING_CACHE_KEY, { ts: Date.now(), data: rankingData });
+            } catch {
+              // cache optional
+            }
+          }
+        }
       } catch (err: any) {
-        setError(err?.message || 'Failed to load ranking');
+        if (!cancelled) setError(err?.message || 'Failed to load ranking');
       } finally {
-        setRankingLoading(false);
+        if (!cancelled) setRankingLoading(false);
       }
     };
-    loadRanking();
-  }, [isAdminUser]);
+    const timer = window.setTimeout(loadRanking, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
-  const loadListings = async () => {
+  const loadListings = async (cancelCheck?: () => boolean) => {
     try {
-      setListingsLoading(true);
-      const [activeData, soldData] = await Promise.all([
-        getMarketplaceListings({ status: 'active', limit: 100 }),
-        getMarketplaceListings({ status: 'sold', limit: 20 }),
+      let hasImmediateData = false;
+      let usedFreshCache = false;
+      if (typeof window !== 'undefined') {
+        try {
+          const parsed = safeReadCache<{ ts: number; active: MarketplaceListing[]; sold: MarketplaceListing[] }>(
+            MARKETPLACE_LISTINGS_CACHE_KEY
+          );
+          if (parsed) {
+            const cacheAgeMs = Date.now() - Number(parsed?.ts || 0);
+            if (Array.isArray(parsed?.active) && Array.isArray(parsed?.sold)) {
+              setListings(parsed.active);
+              setSoldListings(parsed.sold);
+              setListingsLoading(false);
+              hasImmediateData = true;
+              usedFreshCache = cacheAgeMs < MARKETPLACE_LISTINGS_CACHE_TTL_MS;
+            }
+          }
+        } catch {
+          // cache optional
+        }
+      }
+      if (!hasImmediateData) setListingsLoading(true);
+
+      if (!usedFreshCache) {
+        const activePromise = getMarketplaceListings({
+          status: 'active',
+          limit: INITIAL_ACTIVE_LISTINGS_LIMIT,
+          lightweight: true,
+        });
+        const soldPromise = getMarketplaceListings({
+          status: 'sold',
+          limit: INITIAL_SOLD_LISTINGS_LIMIT,
+          lightweight: true,
+        });
+        const initialActive = await activePromise;
+        if (cancelCheck?.()) return;
+        setListings(initialActive);
+        setListingsLoading(false);
+        const initialSold = await soldPromise;
+        if (cancelCheck?.()) return;
+        setSoldListings(initialSold);
+      }
+
+      // Vollständige Listen im Hintergrund nachladen (SWR).
+      const [fullActive, fullSold] = await Promise.all([
+        getMarketplaceListings({ status: 'active', limit: FULL_ACTIVE_LISTINGS_LIMIT, lightweight: true }),
+        getMarketplaceListings({ status: 'sold', limit: FULL_SOLD_LISTINGS_LIMIT, lightweight: true }),
       ]);
-      setListings(activeData);
-      setSoldListings(soldData);
+      if (cancelCheck?.()) return;
+      setListings(fullActive);
+      setSoldListings(fullSold);
+      if (typeof window !== 'undefined') {
+        try {
+          safeWriteCache(MARKETPLACE_LISTINGS_CACHE_KEY, {
+            ts: Date.now(),
+            active: fullActive,
+            sold: fullSold,
+          });
+        } catch {
+          // cache optional
+        }
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to load listings');
     } finally {
-      setListingsLoading(false);
+      if (!cancelCheck?.()) setListingsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isAdminUser) return;
-    loadListings();
-  }, [isAdminUser]);
+    let cancelled = false;
+    loadListings(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    if (!isAdminUser) return;
     const params = new URLSearchParams(location.search || '');
     const collectionSlug = String(params.get('collection') || '').trim();
     const inscriptionId = String(params.get('inscription') || '').trim();
@@ -455,13 +987,9 @@ export const MarketplacePage: React.FC = () => {
       }
     };
     openFromQuery();
-  }, [isAdminUser, location.search]);
+  }, [location.search]);
 
   const handleCreateListing = async () => {
-    if (!isAdminUser) {
-      setError('Marketplace is currently admin-only');
-      return;
-    }
     if (!walletState.connected || !currentAddress) {
       setError('Please connect wallet first');
       return;
@@ -473,15 +1001,37 @@ export const MarketplacePage: React.FC = () => {
       if (!form.inscriptionId.trim()) throw new Error('Inscription ID is required');
       if (!Number.isFinite(priceSats) || priceSats <= 0) throw new Error('Price must be > 0');
 
-      await createMarketplaceListing({
+      const listingPayload = {
         inscriptionId: form.inscriptionId.trim(),
         collectionSlug: form.collectionSlug.trim() || 'unknown',
         sellerAddress: currentAddress,
+        sellerPaymentAddress: paymentAddress || currentAddress,
+        sellerPublicKey: ordinalsPublicKey || undefined,
         buyerReceiveAddress: currentAddress,
         priceSats: Math.round(priceSats),
+      };
+
+      if (!walletState.walletType) throw new Error('Connect wallet first');
+      const prepared = await prepareMarketplaceListingPsbt(listingPayload);
+      if (!prepared?.psbtBase64 || !prepared?.listingId) {
+        throw new Error('Listing PSBT preparation returned incomplete data');
+      }
+      const signedPsbtData = await signPSBT(
+        prepared.psbtBase64,
+        walletState.walletType,
+        false,
+        prepared.ownerAddress || currentAddress,
+        0x82 // SIGHASH_NONE | ANYONECANPAY (buyer address replacement at buy-time)
+      );
+      const signedIsHex = /^[0-9a-fA-F]+$/.test(String(signedPsbtData || '').trim());
+      await finalizeMarketplaceListingPsbt({
+        listingId: prepared.listingId,
+        walletAddress: currentAddress,
+        signedPsbtHex: signedIsHex ? signedPsbtData : undefined,
+        signedPsbtBase64: signedIsHex ? undefined : signedPsbtData,
       });
 
-      setActionMessage('Listing created successfully.');
+      setActionMessage('Listing created and signed via wallet PSBT.');
       setForm((prev) => ({ ...prev, inscriptionId: '' }));
       await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
     } catch (err: any) {
@@ -491,7 +1041,6 @@ export const MarketplacePage: React.FC = () => {
 
   const handleCancelListing = async (listingId: string) => {
     try {
-      if (!isAdminUser) throw new Error('Marketplace is currently admin-only');
       if (!currentAddress) throw new Error('Connect wallet first');
       setBusyListingId(listingId);
       setError(null);
@@ -508,39 +1057,20 @@ export const MarketplacePage: React.FC = () => {
 
   const handleBuyListing = async (listing: MarketplaceListing) => {
     try {
-      if (!isAdminUser) throw new Error('Marketplace is currently admin-only');
       if (!walletState.connected || !currentAddress || !walletState.walletType) {
         throw new Error('Connect wallet first');
       }
-      setBusyListingId(listing.id);
-      setError(null);
-      setActionMessage(null);
-
-      // Step 1: Payment from buyer wallet to seller
-      const txid = await sendMultipleBitcoinPayments(
-        [{ address: listing.seller_address, amount: Number(listing.price_sats) / 100000000 }],
-        walletState.walletType
-      );
-
-      // Step 2: Mark completed sale in backend
-      await completeMarketplacePurchase({
-        listingId: listing.id,
-        buyerAddress: currentAddress,
-        paymentTxid: txid,
-      });
-
-      setActionMessage(`Purchase completed. Payment txid: ${txid}`);
-      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      if (!listing.signed_psbt_base64) {
+        throw new Error('Legacy listing without PSBT data. Seller must relist with PSBT.');
+      }
+      await handleAdvancedBuyListing(listing);
     } catch (err: any) {
       setError(err?.message || 'Failed to buy listing');
-    } finally {
-      setBusyListingId(null);
     }
   };
 
   const handleAdvancedBuyListing = async (listing: MarketplaceListing) => {
     try {
-      if (!isAdminUser) throw new Error('Marketplace is currently admin-only');
       if (!walletState.connected || !currentAddress || !walletState.walletType) {
         throw new Error('Connect wallet first');
       }
@@ -552,19 +1082,358 @@ export const MarketplacePage: React.FC = () => {
       setError(null);
       setActionMessage(null);
 
-      // Wallet signs the listing PSBT payload (advanced non-custodial mode).
+      let resolvedBuyerAddress = currentAddress;
+      let resolvedFundingAddress = /^bc1[qp]/i.test(String(currentAddress || '').trim())
+        ? currentAddress
+        : paymentAddress || currentAddress;
+      let resolvedFundingPublicKey = paymentPublicKey;
+      const fundingPublicKeyCandidates = new Set<string>();
+      const fundingPublicKeysByAddress = new Map<string, Set<string>>();
+      const fundingRedeemScriptCandidates = new Set<string>();
+      const addFundingPublicKeyCandidate = (value: string) => {
+        const normalized = String(value || '').trim();
+        if (!normalized) return;
+        fundingPublicKeyCandidates.add(normalized);
+      };
+      const addFundingPublicKeyForAddress = (address: string, value: string) => {
+        const normalizedAddress = String(address || '').trim();
+        const normalizedKey = String(value || '').trim();
+        if (!normalizedAddress || !normalizedKey) return;
+        const lower = normalizedAddress.toLowerCase();
+        const existing = fundingPublicKeysByAddress.get(lower) || new Set<string>();
+        existing.add(normalizedKey);
+        fundingPublicKeysByAddress.set(lower, existing);
+        addFundingPublicKeyCandidate(normalizedKey);
+      };
+      const addFundingRedeemScriptCandidate = (value: string) => {
+        const normalized = String(value || '').trim().toLowerCase().replace(/^0x/i, '');
+        if (!normalized || !/^[0-9a-f]+$/i.test(normalized) || normalized.length % 2 !== 0) return;
+        fundingRedeemScriptCandidates.add(normalized);
+      };
+      addFundingPublicKeyCandidate(paymentPublicKey);
+      for (const account of walletState.accounts || []) {
+        const accountAddress = String((account as any)?.address || '').trim();
+        const accountPubKey = readWalletPublicKeyFromEntry(account);
+        addFundingPublicKeyCandidate(accountPubKey);
+        addFundingPublicKeyForAddress(accountAddress, accountPubKey);
+        addFundingRedeemScriptCandidate(readWalletRedeemScriptFromEntry(account));
+      }
+      const applyXverseFundingCandidate = (rows: any[]) => {
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) {
+          const rowAddress = String((row as any)?.address || '').trim();
+          const rowPubKey = readWalletPublicKeyFromEntry(row);
+          addFundingPublicKeyCandidate(rowPubKey);
+          addFundingPublicKeyForAddress(rowAddress, rowPubKey);
+          addFundingRedeemScriptCandidate(readWalletRedeemScriptFromEntry(row));
+        }
+        const ordinalsEntry =
+          list.find((a: any) => String(a?.purpose || '').toLowerCase() === 'ordinals') ||
+          list.find((a: any) => String(a?.address || '').trim().toLowerCase().startsWith('bc1p'));
+        const fetchedBuyerAddress = String(ordinalsEntry?.address || '').trim();
+        if (fetchedBuyerAddress) resolvedBuyerAddress = fetchedBuyerAddress;
+        const paymentEntry =
+          list.find((a: any) => String(a?.purpose || '').toLowerCase() === 'payment') ||
+          list.find((a: any) => String(a?.addressType || '').toLowerCase() === 'p2sh') ||
+          list.find((a: any) => String(a?.addressType || '').toLowerCase() === 'p2wpkh') ||
+          list.find((a: any) => String(a?.address || '').trim() === String(paymentAddress || '').trim()) ||
+          list.find((a: any) => !String(a?.address || '').trim().toLowerCase().startsWith('bc1p'));
+        const fetchedPaymentAddress = String(paymentEntry?.address || '').trim();
+        const fetchedPubKey = readWalletPublicKeyFromEntry(paymentEntry);
+        if (fetchedPaymentAddress) resolvedFundingAddress = fetchedPaymentAddress;
+        if (fetchedPubKey) {
+          resolvedFundingPublicKey = fetchedPubKey;
+          addFundingPublicKeyCandidate(fetchedPubKey);
+        }
+      };
+      if (walletState.walletType === 'xverse') {
+        try {
+          const satsConnect: any = await import('sats-connect');
+          if (satsConnect?.request) {
+            // Prefer the dedicated getAddresses API. In Xverse this reliably carries payment publicKey.
+            try {
+              const addressesResponse = await satsConnect.request('getAddresses', {
+                purposes: ['payment', 'ordinals'],
+                message: 'Resolve payment key for marketplace purchase',
+              });
+              if (addressesResponse?.status === 'success') {
+                const addresses = extractXverseAddressRows(addressesResponse);
+                applyXverseFundingCandidate(addresses);
+              }
+            } catch {
+              // Continue with compatibility fallbacks below.
+            }
+            const accountResponse = await satsConnect.request('wallet_getAccount', null);
+            if (accountResponse?.status === 'success') {
+              const addresses = extractXverseAddressRows(accountResponse);
+              applyXverseFundingCandidate(addresses);
+            }
+            const stillMissingP2shPubkey =
+              String(resolvedFundingAddress || '').startsWith('3') &&
+              !String(resolvedFundingPublicKey || '').trim();
+            if (stillMissingP2shPubkey) {
+              const reconnectResponse = await satsConnect.request('wallet_connect', {
+                addresses: ['payment', 'ordinals'],
+                message: 'Marketplace purchase requires payment public key',
+              });
+              if (reconnectResponse?.status === 'success') {
+                const addresses = extractXverseAddressRows(reconnectResponse);
+                applyXverseFundingCandidate(addresses);
+              }
+            }
+          }
+          const xverseBitcoinProvider: any = (window as any)?.XverseProviders?.Bitcoin;
+          if (xverseBitcoinProvider?.request) {
+            const providerProbes: Array<{ method: string; params?: any }> = [
+              { method: 'getAccounts', params: { purposes: ['payment', 'ordinals'] } },
+              { method: 'getAccounts' },
+            ];
+            for (const probe of providerProbes) {
+              try {
+                const response = await xverseBitcoinProvider.request(probe.method, probe.params);
+                const accounts = extractXverseProviderAccounts(response);
+                if (accounts.length) {
+                  applyXverseFundingCandidate(accounts);
+                  break;
+                }
+              } catch {
+                // ignore provider capability differences
+              }
+            }
+          }
+          const stillMissingP2shPubkey =
+            String(resolvedFundingAddress || '').startsWith('3') &&
+            !String(resolvedFundingPublicKey || '').trim();
+          if (stillMissingP2shPubkey) {
+            const refreshedAccounts = await connectXverse();
+            applyXverseFundingCandidate(refreshedAccounts as any[]);
+          }
+          const stillMissingAfterReconnect =
+            String(resolvedFundingAddress || '').startsWith('3') &&
+            !String(resolvedFundingPublicKey || '').trim();
+          if (stillMissingAfterReconnect) {
+            const provider: any = (window as any).BitcoinProvider || (window as any).xverse;
+            if (provider?.request) {
+              const providerProbes: Array<{ method: string; params: any }> = [
+                { method: 'wallet_getAccount', params: null },
+                { method: 'getAddresses', params: { purposes: ['payment', 'ordinals'], message: 'Resolve payment key for marketplace purchase' } },
+                { method: 'getAccounts', params: null },
+              ];
+              for (const probe of providerProbes) {
+                if (!String(resolvedFundingAddress || '').startsWith('3') || String(resolvedFundingPublicKey || '').trim()) break;
+                try {
+                  const response = await provider.request(probe.method, probe.params);
+                  const rows = extractXverseAddressRows(response);
+                  if (rows.length) applyXverseFundingCandidate(rows);
+                } catch {
+                  // Ignore provider-specific method mismatch and continue probing.
+                }
+              }
+            }
+          }
+        } catch {
+          // Keep existing wallet-state key fallback.
+        }
+      }
+      const pickPreferredFundingAddress = () => {
+        const candidates = [
+          resolvedBuyerAddress,
+          taprootAddress,
+          currentAddress,
+          ...(walletState.accounts || []).map((acc: any) => String(acc?.address || '').trim()),
+          resolvedFundingAddress,
+          paymentAddress,
+        ]
+          .map((addr) => String(addr || '').trim())
+          .filter(Boolean);
+        const preferred = candidates.find((addr) => /^bc1[qp]/i.test(addr));
+        return preferred || resolvedFundingAddress;
+      };
+      resolvedFundingAddress = pickPreferredFundingAddress();
+
+      // Prepare a funded buy-PSBT (adds buyer fee inputs) before wallet signing.
+      if (walletState.walletType === 'xverse' && String(resolvedFundingAddress || '').startsWith('3') && !resolvedFundingPublicKey) {
+        throw new Error(
+          'Xverse liefert keinen Payment-Public-Key fuer die 3... Adresse. Bitte andere Wallet-Extensions deaktivieren, Xverse neu verbinden und erneut versuchen.'
+        );
+      }
+      const buildFundingCandidates = () =>
+        Array.from(
+          new Set(
+            [
+              resolvedFundingAddress,
+              resolvedBuyerAddress,
+              taprootAddress,
+              ...(walletState.accounts || []).map((acc: any) => String(acc?.address || '').trim()),
+            ]
+              .map((addr) => String(addr || '').trim())
+              .filter(Boolean)
+          )
+        );
+      const buildFundingPublicKeyCandidates = () => {
+        const prioritizedAddressKeys = Array.from(
+          fundingPublicKeysByAddress.get(String(paymentAddress || '').trim().toLowerCase()) || []
+        );
+        return Array.from(
+          new Set(
+            [...prioritizedAddressKeys, resolvedFundingPublicKey, ...Array.from(fundingPublicKeyCandidates)]
+              .map((key) => String(key || '').trim())
+              .filter(Boolean)
+          )
+        );
+      };
+      const buildFundingRedeemScriptCandidates = () =>
+        Array.from(
+          new Set(
+            Array.from(fundingRedeemScriptCandidates)
+              .map((hex) => String(hex || '').trim().toLowerCase())
+              .filter((hex) => /^[0-9a-f]+$/i.test(hex) && hex.length % 2 === 0)
+          )
+        );
+      let prepared;
+      try {
+        const fundingAddressCandidates = buildFundingCandidates();
+        const fundingPublicKeys = buildFundingPublicKeyCandidates();
+        const fundingRedeemScripts = buildFundingRedeemScriptCandidates();
+        const primaryFundingPublicKey = String(resolvedFundingPublicKey || fundingPublicKeys[0] || '').trim();
+        prepared = await prepareMarketplacePurchaseAdvanced({
+          listingId: listing.id,
+          buyerAddress: resolvedBuyerAddress || currentAddress,
+          fundingAddress: resolvedFundingAddress || currentAddress,
+          fundingAddressCandidates,
+          fundingPublicKey: primaryFundingPublicKey || undefined,
+          fundingPublicKeys,
+          fundingRedeemScripts,
+        });
+      } catch (prepErr: any) {
+        const prepMsg = String(prepErr?.message || '');
+        const isRawCountZero = prepMsg.includes('"rawCount":0');
+        const hasP2shRedeemFailure =
+          prepMsg.includes('"p2shMissingRedeem"') ||
+          prepMsg.toLowerCase().includes('redeemscript could not be derived');
+        const canFallbackToBuyerFundingAddress =
+          String(resolvedFundingAddress || '').startsWith('3') &&
+          /^bc1[qp]/i.test(String(resolvedBuyerAddress || ''));
+        if (walletState.walletType === 'xverse' && hasP2shRedeemFailure && canFallbackToBuyerFundingAddress) {
+          try {
+            resolvedFundingAddress = String(resolvedBuyerAddress || '').trim();
+            setActionMessage('P2SH-Funding nicht signierbar. Fallback auf bc1... Funding-Adresse mit strikten Inscription-Filtern...');
+            const fallbackFundingAddressCandidates = buildFundingCandidates();
+            const fallbackFundingPublicKeys = buildFundingPublicKeyCandidates();
+            const fallbackFundingRedeemScripts = buildFundingRedeemScriptCandidates();
+            const fallbackPrimaryFundingPublicKey = String(resolvedFundingPublicKey || fallbackFundingPublicKeys[0] || '').trim();
+            prepared = await prepareMarketplacePurchaseAdvanced({
+              listingId: listing.id,
+              buyerAddress: resolvedBuyerAddress || currentAddress,
+              fundingAddress: resolvedFundingAddress || currentAddress,
+              fundingAddressCandidates: fallbackFundingAddressCandidates,
+              fundingPublicKey: fallbackPrimaryFundingPublicKey || undefined,
+              fundingPublicKeys: fallbackFundingPublicKeys,
+              fundingRedeemScripts: fallbackFundingRedeemScripts,
+            });
+          } catch {
+            throw prepErr;
+          }
+        } else if (walletState.walletType === 'xverse' && isRawCountZero) {
+          try {
+            const satsConnect: any = await import('sats-connect');
+            if (satsConnect?.request) {
+              const reconnectResponse = await satsConnect.request('wallet_connect', {
+                addresses: ['payment', 'ordinals'],
+                message: 'Refresh addresses for marketplace purchase',
+              });
+              const reconnectRows = extractXverseAddressRows(reconnectResponse);
+              if (reconnectRows.length) {
+                applyXverseFundingCandidate(reconnectRows);
+                if (String(resolvedFundingAddress || '').startsWith('3') && !String(resolvedFundingPublicKey || '').trim()) {
+                  throw new Error(
+                    'Xverse liefert keinen Payment-Public-Key fuer die 3... Adresse. Bitte in Xverse neu verbinden und erneut versuchen.'
+                  );
+                }
+                const refreshedFundingAddressCandidates = buildFundingCandidates();
+                const refreshedFundingPublicKeys = buildFundingPublicKeyCandidates();
+                const refreshedFundingRedeemScripts = buildFundingRedeemScriptCandidates();
+                const refreshedPrimaryFundingPublicKey = String(resolvedFundingPublicKey || refreshedFundingPublicKeys[0] || '').trim();
+                setActionMessage('Keine UTXOs gefunden. Retry mit frisch ausgelesenen Xverse-Adressen...');
+                prepared = await prepareMarketplacePurchaseAdvanced({
+                  listingId: listing.id,
+                  buyerAddress: resolvedBuyerAddress || currentAddress,
+                  fundingAddress: resolvedFundingAddress || currentAddress,
+                  fundingAddressCandidates: refreshedFundingAddressCandidates,
+                  fundingPublicKey: refreshedPrimaryFundingPublicKey || undefined,
+                  fundingPublicKeys: refreshedFundingPublicKeys,
+                  fundingRedeemScripts: refreshedFundingRedeemScripts,
+                });
+              } else {
+                throw prepErr;
+              }
+            } else {
+              throw prepErr;
+            }
+          } catch {
+            throw prepErr;
+          }
+        } else {
+          throw prepErr;
+        }
+      }
+
+      const requiredPaymentFromPrepare = Number(prepared?.funding?.requiredPaymentSats);
+      const estimatedBuyerDebit = Number(prepared?.funding?.estimatedBuyerDebitSats);
+      const listingPriceSats = Number.isFinite(requiredPaymentFromPrepare) && requiredPaymentFromPrepare > 0
+        ? requiredPaymentFromPrepare
+        : Number.isFinite(estimatedBuyerDebit) && estimatedBuyerDebit > 0
+          ? Math.max(0, estimatedBuyerDebit - Number(prepared?.funding?.estimatedFeeSats || 0))
+          : Number(listing.price_sats || 0);
+      const estimatedFeeSats = Number(prepared?.funding?.estimatedFeeSats || 0);
+      const effectiveSpendSats = Math.max(0, listingPriceSats + estimatedFeeSats);
+      setActionMessage(
+        `Please review before signing: listing price ${listingPriceSats} sats + estimated network fee ${estimatedFeeSats} sats (estimated total ${effectiveSpendSats} sats).`
+      );
+      const userConfirmed =
+        typeof window !== 'undefined'
+          ? window.confirm(
+              `Purchase confirmation\n\nListing price (seller payment): ${listingPriceSats} sats\nEstimated network fee: ${estimatedFeeSats} sats\nEstimated total debit: ${effectiveSpendSats} sats\n\nNote: some wallets show only total send/receive amounts in the transaction view.\n\nOnly continue if these values are correct.`
+            )
+          : true;
+      if (!userConfirmed) {
+        throw new Error('Purchase cancelled before signing.');
+      }
+
+      const buyerSigningIndexes = Array.isArray(prepared?.funding?.buyerSigningIndexes)
+        ? prepared.funding.buyerSigningIndexes
+        : undefined;
+      const signingAddress = String(prepared?.funding?.signingAddress || '').trim();
+      console.log('📦 Step 1: Fetching buyer UTXOs...');
+      console.log('🔨 Step 2: Building unsigned buyer PSBT...');
+      console.log(
+        `   Unsigned PSBT created, inputs to sign: ${
+          buyerSigningIndexes && buyerSigningIndexes.length > 0
+            ? buyerSigningIndexes.join(', ')
+            : '(wallet decides)'
+        }`
+      );
+      console.log('✍️ Step 3: Requesting buyer signature...');
+
+      // Wallet signs the funded PSBT payload (advanced non-custodial mode).
+      // IMPORTANT: use funding/payment address context for signatures, not ordinals receive address.
       const signedPsbtData = await signPSBT(
-        listing.signed_psbt_base64,
+        prepared.fundedPsbtBase64,
         walletState.walletType,
         false,
-        currentAddress
+        signingAddress || resolvedFundingAddress || resolvedBuyerAddress || currentAddress,
+        undefined,
+        buyerSigningIndexes
       );
+      console.log('   ✅ Buyer signed PSBT');
 
+      console.log('🚀 Step 4: Completing purchase...');
       const result = await completeMarketplacePurchaseAdvanced({
         listingId: listing.id,
-        buyerAddress: currentAddress,
+        buyerAddress: resolvedBuyerAddress || currentAddress,
         signedPsbtBase64: signedPsbtData,
       });
+      console.log(`🎉 Purchase complete! TX ID: ${result.paymentTxid}`);
 
       setActionMessage(`Advanced PSBT purchase completed. Txid: ${result.paymentTxid}`);
       await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
@@ -594,6 +1463,40 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
+  const deriveActiveListingFromDetail = (detail: MarketplaceInscriptionDetail): MarketplaceListing | null => {
+    const isOfferableStatus = (status: string): boolean => {
+      const s = String(status || '').trim().toLowerCase();
+      return s === 'active' || s === 'accepted' || s === 'listed' || s === 'open';
+    };
+    const byNewest = (a: any, b: any) =>
+      new Date(String(b?.updated_at || b?.created_at || 0)).getTime() -
+      new Date(String(a?.updated_at || a?.created_at || 0)).getTime();
+    const historyRows = (detail.listingHistory || []).slice().sort(byNewest);
+    const activeHistory = historyRows.find((row) => isOfferableStatus(String(row?.status || '')));
+    // Fallback: some backends mark inscription as listed but don't expose "active" in history.
+    const bestEffortHistory =
+      activeHistory ||
+      (detail.marketplaceInscription?.listed ? historyRows.find((row) => String(row?.id || '').trim()) : null);
+    if (!bestEffortHistory) return null;
+    const resolvedSignedPsbtBase64 = String((bestEffortHistory as any)?.signed_psbt_base64 || '').trim();
+    return {
+      id: String(bestEffortHistory.id || ''),
+      inscription_id: String(bestEffortHistory.inscription_id || detail.inscriptionId || ''),
+      collection_slug: String(bestEffortHistory.collection_slug || detail.marketplaceInscription?.collection_slug || selectedCollectionSlug || 'unknown'),
+      seller_address: String(bestEffortHistory.seller_address || ''),
+      buyer_receive_address: String(bestEffortHistory.buyer_receive_address || ''),
+      price_sats: Number(bestEffortHistory.price_sats || 0),
+      status: String(bestEffortHistory.status || 'active'),
+      signed_psbt_base64: resolvedSignedPsbtBase64 || undefined,
+      inscription_attributes: Array.isArray(detail.marketplaceInscription?.attributes)
+        ? detail.marketplaceInscription?.attributes
+        : [],
+      inscription_metadata: detail.marketplaceInscription?.metadata || {},
+      created_at: String(bestEffortHistory.created_at || ''),
+      updated_at: String(bestEffortHistory.updated_at || bestEffortHistory.created_at || ''),
+    };
+  };
+
   const handleOpenInscriptionDetail = async (inscriptionId: string) => {
     try {
       setDetailLoading(true);
@@ -603,11 +1506,113 @@ export const MarketplacePage: React.FC = () => {
       setDetailTab('traits');
       const detail = await getMarketplaceInscriptionDetail(inscriptionId);
       setSelectedInscriptionDetail(detail);
+      const activeFromLoadedListings =
+        listings.find((l) => {
+          if (l.inscription_id !== inscriptionId) return false;
+          const s = String(l.status || '').toLowerCase();
+          return s === 'active' || s === 'accepted' || s === 'listed' || s === 'open';
+        }) || null;
+      let resolvedListing = activeFromLoadedListings || deriveActiveListingFromDetail(detail);
+      if (!resolvedListing) {
+        try {
+          const byInscription = await getMarketplaceListings({
+            status: 'all',
+            inscriptionId,
+            limit: 10,
+          });
+          resolvedListing =
+            (byInscription || []).find((l) => {
+              const s = String(l.status || '').toLowerCase();
+              return s === 'active' || s === 'accepted' || s === 'listed' || s === 'open';
+            }) || null;
+        } catch {
+          // Keep existing fallback result.
+        }
+      }
+      setSelectedDetailListing(resolvedListing);
+      setDetailListPriceSats('10000');
+      const activePrice = Number((resolvedListing || deriveActiveListingFromDetail(detail))?.price_sats || 0);
+      if (activePrice > 0) {
+        setOfferPriceSats(String(Math.max(1, Math.floor(activePrice * 0.95))));
+      } else {
+        setOfferPriceSats('');
+      }
+      setOfferNote('');
     } catch (err: any) {
       setError(err?.message || 'Failed to load inscription details');
       setSelectedInscriptionDetail(null);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleCreateListingFromDetail = async () => {
+    try {
+      if (!walletState.connected || !currentAddress) throw new Error('Connect wallet first');
+      if (!selectedInscriptionDetail?.inscriptionId) throw new Error('No inscription selected');
+      const priceSats = Math.round(Number(detailListPriceSats || 0));
+      if (!Number.isFinite(priceSats) || priceSats <= 0) throw new Error('Price must be greater than 0');
+
+      setError(null);
+      setActionMessage(null);
+      setBusyListingId(selectedInscriptionDetail.inscriptionId);
+
+      const collectionSlug = String(
+        selectedInscriptionDetail.marketplaceInscription?.collection_slug || selectedCollectionSlug || 'unknown'
+      ).trim();
+
+      const listingPayload = {
+        inscriptionId: selectedInscriptionDetail.inscriptionId,
+        collectionSlug: collectionSlug || 'unknown',
+        sellerAddress: currentAddress,
+        sellerPaymentAddress: paymentAddress || currentAddress,
+        sellerPublicKey: ordinalsPublicKey || undefined,
+        buyerReceiveAddress: currentAddress,
+        priceSats,
+      };
+
+      if (!walletState.walletType) throw new Error('Connect wallet first');
+      const prepared = await prepareMarketplaceListingPsbt(listingPayload);
+      if (!prepared?.psbtBase64 || !prepared?.listingId) {
+        throw new Error('Listing PSBT preparation returned incomplete data');
+      }
+      const signedPsbtData = await signPSBT(
+        prepared.psbtBase64,
+        walletState.walletType,
+        false,
+        prepared.ownerAddress || currentAddress,
+        0x82 // SIGHASH_NONE | ANYONECANPAY (buyer address replacement at buy-time)
+      );
+      const signedIsHex = /^[0-9a-fA-F]+$/.test(String(signedPsbtData || '').trim());
+      await finalizeMarketplaceListingPsbt({
+        listingId: prepared.listingId,
+        walletAddress: currentAddress,
+        signedPsbtHex: signedIsHex ? signedPsbtData : undefined,
+        signedPsbtBase64: signedIsHex ? undefined : signedPsbtData,
+      });
+
+      const [refreshedDetail] = await Promise.all([
+        getMarketplaceInscriptionDetail(selectedInscriptionDetail.inscriptionId),
+        loadListings(),
+        getMarketplaceRanking().then(setRanking),
+      ]);
+      setSelectedInscriptionDetail(refreshedDetail);
+      const activeFromLoadedListings =
+        listings.find(
+          (l) =>
+            l.inscription_id === selectedInscriptionDetail.inscriptionId &&
+            String(l.status || '').toLowerCase() === 'active'
+        ) || null;
+      setSelectedDetailListing(activeFromLoadedListings || deriveActiveListingFromDetail(refreshedDetail));
+      const activePrice = Number((activeFromLoadedListings || deriveActiveListingFromDetail(refreshedDetail))?.price_sats || 0);
+      if (activePrice > 0) {
+        setOfferPriceSats(String(Math.max(1, Math.floor(activePrice * 0.95))));
+      }
+      setActionMessage('Listing created and signed via wallet PSBT.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to create listing');
+    } finally {
+      setBusyListingId(null);
     }
   };
 
@@ -735,34 +1740,15 @@ export const MarketplacePage: React.FC = () => {
         total = Number(data.total || 0);
         setCollectionInscriptions((prev) => mergeById(prev, nextInscriptions));
       } else {
-        // Fully hydrate collection so trait counts/filters are based on all loaded inscriptions.
+        // Fast path: load only first page, then append on demand.
         const firstPage = await getMarketplaceCollectionInscriptions({
           collectionSlug: slug,
           search,
           limit: COLLECTION_PAGE_SIZE,
           offset: 0,
         });
-
         total = Number(firstPage.total || 0);
-        let merged = mergeById([], firstPage.inscriptions || []);
-        let offset = merged.length;
-        let pagesFetched = 1;
-
-        while (offset < total && pagesFetched < 200) {
-          const page = await getMarketplaceCollectionInscriptions({
-            collectionSlug: slug,
-            search,
-            limit: COLLECTION_PAGE_SIZE,
-            offset,
-          });
-          const rows = page.inscriptions || [];
-          if (rows.length === 0) break;
-          merged = mergeById(merged, rows);
-          offset = merged.length;
-          pagesFetched += 1;
-        }
-
-        nextInscriptions = merged;
+        nextInscriptions = mergeById([], firstPage.inscriptions || []);
         setCollectionInscriptions(nextInscriptions);
       }
 
@@ -776,7 +1762,40 @@ export const MarketplacePage: React.FC = () => {
       if (!append) {
         setCollectionSelectedTraitFilters({});
         setCollectionRarityFilter('all');
-        setCollectionSortMode('rarity-desc');
+        setCollectionSortMode('price-asc');
+        setCollectionActiveListingsByInscription({});
+        (async () => {
+          try {
+            const allRows: MarketplaceListing[] = [];
+            let offset = 0;
+            const pageSize = 200;
+            for (let guard = 0; guard < 10; guard += 1) {
+              const page = await getMarketplaceListings({
+                status: 'active',
+                collectionSlug: slug,
+                limit: pageSize,
+                offset,
+              });
+              if (!Array.isArray(page) || page.length === 0) break;
+              allRows.push(...page);
+              if (page.length < pageSize) break;
+              offset += pageSize;
+            }
+            const nextMap: Record<string, MarketplaceListing> = {};
+            for (const row of allRows) {
+              const id = String(row.inscription_id || '').trim();
+              if (!id) continue;
+              const price = Number(row.price_sats || 0);
+              const prev = nextMap[id];
+              if (!prev || price < Number(prev.price_sats || 0)) {
+                nextMap[id] = row;
+              }
+            }
+            setCollectionActiveListingsByInscription(nextMap);
+          } catch {
+            // Keep UI functional even if listing hydration fails.
+          }
+        })();
       }
       setCollectionInscriptionsTotal(total);
     } catch (err: any) {
@@ -871,31 +1890,6 @@ export const MarketplacePage: React.FC = () => {
       cancelled = true;
     };
   }, [collectionModalOpen, selectedCollectionSlug, collectionInscriptions]);
-
-  if (!isAdminUser) {
-    return (
-      <div className="min-h-screen bg-black text-white p-4 md:p-6">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Marketplace</h1>
-          <p className="text-sm text-gray-400 mb-6">
-            Marketplace is currently visible for admin wallet only.
-          </p>
-          <div className="border border-red-600/60 rounded-lg p-4 bg-zinc-900/60">
-            <p className="text-sm text-red-300 font-semibold">Admin wallet required.</p>
-            <p className="text-xs text-gray-400 mt-2">
-              Connect with an authorized admin wallet address to access marketplace features.
-            </p>
-            <button
-              onClick={() => navigate('/')}
-              className="mt-3 px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold"
-            >
-              Back to Home
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const totalListed = listings.length;
   const floorPriceSats = listings.reduce((min, l) => {
@@ -1221,39 +2215,9 @@ export const MarketplacePage: React.FC = () => {
     return derived.length ? Array.from(new Set(derived)).join(', ') : '-';
   };
 
-  const fetchExternalSatributesBySatNumber = async (satNumber: number): Promise<string> => {
-    if (!Number.isFinite(satNumber) || satNumber < 0) return '-';
-    const key = String(Math.trunc(satNumber));
-    const cached = externalSatLookupCacheRef.current[key];
-    if (cached !== undefined) return cached;
-    try {
-      const res = await fetch(`https://r.jina.ai/http://ordiscan.com/sat/${encodeURIComponent(key)}`);
-      if (!res.ok) {
-        externalSatLookupCacheRef.current[key] = '-';
-        return '-';
-      }
-      const text = await res.text();
-      const match = text.match(/Satributes\s+([\s\S]*?)\n\s*---/i);
-      if (!match) {
-        externalSatLookupCacheRef.current[key] = '-';
-        return '-';
-      }
-      const section = String(match[1] || '');
-      const tokens = section
-        .split('\n')
-        .map((line) => line.trim())
-        .map((line) => line.replace(/\[(.*?)\]\(.*?\)/g, '$1'))
-        .map((line) => line.replace(/[*#>`_-]/g, '').trim())
-        .filter(Boolean)
-        .filter((line) => !/^satributes$/i.test(line))
-        .filter((line) => !/^common$/i.test(line));
-      const normalized = tokens.length ? tokens.join(', ') : '-';
-      externalSatLookupCacheRef.current[key] = normalized;
-      return normalized;
-    } catch {
-      externalSatLookupCacheRef.current[key] = '-';
-      return '-';
-    }
+  const fetchExternalSatributesBySatNumber = async (_satNumber: number): Promise<string> => {
+    // External per-sat crawling can trigger aggressive 429 rate limits.
+    return '-';
   };
 
   const hydrateRareSatsFromDetailFallback = async (
@@ -1427,8 +2391,28 @@ export const MarketplacePage: React.FC = () => {
     [collectionSelectedTraitFilters]
   );
 
+  const activeListingPriceByInscription = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const listing of listings) {
+      if (String(listing.status || '').toLowerCase() !== 'active') continue;
+      const id = String(listing.inscription_id || '').trim();
+      if (!id) continue;
+      const price = Number(listing.price_sats || 0);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const existing = map.get(id);
+      if (typeof existing !== 'number' || price < existing) map.set(id, price);
+    }
+    return map;
+  }, [listings]);
+
   const filteredCollectionInscriptions = useMemo(() => {
     let rows = collectionInscriptions.filter((ins) => {
+      if (collectionItemsFilter === 'my-items') {
+        const owner = String(ins.owner_address || '').trim().toLowerCase();
+        const idMatch = myWalletInscriptionIds.has(String(ins.inscription_id || '').trim());
+        const ownerMatch = !!currentAddress && owner === currentAddress.toLowerCase();
+        if (!idMatch && !ownerMatch) return false;
+      }
       const activeTraitTypes = Object.entries(collectionSelectedTraitFilters).filter(([, vals]) => vals && vals.length > 0);
       if (activeTraitTypes.length === 0) return true;
       const traits = extractInscriptionTraits(ins);
@@ -1447,6 +2431,20 @@ export const MarketplacePage: React.FC = () => {
     }
 
     rows = [...rows].sort((a, b) => {
+      if (collectionSortMode === 'price-asc' || collectionSortMode === 'price-desc') {
+        const aPrice = activeListingPriceByInscription.get(a.inscription_id);
+        const bPrice = activeListingPriceByInscription.get(b.inscription_id);
+        if (collectionSortMode === 'price-desc') {
+          const aSort = typeof aPrice === 'number' ? aPrice : Number.NEGATIVE_INFINITY;
+          const bSort = typeof bPrice === 'number' ? bPrice : Number.NEGATIVE_INFINITY;
+          if (!Number.isFinite(aSort) && !Number.isFinite(bSort)) return 0;
+          return bSort - aSort;
+        }
+        const aSort = typeof aPrice === 'number' ? aPrice : Number.POSITIVE_INFINITY;
+        const bSort = typeof bPrice === 'number' ? bPrice : Number.POSITIVE_INFINITY;
+        if (!Number.isFinite(aSort) && !Number.isFinite(bSort)) return 0;
+        return aSort - bSort;
+      }
       if (collectionSortMode === 'name-asc') {
         return String(a.metadata?.name || a.inscription_id).localeCompare(String(b.metadata?.name || b.inscription_id));
       }
@@ -1468,11 +2466,20 @@ export const MarketplacePage: React.FC = () => {
     return rows;
   }, [
     collectionInscriptions,
+    collectionItemsFilter,
+    currentAddress,
+    myWalletInscriptionIds,
     collectionSelectedTraitFilters,
     collectionRarityFilter,
     collectionSortMode,
     collectionCompositeRarityByInscription,
+    activeListingPriceByInscription,
   ]);
+
+  const myWalletIdsForGallery = useMemo(
+    () => Array.from(myWalletInscriptionIds).slice(0, 240),
+    [myWalletInscriptionIds]
+  );
 
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1556,7 +2563,7 @@ export const MarketplacePage: React.FC = () => {
         return base === '-' && cached === undefined;
       })
       .map((listing) => listing.inscription_id)
-      .slice(0, 120);
+      .slice(0, 24);
 
     if (!missingIds.length) return;
 
@@ -1625,6 +2632,12 @@ export const MarketplacePage: React.FC = () => {
     return () => observer.disconnect();
   }, [listingsLoading, hasMoreFilteredListings, filteredListings.length]);
 
+  useEffect(() => {
+    if (walletState.connected) {
+      setWalletConnectModalOpen(false);
+    }
+  }, [walletState.connected]);
+
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -1633,14 +2646,24 @@ export const MarketplacePage: React.FC = () => {
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight">Marketplace</h1>
               <p className="text-sm text-gray-400 mt-1">
-                Visual, non-custodial trading hub with rich previews and admin-safe execution.
+                Marketplace for RichArt Stuff
               </p>
             </div>
             <div className="w-full md:w-auto flex flex-col gap-2 md:items-end">
               <div className="text-xs uppercase text-gray-400">Connected</div>
-              <div className="text-xs font-mono bg-black/60 border border-white/15 rounded px-2 py-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                {walletState.accounts?.[0]?.address || 'No wallet'}
-              </div>
+              {walletState.connected ? (
+                <div className="text-xs font-mono bg-black/60 border border-white/15 rounded px-2 py-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                  {walletState.accounts?.[0]?.address || 'No wallet'}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setWalletConnectModalOpen(true)}
+                  className="text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded px-3 py-1.5"
+                >
+                  Connect Wallet
+                </button>
+              )}
             </div>
           </div>
 
@@ -1664,11 +2687,7 @@ export const MarketplacePage: React.FC = () => {
           </div>
         </div>
 
-        {!walletState.connected ? (
-          <div className="max-w-xl mb-8">
-            <WalletConnect />
-          </div>
-        ) : (
+        {walletState.connected ? (
           <div className="mb-6 flex flex-wrap gap-3">
             <button
               onClick={() => navigate('/marketplace/profile')}
@@ -1676,16 +2695,18 @@ export const MarketplacePage: React.FC = () => {
             >
               Open My Marketplace Profile
             </button>
-            <button
-              onClick={() => setShowAdminTools((v) => !v)}
-              className="px-4 py-2 rounded-lg bg-zinc-800 border border-white/15 hover:bg-zinc-700 text-sm font-semibold"
-            >
-              {showAdminTools ? 'Hide Admin Listing Tools' : 'Show Admin Listing Tools'}
-            </button>
+            {isAdminWallet && (
+              <button
+                onClick={() => setShowAdminTools((v) => !v)}
+                className="px-4 py-2 rounded-lg bg-zinc-800 border border-white/15 hover:bg-zinc-700 text-sm font-semibold"
+              >
+                {showAdminTools ? 'Hide Admin Listing Tools' : 'Show Admin Listing Tools'}
+              </button>
+            )}
           </div>
-        )}
+        ) : null}
 
-        {showAdminTools && walletState.connected && (
+        {showAdminTools && walletState.connected && isAdminWallet && (
           <div className="mb-8 border border-white/20 rounded-xl p-4 bg-zinc-900/40">
             <h2 className="font-bold mb-3">Create Listing (Admin)</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1763,10 +2784,41 @@ export const MarketplacePage: React.FC = () => {
           </div>
         )}
 
+        {walletConnectModalOpen && !walletState.connected && (
+          <div className="fixed inset-0 z-[150] bg-black/80 p-4 overflow-auto" onClick={() => setWalletConnectModalOpen(false)}>
+            <div
+              className="max-w-xl mx-auto mt-10 border border-white/20 rounded-xl bg-zinc-950 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold">Connect Wallet</h3>
+                <button
+                  type="button"
+                  onClick={() => setWalletConnectModalOpen(false)}
+                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs"
+                >
+                  Close
+                </button>
+              </div>
+              <WalletConnect />
+            </div>
+          </div>
+        )}
+
         <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
           <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-bold">Collections</h2>
-            <span className="text-xs text-gray-400">Open a collection to browse all inscriptions</span>
+            <div className="flex items-center gap-2">
+              <select
+                value={collectionViewMode}
+                onChange={(e) => setCollectionViewMode(e.target.value as 'all' | 'my-items')}
+                className="bg-black border border-white/20 rounded px-2 py-1 text-xs"
+              >
+                <option value="all">All Collections</option>
+                <option value="my-items">My Items</option>
+              </select>
+              <span className="text-xs text-gray-400">Open a collection to browse all inscriptions</span>
+            </div>
           </div>
           {collectionsLoading ? (
             <div className="p-4 text-sm text-gray-400">Loading collections...</div>
@@ -1776,6 +2828,13 @@ export const MarketplacePage: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 p-2">
               {orderedCollectionsMeta
                 .filter((c) => c.active !== false)
+                .filter((c) => {
+                  if (collectionViewMode === 'all') return true;
+                  if (myItemCollectionSlugs.includes(c.slug)) return true;
+                  // ID-based join fallback: when we have wallet IDs, keep collections visible
+                  // and let modal filter by inscription_id membership.
+                  return myWalletInscriptionIds.size > 0;
+                })
                 .map((c) => (
                   <button
                     key={c.slug}
@@ -1785,17 +2844,64 @@ export const MarketplacePage: React.FC = () => {
                   >
                     <div className="aspect-square bg-zinc-900">
                       {c.cover_image ? (
-                        <img src={c.cover_image} alt={c.name} className="h-full w-full object-contain" />
+                        <img src={c.cover_image} alt={c.name} className="h-full w-full object-contain" loading="lazy" decoding="async" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No cover</div>
                       )}
                     </div>
                     <div className="p-2">
                       <div className="text-sm font-semibold truncate">{c.name}</div>
+                      <div className="text-[11px] text-gray-400">
+                        {typeof collectionTotalsBySlug[c.slug] === 'number'
+                          ? `${Number(collectionTotalsBySlug[c.slug] ?? 0).toLocaleString()} items`
+                          : 'items: -'}
+                      </div>
                       <div className="text-[11px] text-gray-500">{c.slug}</div>
                     </div>
                   </button>
                 ))}
+            </div>
+          )}
+          {collectionViewMode === 'my-items' && myCollectionsLoading && (
+            <div className="px-4 pb-4 text-xs text-amber-300">Loading My Items from Taproot wallet...</div>
+          )}
+          {collectionViewMode === 'my-items' && !myCollectionsLoading && myWalletInscriptionIds.size > 0 && myItemCollectionSlugs.length === 0 && (
+            <div className="px-4 pb-4 text-xs text-amber-300">
+              My wallet has inscriptions, but collection mapping is not available yet. Open `My Marketplace Profile` to verify IDs.
+            </div>
+          )}
+          {collectionViewMode === 'my-items' && !myCollectionsLoading && myWalletInscriptionIds.size === 0 && (
+            <div className="px-4 pb-4 text-xs text-gray-400">
+              No Taproot inscriptions found for current wallet.
+            </div>
+          )}
+          {collectionViewMode === 'my-items' && !myCollectionsLoading && myWalletInscriptionIds.size > 0 && (
+            <div className="px-3 pb-3">
+              <div className="mb-2 text-xs text-gray-400">
+                My wallet items (direct preview)
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10 gap-2">
+                {myWalletIdsForGallery.map((inscriptionId) => (
+                  <button
+                    key={inscriptionId}
+                    type="button"
+                    onClick={() => handleOpenInscriptionDetail(inscriptionId)}
+                    className="rounded-md border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                    title={inscriptionId}
+                  >
+                    <PreviewImage
+                      inscriptionId={inscriptionId}
+                      alt={inscriptionId}
+                      className="w-full aspect-square"
+                      fit="contain"
+                      lightweight
+                    />
+                    <div className="px-1 py-1 text-[9px] font-mono text-gray-400 truncate">
+                      {inscriptionId}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1839,12 +2945,14 @@ export const MarketplacePage: React.FC = () => {
                 </div>
               </div>
               <div className="px-4 py-2 border-b border-white/10 bg-zinc-950/70">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                   <select
                     value={collectionSortMode}
                     onChange={(e) => setCollectionSortMode(e.target.value as typeof collectionSortMode)}
                     className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
                   >
+                    <option value="price-asc">Sort: Price Low -&gt; High</option>
+                    <option value="price-desc">Sort: Price High -&gt; Low</option>
                     <option value="rarity-desc">Sort: Rarity High -&gt; Low</option>
                     <option value="rarity-asc">Sort: Rarity Low -&gt; High</option>
                     <option value="score-desc">Sort: Score High -&gt; Low</option>
@@ -1864,6 +2972,14 @@ export const MarketplacePage: React.FC = () => {
                     <option value="rare">Rare</option>
                     <option value="uncommon">Uncommon</option>
                     <option value="common">Common</option>
+                  </select>
+                  <select
+                    value={collectionItemsFilter}
+                    onChange={(e) => setCollectionItemsFilter(e.target.value as 'all' | 'my-items')}
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="all">Items: All</option>
+                    <option value="my-items">Items: My Items</option>
                   </select>
                   <button
                     type="button"
@@ -1952,23 +3068,52 @@ export const MarketplacePage: React.FC = () => {
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
                     const rarity = extractInscriptionRarity(ins);
+                    const contentTypeHint = String(
+                      ins?.contentType ||
+                      ins?.content_type ||
+                      ins?.metadata?.contentType ||
+                      ins?.metadata?.content_type ||
+                      ''
+                    ).toLowerCase();
+                    const preferIframePreview =
+                      contentTypeHint.includes('text/html') ||
+                      contentTypeHint.includes('application/xhtml') ||
+                      contentTypeHint.includes('image/svg+xml');
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
                     const rarityPercentile = collectionCompositeRarityByInscription.percentileById.get(ins.inscription_id) || 0;
                     const compositeLabel = isOneOfOne ? 'mythic' : compositeRarityLabel(rarityPercentile);
+                    const activeListing =
+                      collectionActiveListingsByInscription[ins.inscription_id] ||
+                      listings.find((l) => l.inscription_id === ins.inscription_id && String(l.status || '').toLowerCase() === 'active') ||
+                      null;
+                    const listingPriceSats = Number(activeListing?.price_sats || 0);
+                    const isOwnListing =
+                      !!currentAddress &&
+                      !!activeListing &&
+                      String(activeListing.seller_address || '').toLowerCase() === currentAddress.toLowerCase();
+                    const buyBusy = !!activeListing && busyListingId === activeListing.id;
                     return (
-                      <button
+                      <div
                         key={ins.inscription_id}
-                        type="button"
-                        onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
                         className="rounded-md border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
                       >
+                        <button
+                          type="button"
+                          onClick={() => handleOpenInscriptionDetail(ins.inscription_id)}
+                          className="block w-full text-left"
+                        >
                         <PreviewImage
                           inscriptionId={ins.inscription_id}
                           alt={ins.inscription_id}
                           className="w-full aspect-square"
                           fit="contain"
+                          preferIframe={preferIframePreview}
+                          preferredSources={[
+                            String(ins.previewUrl || '').trim(),
+                            String(ins.contentUrl || '').trim(),
+                          ]}
                         />
                         <div className="p-1.5">
                           <div className="text-[10px] font-mono text-gray-300 truncate">
@@ -1998,9 +3143,47 @@ export const MarketplacePage: React.FC = () => {
                                 Meta: {rarity}
                               </span>
                             )}
+                            {activeListing && listingPriceSats > 0 && (
+                              <span className="text-[9px] px-1 py-0.5 rounded border border-emerald-700/40 bg-emerald-900/30 text-emerald-200 font-mono">
+                                Price: {listingPriceSats.toLocaleString()} sats
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </button>
+                        </button>
+                        {activeListing && listingPriceSats > 0 && (
+                          <div className="px-1.5 pb-1.5">
+                            {isOwnListing ? (
+                              <div className="text-[10px] text-gray-400">Listed by you</div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={!walletState.connected || buyBusy || !activeListing.signed_psbt_base64}
+                                  onClick={() => handleBuyListing(activeListing)}
+                                  className="w-full px-2 py-1 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-[10px] font-semibold"
+                                  title={
+                                    activeListing.signed_psbt_base64
+                                      ? `Buy for ${listingPriceSats.toLocaleString()} sats + network fee`
+                                      : 'Legacy listing without PSBT. Seller must relist.'
+                                  }
+                                >
+                                  {buyBusy
+                                    ? 'Buying...'
+                                    : activeListing.signed_psbt_base64
+                                      ? `Buy for ${listingPriceSats.toLocaleString()} sats + fee`
+                                      : 'Relist required'}
+                                </button>
+                                {activeListing.signed_psbt_base64 && (
+                                  <div className="mt-1 text-[9px] text-gray-400">
+                                    You pay: {listingPriceSats.toLocaleString()} sats + network fee (exact fee shown before signing)
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                     })}
                   </div>
@@ -2068,6 +3251,7 @@ export const MarketplacePage: React.FC = () => {
                         className="h-full w-full"
                         imageClassName="group-hover:scale-[1.03] transition-transform duration-300"
                         fit="contain"
+                        lightweight
                       />
                       <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
                       <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/20 text-[10px] font-mono">
@@ -2165,7 +3349,7 @@ export const MarketplacePage: React.FC = () => {
                           </button>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(l)}
@@ -2174,21 +3358,26 @@ export const MarketplacePage: React.FC = () => {
                             Details
                           </button>
                           <button
-                            disabled={!walletState.connected || isBusy}
+                            disabled={!walletState.connected || isBusy || !l.signed_psbt_base64}
                             onClick={() => handleBuyListing(l)}
                             className="px-1.5 py-1.5 rounded bg-red-600 hover:bg-red-500 disabled:opacity-50 text-[11px] font-semibold"
-                            title="Simple mode: direct payment + complete"
+                            title={
+                              l.signed_psbt_base64
+                                ? `Buy for ${Number(l.price_sats || 0).toLocaleString()} sats + network fee`
+                                : 'Legacy listing without PSBT. Seller must relist.'
+                            }
                           >
-                            {isBusy ? 'Buying...' : 'Simple Buy'}
+                            {isBusy
+                              ? 'Buying...'
+                              : l.signed_psbt_base64
+                                ? `Buy ${Number(l.price_sats || 0).toLocaleString()} + fee`
+                                : 'Relist required'}
                           </button>
-                          <button
-                            disabled={!walletState.connected || isBusy}
-                            onClick={() => handleAdvancedBuyListing(l)}
-                            className="px-1.5 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[11px] font-semibold"
-                            title="Advanced mode: wallet PSBT signing and on-chain broadcast"
-                          >
-                            {isBusy ? 'PSBT...' : 'PSBT Buy'}
-                          </button>
+                        </div>
+                      )}
+                      {!isOwn && l.signed_psbt_base64 && (
+                        <div className="text-[10px] text-gray-400">
+                          Buyer pays: {Number(l.price_sats || 0).toLocaleString()} sats + network fee
                         </div>
                       )}
                     </div>
@@ -2216,8 +3405,8 @@ export const MarketplacePage: React.FC = () => {
           <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-bold">Recently Sold</h2>
             <div className="flex items-center gap-2 text-xs">
-              <span className="px-2 py-1 rounded bg-zinc-700 text-zinc-100">Simple</span>
-              <span className="px-2 py-1 rounded bg-emerald-700/80 text-emerald-100">Advanced PSBT</span>
+              <span className="px-2 py-1 rounded bg-zinc-700 text-zinc-100">Legacy</span>
+              <span className="px-2 py-1 rounded bg-emerald-700/80 text-emerald-100">PSBT</span>
             </div>
           </div>
           {listingsLoading ? (
@@ -2240,6 +3429,7 @@ export const MarketplacePage: React.FC = () => {
                         alt={s.inscription_id}
                         className="w-16 h-16 rounded border border-white/10 shrink-0"
                         fit="contain"
+                        lightweight
                       />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{s.collection_slug}</div>
@@ -2397,64 +3587,114 @@ export const MarketplacePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {selectedDetailListing && (
-                    <div className="rounded border border-white/10 p-3">
-                      <div className="text-xs text-gray-400 mb-2">Offer / Buy</div>
-                      {currentAddress &&
-                      selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ? (
-                        <button
-                          disabled={busyListingId === selectedDetailListing.id}
-                          onClick={() => handleCancelListing(selectedDetailListing.id)}
-                          className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
-                        >
-                          {busyListingId === selectedDetailListing.id ? 'Working...' : 'Cancel Listing'}
-                        </button>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input
-                              value={offerPriceSats}
-                              onChange={(e) => setOfferPriceSats(e.target.value)}
-                              placeholder="Offer price (sats)"
-                              className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
-                            />
-                            <input
-                              value={offerNote}
-                              onChange={(e) => setOfferNote(e.target.value)}
-                              placeholder="Optional note"
-                              className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
-                            />
-                            <button
-                              disabled={!walletState.connected || offerSubmitting}
-                              onClick={handleCreateOfferFromDetail}
-                              className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-xs font-semibold"
-                              title="Submit price offer"
-                            >
-                              {offerSubmitting ? 'Submitting...' : 'Offer Buy'}
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <button
-                              disabled={!walletState.connected || busyListingId === selectedDetailListing.id}
-                              onClick={() => handleBuyListing(selectedDetailListing)}
-                              className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
-                              title="Simple mode: direct payment + complete"
-                            >
-                              {busyListingId === selectedDetailListing.id ? 'Buying...' : 'Simple Buy'}
-                            </button>
-                            <button
-                              disabled={!walletState.connected || busyListingId === selectedDetailListing.id}
-                              onClick={() => handleAdvancedBuyListing(selectedDetailListing)}
-                              className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
-                              title="Advanced mode: wallet PSBT signing and on-chain broadcast"
-                            >
-                              {busyListingId === selectedDetailListing.id ? 'PSBT...' : 'PSBT Buy'}
-                            </button>
-                          </div>
+                  {(() => {
+                    const detailOwner = String(
+                      selectedInscriptionDetail.marketplaceInscription?.owner_address ||
+                        selectedInscriptionDetail.chainInfo?.ownerAddress ||
+                        selectedInscriptionDetail.chainInfo?.owner_address ||
+                        selectedInscriptionDetail.chainInfo?.address ||
+                        ''
+                    )
+                      .trim()
+                      .toLowerCase();
+                    const myAddress = String(currentAddress || '').trim().toLowerCase();
+                    const amOwner = !!myAddress && !!detailOwner && myAddress === detailOwner;
+
+                    if (!selectedDetailListing) {
+                      return (
+                        <div className="rounded border border-white/10 p-3">
+                          <div className="text-xs text-gray-400 mb-2">Listing</div>
+                          {amOwner ? (
+                            <div className="space-y-2">
+                              <div className="text-xs text-gray-300">This is your item. Create a listing:</div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  value={detailListPriceSats}
+                                  onChange={(e) => setDetailListPriceSats(e.target.value)}
+                                  placeholder="List price (sats)"
+                                  className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
+                                />
+                                <div className="text-[11px] text-gray-500 flex items-center">
+                                  Collection: {String(selectedInscriptionDetail.marketplaceInscription?.collection_slug || selectedCollectionSlug || 'unknown')}
+                                </div>
+                                <button
+                                  disabled={!walletState.connected || busyListingId === selectedInscriptionDetail.inscriptionId}
+                                  onClick={handleCreateListingFromDetail}
+                                  className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
+                                >
+                                  {busyListingId === selectedInscriptionDetail.inscriptionId ? 'Listing...' : 'List Item'}
+                                </button>
+                              </div>
+                              <div className="text-[11px] text-amber-300/90">
+                                Listing is PSBT-signed (non-custodial). Buyers can only purchase via PSBT.
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">
+                              No active listing for this inscription right now. Offer/Buy becomes available as soon as it is listed.
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      );
+                    }
+
+                    return (
+                      <div className="rounded border border-white/10 p-3">
+                        <div className="text-xs text-gray-400 mb-2">Offer / Buy</div>
+                        {currentAddress &&
+                        selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ? (
+                          <button
+                            disabled={busyListingId === selectedDetailListing.id}
+                            onClick={() => handleCancelListing(selectedDetailListing.id)}
+                            className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                          >
+                            {busyListingId === selectedDetailListing.id ? 'Working...' : 'Cancel Listing'}
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <input
+                                value={offerPriceSats}
+                                onChange={(e) => setOfferPriceSats(e.target.value)}
+                                placeholder="Offer price (sats)"
+                                className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
+                              />
+                              <input
+                                value={offerNote}
+                                onChange={(e) => setOfferNote(e.target.value)}
+                                placeholder="Optional note"
+                                className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
+                              />
+                              <button
+                                disabled={!walletState.connected || offerSubmitting}
+                                onClick={handleCreateOfferFromDetail}
+                                className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-xs font-semibold"
+                                title="Submit price offer"
+                              >
+                                {offerSubmitting ? 'Submitting...' : 'Offer Buy'}
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2">
+                              <button
+                                disabled={!walletState.connected || busyListingId === selectedDetailListing.id || !selectedDetailListing.signed_psbt_base64}
+                                onClick={() => handleBuyListing(selectedDetailListing)}
+                                className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
+                                title={
+                                  selectedDetailListing.signed_psbt_base64
+                                    ? 'PSBT buy'
+                                    : 'Legacy listing without PSBT. Seller must relist.'
+                                }
+                              >
+                                {busyListingId === selectedDetailListing.id
+                                  ? 'Buying...'
+                                  : (selectedDetailListing.signed_psbt_base64 ? 'Buy (PSBT)' : 'Relist required')}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {detailTab === 'details' && (
                     <div className="rounded border border-white/10 p-3">
@@ -2586,8 +3826,7 @@ export const MarketplacePage: React.FC = () => {
                               currentAddress &&
                               o.status === 'accepted' &&
                               (selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ||
-                                String(o.buyer_address || '').toLowerCase() === currentAddress.toLowerCase() ||
-                                isAdminUser) && (
+                                String(o.buyer_address || '').toLowerCase() === currentAddress.toLowerCase()) && (
                                 <div className="mt-1.5 space-y-1">
                                   <input
                                     value={offerTxids[o.id] || ''}

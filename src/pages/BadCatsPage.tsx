@@ -929,19 +929,19 @@ export const BadCatsPage: React.FC = () => {
                 {/* Free Mint Collections */}
                 <h3 className="text-sm text-red-400 mb-2" style={{ fontFamily: subFont }}>HOLD A CAT, MINT FOR FREE</h3>
                 <div className="space-y-2 mb-4">
-                  <a href="https://magiceden.io/ordinals/marketplace/bonecat" target="_blank" rel="noopener noreferrer"
+                  <a href="/marketplace?collection=bonecat" target="_blank" rel="noopener noreferrer"
                     className="group flex items-center gap-3 bg-black/40 rounded-lg p-2.5 border border-red-900/40 transition-all hover:border-red-500 hover:bg-black/60">
                     <img src="/images/bonecat-preview.png" alt="Bone Cat"
                       className="w-12 h-12 rounded-md border-2 border-gray-700 group-hover:border-red-500 transition-colors object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: comicFont }}>Bone Cat</p>
-                      <p className="text-[10px] text-gray-500">Collection on Magic Eden</p>
+                      <p className="text-[10px] text-gray-500">Collection on RichArt Marketplace</p>
                     </div>
                     <span className="bg-green-900/60 text-green-400 px-2 py-1 rounded text-[9px] font-bold border border-green-800/50 flex-shrink-0"
                       style={{ fontFamily: subFont }}>1:1 FREE</span>
                   </a>
 
-                  <a href="https://magiceden.io/ordinals/marketplace/bchalloween" target="_blank" rel="noopener noreferrer"
+                  <a href="/marketplace?collection=bchalloween" target="_blank" rel="noopener noreferrer"
                     className="group flex items-center gap-3 bg-black/40 rounded-lg p-2.5 border border-red-900/40 transition-all hover:border-orange-500 hover:bg-black/60">
                     <div className="flex -space-x-2 flex-shrink-0">
                       <img src="/images/bchalloween-preview1.avif" alt="Halloween Bad Cat"
@@ -951,7 +951,7 @@ export const BadCatsPage: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white group-hover:text-orange-400 transition-colors" style={{ fontFamily: comicFont }}>Halloween Bad Cats</p>
-                      <p className="text-[10px] text-gray-500">Special Edition on Magic Eden</p>
+                      <p className="text-[10px] text-gray-500">Special Edition on RichArt Marketplace</p>
                     </div>
                     <span className="bg-green-900/60 text-green-400 px-2 py-1 rounded text-[9px] font-bold border border-green-800/50 flex-shrink-0"
                       style={{ fontFamily: subFont }}>1:1 FREE</span>

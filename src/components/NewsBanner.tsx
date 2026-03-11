@@ -71,10 +71,11 @@ const NEWS_ITEMS: NewsItem[] = [
   {
     id: 'scanmode',
     title: 'SCANMODE',
-    description: 'Check out on Magic Eden',
+    description: 'Check out in RichArt Marketplace',
     image: 'https://ordinals.com/content/fb6c2e54a61b392ad5699091e68a2d2bfac7af4fe5b2505a25011a7ae4b92be7i0',
-    link: 'https://magiceden.io/ordinals/marketplace/scanmode',
+    link: '/marketplace?collection=scanmode',
     fullWidth: true,
+    isInternal: true,
     images: [
       'https://ordinals.com/content/fb6c2e54a61b392ad5699091e68a2d2bfac7af4fe5b2505a25011a7ae4b92be7i0',
       'https://ordinals.com/content/1d70ccfb759800d81ddbc83b7ce1b83b340e76e3d1b99292ef5ea518f06c8b03i0',
@@ -100,9 +101,10 @@ const NEWS_ITEMS: NewsItem[] = [
   {
     id: 'sosevo',
     title: 'Sons of Satoshi Evolution',
-    description: 'Check out on Magic Eden',
+    description: 'Check out in RichArt Marketplace',
     image: '/images/SOSEvo.jpg',
-    link: 'https://magiceden.io/ordinals/marketplace/sosevo',
+    link: '/marketplace?collection=sosevo',
+    isInternal: true,
   },
   {
     id: 'tactical',
@@ -114,9 +116,10 @@ const NEWS_ITEMS: NewsItem[] = [
   {
     id: 'thebox',
     title: 'Check out THE BOX space. Every Day on X',
-    description: 'Check out on Magic Eden',
+    description: 'Check out in RichArt Marketplace',
     image: '/images/Box.png',
-    link: 'https://magiceden.io/ordinals/marketplace/thebox',
+    link: '/marketplace?collection=thebox',
+    isInternal: true,
   },
 ];
 
