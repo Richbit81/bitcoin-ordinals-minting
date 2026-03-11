@@ -18,7 +18,6 @@ import {
   prepareMarketplaceListingPsbt,
   getMarketplaceProfile,
   getMarketplaceWalletInscriptionsByCollectionScan,
-  getMarketplaceWalletInscriptionsViaUnisat,
   getMarketplaceRareSatsBatch,
   getMarketplaceRanking,
   MarketplaceCollection,
@@ -722,14 +721,6 @@ export const MarketplacePage: React.FC = () => {
           }
         } catch {
           // profile endpoint unavailable
-        }
-        if (walletRows.length === 0) {
-          try {
-            walletRows = await getMarketplaceWalletInscriptionsViaUnisat(taprootAddress);
-            if (walletRows.length > 0) source = 'unisat';
-          } catch {
-            // UniSat indexer unavailable or no rows
-          }
         }
         if (walletRows.length === 0) {
           try {
