@@ -532,6 +532,11 @@ export const MarketplacePage: React.FC = () => {
   const [collectionSortMode, setCollectionSortMode] = useState<
     'price-asc' | 'price-desc' | 'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc' | 'score-desc' | 'score-asc'
   >('price-asc');
+  const [selectedMyItemIds, setSelectedMyItemIds] = useState<Set<string>>(new Set());
+  const [bulkListBasePriceSats, setBulkListBasePriceSats] = useState('10000');
+  const [bulkListStepSats, setBulkListStepSats] = useState('1000');
+  const [bulkListDirection, setBulkListDirection] = useState<'up' | 'down'>('up');
+  const [bulkListRunning, setBulkListRunning] = useState(false);
   const rareSatsCacheRef = useRef<Record<string, string>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const myItemsSlugHydrationKeyRef = useRef<string>('');
@@ -1654,6 +1659,95 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
+  const handleBulkListMyItems = async () => {
+    try {
+      if (!walletState.connected || !currentAddress || !walletState.walletType) {
+        throw new Error('Connect wallet first');
+      }
+      const selectedIds = Array.from(selectedMyItemIds).sort((a, b) => a.localeCompare(b));
+      if (selectedIds.length === 0) {
+        throw new Error('Select at least one item first');
+      }
+      const basePrice = Math.round(Number(bulkListBasePriceSats || 0));
+      const stepPrice = Math.round(Number(bulkListStepSats || 0));
+      if (!Number.isFinite(basePrice) || basePrice <= 0) {
+        throw new Error('Base price must be greater than 0');
+      }
+      if (!Number.isFinite(stepPrice) || stepPrice < 0) {
+        throw new Error('Ladder step must be 0 or greater');
+      }
+
+      setError(null);
+      setBulkListRunning(true);
+      setBusyListingId('bulk-my-items');
+      let successCount = 0;
+      const successfulIds: string[] = [];
+      const failed: string[] = [];
+
+      for (let index = 0; index < selectedIds.length; index++) {
+        const inscriptionId = selectedIds[index];
+        const directionFactor = bulkListDirection === 'down' ? -1 : 1;
+        const priceSats = Math.max(1, basePrice + directionFactor * stepPrice * index);
+        try {
+          setActionMessage(`Listing ${index + 1}/${selectedIds.length}: ${inscriptionId} at ${priceSats} sats...`);
+          const detail = await getMarketplaceInscriptionDetail(inscriptionId);
+          const collectionSlug = String(
+            detail?.marketplaceInscription?.collection_slug || selectedCollectionSlug || 'unknown'
+          ).trim();
+          const listingPayload = {
+            inscriptionId,
+            collectionSlug: collectionSlug || 'unknown',
+            sellerAddress: currentAddress,
+            sellerPaymentAddress: paymentAddress || currentAddress,
+            sellerPublicKey: ordinalsPublicKey || undefined,
+            buyerReceiveAddress: currentAddress,
+            priceSats,
+          };
+          const prepared = await prepareMarketplaceListingPsbt(listingPayload);
+          if (!prepared?.psbtBase64 || !prepared?.listingId) {
+            throw new Error('Listing PSBT preparation returned incomplete data');
+          }
+          const signedPsbtData = await signPSBT(
+            prepared.psbtBase64,
+            walletState.walletType,
+            false,
+            prepared.ownerAddress || currentAddress,
+            0x82
+          );
+          const signedIsHex = /^[0-9a-fA-F]+$/.test(String(signedPsbtData || '').trim());
+          await finalizeMarketplaceListingPsbt({
+            listingId: prepared.listingId,
+            walletAddress: currentAddress,
+            signedPsbtHex: signedIsHex ? signedPsbtData : undefined,
+            signedPsbtBase64: signedIsHex ? undefined : signedPsbtData,
+          });
+          successCount += 1;
+          successfulIds.push(inscriptionId);
+        } catch (err: any) {
+          failed.push(`${inscriptionId}: ${String(err?.message || 'listing failed')}`);
+        }
+      }
+
+      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      if (successfulIds.length > 0) {
+        setSelectedMyItemIds((prev) => {
+          const next = new Set(prev);
+          for (const id of successfulIds) next.delete(id);
+          return next;
+        });
+      }
+      setActionMessage(`Bulk listing done: ${successCount}/${selectedIds.length} listed.`);
+      if (failed.length > 0) {
+        setError(`Some items failed: ${failed.slice(0, 3).join(' | ')}`);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to bulk list items');
+    } finally {
+      setBulkListRunning(false);
+      setBusyListingId(null);
+    }
+  };
+
   const handleCreateOfferFromDetail = async () => {
     try {
       if (!selectedDetailListing) throw new Error('No listing selected');
@@ -2532,6 +2626,15 @@ export const MarketplacePage: React.FC = () => {
     () => Array.from(myWalletInscriptionIds).slice(0, 240),
     [myWalletInscriptionIds]
   );
+  useEffect(() => {
+    const visible = new Set(myWalletIdsForGallery);
+    setSelectedMyItemIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(Array.from(prev).filter((id) => visible.has(id)));
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [myWalletIdsForGallery]);
 
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -2922,15 +3025,71 @@ export const MarketplacePage: React.FC = () => {
               My wallet has inscriptions, but collection mapping is not available yet. Open `My Marketplace Profile` to verify IDs.
             </div>
           )}
-          {collectionViewMode === 'my-items' && !myCollectionsLoading && myWalletInscriptionIds.size === 0 && (
+          {collectionViewMode === 'my-items' && !myCollectionsLoading && !walletState.connected && (
+            <div className="px-4 pb-4 text-xs text-amber-300">
+              Bitte zuerst Wallet verbinden, damit `My Items` geladen werden kann.
+            </div>
+          )}
+          {collectionViewMode === 'my-items' && !myCollectionsLoading && walletState.connected && myWalletInscriptionIds.size === 0 && (
             <div className="px-4 pb-4 text-xs text-gray-400">
               No Taproot inscriptions found for current wallet.
             </div>
           )}
           {collectionViewMode === 'my-items' && !myCollectionsLoading && myWalletInscriptionIds.size > 0 && (
             <div className="px-3 pb-3">
-              <div className="mb-2 text-xs text-gray-400">
-                My wallet items (direct preview)
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-gray-400">My wallet items (direct preview)</span>
+                <span className="text-gray-500">Selected: {selectedMyItemIds.size}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMyItemIds(new Set(myWalletIdsForGallery))}
+                  disabled={bulkListRunning}
+                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  Select visible
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMyItemIds(new Set())}
+                  disabled={bulkListRunning || selectedMyItemIds.size === 0}
+                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="mb-3 rounded border border-white/10 bg-zinc-900/50 p-2">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                  <input
+                    value={bulkListBasePriceSats}
+                    onChange={(e) => setBulkListBasePriceSats(e.target.value)}
+                    placeholder="Base price (sats)"
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  />
+                  <input
+                    value={bulkListStepSats}
+                    onChange={(e) => setBulkListStepSats(e.target.value)}
+                    placeholder="Ladder step (sats)"
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  />
+                  <select
+                    value={bulkListDirection}
+                    onChange={(e) => setBulkListDirection(e.target.value as 'up' | 'down')}
+                    className="bg-black border border-white/15 rounded px-2 py-1 text-xs"
+                  >
+                    <option value="up">Ladder: up (+step)</option>
+                    <option value="down">Ladder: down (-step)</option>
+                  </select>
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleBulkListMyItems}
+                      disabled={!walletState.connected || bulkListRunning || selectedMyItemIds.size === 0}
+                      className="w-full px-3 py-1.5 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
+                    >
+                      {bulkListRunning ? 'Listing selected items...' : `List selected (${selectedMyItemIds.size})`}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10 gap-2">
                 {myWalletIdsForGallery.map((inscriptionId) => (
@@ -2938,9 +3097,30 @@ export const MarketplacePage: React.FC = () => {
                     key={inscriptionId}
                     type="button"
                     onClick={() => handleOpenInscriptionDetail(inscriptionId)}
-                    className="rounded-md border border-white/10 bg-zinc-900/60 overflow-hidden hover:border-red-500/40 transition-colors"
+                    className={`relative rounded-md border bg-zinc-900/60 overflow-hidden transition-colors ${
+                      selectedMyItemIds.has(inscriptionId)
+                        ? 'border-red-500/70'
+                        : 'border-white/10 hover:border-red-500/40'
+                    }`}
                     title={inscriptionId}
                   >
+                    <div className="absolute z-10 mt-1 ml-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedMyItemIds.has(inscriptionId)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedMyItemIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(inscriptionId)) next.delete(inscriptionId);
+                            else next.add(inscriptionId);
+                            return next;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-3.5 w-3.5 accent-red-600"
+                      />
+                    </div>
                     <PreviewImage
                       inscriptionId={inscriptionId}
                       alt={inscriptionId}
