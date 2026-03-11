@@ -3027,7 +3027,7 @@ export const MarketplacePage: React.FC = () => {
           )}
           {collectionViewMode === 'my-items' && !myCollectionsLoading && !walletState.connected && (
             <div className="px-4 pb-4 text-xs text-amber-300">
-              Bitte zuerst Wallet verbinden, damit `My Items` geladen werden kann.
+              Connect wallet first to load `My Items`.
             </div>
           )}
           {collectionViewMode === 'my-items' && !myCollectionsLoading && walletState.connected && myWalletInscriptionIds.size === 0 && (
@@ -3296,7 +3296,7 @@ export const MarketplacePage: React.FC = () => {
               ) : filteredCollectionInscriptions.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500">
                   {collectionItemsFilter === 'my-items' && !walletState.connected
-                    ? 'Wallet verbinden um Items zu sehen.'
+                    ? 'Connect wallet to see items.'
                     : 'No inscriptions found for this collection.'}
                 </div>
               ) : (
@@ -3365,15 +3365,23 @@ export const MarketplacePage: React.FC = () => {
                     const contentTypeHint = String(
                       ins?.contentType ||
                       ins?.content_type ||
+                      ins?.mimeType ||
+                      ins?.mime_type ||
+                      ins?.metadata?.mimeType ||
+                      ins?.metadata?.mime_type ||
                       ins?.metadata?.contentType ||
                       ins?.metadata?.content_type ||
+                      ins?.metadata?.type ||
                       ''
                     ).toLowerCase();
                     const preferIframePreview =
                       contentTypeHint.includes('text/html') ||
                       contentTypeHint.includes('application/xhtml') ||
                       contentTypeHint.includes('image/svg+xml') ||
-                      /(badcats|bad-cats|bchalloween|halloween)/i.test(String(selectedCollectionSlug || ''));
+                      contentTypeHint.includes('svg') ||
+                      /(badcats|bad-cats|bchalloween|halloween|ganja|ganja-onchain)/i.test(
+                        String(selectedCollectionSlug || '')
+                      );
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
