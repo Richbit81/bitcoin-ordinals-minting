@@ -85,6 +85,20 @@ const NEWS_ITEMS: NewsItem[] = [
     ],
   },
   {
+    id: 'bitcoin-gazette',
+    title: 'The Bitcoin Gazette',
+    description: 'Fully on chain ARTicles',
+    image: 'https://thebitcoingazette.com/fav.png',
+    link: 'https://thebitcoingazette.com/',
+  },
+  {
+    id: 'pinkpuppets-openpage',
+    title: 'PinkPuppets on Openpage!',
+    description: 'Join the Pink Puppets community',
+    image: '/images/pinkpuppets-openpage.avif',
+    link: 'https://op.xyz/communities/pink-puppets',
+  },
+  {
     id: 'santas-revenge',
     title: "Santas Revenge",
     description: 'Mint on Trio',

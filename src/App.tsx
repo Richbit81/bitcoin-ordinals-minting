@@ -28,6 +28,10 @@ const SmilePage = lazy(() => import('./pages/SmilePage').then((m) => ({ default:
 const SlumsPage = lazy(() => import('./pages/SlumsPage').then((m) => ({ default: m.SlumsPage })));
 const BadCatsPage = lazy(() => import('./pages/BadCatsPage').then((m) => ({ default: m.BadCatsPage })));
 const CatWarPage = lazy(() => import('./pages/CatWarPage').then((m) => ({ default: m.CatWarPage })));
+const PinkPuppetsPage = lazy(() => import('./pages/PinkPuppetsPage').then((m) => ({ default: m.PinkPuppetsPage })));
+const PinkPuppetsMarketplacePage = lazy(() =>
+  import('./pages/PinkPuppetsMarketplacePage').then((m) => ({ default: m.PinkPuppetsMarketplacePage }))
+);
 const PalindromSoundBoxPage = lazy(() => import('./pages/PalindromSoundBoxPage').then((m) => ({ default: m.PalindromSoundBoxPage })));
 const GalleryInscriptionToolPage = lazy(() => import('./pages/GalleryInscriptionToolPage').then((m) => ({ default: m.GalleryInscriptionToolPage })));
 const RecursiveCollectionToolPage = lazy(() => import('./pages/RecursiveCollectionToolPage'));
@@ -73,6 +77,9 @@ function AppContent() {
           <Route path="/smile-a-bit" element={<SmilePage />} />
           <Route path="/slums" element={<SlumsPage />} />
           <Route path="/badcats" element={<BadCatsPage />} />
+          <Route path="/pinkpuppets" element={<PinkPuppetsPage />} />
+          <Route path="/pinkpuppets/marketplace" element={<PinkPuppetsMarketplacePage />} />
+          <Route path="/pinkpuppets/markerplace" element={<Navigate to="/pinkpuppets/marketplace" replace />} />
           <Route path="/cattack" element={<CatWarPage />} />
           <Route path="/catwar" element={<Navigate to="/cattack" replace />} />
           <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
