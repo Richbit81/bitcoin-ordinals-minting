@@ -148,22 +148,14 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const _iframeCollectionSlugs = new Set<string>();
-
-function markCollectionAsIframe(slug?: string) {
-  if (slug) _iframeCollectionSlugs.add(slug);
-}
-
 /**
  * Vorschau per Inscription-ID direkt von ordinals.com.
+ * Verwendet immer iframe - das ist der einzige Weg der für ALLE Inscription-Typen
+ * zuverlässig funktioniert (Bilder, HTML, rekursive SVGs mit Child-Content).
  *
- * Problem: Rekursive SVG-Inscriptions (image/svg+xml) laden als <img> "erfolgreich",
- * aber die SVG referenziert Child-Content via /content/{id} der im img-Kontext
- * nicht geladen wird -> rendert leer/grau. onError feuert NIE.
- *
- * Lösung: img mit Timeout. Wenn nach 2s kein sichtbarer Inhalt -> iframe.
- * Collection-Level-Cache: sobald eine Inscription einer Collection als iframe
- * erkannt wird, starten alle weiteren sofort als iframe.
+ * Warum nicht <img>: Rekursive SVGs laden als img "erfolgreich" (onLoad feuert),
+ * aber Child-Content /content/{id} wird im img-Kontext blockiert -> rendert leer.
+ * onError feuert nie -> kein Fallback möglich.
  */
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -179,65 +171,18 @@ const PreviewImage: React.FC<{
   inscriptionId,
   alt,
   className,
-  imageClassName = '',
-  fit = 'cover',
-  lightweight = false,
-  preferIframe = false,
-  collectionSlug,
-}) => {
-  const cachedIframe = collectionSlug ? _iframeCollectionSlugs.has(collectionSlug) : false;
-  const [iframe, setIframe] = useState(preferIframe || cachedIframe);
-  const imgOk = useRef(false);
-
-  useEffect(() => {
-    imgOk.current = false;
-    const next = preferIframe || (collectionSlug ? _iframeCollectionSlugs.has(collectionSlug) : false);
-    setIframe(next);
-
-    if (next) return;
-
-    const timer = setTimeout(() => {
-      if (!imgOk.current) {
-        markCollectionAsIframe(collectionSlug);
-        setIframe(true);
-      }
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [inscriptionId, preferIframe, collectionSlug]);
-
-  if (iframe) {
-    return (
-      <div className={`relative overflow-hidden ${className}`}>
-        <iframe
-          title={alt}
-          src={ordinalsContentUrl(inscriptionId)}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          sandbox="allow-scripts allow-same-origin"
-          referrerPolicy="no-referrer"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`relative overflow-hidden ${className}`}>
-      <img
-        src={ordinalsContentUrl(inscriptionId)}
-        alt={alt}
-        loading={lightweight ? 'lazy' : 'eager'}
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onLoad={() => { imgOk.current = true; }}
-        onError={() => {
-          markCollectionAsIframe(collectionSlug);
-          setIframe(true);
-        }}
-        className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName}`}
-      />
-    </div>
-  );
-};
+}) => (
+  <div className={`relative overflow-hidden ${className}`}>
+    <iframe
+      title={alt}
+      src={ordinalsContentUrl(inscriptionId)}
+      loading="lazy"
+      className="h-full w-full border-0 bg-zinc-900"
+      sandbox="allow-scripts allow-same-origin"
+      referrerPolicy="no-referrer"
+    />
+  </div>
+);
 
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
