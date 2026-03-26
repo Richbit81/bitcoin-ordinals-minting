@@ -672,13 +672,35 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                 <button className="rounded border border-pink-300/60 px-2 py-1 text-xs" onClick={() => setSelectedId(null)}>Close</button>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="aspect-square overflow-hidden rounded-lg border border-pink-300/60 bg-[#140014]">
-                  <img
-                    src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}
-                    title={selected.name}
-                    alt={selected.name}
-                    className="h-full w-full object-contain p-1"
-                  />
+                <div className="space-y-3">
+                  <div className="aspect-square overflow-hidden rounded-lg border border-pink-300/60 bg-[#140014]">
+                    <img
+                      src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}
+                      title={selected.name}
+                      alt={selected.name}
+                      className="h-full w-full object-contain p-1"
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-pink-100 font-semibold">Tech Score: <b>{selected.techScore.toFixed(2)}</b></p>
+                      <span className="text-xs text-pink-200/85">Top {selected.rarityPercentile.toFixed(1)}%</span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-1 text-[10px] text-pink-100/85">
+                      <div className="rounded bg-black/40 px-2 py-1">Trait Rarity <b>{selected.scoreBreakdown.traitComponent.toFixed(1)}</b></div>
+                      <div className="rounded bg-black/40 px-2 py-1">Trait Combo <b>{selected.scoreBreakdown.comboComponent.toFixed(1)}</b></div>
+                      <div className="rounded bg-black/40 px-2 py-1">Complexity <b>{selected.scoreBreakdown.complexityComponent.toFixed(1)}</b></div>
+                      <div className="rounded bg-black/40 px-2 py-1">Edition <b>{selected.scoreBreakdown.eraComponent.toFixed(1)}</b></div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {selected.attributes.map((attr, i) => (
+                        <span key={`${attr.trait_type}-${attr.value}-${i}`} className="inline-block rounded bg-pink-900/40 border border-pink-300/20 px-2 py-0.5 text-[10px] text-pink-100/90">
+                          <span className="text-pink-200/60">{attr.trait_type}:</span> {attr.value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <div className="rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
@@ -770,24 +792,6 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                         </>
                       );
                     })()}
-                  </div>
-
-                  <div className="rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
-                    <p>Tech Score: <b>{selected.techScore.toFixed(2)}</b></p>
-                    <p className="mt-1 text-xs text-pink-200/85">Percentile: <b>{selected.rarityPercentile.toFixed(2)}%</b></p>
-                    <p className="mt-1 text-xs text-pink-200/75">Breakdown (PinkPuppets v2):</p>
-                    <ul className="mt-1 space-y-1 text-xs text-pink-100/85">
-                      <li>Trait Rarity (55%): <b>{selected.scoreBreakdown.traitComponent.toFixed(2)}</b></li>
-                      <li>Trait Combo (20%): <b>{selected.scoreBreakdown.comboComponent.toFixed(2)}</b></li>
-                      <li>Attribute Complexity (15%): <b>{selected.scoreBreakdown.complexityComponent.toFixed(2)}</b></li>
-                      <li>Edition Context (10%): <b>{selected.scoreBreakdown.eraComponent.toFixed(2)}</b></li>
-                    </ul>
-                    <p className="mt-1">Traits:</p>
-                    <ul className="mt-1 space-y-1 text-xs text-pink-100/85">
-                      {selected.attributes.map((attr, i) => (
-                        <li key={`${attr.trait_type}-${attr.value}-${i}`}>{attr.trait_type}: <b>{attr.value}</b></li>
-                      ))}
-                    </ul>
                   </div>
 
                   {!walletState.connected && (
