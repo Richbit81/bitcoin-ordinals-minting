@@ -291,13 +291,19 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     };
   }, [walletState.connected, walletState.accounts]);
 
+  const ordApiCacheRef = React.useRef<Record<string, Record<string, any>>>({});
   React.useEffect(() => {
+    if (!selectedId) { setOrdApiData(null); return; }
     let cancelled = false;
+
+    const cachedOrd = ordApiCacheRef.current[selectedId];
+    if (cachedOrd) setOrdApiData(cachedOrd);
+    else setOrdApiData(null);
+
+    const ownerAlready = ownerByInscription[selectedId];
+
     const run = async () => {
-      if (!selectedId) { setOrdApiData(null); return; }
-      setOrdApiData(null);
-      const ownerPromise = (async () => {
-        if (ownerByInscription[selectedId]) { setSelectedDetailLoading(false); setSelectedDetailError(null); return; }
+      if (!ownerAlready) {
         setSelectedDetailLoading(true);
         setSelectedDetailError(null);
         try {
@@ -308,16 +314,28 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
         } finally {
           if (!cancelled) setSelectedDetailLoading(false);
         }
-      })();
-      const ordPromise = fetch(`https://ordinals.com/r/inscription/${encodeURIComponent(selectedId)}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (!cancelled && data) setOrdApiData(data); })
-        .catch(() => {});
-      await Promise.all([ownerPromise, ordPromise]);
+      } else {
+        setSelectedDetailLoading(false);
+        setSelectedDetailError(null);
+      }
+
+      if (!cachedOrd) {
+        try {
+          const res = await fetch(`https://ordinals.com/r/inscription/${encodeURIComponent(selectedId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (!cancelled && data) {
+              ordApiCacheRef.current[selectedId] = data;
+              setOrdApiData(data);
+            }
+          }
+        } catch { /* ignore */ }
+      }
     };
     void run();
     return () => { cancelled = true; };
-  }, [ownerByInscription, resolveOwnerAddress, selectedId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const rows = React.useMemo(() => {
     const q = search.trim().toLowerCase();
