@@ -148,13 +148,22 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const _htmlCollectionSlugs = new Set<string>();
-const _htmlInscriptionIds = new Set<string>();
+const _iframeCollectionSlugs = new Set<string>();
+
+function markCollectionAsIframe(slug?: string) {
+  if (slug) _iframeCollectionSlugs.add(slug);
+}
 
 /**
  * Vorschau per Inscription-ID direkt von ordinals.com.
- * img-first, bei Fehler sofort iframe + merke die Collection als HTML.
- * Alle weiteren Inscriptions der selben Collection starten direkt als iframe.
+ *
+ * Problem: Rekursive SVG-Inscriptions (image/svg+xml) laden als <img> "erfolgreich",
+ * aber die SVG referenziert Child-Content via /content/{id} der im img-Kontext
+ * nicht geladen wird -> rendert leer/grau. onError feuert NIE.
+ *
+ * Lösung: img mit Timeout. Wenn nach 2s kein sichtbarer Inhalt -> iframe.
+ * Collection-Level-Cache: sobald eine Inscription einer Collection als iframe
+ * erkannt wird, starten alle weiteren sofort als iframe.
  */
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -175,18 +184,25 @@ const PreviewImage: React.FC<{
   lightweight = false,
   preferIframe = false,
   collectionSlug,
-  onHtmlDetected,
 }) => {
-  const shouldIframe = preferIframe
-    || _htmlInscriptionIds.has(inscriptionId)
-    || (collectionSlug ? _htmlCollectionSlugs.has(collectionSlug) : false);
-  const [iframe, setIframe] = useState(shouldIframe);
+  const cachedIframe = collectionSlug ? _iframeCollectionSlugs.has(collectionSlug) : false;
+  const [iframe, setIframe] = useState(preferIframe || cachedIframe);
+  const imgOk = useRef(false);
 
   useEffect(() => {
-    const next = preferIframe
-      || _htmlInscriptionIds.has(inscriptionId)
-      || (collectionSlug ? _htmlCollectionSlugs.has(collectionSlug) : false);
+    imgOk.current = false;
+    const next = preferIframe || (collectionSlug ? _iframeCollectionSlugs.has(collectionSlug) : false);
     setIframe(next);
+
+    if (next) return;
+
+    const timer = setTimeout(() => {
+      if (!imgOk.current) {
+        markCollectionAsIframe(collectionSlug);
+        setIframe(true);
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
   }, [inscriptionId, preferIframe, collectionSlug]);
 
   if (iframe) {
@@ -212,11 +228,10 @@ const PreviewImage: React.FC<{
         loading={lightweight ? 'lazy' : 'eager'}
         decoding="async"
         referrerPolicy="no-referrer"
+        onLoad={() => { imgOk.current = true; }}
         onError={() => {
-          _htmlInscriptionIds.add(inscriptionId);
-          if (collectionSlug) _htmlCollectionSlugs.add(collectionSlug);
+          markCollectionAsIframe(collectionSlug);
           setIframe(true);
-          onHtmlDetected?.();
         }}
         className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName}`}
       />
