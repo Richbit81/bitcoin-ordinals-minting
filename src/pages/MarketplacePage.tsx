@@ -148,7 +148,7 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const _contentTypeCache: Record<string, 'image' | 'recursive'> = {};
+const _previewCache: Record<string, { mode: 'img' | 'composited' | 'iframe'; dataUrl?: string }> = {};
 
 function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -160,7 +160,7 @@ function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
   });
 }
 
-function compositeToDataUrl(body: string): Promise<string> | null {
+function tryComposite(body: string): Promise<string> | null {
   // Pattern A: Ordlify <recursive-images inscriptions="id1, id2, ...">
   const insMatch = body.match(/inscriptions="([^"]+)"/);
   if (insMatch) {
@@ -176,24 +176,19 @@ function compositeToDataUrl(body: string): Promise<string> | null {
     });
   }
 
-  // Pattern B: SVG with <image href="/content/{id}" x y width height>
+  // Pattern B: SVG with <image href="/content/{id}">
   const svgLayers: { id: string; x: number; y: number; w: number; h: number }[] = [];
-  const re = /<image[^>]*href="\/content\/([^"]+)"[^>]*>/gi;
+  const re = /<image[^>]*href="\/content\/([^"]+)"[^>]*\/?>/gi;
   let m;
-  while ((m = re.exec(body)) !== null) {
-    const tag = m[0];
-    svgLayers.push({
-      id: m[1],
-      x: parseFloat(tag.match(/\bx="([^"]*?)"/)?.[1] || '0'),
-      y: parseFloat(tag.match(/\by="([^"]*?)"/)?.[1] || '0'),
-      w: parseFloat(tag.match(/\bwidth="([^"]*?)"/)?.[1] || '0'),
-      h: parseFloat(tag.match(/\bheight="([^"]*?)"/)?.[1] || '0'),
-    });
-  }
+  while ((m = re.exec(body)) !== null) svgLayers.push({ id: m[1], x: 0, y: 0, w: 0, h: 0, ...parseSvgImageAttrs(m[0]) });
   if (svgLayers.length > 0) {
-    const vb = body.match(/viewBox="\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)\s*"/);
-    const cW = Math.round(parseFloat(vb?.[1] || '1000'));
-    const cH = Math.round(parseFloat(vb?.[2] || '1000'));
+    const vb = body.match(/viewBox="\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*"/);
+    const cW = Math.round(parseFloat(vb?.[3] || '1000'));
+    const cH = Math.round(parseFloat(vb?.[4] || '1000'));
+    for (const l of svgLayers) {
+      if (!l.w) l.w = cW;
+      if (!l.h) l.h = cH;
+    }
     return Promise.all(svgLayers.map((l) => loadInscriptionImage(l.id))).then((images) => {
       const c = document.createElement('canvas');
       c.width = cW; c.height = cH;
@@ -207,6 +202,19 @@ function compositeToDataUrl(body: string): Promise<string> | null {
   }
 
   return null;
+}
+
+function parseSvgImageAttrs(tag: string) {
+  const x = tag.match(/\bx="([^"]+)"/);
+  const y = tag.match(/\by="([^"]+)"/);
+  const w = tag.match(/\bwidth="([^"]+)"/);
+  const h = tag.match(/\bheight="([^"]+)"/);
+  return {
+    x: x ? parseFloat(x[1]) : 0,
+    y: y ? parseFloat(y[1]) : 0,
+    w: w ? parseFloat(w[1]) : 0,
+    h: h ? parseFloat(h[1]) : 0,
+  };
 }
 
 const PreviewImage: React.FC<{
@@ -225,7 +233,6 @@ const PreviewImage: React.FC<{
   className,
   imageClassName,
   fit = 'cover',
-  collectionSlug,
 }) => {
   const [mode, setMode] = useState<'loading' | 'img' | 'composited' | 'iframe'>('loading');
   const [compositedSrc, setCompositedSrc] = useState('');
@@ -233,65 +240,58 @@ const PreviewImage: React.FC<{
   useEffect(() => {
     let cancelled = false;
     const url = ordinalsContentUrl(inscriptionId);
-    const slug = collectionSlug?.trim().toLowerCase() || '';
 
-    const showAsImage = () => { if (!cancelled) setMode('img'); };
+    const cached = _previewCache[inscriptionId];
+    if (cached) {
+      setMode(cached.mode);
+      if (cached.dataUrl) setCompositedSrc(cached.dataUrl);
+      return;
+    }
 
-    const compositeFromBody = async (body: string) => {
-      try {
-        const promise = compositeToDataUrl(body);
-        if (!promise) {
-          if (!cancelled) setMode('iframe');
-          return;
-        }
-        const dataUrl = await promise;
-        if (!cancelled) { setCompositedSrc(dataUrl); setMode('composited'); }
-      } catch {
-        if (!cancelled) setMode('iframe');
-      }
-    };
-
-    const fetchAndComposite = async () => {
+    (async () => {
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error();
-        await compositeFromBody(await res.text());
+        const ct = res.headers.get('content-type') || '';
+        const isRasterImage = ct.startsWith('image/') && !ct.includes('svg');
+
+        if (isRasterImage) {
+          _previewCache[inscriptionId] = { mode: 'img' };
+          if (!cancelled) setMode('img');
+          return;
+        }
+
+        const body = await res.text();
+        const hasChildRefs = /\/content\//.test(body);
+
+        if (!hasChildRefs) {
+          if (ct.includes('svg')) {
+            _previewCache[inscriptionId] = { mode: 'img' };
+            if (!cancelled) setMode('img');
+          } else {
+            _previewCache[inscriptionId] = { mode: 'iframe' };
+            if (!cancelled) setMode('iframe');
+          }
+          return;
+        }
+
+        const promise = tryComposite(body);
+        if (promise) {
+          const dataUrl = await promise;
+          _previewCache[inscriptionId] = { mode: 'composited', dataUrl };
+          if (!cancelled) { setCompositedSrc(dataUrl); setMode('composited'); }
+        } else {
+          _previewCache[inscriptionId] = { mode: 'iframe' };
+          if (!cancelled) setMode('iframe');
+        }
       } catch {
+        _previewCache[inscriptionId] = { mode: 'iframe' };
         if (!cancelled) setMode('iframe');
       }
-    };
-
-    const cached = slug ? _contentTypeCache[slug] : undefined;
-    if (cached === 'image') { showAsImage(); return; }
-    if (cached === 'recursive') { fetchAndComposite(); return; }
-
-    fetch(url, { method: 'HEAD' })
-      .then((r) => {
-        if (cancelled) return;
-        const ct = r.headers.get('content-type') || '';
-        const isSvg = ct.includes('svg');
-        const isImage = ct.startsWith('image/') && !isSvg;
-
-        if (isImage) {
-          if (slug) _contentTypeCache[slug] = 'image';
-          showAsImage();
-        } else if (isSvg) {
-          fetch(url).then(r2 => r2.text()).then((body) => {
-            if (cancelled) return;
-            const hasChildRefs = /\/content\//.test(body);
-            if (slug) _contentTypeCache[slug] = hasChildRefs ? 'recursive' : 'image';
-            if (hasChildRefs) compositeFromBody(body);
-            else showAsImage();
-          }).catch(() => showAsImage());
-        } else {
-          if (slug) _contentTypeCache[slug] = 'recursive';
-          fetchAndComposite();
-        }
-      })
-      .catch(() => showAsImage());
+    })();
 
     return () => { cancelled = true; };
-  }, [inscriptionId, collectionSlug]);
+  }, [inscriptionId]);
 
   const url = ordinalsContentUrl(inscriptionId);
   const objFit = fit === 'contain' ? 'object-contain' : 'object-cover';
