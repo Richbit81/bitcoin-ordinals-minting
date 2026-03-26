@@ -247,18 +247,37 @@ async function resolveInscription(inscriptionId: string): Promise<PreviewCacheEn
     } catch { /* fall through */ }
   }
 
-  // 5. Standalone SVG (no child refs)
+  // 5. HTML with <img src="/content/{id}"> layers (e.g. SLUMS collection)
+  const htmlImgIds: string[] = [];
+  const htmlImgRe = /<img[^>]*src="\/content\/([^"]+)"[^>]*>/gi;
+  let htmlImgM;
+  while ((htmlImgM = htmlImgRe.exec(body)) !== null) htmlImgIds.push(htmlImgM[1]);
+  if (htmlImgIds.length > 0) {
+    const isPixel = /image-rendering:\s*pixelated/.test(body);
+    if (htmlImgIds.length === 1) {
+      return { mode: 'img', src: ordinalsContentUrl(htmlImgIds[0]), pixelArt: isPixel };
+    }
+    try {
+      const images = await Promise.all(htmlImgIds.map(loadInscriptionImage));
+      const w = images[0].naturalWidth || 1000;
+      const h = images[0].naturalHeight || 1000;
+      const layers = images.map(() => ({ x: 0, y: 0, w, h }));
+      return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, layers, w, h, isPixel), pixelArt: isPixel };
+    } catch { /* fall through to iframe */ }
+  }
+
+  // 6. Standalone SVG (no child refs)
   if (ct.includes('svg')) {
     return { mode: 'img', src: url };
   }
 
-  // 6. iframe wrapper → point iframe to inner content directly
+  // 7. iframe wrapper → point iframe to inner content directly
   const iframeMatch = body.match(/<iframe[^>]*src="\/content\/([^"]+)"/i);
   if (iframeMatch) {
     return { mode: 'iframe', src: ordinalsContentUrl(iframeMatch[1]) };
   }
 
-  // 7. Full HTML app / unknown → iframe
+  // 8. Full HTML app / unknown → iframe
   return { mode: 'iframe', src: url };
 }
 
@@ -320,6 +339,7 @@ const PreviewImage: React.FC<{
           alt={alt}
           loading="lazy"
           className={`h-full w-full ${objFit} ${imageClassName || ''}`}
+          style={_previewCache[inscriptionId]?.pixelArt ? { imageRendering: 'pixelated' } : undefined}
         />
       )}
       {effectiveMode === 'composited' && (
