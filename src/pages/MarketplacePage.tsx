@@ -278,6 +278,7 @@ const PreviewImage: React.FC<{
   className,
   imageClassName,
   fit = 'cover',
+  preferIframe = false,
 }) => {
   const cached = _previewCache[inscriptionId];
   const [mode, setMode] = useState<'loading' | 'img' | 'composited' | 'iframe'>(cached?.mode || 'loading');
@@ -304,15 +305,16 @@ const PreviewImage: React.FC<{
   }, [inscriptionId]);
 
   const objFit = fit === 'contain' ? 'object-contain' : 'object-cover';
+  const effectiveMode = preferIframe && mode === 'composited' ? 'iframe' : mode;
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {mode === 'loading' && (
+      {effectiveMode === 'loading' && (
         <div className="flex items-center justify-center h-full w-full bg-zinc-900">
           <div className="animate-pulse w-8 h-8 rounded-full bg-zinc-700" />
         </div>
       )}
-      {mode === 'img' && (
+      {effectiveMode === 'img' && (
         <img
           src={src}
           alt={alt}
@@ -320,7 +322,7 @@ const PreviewImage: React.FC<{
           className={`h-full w-full ${objFit} ${imageClassName || ''}`}
         />
       )}
-      {mode === 'composited' && (
+      {effectiveMode === 'composited' && (
         <img
           src={compositedSrc}
           alt={alt}
@@ -328,7 +330,7 @@ const PreviewImage: React.FC<{
           style={_previewCache[inscriptionId]?.pixelArt ? { imageRendering: 'pixelated' } : undefined}
         />
       )}
-      {mode === 'iframe' && (
+      {effectiveMode === 'iframe' && (
         <iframe
           title={alt}
           src={src}
@@ -4288,6 +4290,7 @@ export const MarketplacePage: React.FC = () => {
                     alt={d.inscriptionId}
                     className="w-full aspect-square rounded-lg border border-white/10 bg-zinc-900"
                     fit="contain"
+                    preferIframe
                     collectionSlug={collSlug.trim().toLowerCase()}
                   />
 
