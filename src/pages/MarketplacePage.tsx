@@ -32,6 +32,10 @@ import { isAdminAddress } from '../config/admin';
 
 const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
 const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
+const HIDDEN_BADCATS_INSCRIPTION_IDS = new Set<string>([
+  'd7d43702964e87e537c308878aeac0f52584ef69b936af0a18f210357d049afci0',
+]);
 const COLLECTION_PAGE_SIZE = 80;
 const INITIAL_LISTINGS_VISIBLE = 24;
 const LISTINGS_LOAD_STEP = 24;
@@ -41,7 +45,7 @@ const FULL_ACTIVE_LISTINGS_LIMIT = 100;
 const FULL_SOLD_LISTINGS_LIMIT = 20;
 const MARKETPLACE_COLLECTIONS_CACHE_KEY = 'marketplaceCollectionsCacheV1';
 const MARKETPLACE_COLLECTIONS_CACHE_TTL_MS = 60_000;
-const MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY = 'marketplaceCollectionTotalsCacheV1';
+const MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY = 'marketplaceCollectionTotalsCacheV2';
 const MARKETPLACE_COLLECTION_TOTALS_CACHE_TTL_MS = 300_000;
 const MARKETPLACE_LISTINGS_CACHE_KEY = 'marketplaceListingsCacheV1';
 const MARKETPLACE_LISTINGS_CACHE_TTL_MS = 45_000;
@@ -52,13 +56,76 @@ const MARKETPLACE_WALLET_ROWS_LAST_KEY = 'marketplaceWalletRowsLastV1';
 const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX_EXCLUSIVE = 95_000_000_000_000;
 const VINTAGE_SAT_MAX_EXCLUSIVE = 5_000_000_000_000;
+const RARE_SATS_MISS_CACHE_TTL_MS = 10 * 60 * 1000;
 const RARE_SAT_OVERRIDES_BY_INSCRIPTION: Record<string, string> = {
   '6efa80055d144fd67b477c828e4778e3c0582e0b6e728bb8f222c05b73ac3723i0': 'silk road',
 };
-const ordContentUrl = (id: string) => `${ORD_SERVER_URL}/content/${encodeURIComponent(String(id || '').trim())}`;
-const ordPreviewUrl = (id: string) => `${ORD_SERVER_URL}/preview/${encodeURIComponent(String(id || '').trim())}`;
+const fallbackOrdContentUrl = (id: string) => `${FALLBACK_API_URL}/content/${encodeURIComponent(String(id || '').trim())}`;
+const fallbackOrdPreviewUrl = (id: string) => `${FALLBACK_API_URL}/preview/${encodeURIComponent(String(id || '').trim())}`;
 const ordinalsContentUrl = (id: string) => `https://ordinals.com/content/${encodeURIComponent(String(id || '').trim())}`;
 const ordinalsPreviewUrl = (id: string) => `https://ordinals.com/preview/${encodeURIComponent(String(id || '').trim())}`;
+/** Inscription bodies often hard-code api.richart.app /content|/preview — browser would still request them in iframe/img and flood 502. */
+const rewriteRichartMirrorUrls = (markup: string): string => {
+  let s = String(markup || '');
+  // Literal passes first: catches www., protocol-relative, and env host drift; also fixes nested <image href> inside blob SVGs.
+  s = s.replace(/https?:\/\/(?:www\.)?api\.richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
+  // Any subdomain of richart.app that mirrors ordinals /content|/preview (avoid 502 in nested requests).
+  s = s.replace(/https?:\/\/(?:[a-z0-9-]+\.)*richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
+  s = s.replace(/\/\/api\.richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
+  s = s.replace(/\/\/(?:[a-z0-9-]+\.)*richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
+  try {
+    const ordHost = new URL(ORD_SERVER_URL).hostname;
+    const apiHost = new URL(API_URL).hostname;
+    const esc = (h: string) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    for (const host of new Set([ordHost, apiHost])) {
+      s = s.replace(new RegExp(`https?://${esc(host)}(?=/content/|/preview/)`, 'gi'), 'https://ordinals.com');
+    }
+  } catch {}
+  return s;
+};
+
+/** True for hosts that serve ordinals /content|/preview but often 502 in the browser (use ordinals.com instead). */
+const isUnstableRichartMirrorHost = (hostname: string): boolean => {
+  const h = String(hostname || '')
+    .replace(/^www\./i, '')
+    .toLowerCase();
+  if (!h) return false;
+  return h === 'richart.app' || h.endsWith('.richart.app');
+};
+
+/** Force top-level <img> / iframe src chains to never hit unstable Richart mirrors (502). Blob URLs pass through. */
+const toStableOrdinalsMirrorUrl = (raw: string): string => {
+  const s = String(raw || '').trim();
+  if (!s || s.startsWith('blob:') || s.startsWith('data:')) return s;
+  try {
+    const u = new URL(s.startsWith('//') ? `https:${s}` : s);
+    const path = u.pathname || '';
+    if (!/^\/(content|preview)\//i.test(path)) return s;
+    if (isUnstableRichartMirrorHost(u.hostname)) {
+      return `https://ordinals.com${path}${u.search}${u.hash}`;
+    }
+  } catch {}
+  return s;
+};
+/** Drop backend-provided /content, /preview and /api/inscription/image URLs that duplicate our own ORD_SERVER/API fallbacks — those were forcing api.richart.app first and causing 502 spam before public mirrors. */
+const shouldDeferPreferredToStableChain = (raw: string): boolean => {
+  const low = String(raw || '').trim().toLowerCase();
+  try {
+    const ordHost = new URL(ORD_SERVER_URL).hostname.toLowerCase();
+    const apiHost = new URL(API_URL).hostname.toLowerCase();
+    if (low.includes(`${ordHost}/content/`) || low.includes(`${ordHost}/preview/`)) return true;
+    if (low.includes(`${apiHost}/api/inscription/image/`)) return true;
+  } catch {}
+  try {
+    const u = new URL(raw);
+    const path = u.pathname || '';
+    const ordHost = new URL(ORD_SERVER_URL).hostname;
+    const apiHost = new URL(API_URL).hostname;
+    if (u.hostname === ordHost && /^\/(content|preview)\//i.test(path)) return true;
+    if (u.hostname === apiHost && /^\/api\/inscription\/image\//i.test(path)) return true;
+  } catch {}
+  return false;
+};
 const safeReadCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -184,23 +251,42 @@ const PreviewImage: React.FC<{
   const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
   const [docProbeRequested, setDocProbeRequested] = useState(false);
   const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
+  const fallbackApiImageUrl = `${FALLBACK_API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
+  const useRichartImageProxy = import.meta.env.VITE_USE_RICHART_IMAGE_PROXY === 'true';
   const normalizedPreferred = (preferredSources || [])
     .map((src) => String(src || '').trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((src) => !shouldDeferPreferredToStableChain(src));
+  const preferredKey = normalizedPreferred.join('\0');
+  // Public mirrors + Railway first; then preferred URLs. Richart /api/inscription/image is off by default (502-heavy); opt-in: VITE_USE_RICHART_IMAGE_PROXY=true.
+  // Do not use ORD_SERVER_URL /content or /preview here — same bytes as ordinals/Railway but unstable; they only spam 502 and slow cards.
   const imageSources = Array.from(
     new Set(
-      (lightweight
-        ? [...normalizedPreferred, ordinalsPreviewUrl(inscriptionId), apiImageUrl]
-        : [
-            preprocessedSrc,
-            ...normalizedPreferred,
-            apiImageUrl,
-            ordContentUrl(inscriptionId),
-            ordinalsPreviewUrl(inscriptionId),
-            ordinalsContentUrl(inscriptionId),
-          ]
-      ).filter(Boolean) as string[]
+      (
+        lightweight
+          ? [
+              ordinalsContentUrl(inscriptionId),
+              ordinalsPreviewUrl(inscriptionId),
+              fallbackOrdContentUrl(inscriptionId),
+              fallbackOrdPreviewUrl(inscriptionId),
+              ...normalizedPreferred,
+              fallbackApiImageUrl,
+              ...(useRichartImageProxy ? [apiImageUrl] : []),
+            ]
+          : [
+              preprocessedSrc,
+              ordinalsContentUrl(inscriptionId),
+              ordinalsPreviewUrl(inscriptionId),
+              fallbackOrdContentUrl(inscriptionId),
+              fallbackOrdPreviewUrl(inscriptionId),
+              ...normalizedPreferred,
+              fallbackApiImageUrl,
+              ...(useRichartImageProxy ? [apiImageUrl] : []),
+            ]
+      )
+        .filter(Boolean)
+        .map(toStableOrdinalsMirrorUrl) as string[]
     )
   );
   const [loaded, setLoaded] = useState(false);
@@ -229,7 +315,7 @@ const PreviewImage: React.FC<{
       blobUrlRef.current = null;
     }
     debugLog('reset', { imageSources });
-  }, [inscriptionId, preferIframe, lightweight]);
+  }, [inscriptionId, preferIframe, lightweight, preferredKey]);
 
   useEffect(() => {
     if (lightweight) return;
@@ -241,21 +327,25 @@ const PreviewImage: React.FC<{
       try {
         return new URL(src).origin;
       } catch {
-        return ORD_SERVER_URL;
+        return 'https://ordinals.com';
       }
     };
     const normalizeRecursiveSvg = (svgRaw: string, contentBaseUrl: string): string => {
-      let svg = svgRaw;
+      let svg = rewriteRichartMirrorUrls(svgRaw);
       svg = svg.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
+      svg = svg.replace(/(xlink:href|href|src)=["']content\//gi, `$1="${contentBaseUrl}/content/`);
       svg = svg.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
+      svg = svg.replace(/url\((["']?)content\//gi, `url($1${contentBaseUrl}/content/`);
       // Some recursive SVGs omit image dimensions; force full-canvas defaults for stability.
       svg = svg.replace(/<image(?![^>]*\swidth=)(?![^>]*\sheight=)\s/gi, '<image width="1000" height="1000" ');
       return svg;
     };
     const normalizeHtmlDoc = (htmlRaw: string, contentBaseUrl: string): string => {
-      let html = htmlRaw;
+      let html = rewriteRichartMirrorUrls(htmlRaw);
       html = html.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
+      html = html.replace(/(xlink:href|href|src)=["']content\//gi, `$1="${contentBaseUrl}/content/`);
       html = html.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
+      html = html.replace(/url\((["']?)content\//gi, `url($1${contentBaseUrl}/content/`);
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(
           /<head([^>]*)>/i,
@@ -270,7 +360,7 @@ const PreviewImage: React.FC<{
     const hydrateRecursiveSvg = async () => {
       // Avoid cross-origin CORS noise from API content endpoints here.
       // Direct ordinals.com content fetch works better for srcDoc probing.
-      const sources = [ordinalsContentUrl(inscriptionId)];
+      const sources = [ordinalsContentUrl(inscriptionId), fallbackOrdContentUrl(inscriptionId)];
       debugLog('preprocess-start', { sources });
       for (const src of sources) {
         try {
@@ -307,7 +397,13 @@ const PreviewImage: React.FC<{
             debugLog('preprocess-skip-not-svg', { src, length: trimmed.length });
             continue;
           }
-          if (!trimmed.includes('/content/')) {
+          const looksLikeRecursiveSvgBody = (body: string) =>
+            body.includes('/content/') ||
+            /(?:href|src|xlink:href)\s*=\s*["'][^"']*content\//i.test(body) ||
+            /https?:\/\/[^"'\s]+\/(content|preview)\//i.test(body) ||
+            (/<image\b/i.test(body) &&
+              /(?:href|src|xlink:href)\s*=\s*["'][^"']*https?:\/\//i.test(body));
+          if (!looksLikeRecursiveSvgBody(trimmed)) {
             debugLog('preprocess-skip-no-recursive-content', { src });
             continue;
           }
@@ -346,7 +442,6 @@ const PreviewImage: React.FC<{
   }, [noPreviewAvailable, inscriptionId, imageSources.length]);
 
   useEffect(() => {
-    if (lightweight) return;
     if (loaded || iframeFallback || noPreviewAvailable) return;
     if (!currentSrc) return;
     const timeoutMs = preferIframe ? 1400 : 3500;
@@ -362,10 +457,9 @@ const PreviewImage: React.FC<{
       });
     }, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, lightweight, preferIframe]);
+  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, preferIframe]);
 
   useEffect(() => {
-    if (lightweight) return;
     if (!iframeFallback || loaded || noPreviewAvailable || iframeFallbackUsePreview) return;
     // Keep collection cards responsive: switch to preview endpoint quickly when content stalls.
     const timeoutMs = 2500;
@@ -374,7 +468,7 @@ const PreviewImage: React.FC<{
       debugLog('iframe-fallback-switch-to-preview', { timeoutMs, inscriptionId });
     }, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview, lightweight]);
+  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -406,7 +500,7 @@ const PreviewImage: React.FC<{
             debugLog('iframe-html-srcdoc-load-success');
           }}
         />
-      ) : !lightweight && iframeFallback ? (
+      ) : iframeFallback ? (
         <div className="absolute inset-0 overflow-hidden bg-zinc-900">
           <iframe
             title={alt}
@@ -447,13 +541,18 @@ const PreviewImage: React.FC<{
             if (!lightweight && maybeBlank && !docProbeRequested) {
               setDocProbeRequested(true);
             }
+            if (lightweight && maybeBlank) {
+              // Lightweight cards can still be recursive/html inscriptions.
+              // Escalate to iframe fallback when <img> renders blank.
+              setIframeFallback(true);
+            }
             debugLog('img-load-success', { currentSrc, sourceIndex });
           }}
           onError={() => {
             setLoaded(false);
             setSourceIndex((prev) => {
               const next = prev + 1;
-              if (!lightweight && next >= imageSources.length) {
+              if (next >= imageSources.length) {
                 // Always use iframe preview fallback after image sources are exhausted.
                 setIframeFallback(true);
                 if (!docProbeRequested) {
@@ -536,13 +635,17 @@ export const MarketplacePage: React.FC = () => {
     'price-asc' | 'price-desc' | 'rarity-desc' | 'rarity-asc' | 'name-asc' | 'name-desc' | 'score-desc' | 'score-asc'
   >('price-asc');
   const [selectedMyItemIds, setSelectedMyItemIds] = useState<Set<string>>(new Set());
+  const [myItemsVisibleCount, setMyItemsVisibleCount] = useState(400);
+  const [myActiveListingsByInscription, setMyActiveListingsByInscription] = useState<Record<string, MarketplaceListing>>({});
   const [bulkListBasePriceSats, setBulkListBasePriceSats] = useState('10000');
   const [bulkListStepSats, setBulkListStepSats] = useState('1000');
   const [bulkListDirection, setBulkListDirection] = useState<'up' | 'down'>('up');
   const [bulkListRunning, setBulkListRunning] = useState(false);
   const rareSatsCacheRef = useRef<Record<string, string>>({});
+  const rareSatsMissCacheRef = useRef<Record<string, number>>({});
   const listingsLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const myItemsSlugHydrationKeyRef = useRef<string>('');
+  const myItemsSlugHydratedIdsRef = useRef<Set<string>>(new Set());
   const collectionAutoLoadRunningRef = useRef(false);
   const [form, setForm] = useState({
     inscriptionId: '',
@@ -582,6 +685,47 @@ export const MarketplacePage: React.FC = () => {
     return fromAccounts || direct;
   }, [currentAddress, walletState.accounts]);
   const autoOpenKeyRef = useRef<string>('');
+
+  const loadMyActiveListings = useCallback(async () => {
+    if (!walletState.connected || !currentAddress) {
+      setMyActiveListingsByInscription({});
+      return;
+    }
+    try {
+      const allRows: MarketplaceListing[] = [];
+      let offset = 0;
+      const pageSize = 200;
+      for (let guard = 0; guard < 15; guard += 1) {
+        const page = await getMarketplaceListings({
+          status: 'active',
+          sellerAddress: currentAddress,
+          limit: pageSize,
+          offset,
+          lightweight: true,
+        });
+        if (!Array.isArray(page) || page.length === 0) break;
+        allRows.push(...page);
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+      const next: Record<string, MarketplaceListing> = {};
+      for (const row of allRows) {
+        const id = String(row.inscription_id || '').trim();
+        if (!id) continue;
+        const prev = next[id];
+        if (!prev || Number(row.price_sats || 0) < Number(prev.price_sats || 0)) {
+          next[id] = row;
+        }
+      }
+      setMyActiveListingsByInscription(next);
+    } catch {
+      setMyActiveListingsByInscription({});
+    }
+  }, [walletState.connected, currentAddress]);
+
+  useEffect(() => {
+    loadMyActiveListings();
+  }, [loadMyActiveListings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -623,16 +767,17 @@ export const MarketplacePage: React.FC = () => {
             // Storage quota exceeded - safe to skip cache write.
           }
         }
-        // Totals nur teilweise und verzögert nachladen (sonst zu viele Requests beim Initial-Load).
+        // Totals verzögert, aber vollständig im Hintergrund nachladen.
         setTimeout(async () => {
           if (cancelled) return;
+          let cachedTotals: Record<string, number> = {};
           try {
             const parsed = safeReadCache<{ ts: number; data: Record<string, number> }>(
               MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY
             );
             if (parsed?.data && Date.now() - Number(parsed?.ts || 0) < MARKETPLACE_COLLECTION_TOTALS_CACHE_TTL_MS) {
+              cachedTotals = parsed.data;
               setCollectionTotalsBySlug(parsed.data);
-              return;
             }
           } catch {
             // ignore malformed totals cache
@@ -642,10 +787,14 @@ export const MarketplacePage: React.FC = () => {
             .filter((c) => c.active !== false)
             .map((c) => String(c.slug || '').trim())
             .filter(Boolean)
-            .slice(0, 12);
-          const nextTotals: Record<string, number> = {};
-          const queue = [...activeSlugs];
-          const workers = Array.from({ length: Math.min(3, queue.length) }).map(async () => {
+          const nextTotals: Record<string, number> = { ...cachedTotals };
+          // Cached "0" values can get stuck forever when an earlier API call failed.
+          // Re-fetch non-positive totals to recover and keep counts accurate.
+          const queue = activeSlugs.filter((slug) => {
+            const value = Number(nextTotals[slug]);
+            return !Number.isFinite(value) || value <= 0;
+          });
+          const workers = Array.from({ length: Math.min(4, queue.length) }).map(async () => {
             while (queue.length > 0) {
               const slug = queue.shift();
               if (!slug) return;
@@ -663,7 +812,7 @@ export const MarketplacePage: React.FC = () => {
           });
           await Promise.allSettled(workers);
           if (!cancelled) {
-            setCollectionTotalsBySlug(nextTotals);
+            setCollectionTotalsBySlug((prev) => ({ ...prev, ...nextTotals }));
             try {
               safeWriteCache(MARKETPLACE_COLLECTION_TOTALS_CACHE_KEY, { ts: Date.now(), data: nextTotals });
             } catch {
@@ -700,8 +849,80 @@ export const MarketplacePage: React.FC = () => {
       }
       try {
         setMyCollectionsLoading(true);
-        let walletRows: any[] = [];
-        let source = 'none';
+        const rowsById = new Map<string, any>();
+        const sourceOrder: string[] = [];
+        let loadingSettled = false;
+        const finishLoading = () => {
+          if (loadingSettled || cancelled) return;
+          loadingSettled = true;
+          setMyCollectionsLoading(false);
+        };
+        const mergeRows = (sourceKey: string, rows: any[]) => {
+          if (!Array.isArray(rows) || rows.length === 0) return;
+          let added = 0;
+          for (const row of rows) {
+            const id = walletRowInscriptionId(row);
+            if (!id || rowsById.has(id)) continue;
+            rowsById.set(id, row);
+            added += 1;
+          }
+          if (added > 0 && !sourceOrder.includes(sourceKey)) {
+            sourceOrder.push(sourceKey);
+          }
+        };
+        const commitRows = () => {
+          if (cancelled) return;
+          const walletRows = Array.from(rowsById.values());
+          const slugs = Array.from(
+            new Set(
+              walletRows
+                .map((ins) => walletRowCollectionSlug(ins))
+                .filter(Boolean)
+            )
+          );
+          const ids = new Set(
+            walletRows
+              .map((ins) => walletRowInscriptionId(ins))
+              .filter(Boolean)
+          );
+          setMyItemCollectionSlugs(slugs);
+          setMyWalletInscriptionIds(ids);
+          setMyItemsDebug({
+            source: sourceOrder.length > 0 ? sourceOrder.join('+') : 'none',
+            rows: walletRows.length,
+            ids: ids.size,
+            slugs: slugs.length,
+          });
+          if (typeof window !== 'undefined' && walletRows.length > 0) {
+            try {
+              const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`;
+              window.sessionStorage.setItem(
+                cacheKey,
+                JSON.stringify({ ts: Date.now(), data: walletRows })
+              );
+              window.sessionStorage.setItem(
+                MARKETPLACE_WALLET_ROWS_LAST_KEY,
+                JSON.stringify({ ts: Date.now(), address: taprootAddress.toLowerCase(), data: walletRows })
+              );
+            } catch {
+              // storage optional
+            }
+          }
+        };
+        const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T | null> => {
+          return new Promise<T | null>((resolve) => {
+            const timer = window.setTimeout(() => resolve(null), ms);
+            promise
+              .then((value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+              })
+              .catch(() => {
+                window.clearTimeout(timer);
+                resolve(null);
+              });
+          });
+        };
         if (typeof window !== 'undefined') {
           try {
             const cacheByAddress = window.sessionStorage.getItem(
@@ -711,95 +932,47 @@ export const MarketplacePage: React.FC = () => {
             const parsedByAddress = cacheByAddress ? (JSON.parse(cacheByAddress) as { ts: number; data: any[] }) : null;
             const parsedLast = cacheLast ? (JSON.parse(cacheLast) as { ts: number; address?: string; data: any[] }) : null;
             if (Array.isArray(parsedByAddress?.data) && parsedByAddress!.data.length > 0) {
-              walletRows = parsedByAddress!.data;
-              source = 'cache-address';
+              mergeRows('cache-address', parsedByAddress!.data);
             } else if (
               Array.isArray(parsedLast?.data) &&
               parsedLast!.data.length > 0 &&
               String(parsedLast?.address || '').toLowerCase() === taprootAddress.toLowerCase()
             ) {
-              walletRows = parsedLast!.data;
-              source = 'cache-last';
+              mergeRows('cache-last', parsedLast!.data);
             }
           } catch {
             // cache optional
           }
         }
-        try {
-          if (walletRows.length === 0) {
-            const profile = await getMarketplaceProfile(taprootAddress);
-            walletRows = profile.walletInscriptions || [];
-            if (walletRows.length > 0) source = 'profile';
-          }
-        } catch {
-          // profile endpoint unavailable
+        if (rowsById.size > 0) {
+          commitRows();
         }
-        if (walletRows.length === 0) {
-          try {
-            walletRows = await getMarketplaceWalletInscriptionsViaUnisat(taprootAddress);
-            if (walletRows.length > 0) source = 'unisat';
-          } catch {
-            // UniSat indexer unavailable or no rows
-          }
+
+        const [profileResult, unisatResult] = await Promise.all([
+          withTimeout(getMarketplaceProfile(taprootAddress), 3500),
+          withTimeout(getMarketplaceWalletInscriptionsViaUnisat(taprootAddress), 3500),
+        ]);
+
+        if (profileResult && Array.isArray(profileResult.walletInscriptions)) {
+          mergeRows('profile', profileResult.walletInscriptions);
         }
-        if (walletRows.length === 0) {
-          try {
-            walletRows = await getMarketplaceWalletInscriptionsByCollectionScan(taprootAddress);
-            if (walletRows.length > 0) source = 'collection-scan';
-          } catch {
-            // fallback optional
-          }
+        if (Array.isArray(unisatResult)) {
+          mergeRows('unisat', unisatResult);
         }
-        if (walletRows.length === 0 && typeof window !== 'undefined') {
-          try {
-            const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`;
-            const raw = window.sessionStorage.getItem(cacheKey);
-            if (raw) {
-              const parsed = JSON.parse(raw) as { ts: number; data: any[] };
-              if (Array.isArray(parsed?.data)) {
-                walletRows = parsed.data;
-              }
-            }
-          } catch {
-            // cache optional
-          }
-        }
-        if (cancelled) return;
-        const slugs = Array.from(
-          new Set(
-            walletRows
-              .map((ins) => walletRowCollectionSlug(ins))
-              .filter(Boolean)
-          )
-        );
-        const ids = new Set(
-          walletRows
-            .map((ins) => walletRowInscriptionId(ins))
-            .filter(Boolean)
-        );
-        setMyItemCollectionSlugs(slugs);
-        setMyWalletInscriptionIds(ids);
-        setMyItemsDebug({
-          source,
-          rows: walletRows.length,
-          ids: ids.size,
-          slugs: slugs.length,
-        });
-        if (typeof window !== 'undefined' && walletRows.length > 0) {
-          try {
-            const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${taprootAddress.toLowerCase()}`;
-            window.sessionStorage.setItem(
-              cacheKey,
-              JSON.stringify({ ts: Date.now(), data: walletRows })
-            );
-            window.sessionStorage.setItem(
-              MARKETPLACE_WALLET_ROWS_LAST_KEY,
-              JSON.stringify({ ts: Date.now(), address: taprootAddress.toLowerCase(), data: walletRows })
-            );
-          } catch {
-            // storage optional
-          }
-        }
+        commitRows();
+        finishLoading();
+
+        // Expensive fallback scan runs in background so My Items becomes visible quickly.
+        void (async () => {
+          if (cancelled) return;
+          const scanRows = await withTimeout(
+            getMarketplaceWalletInscriptionsByCollectionScan(taprootAddress),
+            8000
+          );
+          if (!Array.isArray(scanRows) || scanRows.length === 0) return;
+          mergeRows('collection-scan', scanRows);
+          commitRows();
+        })();
       } catch (err: any) {
         if (!cancelled) {
           const msg = String(err?.message || 'load failed');
@@ -824,20 +997,27 @@ export const MarketplacePage: React.FC = () => {
   }, [collectionViewMode]);
 
   useEffect(() => {
+    myItemsSlugHydratedIdsRef.current.clear();
+    myItemsSlugHydrationKeyRef.current = '';
+  }, [taprootAddress, walletState.connected]);
+
+  useEffect(() => {
     if (collectionViewMode !== 'my-items') return;
     if (!walletState.connected || !taprootAddress) return;
     if (myWalletInscriptionIds.size === 0) return;
-    if (myItemCollectionSlugs.length > 0) return;
+    const pendingIds = Array.from(myWalletInscriptionIds).filter(
+      (id) => !myItemsSlugHydratedIdsRef.current.has(id)
+    );
+    if (pendingIds.length === 0) return;
 
-    const hydrationKey = `${taprootAddress}:${myWalletInscriptionIds.size}`;
+    const hydrationKey = `${taprootAddress}:${myWalletInscriptionIds.size}:${pendingIds.length}`;
     if (myItemsSlugHydrationKeyRef.current === hydrationKey) return;
     myItemsSlugHydrationKeyRef.current = hydrationKey;
 
     let cancelled = false;
     const hydrateCollectionSlugs = async () => {
-      const ids = Array.from(myWalletInscriptionIds).slice(0, 180);
       const foundSlugs = new Set<string>();
-      const queue = [...ids];
+      const queue = [...pendingIds];
       const workers = Array.from({ length: Math.min(8, queue.length) }).map(async () => {
         while (queue.length > 0 && !cancelled) {
           const inscriptionId = queue.shift();
@@ -848,12 +1028,18 @@ export const MarketplacePage: React.FC = () => {
             if (slug) foundSlugs.add(slug);
           } catch {
             // ignore per-id failure
+          } finally {
+            myItemsSlugHydratedIdsRef.current.add(inscriptionId);
           }
         }
       });
       await Promise.allSettled(workers);
       if (!cancelled && foundSlugs.size > 0) {
-        setMyItemCollectionSlugs(Array.from(foundSlugs));
+        setMyItemCollectionSlugs((prev) => {
+          const next = new Set(prev);
+          for (const slug of foundSlugs) next.add(slug);
+          return Array.from(next);
+        });
       }
     };
 
@@ -861,7 +1047,7 @@ export const MarketplacePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [collectionViewMode, walletState.connected, taprootAddress, myWalletInscriptionIds, myItemCollectionSlugs.length]);
+  }, [collectionViewMode, walletState.connected, taprootAddress, myWalletInscriptionIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1073,7 +1259,7 @@ export const MarketplacePage: React.FC = () => {
 
       setActionMessage('Listing created and signed via wallet PSBT.');
       setForm((prev) => ({ ...prev, inscriptionId: '' }));
-      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking), loadMyActiveListings()]);
     } catch (err: any) {
       setError(err?.message || 'Failed to create listing');
     }
@@ -1087,7 +1273,7 @@ export const MarketplacePage: React.FC = () => {
       setActionMessage(null);
       await cancelMarketplaceListing(listingId, currentAddress);
       setActionMessage('Listing cancelled.');
-      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking), loadMyActiveListings()]);
     } catch (err: any) {
       setError(err?.message || 'Failed to cancel listing');
     } finally {
@@ -1481,7 +1667,7 @@ export const MarketplacePage: React.FC = () => {
       console.log(`🎉 Purchase complete! TX ID: ${result.paymentTxid}`);
 
       setActionMessage(`Advanced PSBT purchase completed. Txid: ${result.paymentTxid}`);
-      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking), loadMyActiveListings()]);
     } catch (err: any) {
       setError(err?.message || 'Failed advanced PSBT buy');
     } finally {
@@ -1732,7 +1918,7 @@ export const MarketplacePage: React.FC = () => {
         }
       }
 
-      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking)]);
+      await Promise.all([loadListings(), getMarketplaceRanking().then(setRanking), loadMyActiveListings()]);
       if (successfulIds.length > 0) {
         setSelectedMyItemIds((prev) => {
           const next = new Set(prev);
@@ -1955,10 +2141,11 @@ export const MarketplacePage: React.FC = () => {
       .filter((ins) => {
         const baseValue = extractInscriptionRareSats(ins);
         const cachedValue = rareSatsCacheRef.current[ins.inscription_id];
-        return baseValue === '-' && cachedValue === undefined;
+        const missTs = rareSatsMissCacheRef.current[ins.inscription_id] || 0;
+        const missExpired = Date.now() - missTs > RARE_SATS_MISS_CACHE_TTL_MS;
+        return baseValue === '-' && cachedValue === undefined && (!missTs || missExpired);
       })
-      .map((ins) => ins.inscription_id)
-      .slice(0, 48);
+      .map((ins) => ins.inscription_id);
 
     const cachedVisible: Record<string, string> = {};
     for (const ins of collectionInscriptions) {
@@ -1991,6 +2178,9 @@ export const MarketplacePage: React.FC = () => {
           const normalized = byId.get(id) || '-';
           if (normalized !== '-') {
             rareSatsCacheRef.current[id] = normalized;
+            delete rareSatsMissCacheRef.current[id];
+          } else {
+            rareSatsMissCacheRef.current[id] = Date.now();
           }
           return [id, normalized] as const;
         });
@@ -2088,7 +2278,9 @@ export const MarketplacePage: React.FC = () => {
     collectionInscriptionsTotal,
   ]);
 
-  const totalListed = listings.length;
+  // Banner metric should reflect the real marketplace-wide total, not the locally loaded list cap.
+  const totalListedFromRanking = ranking.reduce((sum, row) => sum + Math.max(0, Number(row.listed_count || 0)), 0);
+  const totalListed = totalListedFromRanking > 0 ? totalListedFromRanking : listings.length;
   const floorPriceSats = listings.reduce((min, l) => {
     const price = Number(l.price_sats || 0);
     if (price <= 0) return min;
@@ -2121,6 +2313,18 @@ export const MarketplacePage: React.FC = () => {
     [collectionsMeta]
   );
 
+  const openCollectionBadgeSet = useMemo(
+    () =>
+      new Set([
+        'slums',
+        'smile',
+        'smile-a-bit',
+        'badcats',
+        'bad-cats',
+      ]),
+    []
+  );
+
   const collectionOptions = useMemo(() => {
     const set = new Set<string>();
     for (const l of listings) {
@@ -2144,6 +2348,46 @@ export const MarketplacePage: React.FC = () => {
     });
   }, [collectionsMeta]);
 
+  const rankingBySlug = useMemo(() => {
+    const map = new Map<string, MarketplaceCollectionRanking>();
+    for (const row of ranking) {
+      const key = String(row?.slug || '').trim();
+      if (key) map.set(key, row);
+    }
+    return map;
+  }, [ranking]);
+
+  const collectionsLeaderboardOrder = useMemo(() => {
+    return orderedCollectionsMeta
+      .filter((c) => c.active !== false)
+      .sort((a, b) => {
+        const ra = rankingBySlug.get(String(a.slug || '').trim());
+        const rb = rankingBySlug.get(String(b.slug || '').trim());
+
+        const salesA = Number(ra?.sales_count_7d || 0);
+        const salesB = Number(rb?.sales_count_7d || 0);
+        if (salesA !== salesB) return salesB - salesA;
+
+        const volumeA = Number(ra?.volume_sats_7d || 0);
+        const volumeB = Number(rb?.volume_sats_7d || 0);
+        if (volumeA !== volumeB) return volumeB - volumeA;
+
+        const floorA = Number(ra?.floor_price_sats || 0);
+        const floorB = Number(rb?.floor_price_sats || 0);
+        if (floorA !== floorB) return floorB - floorA;
+
+        return String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || ''));
+      });
+  }, [orderedCollectionsMeta, rankingBySlug]);
+
+  const formatBitcoinUnit = (sats: number): string => {
+    const value = Number(sats || 0);
+    if (value <= 0) return '-';
+    const btc = value / 100_000_000;
+    if (btc < 0.01) return '<0.01 B';
+    return `${btc.toFixed(4)} B`;
+  };
+
   const extractTraits = (l: MarketplaceListing): Array<{ trait_type: string; value: string }> => {
     const rows = Array.isArray(l.inscription_attributes) ? l.inscription_attributes : [];
     return rows
@@ -2154,32 +2398,164 @@ export const MarketplacePage: React.FC = () => {
       .filter((t) => t.trait_type && t.value);
   };
 
-  const normalizeRareSatsDisplay = (raw: any): string => {
-    if (raw === undefined || raw === null || raw === '') return '-';
-    if (typeof raw === 'number') return raw.toLocaleString();
-    if (Array.isArray(raw)) {
-      const values = raw.map((v) => String(v ?? '').trim()).filter(Boolean);
-      return values.length ? values.join(', ') : '-';
-    }
-    if (typeof raw === 'object') {
-      const values = Object.values(raw).map((v) => String(v ?? '').trim()).filter(Boolean);
-      return values.length ? values.join(', ') : '-';
-    }
-    return String(raw).trim() || '-';
+  const RARE_SAT_CANONICAL_KEYS = new Set([
+    'uncommon',
+    'rare',
+    'epic',
+    'legendary',
+    'mythic',
+    'block-9',
+    'block-78',
+    'block-286',
+    'block-666',
+    'block-999',
+    'vintage',
+    'number-palindrome',
+    'pizza',
+    'hitman',
+    'first-transaction',
+    'nakamoto',
+    'black',
+    'legacy',
+    'jpeg',
+  ]);
+
+  const RARE_SAT_ALIAS_MAP: Record<string, string> = {
+    palindrome: 'number-palindrome',
+    palindrom: 'number-palindrome',
+    numberpalindrome: 'number-palindrome',
+    'number palindrome': 'number-palindrome',
+    block9: 'block-9',
+    'block 9': 'block-9',
+    block78: 'block-78',
+    'block 78': 'block-78',
+    block286: 'block-286',
+    'block 286': 'block-286',
+    block666: 'block-666',
+    'block 666': 'block-666',
+    block999: 'block-999',
+    'block 999': 'block-999',
+    firsttx: 'first-transaction',
+    firsttransaction: 'first-transaction',
+    'first tx': 'first-transaction',
+    blacksat: 'black',
+    blacksats: 'black',
+    'black sat': 'black',
+    'black sats': 'black',
   };
 
-  const normalizeRareSatKey = (value: string): string =>
-    String(value || '')
+  const normalizeRareSatKey = (value: string): string => {
+    const base = String(value || '')
       .toLowerCase()
+      .trim()
+      .replace(/^"+|"+$/g, '')
+      .replace(/^'+|'+$/g, '')
       .replace(/[_\s]+/g, '-')
       .replace(/-+/g, '-')
-      .trim();
+      .replace(/^-+|-+$/g, '');
+    if (!base) return '';
+    if (/^\d+$/.test(base)) {
+      const n = Number(base);
+      if ([9, 78, 286, 666, 999].includes(n)) return `block-${n}`;
+    }
+    const blockMatch = base.match(/^block-?(\d+)$/);
+    if (blockMatch) {
+      const n = Number(blockMatch[1]);
+      if ([9, 78, 286, 666, 999].includes(n)) return `block-${n}`;
+    }
+    const deKebab = base.replace(/-/g, ' ');
+    return RARE_SAT_ALIAS_MAP[base] || RARE_SAT_ALIAS_MAP[deKebab] || base;
+  };
 
-  const splitRareSatTokens = (raw: any): string[] =>
-    normalizeRareSatsDisplay(raw)
-      .split(/[,+/|]/g)
-      .map((v) => String(v || '').trim())
-      .filter(Boolean);
+  const tokenizeRareSatInput = (input: any): string[] => {
+    if (input === undefined || input === null) return [];
+    if (typeof input === 'string') {
+      const text = input.trim();
+      if (!text) return [];
+      if ((text.startsWith('[') && text.endsWith(']')) || (text.startsWith('{') && text.endsWith('}'))) {
+        try {
+          return tokenizeRareSatInput(JSON.parse(text));
+        } catch {
+          // Keep fallback parser below.
+        }
+      }
+      return text
+        .split(/[,;+/|\n]+/g)
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    }
+    if (Array.isArray(input)) {
+      return input.flatMap((row) => tokenizeRareSatInput(row));
+    }
+    if (typeof input === 'object') {
+      const preferredKeys = [
+        'rareSats',
+        'rare_sats',
+        'rareSat',
+        'rare_sat',
+        'rareSatsList',
+        'rareSatsRawList',
+        'satributes',
+        'sattributes',
+        'labels',
+        'types',
+        'attributes',
+        'tags',
+        'rarity',
+      ];
+      const out: string[] = [];
+      for (const key of preferredKeys) {
+        if (Object.prototype.hasOwnProperty.call(input, key)) {
+          out.push(...tokenizeRareSatInput(input[key]));
+        }
+      }
+      for (const [key, value] of Object.entries(input)) {
+        if (preferredKeys.includes(key)) continue;
+        if (value === true) out.push(String(key).trim());
+        else if (typeof value === 'string' || typeof value === 'number') out.push(...tokenizeRareSatInput(value));
+      }
+      return out.filter(Boolean);
+    }
+    return [String(input).trim()].filter(Boolean);
+  };
+
+  const parseRareSatPayload = (
+    raw: any
+  ): { canonical: string[]; unknown: string[]; tokens: string[]; display: string } => {
+    const canonical: string[] = [];
+    const unknown: string[] = [];
+    const seenCanonical = new Set<string>();
+    const seenUnknown = new Set<string>();
+
+    for (const token of tokenizeRareSatInput(raw)) {
+      const normalized = normalizeRareSatKey(token);
+      if (!normalized || normalized === '-') continue;
+      if (RARE_SAT_CANONICAL_KEYS.has(normalized)) {
+        if (seenCanonical.has(normalized)) continue;
+        seenCanonical.add(normalized);
+        canonical.push(normalized);
+      } else {
+        const rawToken = String(token || '').trim();
+        if (!rawToken) continue;
+        const unknownKey = rawToken.toLowerCase();
+        if (seenUnknown.has(unknownKey)) continue;
+        seenUnknown.add(unknownKey);
+        unknown.push(rawToken);
+      }
+    }
+
+    const tokens = [...canonical, ...unknown];
+    return {
+      canonical,
+      unknown,
+      tokens,
+      display: tokens.length ? tokens.join(', ') : '-',
+    };
+  };
+
+  const normalizeRareSatsDisplay = (raw: any): string => parseRareSatPayload(raw).display;
+
+  const splitRareSatTokens = (raw: any): string[] => parseRareSatPayload(raw).tokens;
 
   const RARE_SAT_SYMBOLS: Record<string, string> = {
     uncommon: '◍',
@@ -2298,11 +2674,15 @@ export const MarketplacePage: React.FC = () => {
   };
 
   const toRareSatSymbols = (raw: any): string => {
-    const tokens = splitRareSatTokens(raw);
+    const parsed = parseRareSatPayload(raw);
+    const tokens = parsed.tokens;
     if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === '-')) return '-';
-    const symbols = tokens
-      .map((token) => resolveRareSatMeta(token)?.symbol || '')
-      .filter(Boolean);
+    const symbols = tokens.map((token) => {
+      const meta = resolveRareSatMeta(token);
+      if (meta?.symbol) return meta.symbol;
+      const shortened = String(token).slice(0, 14);
+      return `[${shortened}]`;
+    });
     return symbols.length ? symbols.join(' ') : '◌';
   };
 
@@ -2313,29 +2693,37 @@ export const MarketplacePage: React.FC = () => {
       .map((token) => {
         const meta = resolveRareSatMeta(token);
         const symbol = meta?.symbol || '◌';
-        const def = meta?.definition || 'Rare sat attribute.';
+        const def = meta?.definition || 'Unknown satribute (raw value from provider).';
         return `${symbol} ${token}: ${def}`;
       })
       .join(' | ');
   };
 
+  const hasRareSatData = (raw: any): boolean => splitRareSatTokens(raw).length > 0;
+
   const getBatchItemId = (item: any): string =>
     String(item?.inscriptionId || item?.inscription_id || item?.id || '').trim();
 
-  const getBatchItemRareSats = (item: any): any =>
-    item?.rareSats ??
-    item?.rare_sats ??
-    item?.rareSat ??
-    item?.rare_sat ??
-    item?.satributes ??
-    item?.sattributes ??
-    item?.satributes?.rarity;
+  const getBatchItemRareSats = (item: any): any => ({
+    rareSatsList: item?.rareSatsList,
+    rareSatsRawList: item?.rareSatsRawList,
+    rareSats:
+      item?.rareSats ??
+      item?.rare_sats ??
+      item?.rareSat ??
+      item?.rare_sat ??
+      item?.satributes ??
+      item?.sattributes ??
+      item?.satributes?.rarity,
+  });
 
   const extractRareSats = (l: MarketplaceListing): string => {
     const manual = RARE_SAT_OVERRIDES_BY_INSCRIPTION[String(l.inscription_id || '').trim()];
     if (manual) return manual;
     const md = l.inscription_metadata || {};
     const raw =
+      md?.rareSatsList ??
+      md?.rareSatsRawList ??
       md?.rareSats ??
       md?.rare_sats ??
       md?.rareSat ??
@@ -2357,6 +2745,8 @@ export const MarketplacePage: React.FC = () => {
     if (manual) return manual;
     const md = ins.metadata || {};
     const raw =
+      md?.rareSatsList ??
+      md?.rareSatsRawList ??
       md?.rareSats ??
       md?.rare_sats ??
       md?.rareSat ??
@@ -2373,6 +2763,8 @@ export const MarketplacePage: React.FC = () => {
     const md = detail?.marketplaceInscription?.metadata || {};
     const chain = detail?.chainInfo || {};
     const raw =
+      chain?.rareSatsList ??
+      chain?.rareSatsRawList ??
       chain?.rareSats ??
       chain?.rare_sats ??
       chain?.rareSat ??
@@ -2382,6 +2774,8 @@ export const MarketplacePage: React.FC = () => {
       chain?.satributes?.rarity ??
       chain?.sat_rarity ??
       chain?.rarity ??
+      md?.rareSatsList ??
+      md?.rareSatsRawList ??
       md?.rareSats ??
       md?.rare_sats ??
       md?.rareSat ??
@@ -2441,6 +2835,7 @@ export const MarketplacePage: React.FC = () => {
         }
         if (normalized !== '-') {
           byId.set(id, normalized);
+          delete rareSatsMissCacheRef.current[id];
         }
       } catch {
         // Retry on later hydration cycles; don't mark as permanent no-hit on transient API errors.
@@ -2467,13 +2862,42 @@ export const MarketplacePage: React.FC = () => {
   };
 
   const extractInscriptionTraits = (ins: MarketplaceCollectionInscription): Array<{ trait_type: string; value: string }> => {
-    const rows = Array.isArray(ins.attributes) ? ins.attributes : [];
-    return rows
-      .map((t: any) => ({
-        trait_type: String(t?.trait_type || '').trim(),
-        value: String(t?.value || '').trim(),
-      }))
-      .filter((t) => t.trait_type && t.value);
+    const md = (ins.metadata || {}) as any;
+    const listCandidates: any[][] = [
+      Array.isArray(ins.attributes) ? ins.attributes : [],
+      Array.isArray(md?.attributes) ? md.attributes : [],
+      Array.isArray(md?.traits) ? md.traits : [],
+      Array.isArray(md?.meta?.attributes) ? md.meta.attributes : [],
+      Array.isArray(md?.inscription_attributes) ? md.inscription_attributes : [],
+    ];
+
+    const out: Array<{ trait_type: string; value: string }> = [];
+    const seen = new Set<string>();
+
+    const pushTrait = (rawType: any, rawValue: any) => {
+      const trait_type = String(rawType || '').trim();
+      const value = String(rawValue || '').trim();
+      if (!trait_type || !value) return;
+      const key = `${trait_type.toLowerCase()}::${value.toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ trait_type, value });
+    };
+
+    for (const rows of listCandidates) {
+      for (const t of rows) {
+        pushTrait(t?.trait_type ?? t?.traitType ?? t?.type ?? t?.name, t?.value ?? t?.trait ?? t?.traitValue);
+      }
+    }
+
+    // Some payloads expose traits as an object map, e.g. { Eyes: "laser", Mouth: "smile" }.
+    if (md?.properties && typeof md.properties === 'object' && !Array.isArray(md.properties)) {
+      for (const [k, v] of Object.entries(md.properties)) {
+        pushTrait(k, v);
+      }
+    }
+
+    return out;
   };
 
   const collectionTraitPercentByKey = useMemo(() => {
@@ -2615,9 +3039,12 @@ export const MarketplacePage: React.FC = () => {
 
   const filteredCollectionInscriptions = useMemo(() => {
     let rows = collectionInscriptions.filter((ins) => {
+      const inscriptionId = String(ins.inscription_id || '').trim();
+      if (!inscriptionId) return false;
+      if (HIDDEN_BADCATS_INSCRIPTION_IDS.has(inscriptionId)) return false;
       if (collectionItemsFilter === 'my-items') {
         const owner = String(ins.owner_address || '').trim().toLowerCase();
-        const idMatch = myWalletInscriptionIds.has(String(ins.inscription_id || '').trim());
+        const idMatch = myWalletInscriptionIds.has(inscriptionId);
         const ownerMatch =
           (!!currentAddress && owner === currentAddress.toLowerCase()) ||
           (!!taprootAddress && owner === taprootAddress.toLowerCase());
@@ -2688,9 +3115,20 @@ export const MarketplacePage: React.FC = () => {
   ]);
 
   const myWalletIdsForGallery = useMemo(
-    () => Array.from(myWalletInscriptionIds).slice(0, 240),
+    () => Array.from(myWalletInscriptionIds).sort((a, b) => a.localeCompare(b)),
     [myWalletInscriptionIds]
   );
+  const myWalletIdsVisibleForGallery = useMemo(
+    () => myWalletIdsForGallery.slice(0, myItemsVisibleCount),
+    [myWalletIdsForGallery, myItemsVisibleCount]
+  );
+  const hasMoreMyWalletIdsForGallery = myWalletIdsVisibleForGallery.length < myWalletIdsForGallery.length;
+  useEffect(() => {
+    setMyItemsVisibleCount((prev) => {
+      if (myWalletIdsForGallery.length === 0) return 400;
+      return Math.min(Math.max(prev, 400), myWalletIdsForGallery.length);
+    });
+  }, [myWalletIdsForGallery.length]);
   useEffect(() => {
     const visible = new Set(Array.from(myWalletInscriptionIds));
     setSelectedMyItemIds((prev) => {
@@ -2704,6 +3142,9 @@ export const MarketplacePage: React.FC = () => {
   const baseFilteredListings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return listings.filter((l) => {
+      const inscriptionId = String(l.inscription_id || '').trim();
+      if (!inscriptionId) return false;
+      if (HIDDEN_BADCATS_INSCRIPTION_IDS.has(inscriptionId)) return false;
       const matchCollection =
         collectionFilter === 'all' || String(l.collection_slug || '') === collectionFilter;
       if (!matchCollection) return false;
@@ -2748,6 +3189,8 @@ export const MarketplacePage: React.FC = () => {
     const getBaseRareSats = (listing: MarketplaceListing): string => {
       const md = listing.inscription_metadata || {};
       const raw =
+        md?.rareSatsList ??
+        md?.rareSatsRawList ??
         md?.rareSats ??
         md?.rare_sats ??
         md?.rareSat ??
@@ -2781,10 +3224,11 @@ export const MarketplacePage: React.FC = () => {
       .filter((listing) => {
         const base = getBaseRareSats(listing);
         const cached = rareSatsCacheRef.current[listing.inscription_id];
-        return base === '-' && cached === undefined;
+        const missTs = rareSatsMissCacheRef.current[listing.inscription_id] || 0;
+        const missExpired = Date.now() - missTs > RARE_SATS_MISS_CACHE_TTL_MS;
+        return base === '-' && cached === undefined && (!missTs || missExpired);
       })
-      .map((listing) => listing.inscription_id)
-      .slice(0, 24);
+      .map((listing) => listing.inscription_id);
 
     if (!missingIds.length) return;
 
@@ -2808,6 +3252,9 @@ export const MarketplacePage: React.FC = () => {
           const normalized = byId.get(id) || '-';
           if (normalized !== '-') {
             rareSatsCacheRef.current[id] = normalized;
+            delete rareSatsMissCacheRef.current[id];
+          } else {
+            rareSatsMissCacheRef.current[id] = Date.now();
           }
           return [id, normalized] as const;
         });
@@ -2861,50 +3308,46 @@ export const MarketplacePage: React.FC = () => {
   }, [walletState.connected]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-6">
+    <div className="min-h-screen bg-[#090b0f] text-white p-3 md:p-4">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 rounded-2xl border border-red-600/40 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-5 md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="mb-3 rounded-2xl border border-white/10 bg-gradient-to-br from-[#11151c] via-[#0d1117] to-[#090b0f] p-3 md:p-4 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight">Marketplace</h1>
-              <p className="text-sm text-gray-400 mt-1">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-100 leading-none">Marketplace</h1>
+              <p className="text-xs text-gray-400 mt-1">
                 Marketplace for RichArt Stuff
               </p>
             </div>
-            <div className="w-full md:w-auto flex flex-col gap-2 md:items-end">
-              <div className="text-xs uppercase text-gray-400">Connected</div>
+            <div className="w-full md:w-auto flex flex-row items-center gap-2 md:justify-end">
+              <div className="text-[10px] uppercase text-gray-400">Connected</div>
               {walletState.connected ? (
-                <div className="text-xs font-mono bg-black/60 border border-white/15 rounded px-2 py-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                <div className="text-[10px] font-mono bg-black/60 border border-white/15 rounded px-2 py-0.5 max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
                   {walletState.accounts?.[0]?.address || 'No wallet'}
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setWalletConnectModalOpen(true)}
-                  className="text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded px-3 py-1.5"
-                >
-                  Connect Wallet
-                </button>
+                <div className="text-[10px] text-gray-500 border border-white/10 rounded px-2 py-0.5">
+                  Not connected
+                </div>
               )}
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-3">
-              <div className="text-[11px] uppercase text-gray-400">Floor</div>
-              <div className="mt-1 text-lg font-bold font-mono">{floorPriceSats ? floorPriceSats.toLocaleString() : '-'} sats</div>
+          <div className="mt-2 grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="rounded-xl border border-white/10 bg-[#0c1016] p-2">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">Floor</div>
+              <div className="mt-0.5 text-base font-bold font-mono text-amber-300">{floorPriceSats ? floorPriceSats.toLocaleString() : '-'} sats</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-3">
-              <div className="text-[11px] uppercase text-gray-400">Volume</div>
-              <div className="mt-1 text-lg font-bold font-mono">{volumeSoldSats.toLocaleString()} sats</div>
+            <div className="rounded-xl border border-white/10 bg-[#0c1016] p-2">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">Volume</div>
+              <div className="mt-0.5 text-base font-bold font-mono text-gray-100">{volumeSoldSats.toLocaleString()} sats</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-3">
-              <div className="text-[11px] uppercase text-gray-400">Sales 24h</div>
-              <div className="mt-1 text-lg font-bold">{sold24h}</div>
+            <div className="rounded-xl border border-white/10 bg-[#0c1016] p-2">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">Sales 24h</div>
+              <div className="mt-0.5 text-base font-bold text-gray-100">{sold24h}</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-zinc-900/70 p-3">
-              <div className="text-[11px] uppercase text-gray-400">Active Listings</div>
-              <div className="mt-1 text-lg font-bold">{totalListed}</div>
+            <div className="rounded-xl border border-white/10 bg-[#0c1016] p-2">
+              <div className="text-[10px] uppercase tracking-[0.08em] text-gray-500">Active Listings</div>
+              <div className="mt-0.5 text-base font-bold text-emerald-300">{totalListed}</div>
             </div>
           </div>
         </div>
@@ -2960,18 +3403,18 @@ export const MarketplacePage: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-6 rounded-xl border border-white/15 bg-zinc-950/70 p-3 md:p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="mb-3 rounded-xl border border-white/10 bg-[#0d1117] p-2 md:p-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search inscription / collection / seller"
-              className="bg-black border border-white/15 rounded-lg px-3 py-2 text-sm"
+              className="bg-black/60 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs"
             />
             <select
               value={collectionFilter}
               onChange={(e) => setCollectionFilter(e.target.value)}
-              className="bg-black border border-white/15 rounded-lg px-3 py-2 text-sm"
+              className="bg-black/60 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs"
             >
               <option value="all">All collections</option>
               {collectionOptions.map((c) => (
@@ -2983,14 +3426,14 @@ export const MarketplacePage: React.FC = () => {
             <select
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as 'latest' | 'price-asc' | 'price-desc')}
-              className="bg-black border border-white/15 rounded-lg px-3 py-2 text-sm"
+              className="bg-black/60 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs"
             >
               <option value="latest">Sort: Latest</option>
               <option value="price-asc">Sort: Price Low -&gt; High</option>
               <option value="price-desc">Sort: Price High -&gt; Low</option>
             </select>
           </div>
-          <div className="mt-2 text-xs text-gray-400">
+          <div className="mt-1 text-[11px] text-gray-400">
             {showActiveListingsSection
               ? `Showing ${visibleFilteredListings.length} of ${filteredListings.length} listing(s) • Avg price ${avgPriceSats.toLocaleString()} sats`
               : `Active listings hidden for faster loading • ${filteredListings.length} listing(s) available`}
@@ -3029,8 +3472,8 @@ export const MarketplacePage: React.FC = () => {
           </div>
         )}
 
-        <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
-          <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex items-center justify-between">
+        <div className="mb-8 rounded-xl border border-white/10 overflow-hidden bg-[#0d1117]">
+          <div className="px-4 py-3 bg-gradient-to-r from-[#121822] to-[#0f141d] border-b border-white/10 flex items-center justify-between">
             <h2 className="font-bold">Collections</h2>
             <div className="flex items-center gap-2">
               <select
@@ -3048,15 +3491,103 @@ export const MarketplacePage: React.FC = () => {
             <div className="p-4 text-sm text-gray-400">Loading collections...</div>
           ) : collectionsMeta.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">No collections available.</div>
+          ) : collectionViewMode === 'all' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1080px] text-[13px]">
+                <thead className="bg-zinc-900/90 text-gray-400 uppercase tracking-[0.08em] text-[11px]">
+                  <tr>
+                    <th className="text-left px-2 py-1.5 font-semibold w-[38px]">#</th>
+                    <th className="text-left px-2 py-1.5 font-semibold min-w-[260px]">Collection</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">Inscriptions</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">Floor</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">1D Change</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">1D Volume</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">1D Sales</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">Mempool</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">Market Cap</th>
+                    <th className="text-right px-2 py-1.5 font-semibold">Listed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {collectionsLeaderboardOrder.map((c, index) => {
+                      const rank = rankingBySlug.get(String(c.slug || '').trim());
+                      const floorSats = Number(rank?.floor_price_sats || 0);
+                      const volume1dSats = Math.round(Number(rank?.volume_sats_7d || 0) / 7);
+                      const sales1d = Math.round(Number(rank?.sales_count_7d || 0) / 7);
+                      const totalItems = Number(collectionTotalsBySlug[c.slug] || 0);
+                      const hasTotalItems = Object.prototype.hasOwnProperty.call(collectionTotalsBySlug, c.slug);
+                      const listedCount = Number(rank?.listed_count || 0);
+                      const listedPct = totalItems > 0 ? (listedCount / totalItems) * 100 : 0;
+                      const marketCapSats = floorSats > 0 && totalItems > 0 ? floorSats * totalItems : 0;
+                      return (
+                        <tr
+                          key={c.slug}
+                          className={`border-t border-white/[0.04] ${index % 2 === 0 ? 'bg-black/40' : 'bg-zinc-900/35'} hover:bg-zinc-800/45`}
+                        >
+                          <td className="px-2 py-1.5 text-gray-500 text-[12px]">{index + 1}</td>
+                          <td className="px-2 py-1.5">
+                            <button
+                              type="button"
+                              onClick={() => loadCollectionInscriptions(c.slug)}
+                              className="w-full text-left"
+                              title="Open collection"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {c.cover_image ? (
+                                  <img
+                                    src={c.cover_image}
+                                    alt={c.name}
+                                    className="h-7 w-7 rounded object-cover border border-white/15 shrink-0"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-7 w-7 rounded bg-zinc-800 border border-white/10 shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="truncate text-gray-100 flex items-center gap-1.5 text-[13px]">
+                                    <span>{c.name}</span>
+                                    {(verifiedCollectionSet.has(String(c.slug || '')) ||
+                                      openCollectionBadgeSet.has(String(c.slug || '').trim().toLowerCase())) && (
+                                      <span className="text-[9px] px-1 py-0.5 rounded border border-sky-700/40 bg-sky-900/35 text-sky-200 uppercase">
+                                        BNPL
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="truncate text-[11px] text-gray-500">{c.slug}</div>
+                                </div>
+                              </div>
+                            </button>
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-300">
+                            {hasTotalItems ? totalItems.toLocaleString() : '...'}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono text-amber-300">{formatBitcoinUnit(floorSats)}</td>
+                          <td className="px-2 py-1.5 text-right text-gray-500">-</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-300">{formatBitcoinUnit(volume1dSats)}</td>
+                          <td className="px-2 py-1.5 text-right text-gray-300">{sales1d > 0 ? sales1d.toLocaleString() : '-'}</td>
+                          <td className="px-2 py-1.5 text-right text-gray-500">-</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-300">{formatBitcoinUnit(marketCapSats)}</td>
+                          <td className="px-2 py-1.5 text-right">
+                            <span className="text-gray-300 font-mono">
+                              {listedCount.toLocaleString()}
+                              <span className="text-gray-500">/{hasTotalItems ? totalItems.toLocaleString() : '...'}</span>
+                            </span>
+                            {hasTotalItems && totalItems > 0 && (
+                              <span className="ml-2 text-emerald-300 font-mono">{listedPct.toFixed(1)}%</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 p-2">
               {orderedCollectionsMeta
                 .filter((c) => c.active !== false)
                 .filter((c) => {
-                  if (collectionViewMode === 'all') return true;
                   if (myItemCollectionSlugs.includes(c.slug)) return true;
-                  // ID-based join fallback: when we have wallet IDs, keep collections visible
-                  // and let modal filter by inscription_id membership.
                   return myWalletInscriptionIds.size > 0;
                 })
                 .map((c) => (
@@ -3109,9 +3640,12 @@ export const MarketplacePage: React.FC = () => {
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-gray-400">My wallet items (direct preview)</span>
                 <span className="text-gray-500">Selected: {selectedMyItemIds.size}</span>
+                <span className="text-gray-500">
+                  Showing: {myWalletIdsVisibleForGallery.length}/{myWalletIdsForGallery.length}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setSelectedMyItemIds(new Set(myWalletIdsForGallery))}
+                  onClick={() => setSelectedMyItemIds(new Set(myWalletIdsVisibleForGallery))}
                   disabled={bulkListRunning}
                   className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
                 >
@@ -3160,8 +3694,28 @@ export const MarketplacePage: React.FC = () => {
                   </div>
                 </div>
               </div>
+              {hasMoreMyWalletIdsForGallery && (
+                <div className="mb-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMyItemsVisibleCount((prev) => Math.min(prev + 400, myWalletIdsForGallery.length))}
+                    className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs"
+                  >
+                    Load more (+400)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyItemsVisibleCount(myWalletIdsForGallery.length)}
+                    className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs"
+                  >
+                    Show all
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10 gap-2">
-                {myWalletIdsForGallery.map((inscriptionId) => (
+                {myWalletIdsVisibleForGallery.map((inscriptionId) => {
+                  const activeListing = myActiveListingsByInscription[inscriptionId];
+                  return (
                   <button
                     key={inscriptionId}
                     type="button"
@@ -3200,8 +3754,27 @@ export const MarketplacePage: React.FC = () => {
                     <div className="px-1 py-1 text-[9px] font-mono text-gray-400 truncate">
                       {inscriptionId}
                     </div>
+                    {activeListing && (
+                      <div className="border-t border-white/10 px-1 py-1">
+                        <div className="text-[10px] text-emerald-300 font-mono truncate">
+                          Listed: {Number(activeListing.price_sats || 0).toLocaleString()} sats
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelListing(activeListing.id);
+                          }}
+                          disabled={busyListingId === activeListing.id || busyListingId === 'bulk-my-items'}
+                          className="mt-1 w-full rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 px-1 py-1 text-[10px] font-semibold"
+                        >
+                          {busyListingId === activeListing.id ? 'Delisting...' : 'Delist'}
+                        </button>
+                      </div>
+                    )}
                   </button>
-                ))}
+                );
+                })}
               </div>
             </div>
           )}
@@ -3435,10 +4008,10 @@ export const MarketplacePage: React.FC = () => {
                   )}
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
-                    const rarity = extractInscriptionRarity(ins);
-                    // Collection view must be resilient across mixed media types (AVIF/SVG/HTML/3D/recursive).
-                    // Force iframe-capable rendering path here for maximum compatibility.
-                    const preferIframePreview = true;
+                    const normalizedCollectionSlug = String(selectedCollectionSlug || '').trim().toLowerCase();
+                    // Default stable path for all collections:
+                    // lightweight image sources first, and iframe only for known recursive-heavy sets.
+                    const forceIframePreview = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(normalizedCollectionSlug);
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
@@ -3492,7 +4065,8 @@ export const MarketplacePage: React.FC = () => {
                           alt={ins.inscription_id}
                           className="w-full aspect-square"
                           fit="contain"
-                          preferIframe={preferIframePreview}
+                          lightweight={!forceIframePreview}
+                          preferIframe={forceIframePreview}
                           preferredSources={[
                             String(ins.previewUrl || '').trim(),
                             String(ins.contentUrl || '').trim(),
@@ -3512,20 +4086,17 @@ export const MarketplacePage: React.FC = () => {
                                 1:1
                               </span>
                             )}
-                            <span
-                              className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200 font-mono"
-                              title={toRareSatTooltip(rareSats)}
-                            >
-                              {toRareSatSymbols(rareSats)}
-                            </span>
+                            {hasRareSatData(rareSats) && (
+                              <span
+                                className="text-[9px] px-1 py-0.5 rounded border border-amber-700/40 bg-amber-900/30 text-amber-200 font-mono"
+                                title={toRareSatTooltip(rareSats)}
+                              >
+                                {toRareSatSymbols(rareSats)}
+                              </span>
+                            )}
                             <span className="text-[9px] px-1 py-0.5 rounded border border-fuchsia-700/40 bg-fuchsia-900/30 text-fuchsia-200">
                               Score: {score > 0 ? score.toFixed(1) : '-'}
                             </span>
-                            {rarity !== '-' && (
-                              <span className="text-[9px] px-1 py-0.5 rounded border border-zinc-600/50 bg-zinc-800/40 text-zinc-200">
-                                Meta: {rarity}
-                              </span>
-                            )}
                             {activeListing && listingPriceSats > 0 && (
                               <span className="text-[9px] px-1 py-0.5 rounded border border-emerald-700/40 bg-emerald-900/30 text-emerald-200 font-mono">
                                 Price: {listingPriceSats.toLocaleString()} sats
@@ -3603,7 +4174,7 @@ export const MarketplacePage: React.FC = () => {
             </div>
           </div>
           {!showActiveListingsSection ? (
-            <div className="rounded-xl border border-white/15 p-4 text-sm text-gray-400 bg-zinc-950/60">
+            <div className="rounded-xl border border-white/10 p-4 text-sm text-gray-400 bg-[#0d1117]">
               Active listings are hidden by default for faster page loading.
             </div>
           ) : listingsLoading ? (
@@ -3712,9 +4283,11 @@ export const MarketplacePage: React.FC = () => {
                       <div className="text-[11px] text-gray-400">
                         Seller: <span className="font-mono">{l.seller_address.slice(0, 8)}...{l.seller_address.slice(-6)}</span>
                       </div>
-                      <div className="text-[11px] text-gray-400 font-mono" title={toRareSatTooltip(rareSatsLabel)}>
-                        {toRareSatSymbols(rareSatsLabel)}
-                      </div>
+                      {hasRareSatData(rareSatsLabel) && (
+                        <div className="text-[11px] text-gray-400 font-mono" title={toRareSatTooltip(rareSatsLabel)}>
+                          {toRareSatSymbols(rareSatsLabel)}
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-1">
                         {extractTraits(l)
                           .slice(0, 3)
@@ -3797,8 +4370,8 @@ export const MarketplacePage: React.FC = () => {
           )}
         </div>
 
-        <div className="mb-8 rounded-xl border border-white/15 overflow-hidden">
-          <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10 flex items-center justify-between">
+        <div className="mb-8 rounded-xl border border-white/10 overflow-hidden bg-[#0d1117]">
+          <div className="px-4 py-3 bg-gradient-to-r from-[#121822] to-[#0f141d] border-b border-white/10 flex items-center justify-between">
             <h2 className="font-bold">Recently Sold</h2>
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2 py-1 rounded bg-zinc-700 text-zinc-100">Legacy</span>
@@ -3817,7 +4390,7 @@ export const MarketplacePage: React.FC = () => {
               {soldListings.slice(0, 12).map((s) => {
                 const source = String(s.sale_metadata?.source || '');
                 const advanced = source.includes('advanced-psbt');
-                const soldPreferIframe = /(badcats|bad-cats|bchalloween|halloween)/i.test(
+                const soldPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(
                   String(s.collection_slug || '')
                 );
                 return (
@@ -3863,52 +4436,6 @@ export const MarketplacePage: React.FC = () => {
           )}
         </div>
 
-        <div className="rounded-xl border border-white/15 overflow-hidden">
-          <div className="px-4 py-3 bg-gradient-to-r from-zinc-900 to-zinc-800 border-b border-white/10">
-            <h2 className="font-bold">Collection Ranking</h2>
-          </div>
-          {rankingLoading ? (
-            <div className="p-4 text-sm text-gray-400">Loading ranking...</div>
-          ) : ranking.length === 0 ? (
-            <div className="p-4 text-sm text-gray-400 flex items-center gap-2">
-              <span className="text-xl">📊</span>
-              <span>No ranking data yet.</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
-              {ranking.slice(0, 12).map((row) => (
-                <div key={row.slug} className="rounded-lg border border-white/10 bg-zinc-900/60 p-3 hover:border-red-500/40 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-semibold truncate flex items-center gap-2">
-                        <span>{row.name}</span>
-                        {verifiedCollectionSet.has(String(row.slug || '')) && (
-                          <span className="text-[10px] uppercase tracking-wide text-sky-200 bg-sky-900/40 border border-sky-700/40 rounded px-1.5 py-0.5">
-                            Verified
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">{row.slug}</div>
-                    </div>
-                    <div className="text-xs px-2 py-1 rounded border border-white/10 bg-black/40">
-                      Listed: {row.listed_count || 0}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                    <div className="rounded border border-white/10 p-2">
-                      <div className="text-gray-500">Floor</div>
-                      <div className="font-mono">{Number(row.floor_price_sats || 0).toLocaleString()}</div>
-                    </div>
-                    <div className="rounded border border-white/10 p-2">
-                      <div className="text-gray-500">7d Sales</div>
-                      <div>{row.sales_count_7d || 0}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {detailOpen && (
@@ -3936,17 +4463,31 @@ export const MarketplacePage: React.FC = () => {
             ) : (
               <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div className="xl:col-span-1 space-y-3">
+                  {(() => {
+                    const detailPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(
+                      String(
+                        selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
+                          selectedDetailListing?.collection_slug ||
+                          selectedCollectionSlug ||
+                          ''
+                      )
+                    );
+                    return (
                   <PreviewImage
                     inscriptionId={selectedInscriptionDetail.inscriptionId}
                     alt={selectedInscriptionDetail.inscriptionId}
                     className="w-full max-w-[520px] aspect-square rounded border border-white/10 mx-auto bg-zinc-900"
                     fit="contain"
+                    lightweight={!detailPreferIframe}
+                    preferIframe={detailPreferIframe}
                   />
+                    );
+                  })()}
                   <div className="text-xs font-mono text-gray-300 break-all">
                     {selectedInscriptionDetail.inscriptionId}
                   </div>
                   <a
-                    href={selectedInscriptionDetail.contentUrl}
+                    href={toStableOrdinalsMirrorUrl(selectedInscriptionDetail.contentUrl)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-block text-xs text-red-300 hover:text-red-200 underline"
@@ -4103,7 +4644,7 @@ export const MarketplacePage: React.FC = () => {
                         <div><span className="text-gray-500">Inscription ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
                         <div><span className="text-gray-500">Inscription Number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.inscriptionNumber, selectedInscriptionDetail.chainInfo?.inscription_number, selectedInscriptionDetail.chainInfo?.number)}</div>
                         <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.marketplaceInscription?.owner_address, selectedInscriptionDetail.chainInfo?.ownerAddress, selectedInscriptionDetail.chainInfo?.owner_address, selectedInscriptionDetail.chainInfo?.address)}</span></div>
-                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={selectedInscriptionDetail.contentUrl}>Link</a></div>
+                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={toStableOrdinalsMirrorUrl(selectedInscriptionDetail.contentUrl)}>Link</a></div>
                         <div><span className="text-gray-500">Content Type:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.contentType, selectedInscriptionDetail.chainInfo?.content_type, selectedInscriptionDetail.marketplaceInscription?.metadata?.contentType, selectedInscriptionDetail.marketplaceInscription?.metadata?.content_type)}</div>
                         <div><span className="text-gray-500">Created:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.timestamp, selectedInscriptionDetail.chainInfo?.created, selectedInscriptionDetail.marketplaceInscription?.metadata?.created, selectedInscriptionDetail.marketplaceInscription?.created_at)}</div>
                         <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransaction, selectedInscriptionDetail.chainInfo?.genesis_txid, selectedInscriptionDetail.chainInfo?.genesis_tx_id, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransaction, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_txid, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_tx_id)}</span></div>
@@ -4111,15 +4652,18 @@ export const MarketplacePage: React.FC = () => {
                         <div><span className="text-gray-500">Location:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.location, selectedInscriptionDetail.chainInfo?.satpoint, selectedInscriptionDetail.chainInfo?.sat_point, selectedInscriptionDetail.marketplaceInscription?.metadata?.location, selectedInscriptionDetail.marketplaceInscription?.metadata?.satpoint)}</span></div>
                         <div><span className="text-gray-500">Output:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.output, selectedInscriptionDetail.chainInfo?.outpoint, selectedInscriptionDetail.marketplaceInscription?.metadata?.output, selectedInscriptionDetail.marketplaceInscription?.metadata?.outpoint)}</span></div>
                         <div><span className="text-gray-500">Rarity:</span> {detailTextValue(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier, selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity, selectedInscriptionDetail.chainInfo?.rarity, selectedInscriptionDetail.chainInfo?.sat_rarity, selectedInscriptionDetail.chainInfo?.satributes?.rarity)}</div>
-                        <div>
-                          <span className="text-gray-500">Satribute:</span>{' '}
-                          <span
-                            className="font-mono"
-                            title={toRareSatTooltip(detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity))}
-                          >
-                            {toRareSatSymbols(detailTextValue(selectedInscriptionDetail.chainInfo?.rareSats, selectedInscriptionDetail.chainInfo?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sats, selectedInscriptionDetail.marketplaceInscription?.metadata?.rareSat, selectedInscriptionDetail.marketplaceInscription?.metadata?.rare_sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satributes?.rarity))}
-                          </span>
-                        </div>
+                        {(() => {
+                          const detailRareSats = extractRareSatsFromDetail(selectedInscriptionDetail);
+                          if (!hasRareSatData(detailRareSats)) return null;
+                          return (
+                            <div>
+                              <span className="text-gray-500">Satribute:</span>{' '}
+                              <span className="font-mono" title={toRareSatTooltip(detailRareSats)}>
+                                {toRareSatSymbols(detailRareSats)}
+                              </span>
+                            </div>
+                          );
+                        })()}
                         <div><span className="text-gray-500">Sat number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.satNumber, selectedInscriptionDetail.chainInfo?.sat_number, selectedInscriptionDetail.chainInfo?.sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satNumber, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat_number, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat)}</div>
                       </div>
                     </div>
