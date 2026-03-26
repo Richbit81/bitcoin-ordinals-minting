@@ -148,15 +148,8 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-/**
- * Vorschau per Inscription-ID direkt von ordinals.com.
- * Verwendet immer iframe - das ist der einzige Weg der für ALLE Inscription-Typen
- * zuverlässig funktioniert (Bilder, HTML, rekursive SVGs mit Child-Content).
- *
- * Warum nicht <img>: Rekursive SVGs laden als img "erfolgreich" (onLoad feuert),
- * aber Child-Content /content/{id} wird im img-Kontext blockiert -> rendert leer.
- * onError feuert nie -> kein Fallback möglich.
- */
+const _contentTypeCache: Record<string, 'image' | 'html'> = {};
+
 const PreviewImage: React.FC<{
   inscriptionId: string;
   alt: string;
@@ -171,18 +164,125 @@ const PreviewImage: React.FC<{
   inscriptionId,
   alt,
   className,
-}) => (
-  <div className={`relative overflow-hidden ${className}`}>
-    <iframe
-      title={alt}
-      src={ordinalsContentUrl(inscriptionId)}
-      loading="lazy"
-      className="h-full w-full border-0 bg-zinc-900"
-      sandbox="allow-scripts allow-same-origin"
-      referrerPolicy="no-referrer"
-    />
-  </div>
-);
+  imageClassName,
+  fit = 'cover',
+  collectionSlug,
+}) => {
+  const [mode, setMode] = useState<'loading' | 'img' | 'composited' | 'iframe'>('loading');
+  const [compositedSrc, setCompositedSrc] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = ordinalsContentUrl(inscriptionId);
+    const slug = collectionSlug?.trim().toLowerCase() || '';
+
+    const showAsImage = () => { if (!cancelled) setMode('img'); };
+
+    const compositeRecursive = async () => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error();
+        const html = await res.text();
+
+        const insMatch = html.match(/inscriptions="([^"]+)"/);
+        if (!insMatch) {
+          if (!cancelled) setMode('iframe');
+          return;
+        }
+
+        const childIds = insMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+        const w = parseInt(html.match(/width="(\d+)"/)?.[1] || '400');
+        const h = parseInt(html.match(/height="(\d+)"/)?.[1] || '400');
+
+        const images = await Promise.all(
+          childIds.map(
+            (id) =>
+              new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = ordinalsContentUrl(id);
+              }),
+          ),
+        );
+
+        if (cancelled) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error();
+        for (const img of images) ctx.drawImage(img, 0, 0, w, h);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!cancelled) {
+          setCompositedSrc(dataUrl);
+          setMode('composited');
+        }
+      } catch {
+        if (!cancelled) setMode('iframe');
+      }
+    };
+
+    const cached = slug ? _contentTypeCache[slug] : undefined;
+    if (cached === 'image') { showAsImage(); return; }
+    if (cached === 'html') { compositeRecursive(); return; }
+
+    fetch(url, { method: 'HEAD' })
+      .then((r) => {
+        if (cancelled) return;
+        const ct = r.headers.get('content-type') || '';
+        if (ct.startsWith('image/')) {
+          if (slug) _contentTypeCache[slug] = 'image';
+          showAsImage();
+        } else {
+          if (slug) _contentTypeCache[slug] = 'html';
+          compositeRecursive();
+        }
+      })
+      .catch(() => showAsImage());
+
+    return () => { cancelled = true; };
+  }, [inscriptionId, collectionSlug]);
+
+  const url = ordinalsContentUrl(inscriptionId);
+  const objFit = fit === 'contain' ? 'object-contain' : 'object-cover';
+
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      {mode === 'loading' && (
+        <div className="flex items-center justify-center h-full w-full bg-zinc-900">
+          <div className="animate-pulse w-8 h-8 rounded-full bg-zinc-700" />
+        </div>
+      )}
+      {mode === 'img' && (
+        <img
+          src={url}
+          alt={alt}
+          loading="lazy"
+          className={`h-full w-full ${objFit} ${imageClassName || ''}`}
+        />
+      )}
+      {mode === 'composited' && (
+        <img
+          src={compositedSrc}
+          alt={alt}
+          className={`h-full w-full ${objFit} ${imageClassName || ''}`}
+        />
+      )}
+      {mode === 'iframe' && (
+        <iframe
+          title={alt}
+          src={url}
+          className="h-full w-full border-0 bg-zinc-900"
+          sandbox="allow-scripts allow-same-origin"
+        />
+      )}
+    </div>
+  );
+};
 
 export const MarketplacePage: React.FC = () => {
   const navigate = useNavigate();
@@ -3622,8 +3722,6 @@ export const MarketplacePage: React.FC = () => {
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
                     const normalizedCollectionSlug = String(selectedCollectionSlug || '').trim().toLowerCase();
-                    // iframe for recursive/HTML/SVG-layer collections (they can't render as <img>)
-                    const forceIframePreview = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(normalizedCollectionSlug);
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
@@ -3677,8 +3775,6 @@ export const MarketplacePage: React.FC = () => {
                           alt={ins.inscription_id}
                           className="w-full aspect-square"
                           fit="contain"
-                          lightweight={!forceIframePreview}
-                          preferIframe={forceIframePreview}
                           collectionSlug={normalizedCollectionSlug}
                         />
                         <div className="p-1.5">
@@ -4000,9 +4096,6 @@ export const MarketplacePage: React.FC = () => {
               {soldListings.slice(0, 12).map((s) => {
                 const source = String(s.sale_metadata?.source || '');
                 const advanced = source.includes('advanced-psbt');
-                const soldPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(
-                  String(s.collection_slug || '')
-                );
                 return (
                   <div key={s.id} className="rounded-lg border border-white/10 bg-zinc-900/60 p-3 hover:border-red-500/40 transition-colors">
                     <div className="flex items-start gap-3">
@@ -4011,8 +4104,6 @@ export const MarketplacePage: React.FC = () => {
                         alt={s.inscription_id}
                         className="w-16 h-16 rounded border border-white/10 shrink-0"
                         fit="contain"
-                        lightweight={!soldPreferIframe}
-                        preferIframe={soldPreferIframe}
                         collectionSlug={String(s.collection_slug || '').trim().toLowerCase()}
                       />
                       <div className="min-w-0">
@@ -4074,23 +4165,11 @@ export const MarketplacePage: React.FC = () => {
             ) : (
               <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div className="xl:col-span-1 space-y-3">
-                  {(() => {
-                    const detailPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(
-                      String(
-                        selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
-                          selectedDetailListing?.collection_slug ||
-                          selectedCollectionSlug ||
-                          ''
-                      )
-                    );
-                    return (
                   <PreviewImage
                     inscriptionId={selectedInscriptionDetail.inscriptionId}
                     alt={selectedInscriptionDetail.inscriptionId}
                     className="w-full max-w-[520px] aspect-square rounded border border-white/10 mx-auto bg-zinc-900"
                     fit="contain"
-                    lightweight={!detailPreferIframe}
-                    preferIframe={detailPreferIframe}
                     collectionSlug={String(
                       selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
                         selectedDetailListing?.collection_slug ||
@@ -4098,8 +4177,6 @@ export const MarketplacePage: React.FC = () => {
                         ''
                     ).trim().toLowerCase()}
                   />
-                    );
-                  })()}
                   <div className="text-xs font-mono text-gray-300 break-all">
                     {selectedInscriptionDetail.inscriptionId}
                   </div>
