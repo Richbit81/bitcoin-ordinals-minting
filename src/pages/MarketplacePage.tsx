@@ -4196,11 +4196,43 @@ export const MarketplacePage: React.FC = () => {
 
       </div>
 
-      {detailOpen && (
-        <div className="fixed inset-0 z-[120] bg-black/85 p-4 overflow-auto">
+      {detailOpen && (() => {
+        const d = selectedInscriptionDetail;
+        const chain = d?.chainInfo || {};
+        const md = d?.marketplaceInscription?.metadata || {};
+        const collSlug = String(d?.marketplaceInscription?.collection_slug || selectedDetailListing?.collection_slug || selectedCollectionSlug || '');
+        const itemName = String(md?.name || `Ordinal`);
+        const detailOwner = String(d?.marketplaceInscription?.owner_address || chain?.ownerAddress || chain?.owner_address || chain?.address || '').trim();
+        const myAddr = String(currentAddress || '').trim().toLowerCase();
+        const amOwner = !!myAddr && !!detailOwner && myAddr === detailOwner.toLowerCase();
+        const priceSats = Number(selectedDetailListing?.price_sats || 0);
+        const priceBtc = priceSats / SATS_PER_BTC;
+        const detailRareSats = d ? extractRareSatsFromDetail(d) : '-';
+        const rareSatTokens = splitRareSatTokens(detailRareSats);
+        const truncAddr = (a: string) => a ? `${a.slice(0, 6)}...${a.slice(-4)}` : '-';
+        const truncId = (a: string) => a ? `${a.slice(0, 10)}...` : '-';
+        const infoRow = (label: string, value: React.ReactNode, mono = false) => (
+          <div className="flex justify-between items-start py-2 border-b border-white/5 last:border-b-0">
+            <span className="text-gray-500 text-xs shrink-0">{label}</span>
+            <span className={`text-xs text-right ml-4 truncate max-w-[60%] ${mono ? 'font-mono' : ''}`}>{value}</span>
+          </div>
+        );
+
+        return (
+        <div className="fixed inset-0 z-[120] bg-black/85 p-2 sm:p-4 overflow-auto">
           <div className="max-w-5xl mx-auto bg-zinc-950 border border-white/15 rounded-xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h3 className="font-bold text-lg">Ordinal Detail Preview</h3>
+              <button
+                onClick={() => {
+                  setDetailOpen(false);
+                  setSelectedInscriptionDetail(null);
+                  setSelectedDetailListing(null);
+                  syncDetailQuery(selectedCollectionSlug, '');
+                }}
+                className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+              >
+                <span>←</span> <span>{collSlug || 'Back'}</span>
+              </button>
               <button
                 onClick={() => {
                   setDetailOpen(false);
@@ -4215,362 +4247,327 @@ export const MarketplacePage: React.FC = () => {
             </div>
 
             {detailLoading ? (
-              <div className="p-4 text-sm text-gray-400">Loading details...</div>
-            ) : !selectedInscriptionDetail ? (
-              <div className="p-4 text-sm text-gray-400">No detail data available.</div>
+              <div className="p-8 text-sm text-gray-400 text-center">Loading details...</div>
+            ) : !d ? (
+              <div className="p-8 text-sm text-gray-400 text-center">No detail data available.</div>
             ) : (
-              <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
-                <div className="xl:col-span-1 space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+                {/* Left: Image + Traits */}
+                <div className="lg:col-span-2 p-4 space-y-4">
                   <PreviewImage
-                    inscriptionId={selectedInscriptionDetail.inscriptionId}
-                    alt={selectedInscriptionDetail.inscriptionId}
-                    className="w-full max-w-[520px] aspect-square rounded border border-white/10 mx-auto bg-zinc-900"
+                    inscriptionId={d.inscriptionId}
+                    alt={d.inscriptionId}
+                    className="w-full aspect-square rounded-lg border border-white/10 bg-zinc-900"
                     fit="contain"
-                    collectionSlug={String(
-                      selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
-                        selectedDetailListing?.collection_slug ||
-                        selectedCollectionSlug ||
-                        ''
-                    ).trim().toLowerCase()}
+                    collectionSlug={collSlug.trim().toLowerCase()}
                   />
-                  <div className="text-xs font-mono text-gray-300 break-all">
-                    {selectedInscriptionDetail.inscriptionId}
-                  </div>
-                  <a
-                    href={ordinalsContentUrl(selectedInscriptionDetail.inscriptionId)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block text-xs text-red-300 hover:text-red-200 underline"
-                  >
-                    Open Content
-                  </a>
-                </div>
 
-                <div className="xl:col-span-2 space-y-4">
-                  <div className="rounded border border-white/10 p-3">
-                    <div className="text-lg font-semibold">{String(selectedInscriptionDetail.marketplaceInscription?.metadata?.name || 'Ordinal')}</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {String(selectedInscriptionDetail.marketplaceInscription?.collection_slug || selectedDetailListing?.collection_slug || '')}
-                      {' '}• Recursive • On-Chain
-                    </div>
-                    <div className="mt-3 border-b border-white/10">
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          { id: 'traits', label: 'Traits' },
-                          { id: 'offers', label: 'Offers' },
-                          { id: 'activity', label: 'Activity' },
-                          { id: 'price', label: 'Price History' },
-                          { id: 'details', label: 'Details' },
-                        ].map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setDetailTab(tab.id as typeof detailTab)}
-                            className={`px-3 py-1.5 text-xs rounded-t ${
-                              detailTab === tab.id
-                                ? 'bg-zinc-800 text-white border border-white/15 border-b-0'
-                                : 'text-gray-400 hover:text-gray-200'
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
+                  {/* Traits below image */}
+                  {Array.isArray(d.marketplaceInscription?.attributes) && d.marketplaceInscription!.attributes!.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {d.marketplaceInscription!.attributes!.map((t, idx) => {
+                          const traitType = String(t?.trait_type || '').trim();
+                          const value = String(t?.value || '').trim();
+                          const k = `${traitType}::${value}`;
+                          const pct = collectionTraitPercentByKey.get(k);
+                          return (
+                            <div key={`${traitType}-${value}-${idx}`} className="bg-zinc-900 border border-white/10 rounded-lg px-3 py-2">
+                              <div className="text-[10px] text-gray-500 uppercase tracking-wide">{traitType}</div>
+                              <div className="text-xs font-medium text-white">{value}</div>
+                              {pct !== undefined && (
+                                <div className="text-[10px] text-emerald-400 mt-0.5">{pct.toFixed(1)}%</div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
+                  )}
+                </div>
+
+                {/* Right: Info + Actions */}
+                <div className="lg:col-span-3 p-4 space-y-4 border-l border-white/5">
+                  {/* Header */}
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">{itemName}</h2>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Owner <span className="font-mono text-gray-300">{truncAddr(detailOwner)}</span>
+                    </div>
                   </div>
 
+                  {/* Price + Actions */}
                   {(() => {
-                    const detailOwner = String(
-                      selectedInscriptionDetail.marketplaceInscription?.owner_address ||
-                        selectedInscriptionDetail.chainInfo?.ownerAddress ||
-                        selectedInscriptionDetail.chainInfo?.owner_address ||
-                        selectedInscriptionDetail.chainInfo?.address ||
-                        ''
-                    )
-                      .trim()
-                      .toLowerCase();
-                    const myAddress = String(currentAddress || '').trim().toLowerCase();
-                    const amOwner = !!myAddress && !!detailOwner && myAddress === detailOwner;
-
                     if (!selectedDetailListing) {
-                      return (
-                        <div className="rounded border border-white/10 p-3">
-                          <div className="text-xs text-gray-400 mb-2">Listing</div>
-                          {amOwner ? (
-                            <div className="space-y-2">
-                              <div className="text-xs text-gray-300">This is your item. Create a listing:</div>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <input
-                                  value={detailListPriceSats}
-                                  onChange={(e) => setDetailListPriceSats(e.target.value)}
-                                  placeholder="List price (sats)"
-                                  className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
-                                />
-                                <div className="text-[11px] text-gray-500 flex items-center">
-                                  Collection: {String(selectedInscriptionDetail.marketplaceInscription?.collection_slug || selectedCollectionSlug || 'unknown')}
-                                </div>
-                                <button
-                                  disabled={!walletState.connected || busyListingId === selectedInscriptionDetail.inscriptionId}
-                                  onClick={handleCreateListingFromDetail}
-                                  className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
-                                >
-                                  {busyListingId === selectedInscriptionDetail.inscriptionId ? 'Listing...' : 'List Item'}
-                                </button>
-                              </div>
-                              <div className="text-[11px] text-amber-300/90">
-                                Listing is PSBT-signed (non-custodial). Buyers can only purchase via PSBT.
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-500">
-                              No active listing for this inscription right now. Offer/Buy becomes available as soon as it is listed.
-                            </div>
-                          )}
+                      return amOwner ? (
+                        <div className="rounded-lg border border-white/10 p-4 space-y-3">
+                          <div className="text-xs text-gray-400">Your item — create a listing:</div>
+                          <div className="flex gap-2">
+                            <input
+                              value={detailListPriceSats}
+                              onChange={(e) => setDetailListPriceSats(e.target.value)}
+                              placeholder="Price (sats)"
+                              className="flex-1 bg-black border border-white/15 rounded-lg px-3 py-2.5 text-sm"
+                            />
+                            <button
+                              disabled={!walletState.connected || busyListingId === d.inscriptionId}
+                              onClick={handleCreateListingFromDetail}
+                              className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-sm font-semibold"
+                            >
+                              {busyListingId === d.inscriptionId ? 'Listing...' : 'List Item'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-white/10 p-4 text-xs text-gray-500">
+                          Not listed. Available for purchase once the owner lists it.
                         </div>
                       );
                     }
 
+                    const isSeller = currentAddress && selectedDetailListing.seller_address.toLowerCase() === myAddr;
+
                     return (
-                      <div className="rounded border border-white/10 p-3">
-                        <div className="text-xs text-gray-400 mb-2">Offer / Buy</div>
-                        {currentAddress &&
-                        selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ? (
+                      <div className="rounded-lg border border-white/10 p-4 space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500">Price</div>
+                          <div className="flex items-baseline gap-2 mt-1">
+                            <span className="text-2xl font-bold">{priceBtc.toFixed(4)}</span>
+                            <span className="text-lg text-orange-400">₿</span>
+                            <span className="text-sm text-gray-400">{priceSats.toLocaleString()} sats</span>
+                          </div>
+                          <div className="text-[11px] text-gray-500 mt-0.5">Listed on richart.app</div>
+                        </div>
+
+                        {isSeller ? (
                           <button
                             disabled={busyListingId === selectedDetailListing.id}
                             onClick={() => handleCancelListing(selectedDetailListing.id)}
-                            className="px-3 py-2 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-xs font-semibold"
+                            className="w-full px-4 py-3 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-sm font-semibold"
                           >
                             {busyListingId === selectedDetailListing.id ? 'Working...' : 'Cancel Listing'}
                           </button>
                         ) : (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <input
-                                value={offerPriceSats}
-                                onChange={(e) => setOfferPriceSats(e.target.value)}
-                                placeholder="Offer price (sats)"
-                                className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
-                              />
-                              <input
-                                value={offerNote}
-                                onChange={(e) => setOfferNote(e.target.value)}
-                                placeholder="Optional note"
-                                className="bg-black border border-white/15 rounded px-2 py-2 text-xs"
-                              />
-                              <button
-                                disabled={!walletState.connected || offerSubmitting}
-                                onClick={handleCreateOfferFromDetail}
-                                className="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-xs font-semibold"
-                                title="Submit price offer"
-                              >
-                                {offerSubmitting ? 'Submitting...' : 'Offer Buy'}
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2">
+                          <>
+                            <div className="grid grid-cols-2 gap-2">
                               <button
                                 disabled={!walletState.connected || busyListingId === selectedDetailListing.id || !selectedDetailListing.signed_psbt_base64}
                                 onClick={() => handleBuyListing(selectedDetailListing)}
-                                className="px-3 py-2 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-xs font-semibold"
-                                title={
-                                  selectedDetailListing.signed_psbt_base64
-                                    ? 'PSBT buy'
-                                    : 'Legacy listing without PSBT. Seller must relist.'
-                                }
+                                className="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-sm font-semibold"
                               >
-                                {busyListingId === selectedDetailListing.id
-                                  ? 'Buying...'
-                                  : (selectedDetailListing.signed_psbt_base64 ? 'Buy (PSBT)' : 'Relist required')}
+                                {busyListingId === selectedDetailListing.id ? 'Buying...' : 'Buy Now'}
+                              </button>
+                              <button
+                                disabled={!walletState.connected || offerSubmitting}
+                                onClick={handleCreateOfferFromDetail}
+                                className="px-4 py-3 rounded-lg border border-white/20 hover:bg-zinc-800 text-sm font-semibold"
+                              >
+                                Place Bid
                               </button>
                             </div>
-                          </div>
+                            <div className="flex gap-2">
+                              <input
+                                value={offerPriceSats}
+                                onChange={(e) => setOfferPriceSats(e.target.value)}
+                                placeholder="Bid amount (sats)"
+                                className="flex-1 bg-black border border-white/15 rounded-lg px-3 py-2 text-xs"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(window.location.href); }}
+                                className="px-3 py-2 rounded-lg border border-white/10 hover:bg-zinc-800 text-xs text-gray-300"
+                              >
+                                Copy Link
+                              </button>
+                              <a
+                                href={ordinalsContentUrl(d.inscriptionId)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-2 rounded-lg border border-white/10 hover:bg-zinc-800 text-xs text-gray-300 text-center"
+                              >
+                                View Content ↗
+                              </a>
+                            </div>
+                          </>
                         )}
                       </div>
                     );
                   })()}
 
-                  {detailTab === 'details' && (
-                    <div className="rounded border border-white/10 p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-gray-500">Inscription ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
-                        <div><span className="text-gray-500">Inscription Number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.inscriptionNumber, selectedInscriptionDetail.chainInfo?.inscription_number, selectedInscriptionDetail.chainInfo?.number)}</div>
-                        <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.marketplaceInscription?.owner_address, selectedInscriptionDetail.chainInfo?.ownerAddress, selectedInscriptionDetail.chainInfo?.owner_address, selectedInscriptionDetail.chainInfo?.address)}</span></div>
-                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={ordinalsContentUrl(selectedInscriptionDetail.inscriptionId)}>Link</a></div>
-                        <div><span className="text-gray-500">Content Type:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.contentType, selectedInscriptionDetail.chainInfo?.content_type, selectedInscriptionDetail.marketplaceInscription?.metadata?.contentType, selectedInscriptionDetail.marketplaceInscription?.metadata?.content_type)}</div>
-                        <div><span className="text-gray-500">Created:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.timestamp, selectedInscriptionDetail.chainInfo?.created, selectedInscriptionDetail.marketplaceInscription?.metadata?.created, selectedInscriptionDetail.marketplaceInscription?.created_at)}</div>
-                        <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransaction, selectedInscriptionDetail.chainInfo?.genesis_txid, selectedInscriptionDetail.chainInfo?.genesis_tx_id, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransaction, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_txid, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_tx_id)}</span></div>
-                        <div><span className="text-gray-500">Genesis Block:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransactionBlock, selectedInscriptionDetail.chainInfo?.genesis_block, selectedInscriptionDetail.chainInfo?.genesis_height, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransactionBlock, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_block, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_height)}</div>
-                        <div><span className="text-gray-500">Location:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.location, selectedInscriptionDetail.chainInfo?.satpoint, selectedInscriptionDetail.chainInfo?.sat_point, selectedInscriptionDetail.marketplaceInscription?.metadata?.location, selectedInscriptionDetail.marketplaceInscription?.metadata?.satpoint)}</span></div>
-                        <div><span className="text-gray-500">Output:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.output, selectedInscriptionDetail.chainInfo?.outpoint, selectedInscriptionDetail.marketplaceInscription?.metadata?.output, selectedInscriptionDetail.marketplaceInscription?.metadata?.outpoint)}</span></div>
-                        <div><span className="text-gray-500">Rarity:</span> {detailTextValue(selectedInscriptionDetail.marketplaceInscription?.metadata?.derivedRarityTier, selectedInscriptionDetail.marketplaceInscription?.metadata?.rarity, selectedInscriptionDetail.chainInfo?.rarity, selectedInscriptionDetail.chainInfo?.sat_rarity, selectedInscriptionDetail.chainInfo?.satributes?.rarity)}</div>
-                        {(() => {
-                          const detailRareSats = extractRareSatsFromDetail(selectedInscriptionDetail);
-                          if (!hasRareSatData(detailRareSats)) return null;
-                          return (
-                            <div>
-                              <span className="text-gray-500">Satribute:</span>{' '}
-                              <span className="font-mono" title={toRareSatTooltip(detailRareSats)}>
-                                {toRareSatSymbols(detailRareSats)}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                        <div><span className="text-gray-500">Sat number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.satNumber, selectedInscriptionDetail.chainInfo?.sat_number, selectedInscriptionDetail.chainInfo?.sat, selectedInscriptionDetail.marketplaceInscription?.metadata?.satNumber, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat_number, selectedInscriptionDetail.marketplaceInscription?.metadata?.sat)}</div>
-                      </div>
-                    </div>
-                  )}
+                  {/* Collection info */}
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="text-sm font-semibold">{collSlug}</div>
+                    <div className="text-xs text-gray-500 mt-1">On-chain • Bitcoin Ordinals</div>
+                  </div>
 
-                  {detailTab === 'traits' && (
-                    <div className="rounded border border-white/10 p-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {Array.isArray(selectedInscriptionDetail.marketplaceInscription?.attributes) &&
-                        selectedInscriptionDetail.marketplaceInscription!.attributes!.length > 0 ? (
-                          selectedInscriptionDetail.marketplaceInscription!.attributes!.map((t, idx) => (
-                            <span
-                              key={`${t?.trait_type}-${t?.value}-${idx}`}
-                              className={`text-[11px] px-2 py-1 rounded border ${(() => {
-                                const traitType = String(t?.trait_type || '').trim();
-                                const value = String(t?.value || '').trim();
-                                const k = `${traitType}::${value}`;
-                                const pct = collectionTraitPercentByKey.get(k);
-                                return traitPctColorClass(pct);
-                              })()}`}
-                            >
-                              {String(t?.trait_type || '?')}: {String(t?.value || '?')}
-                              {(() => {
-                                const traitType = String(t?.trait_type || '').trim();
-                                const value = String(t?.value || '').trim();
-                                if (!traitType || !value) return '';
-                                const k = `${traitType}::${value}`;
-                                const pct = collectionTraitPercentByKey.get(k);
-                                return pct !== undefined ? ` (${pct.toFixed(1)}%)` : '';
-                              })()}
-                            </span>
-                          ))
+                  {/* Chain info — always visible */}
+                  <div className="border-t border-white/10 pt-3">
+                    {infoRow('Inscription ID', <span className="font-mono" title={d.inscriptionId}>{truncId(d.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(d.inscriptionId)} className="text-gray-600 hover:text-gray-400 ml-1">⎘</button></span>)}
+                    {infoRow('Content', <a className="text-red-400 hover:text-red-300" target="_blank" rel="noreferrer" href={ordinalsContentUrl(d.inscriptionId)}>View Content ↗</a>)}
+                    {infoRow('Owner', truncAddr(detailOwner), true)}
+                    {infoRow('Token Standard', 'ORD')}
+                    {infoRow('Inscription Number', detailTextValue(chain?.inscriptionNumber, chain?.inscription_number, chain?.number))}
+                    {infoRow('Sat Number', detailTextValue(chain?.satNumber, chain?.sat_number, chain?.sat, md?.satNumber, md?.sat_number, md?.sat), true)}
+
+                    {/* Rare Sats — prominent display */}
+                    {rareSatTokens.length > 0 && (
+                      <div className="flex justify-between items-start py-2 border-b border-white/5">
+                        <span className="text-gray-500 text-xs shrink-0">Rare Sats</span>
+                        <div className="flex flex-wrap gap-1 justify-end ml-4">
+                          {rareSatTokens.map((token, i) => {
+                            const meta = resolveRareSatMeta(token);
+                            return (
+                              <span
+                                key={`${token}-${i}`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]"
+                                title={meta?.definition || token}
+                              >
+                                {meta?.symbol || '◌'} {token}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {infoRow('Content Type', detailTextValue(chain?.contentType, chain?.content_type, md?.contentType, md?.content_type))}
+                    {infoRow('Location', detailTextValue(chain?.location, chain?.satpoint, chain?.sat_point, md?.location, md?.satpoint), true)}
+                    {infoRow('Genesis Transaction', truncId(String(detailTextValue(chain?.genesisTransaction, chain?.genesis_txid, chain?.genesis_tx_id, md?.genesisTransaction, md?.genesis_txid, md?.genesis_tx_id) || '')), true)}
+                  </div>
+
+                  {/* Tabs: Offers + Activity */}
+                  <div className="border-t border-white/10 pt-3">
+                    <div className="flex gap-4 mb-3">
+                      {[
+                        { id: 'offers', label: `Offers ${selectedInscriptionDetail?.offersHistory?.length || 0}` },
+                        { id: 'activity', label: 'Activity' },
+                        { id: 'price', label: 'Sales' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDetailTab(tab.id as typeof detailTab)}
+                          className={`text-sm pb-1 ${
+                            detailTab === tab.id
+                              ? 'text-white border-b-2 border-red-500 font-semibold'
+                              : 'text-gray-500 hover:text-gray-300'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {detailTab === 'offers' && (
+                      <div className="max-h-64 overflow-auto">
+                        {selectedInscriptionDetail?.offersHistory?.length === 0 ? (
+                          <div className="text-xs text-gray-500 py-4 text-center">No offers yet.</div>
                         ) : (
-                          <span className="text-xs text-gray-500">No traits</span>
+                          (selectedInscriptionDetail?.offersHistory || []).map((o) => (
+                            <div key={o.id} className="text-xs py-2 border-b border-white/5 last:border-b-0">
+                              <div className="flex justify-between">
+                                <span className="font-mono font-semibold">{Number(o.offer_price_sats || 0).toLocaleString()} sats</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                  o.status === 'active' ? 'bg-emerald-900/50 text-emerald-300' :
+                                  o.status === 'completed' ? 'bg-blue-900/50 text-blue-300' :
+                                  'bg-zinc-800 text-gray-400'
+                                }`}>{o.status}</span>
+                              </div>
+                              <div className="text-gray-500 mt-0.5">
+                                {truncAddr(String(o.buyer_address || ''))}
+                              </div>
+                              {selectedDetailListing &&
+                                currentAddress &&
+                                selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() &&
+                                o.status === 'active' && (
+                                  <div className="mt-1.5 flex gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={offerActionBusyId === o.id}
+                                      onClick={() => handleOfferDecision(o.id, 'accept')}
+                                      className="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-[10px] font-semibold"
+                                    >
+                                      {offerActionBusyId === o.id ? 'Working...' : 'Accept'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={offerActionBusyId === o.id}
+                                      onClick={() => handleOfferDecision(o.id, 'decline')}
+                                      className="px-2.5 py-1 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[10px] font-semibold"
+                                    >
+                                      {offerActionBusyId === o.id ? 'Working...' : 'Decline'}
+                                    </button>
+                                  </div>
+                                )}
+                              {selectedDetailListing &&
+                                currentAddress &&
+                                o.status === 'accepted' &&
+                                (selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ||
+                                  String(o.buyer_address || '').toLowerCase() === currentAddress.toLowerCase()) && (
+                                  <div className="mt-1.5 space-y-1">
+                                    <input
+                                      value={offerTxids[o.id] || ''}
+                                      onChange={(e) => setOfferTxids((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                                      placeholder="Payment txid (optional)"
+                                      className="w-full bg-black border border-white/15 rounded px-2 py-1 text-[10px] font-mono"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={offerCompleteBusyId === o.id}
+                                      onClick={() => handleCompleteOfferSale(o.id)}
+                                      className="px-2.5 py-1 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-[10px] font-semibold"
+                                    >
+                                      {offerCompleteBusyId === o.id ? 'Completing...' : 'Finalize Sale'}
+                                    </button>
+                                  </div>
+                                )}
+                              {o.status === 'completed' && o.metadata?.paymentTxid && (
+                                <a href={`https://mempool.space/tx/${o.metadata.paymentTxid}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-300 underline mt-1 inline-block">View TX ↗</a>
+                              )}
+                            </div>
+                          ))
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {detailTab === 'price' && (
-                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
-                      {selectedInscriptionDetail.salesHistory.length === 0 ? (
-                        <div className="text-xs text-gray-500">No sales yet.</div>
-                      ) : (
-                        selectedInscriptionDetail.salesHistory.map((s) => (
-                          <div key={s.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
-                            <div className="font-mono">{Number(s.price_sats || 0).toLocaleString()} sats</div>
-                            <div className="text-gray-500">{String(s.sold_at || s.created_at || '')}</div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {detailTab === 'activity' && (
-                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
-                      {selectedInscriptionDetail.activity.length === 0 ? (
-                        <div className="text-xs text-gray-500">No activity.</div>
-                      ) : (
-                        selectedInscriptionDetail.activity.map((a) => (
-                          <div key={a.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
-                            <div className="capitalize">{a.activity_type}</div>
-                            <div className="text-gray-500">{String(a.created_at || '')}</div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {detailTab === 'offers' && (
-                    <div className="rounded border border-white/10 p-3 max-h-72 overflow-auto">
-                      {selectedInscriptionDetail.offersHistory?.length === 0 ? (
-                        <div className="text-xs text-gray-500">No offers yet.</div>
-                      ) : (
-                        (selectedInscriptionDetail.offersHistory || []).map((o) => (
-                          <div key={o.id} className="text-xs py-1 border-b border-white/5 last:border-b-0">
-                            <div className="font-mono">{Number(o.offer_price_sats || 0).toLocaleString()} sats</div>
-                            <div className="text-gray-500">
-                              {String(o.buyer_address || '').slice(0, 8)}...{String(o.buyer_address || '').slice(-6)} • {o.status}
+                    {detailTab === 'activity' && (
+                      <div className="max-h-64 overflow-auto">
+                        {selectedInscriptionDetail?.activity.length === 0 ? (
+                          <div className="text-xs text-gray-500 py-4 text-center">No activity.</div>
+                        ) : (
+                          selectedInscriptionDetail?.activity.map((a) => (
+                            <div key={a.id} className="text-xs py-2 border-b border-white/5 last:border-b-0 flex justify-between">
+                              <span className="capitalize">{a.activity_type}</span>
+                              <span className="text-gray-500">{String(a.created_at || '')}</span>
                             </div>
-                            {selectedDetailListing &&
-                              currentAddress &&
-                              selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() &&
-                              o.status === 'active' && (
-                                <div className="mt-1 flex gap-1">
-                                  <button
-                                    type="button"
-                                    disabled={offerActionBusyId === o.id}
-                                    onClick={() => handleOfferDecision(o.id, 'accept')}
-                                    className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-[10px] font-semibold"
-                                  >
-                                    {offerActionBusyId === o.id ? 'Working...' : 'Accept'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={offerActionBusyId === o.id}
-                                    onClick={() => handleOfferDecision(o.id, 'decline')}
-                                    className="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-[10px] font-semibold"
-                                  >
-                                    {offerActionBusyId === o.id ? 'Working...' : 'Decline'}
-                                  </button>
-                                </div>
-                              )}
-                            {selectedDetailListing &&
-                              currentAddress &&
-                              o.status === 'accepted' &&
-                              (selectedDetailListing.seller_address.toLowerCase() === currentAddress.toLowerCase() ||
-                                String(o.buyer_address || '').toLowerCase() === currentAddress.toLowerCase()) && (
-                                <div className="mt-1.5 space-y-1">
-                                  <input
-                                    value={offerTxids[o.id] || ''}
-                                    onChange={(e) =>
-                                      setOfferTxids((prev) => ({ ...prev, [o.id]: e.target.value }))
-                                    }
-                                    placeholder="Payment txid (optional)"
-                                    className="w-full bg-black border border-white/15 rounded px-2 py-1 text-[10px] font-mono"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={offerCompleteBusyId === o.id}
-                                    onClick={() => handleCompleteOfferSale(o.id)}
-                                    className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 disabled:opacity-50 text-[10px] font-semibold"
-                                  >
-                                    {offerCompleteBusyId === o.id ? 'Completing...' : 'Finalize Sale'}
-                                  </button>
-                                </div>
-                              )}
-                            {o.status === 'completed' && (
-                              <div className="text-[10px] text-emerald-300 mt-1">
-                                Completed
-                                {o.metadata?.paymentTxid ? (
-                                  <>
-                                    {' '}
-                                    •{' '}
-                                    <a
-                                      href={`https://mempool.space/tx/${o.metadata.paymentTxid}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="underline hover:text-emerald-200"
-                                    >
-                                      TX
-                                    </a>
-                                  </>
-                                ) : null}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {detailTab === 'price' && (
+                      <div className="max-h-64 overflow-auto">
+                        {selectedInscriptionDetail?.salesHistory.length === 0 ? (
+                          <div className="text-xs text-gray-500 py-4 text-center">No sales yet.</div>
+                        ) : (
+                          selectedInscriptionDetail?.salesHistory.map((s) => (
+                            <div key={s.id} className="text-xs py-2 border-b border-white/5 last:border-b-0 flex justify-between">
+                              <span className="font-mono font-semibold">{Number(s.price_sats || 0).toLocaleString()} sats</span>
+                              <span className="text-gray-500">{String(s.sold_at || s.created_at || '')}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

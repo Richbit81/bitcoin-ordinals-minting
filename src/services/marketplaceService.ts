@@ -656,7 +656,7 @@ export async function getMarketplaceRareSatsBatch(inscriptionIds: string[]): Pro
   stats?: { requested: number; resolved: number };
 }> {
   const ids = Array.from(new Set((inscriptionIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
-  const res = await fetch(`${API_URL}/api/marketplace/v1/inscriptions/rare-sats-batch`, {
+  const res = await fetchWithFallback(`/api/marketplace/v1/inscriptions/rare-sats-batch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inscriptionIds: ids }),
