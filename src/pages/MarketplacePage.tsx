@@ -148,7 +148,8 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const _previewCache: Record<string, { mode: 'img' | 'composited' | 'iframe'; dataUrl?: string }> = {};
+interface PreviewCacheEntry { mode: 'img' | 'composited' | 'iframe'; src: string; dataUrl?: string }
+const _previewCache: Record<string, PreviewCacheEntry> = {};
 
 function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -160,48 +161,15 @@ function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
   });
 }
 
-function tryComposite(body: string): Promise<string> | null {
-  // Pattern A: Ordlify <recursive-images inscriptions="id1, id2, ...">
-  const insMatch = body.match(/inscriptions="([^"]+)"/);
-  if (insMatch) {
-    const childIds = insMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-    const w = parseInt(body.match(/width="(\d+)"/)?.[1] || '400');
-    const h = parseInt(body.match(/height="(\d+)"/)?.[1] || '400');
-    return Promise.all(childIds.map(loadInscriptionImage)).then((images) => {
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const ctx = c.getContext('2d')!;
-      for (const img of images) ctx.drawImage(img, 0, 0, w, h);
-      return c.toDataURL('image/png');
-    });
+function compositeOnCanvas(images: HTMLImageElement[], layers: { x: number; y: number; w: number; h: number }[], cW: number, cH: number): string {
+  const c = document.createElement('canvas');
+  c.width = cW; c.height = cH;
+  const ctx = c.getContext('2d')!;
+  for (let i = 0; i < images.length; i++) {
+    const l = layers[i];
+    ctx.drawImage(images[i], l.x, l.y, l.w, l.h);
   }
-
-  // Pattern B: SVG with <image href="/content/{id}">
-  const svgLayers: { id: string; x: number; y: number; w: number; h: number }[] = [];
-  const re = /<image[^>]*href="\/content\/([^"]+)"[^>]*\/?>/gi;
-  let m;
-  while ((m = re.exec(body)) !== null) svgLayers.push({ id: m[1], x: 0, y: 0, w: 0, h: 0, ...parseSvgImageAttrs(m[0]) });
-  if (svgLayers.length > 0) {
-    const vb = body.match(/viewBox="\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*"/);
-    const cW = Math.round(parseFloat(vb?.[3] || '1000'));
-    const cH = Math.round(parseFloat(vb?.[4] || '1000'));
-    for (const l of svgLayers) {
-      if (!l.w) l.w = cW;
-      if (!l.h) l.h = cH;
-    }
-    return Promise.all(svgLayers.map((l) => loadInscriptionImage(l.id))).then((images) => {
-      const c = document.createElement('canvas');
-      c.width = cW; c.height = cH;
-      const ctx = c.getContext('2d')!;
-      for (let i = 0; i < svgLayers.length; i++) {
-        const l = svgLayers[i];
-        ctx.drawImage(images[i], l.x, l.y, l.w, l.h);
-      }
-      return c.toDataURL('image/png');
-    });
-  }
-
-  return null;
+  return c.toDataURL('image/png');
 }
 
 function parseSvgImageAttrs(tag: string) {
@@ -215,6 +183,81 @@ function parseSvgImageAttrs(tag: string) {
     w: w ? parseFloat(w[1]) : 0,
     h: h ? parseFloat(h[1]) : 0,
   };
+}
+
+async function resolveInscription(inscriptionId: string): Promise<PreviewCacheEntry> {
+  const url = ordinalsContentUrl(inscriptionId);
+
+  const res = await fetch(url);
+  if (!res.ok) return { mode: 'iframe', src: url };
+  const ct = res.headers.get('content-type') || '';
+
+  // 1. Simple raster image (avif, webp, png, jpg, gif)
+  if (ct.startsWith('image/') && !ct.includes('svg')) {
+    return { mode: 'img', src: url };
+  }
+
+  const body = await res.text();
+
+  // 2. Ordlify <recursive-images inscriptions="id1, id2, ...">
+  const riMatch = body.match(/inscriptions="([^"]+)"/);
+  if (riMatch) {
+    const childIds = riMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+    const w = parseInt(body.match(/width="(\d+)"/)?.[1] || '400');
+    const h = parseInt(body.match(/height="(\d+)"/)?.[1] || '400');
+    const images = await Promise.all(childIds.map(loadInscriptionImage));
+    const layers = images.map(() => ({ x: 0, y: 0, w, h }));
+    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, layers, w, h) };
+  }
+
+  // 3. Recursive SVG: <image href="/content/{id}">
+  const svgLayers: { id: string; x: number; y: number; w: number; h: number }[] = [];
+  const svgRe = /<image[^>]*href="\/content\/([^"]+)"[^>]*\/?>/gi;
+  let svgM;
+  while ((svgM = svgRe.exec(body)) !== null) {
+    svgLayers.push({ id: svgM[1], ...parseSvgImageAttrs(svgM[0]) });
+  }
+  if (svgLayers.length > 0) {
+    const vb = body.match(/viewBox="\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*"/);
+    const cW = Math.round(parseFloat(vb?.[3] || '1000'));
+    const cH = Math.round(parseFloat(vb?.[4] || '1000'));
+    for (const l of svgLayers) { if (!l.w) l.w = cW; if (!l.h) l.h = cH; }
+    const images = await Promise.all(svgLayers.map((l) => loadInscriptionImage(l.id)));
+    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, svgLayers, cW, cH) };
+  }
+
+  // 4. data-l delegate: <div data-l='["/content/{id}"]'>
+  const dlMatch = body.match(/data-l='(\[.*?\])'/s);
+  if (dlMatch) {
+    try {
+      const urls: string[] = JSON.parse(dlMatch[1]);
+      const ids = urls.map((u) => u.replace(/^\/content\//, '')).filter(Boolean);
+      if (ids.length === 1) {
+        return { mode: 'img', src: ordinalsContentUrl(ids[0]) };
+      }
+      if (ids.length > 1) {
+        const images = await Promise.all(ids.map(loadInscriptionImage));
+        const w = images[0].naturalWidth || 1000;
+        const h = images[0].naturalHeight || 1000;
+        const layers = images.map(() => ({ x: 0, y: 0, w, h }));
+        return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, layers, w, h) };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // 5. Standalone SVG (no child refs)
+  if (ct.includes('svg')) {
+    return { mode: 'img', src: url };
+  }
+
+  // 6. iframe wrapper → point iframe to inner content directly
+  const iframeMatch = body.match(/<iframe[^>]*src="\/content\/([^"]+)"/i);
+  if (iframeMatch) {
+    return { mode: 'iframe', src: ordinalsContentUrl(iframeMatch[1]) };
+  }
+
+  // 7. Full HTML app / unknown → iframe
+  return { mode: 'iframe', src: url };
 }
 
 const PreviewImage: React.FC<{
@@ -234,66 +277,30 @@ const PreviewImage: React.FC<{
   imageClassName,
   fit = 'cover',
 }) => {
-  const [mode, setMode] = useState<'loading' | 'img' | 'composited' | 'iframe'>('loading');
-  const [compositedSrc, setCompositedSrc] = useState('');
+  const cached = _previewCache[inscriptionId];
+  const [mode, setMode] = useState<'loading' | 'img' | 'composited' | 'iframe'>(cached?.mode || 'loading');
+  const [src, setSrc] = useState(cached?.src || ordinalsContentUrl(inscriptionId));
+  const [compositedSrc, setCompositedSrc] = useState(cached?.dataUrl || '');
 
   useEffect(() => {
+    if (_previewCache[inscriptionId]) return;
     let cancelled = false;
-    const url = ordinalsContentUrl(inscriptionId);
 
-    const cached = _previewCache[inscriptionId];
-    if (cached) {
-      setMode(cached.mode);
-      if (cached.dataUrl) setCompositedSrc(cached.dataUrl);
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        const ct = res.headers.get('content-type') || '';
-        const isRasterImage = ct.startsWith('image/') && !ct.includes('svg');
-
-        if (isRasterImage) {
-          _previewCache[inscriptionId] = { mode: 'img' };
-          if (!cancelled) setMode('img');
-          return;
-        }
-
-        const body = await res.text();
-        const hasChildRefs = /\/content\//.test(body);
-
-        if (!hasChildRefs) {
-          if (ct.includes('svg')) {
-            _previewCache[inscriptionId] = { mode: 'img' };
-            if (!cancelled) setMode('img');
-          } else {
-            _previewCache[inscriptionId] = { mode: 'iframe' };
-            if (!cancelled) setMode('iframe');
-          }
-          return;
-        }
-
-        const promise = tryComposite(body);
-        if (promise) {
-          const dataUrl = await promise;
-          _previewCache[inscriptionId] = { mode: 'composited', dataUrl };
-          if (!cancelled) { setCompositedSrc(dataUrl); setMode('composited'); }
-        } else {
-          _previewCache[inscriptionId] = { mode: 'iframe' };
-          if (!cancelled) setMode('iframe');
-        }
-      } catch {
-        _previewCache[inscriptionId] = { mode: 'iframe' };
-        if (!cancelled) setMode('iframe');
-      }
-    })();
+    resolveInscription(inscriptionId).then((entry) => {
+      _previewCache[inscriptionId] = entry;
+      if (cancelled) return;
+      setMode(entry.mode);
+      setSrc(entry.src);
+      if (entry.dataUrl) setCompositedSrc(entry.dataUrl);
+    }).catch(() => {
+      const fallback: PreviewCacheEntry = { mode: 'iframe', src: ordinalsContentUrl(inscriptionId) };
+      _previewCache[inscriptionId] = fallback;
+      if (!cancelled) { setMode('iframe'); setSrc(fallback.src); }
+    });
 
     return () => { cancelled = true; };
   }, [inscriptionId]);
 
-  const url = ordinalsContentUrl(inscriptionId);
   const objFit = fit === 'contain' ? 'object-contain' : 'object-cover';
 
   return (
@@ -305,7 +312,7 @@ const PreviewImage: React.FC<{
       )}
       {mode === 'img' && (
         <img
-          src={url}
+          src={src}
           alt={alt}
           loading="lazy"
           className={`h-full w-full ${objFit} ${imageClassName || ''}`}
@@ -321,7 +328,7 @@ const PreviewImage: React.FC<{
       {mode === 'iframe' && (
         <iframe
           title={alt}
-          src={url}
+          src={src}
           className="h-full w-full border-0 bg-zinc-900"
           sandbox="allow-scripts allow-same-origin"
         />
