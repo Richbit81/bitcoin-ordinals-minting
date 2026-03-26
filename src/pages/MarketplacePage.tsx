@@ -377,6 +377,7 @@ export const MarketplacePage: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedInscriptionDetail, setSelectedInscriptionDetail] = useState<MarketplaceInscriptionDetail | null>(null);
+  const [ordApiData, setOrdApiData] = useState<Record<string, any> | null>(null);
   const [selectedDetailListing, setSelectedDetailListing] = useState<MarketplaceListing | null>(null);
   const [detailListPriceSats, setDetailListPriceSats] = useState('10000');
   const [offerPriceSats, setOfferPriceSats] = useState('');
@@ -1502,10 +1503,17 @@ export const MarketplacePage: React.FC = () => {
       setDetailLoading(true);
       setError(null);
       setDetailOpen(true);
+      setOrdApiData(null);
       syncDetailQuery(selectedCollectionSlug, inscriptionId);
       setSelectedDetailListing(null);
       setDetailTab('traits');
-      const detail = await getMarketplaceInscriptionDetail(inscriptionId);
+      const [detail] = await Promise.all([
+        getMarketplaceInscriptionDetail(inscriptionId),
+        fetch(`https://ordinals.com/r/inscription/${encodeURIComponent(inscriptionId)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (data) setOrdApiData(data); })
+          .catch(() => {}),
+      ]);
       setSelectedInscriptionDetail(detail);
       const activeFromLoadedListings =
         listings.find((l) => {
@@ -4208,7 +4216,28 @@ export const MarketplacePage: React.FC = () => {
         const priceSats = Number(selectedDetailListing?.price_sats || 0);
         const priceBtc = priceSats / SATS_PER_BTC;
         const detailRareSats = d ? extractRareSatsFromDetail(d) : '-';
-        const rareSatTokens = splitRareSatTokens(detailRareSats);
+        const ordSat = ordApiData?.sat != null ? Number(ordApiData.sat) : NaN;
+        let enrichedRareSats = detailRareSats;
+        if (enrichedRareSats === '-' && Number.isFinite(ordSat) && ordSat >= 0) {
+          const sat = Math.trunc(ordSat);
+          const derived: string[] = [];
+          if (sat < NAKAMOTO_SAT_MAX_EXCLUSIVE) derived.push('nakamoto');
+          if (sat < VINTAGE_SAT_MAX_EXCLUSIVE) derived.push('vintage');
+          if (sat % SATS_PER_BTC === 0) derived.push('alpha');
+          if (sat % SATS_PER_BTC === SATS_PER_BTC - 1) derived.push('omega');
+          const satText = String(sat);
+          if (satText === satText.split('').reverse().join('')) derived.push('palindrome');
+          if (derived.length) enrichedRareSats = derived.join(', ');
+        }
+        if (Array.isArray(ordApiData?.charms) && ordApiData!.charms.length > 0) {
+          const charmNames = ordApiData!.charms.map((c: any) => String(c).toLowerCase());
+          const existing = new Set(splitRareSatTokens(enrichedRareSats).map(t => t.toLowerCase()));
+          const extra = charmNames.filter((c: string) => !existing.has(c));
+          if (extra.length) {
+            enrichedRareSats = enrichedRareSats === '-' ? extra.join(', ') : `${enrichedRareSats}, ${extra.join(', ')}`;
+          }
+        }
+        const rareSatTokens = splitRareSatTokens(enrichedRareSats);
         const truncAddr = (a: string) => a ? `${a.slice(0, 6)}...${a.slice(-4)}` : '-';
         const truncId = (a: string) => a ? `${a.slice(0, 10)}...` : '-';
         const infoRow = (label: string, value: React.ReactNode, mono = false) => (
@@ -4402,39 +4431,53 @@ export const MarketplacePage: React.FC = () => {
                   </div>
 
                   {/* Chain info — always visible */}
-                  <div className="border-t border-white/10 pt-3">
-                    {infoRow('Inscription ID', <span className="font-mono" title={d.inscriptionId}>{truncId(d.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(d.inscriptionId)} className="text-gray-600 hover:text-gray-400 ml-1">⎘</button></span>)}
-                    {infoRow('Content', <a className="text-red-400 hover:text-red-300" target="_blank" rel="noreferrer" href={ordinalsContentUrl(d.inscriptionId)}>View Content ↗</a>)}
-                    {infoRow('Owner', truncAddr(detailOwner), true)}
-                    {infoRow('Token Standard', 'ORD')}
-                    {infoRow('Inscription Number', detailTextValue(chain?.inscriptionNumber, chain?.inscription_number, chain?.number))}
-                    {infoRow('Sat Number', detailTextValue(chain?.satNumber, chain?.sat_number, chain?.sat, md?.satNumber, md?.sat_number, md?.sat), true)}
+                  {(() => {
+                    const ord = ordApiData || {} as any;
+                    return (
+                    <div className="border-t border-white/10 pt-3">
+                      {infoRow('Inscription ID', <span className="font-mono" title={d.inscriptionId}>{truncId(d.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(d.inscriptionId)} className="text-gray-600 hover:text-gray-400 ml-1">⎘</button></span>)}
+                      {infoRow('Content', <a className="text-red-400 hover:text-red-300" target="_blank" rel="noreferrer" href={ordinalsContentUrl(d.inscriptionId)}>View Content ↗</a>)}
+                      {infoRow('Owner', truncAddr(detailOwner), true)}
+                      {infoRow('Token Standard', 'ORD')}
+                      {infoRow('Inscription Number', detailTextValue(chain?.inscriptionNumber, chain?.inscription_number, chain?.number, ord?.number))}
+                      {infoRow('Sat Number', detailTextValue(chain?.satNumber, chain?.sat_number, chain?.sat, md?.satNumber, md?.sat_number, md?.sat, ord?.sat), true)}
 
-                    {/* Rare Sats — prominent display */}
-                    {rareSatTokens.length > 0 && (
-                      <div className="flex justify-between items-start py-2 border-b border-white/5">
-                        <span className="text-gray-500 text-xs shrink-0">Rare Sats</span>
-                        <div className="flex flex-wrap gap-1 justify-end ml-4">
-                          {rareSatTokens.map((token, i) => {
-                            const meta = resolveRareSatMeta(token);
-                            return (
-                              <span
-                                key={`${token}-${i}`}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]"
-                                title={meta?.definition || token}
-                              >
-                                {meta?.symbol || '◌'} {token}
-                              </span>
-                            );
-                          })}
+                      {/* Rare Sats — prominent display */}
+                      {rareSatTokens.length > 0 && (
+                        <div className="flex justify-between items-start py-2 border-b border-white/5">
+                          <span className="text-gray-500 text-xs shrink-0">Rare Sats</span>
+                          <div className="flex flex-wrap gap-1 justify-end ml-4">
+                            {rareSatTokens.map((token, i) => {
+                              const meta = resolveRareSatMeta(token);
+                              return (
+                                <span
+                                  key={`${token}-${i}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]"
+                                  title={meta?.definition || token}
+                                >
+                                  {meta?.symbol || '◌'} {token}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {infoRow('Content Type', detailTextValue(chain?.contentType, chain?.content_type, md?.contentType, md?.content_type))}
-                    {infoRow('Location', detailTextValue(chain?.location, chain?.satpoint, chain?.sat_point, md?.location, md?.satpoint), true)}
-                    {infoRow('Genesis Transaction', truncId(String(detailTextValue(chain?.genesisTransaction, chain?.genesis_txid, chain?.genesis_tx_id, md?.genesisTransaction, md?.genesis_txid, md?.genesis_tx_id) || '')), true)}
-                  </div>
+                      {infoRow('Content Type', detailTextValue(chain?.contentType, chain?.content_type, md?.contentType, md?.content_type, ord?.content_type))}
+                      {infoRow('Location', detailTextValue(chain?.location, chain?.satpoint, chain?.sat_point, md?.location, md?.satpoint, ord?.satpoint), true)}
+                      {infoRow('Genesis Transaction', (() => {
+                        const gtx = String(detailTextValue(chain?.genesisTransaction, chain?.genesis_txid, chain?.genesis_tx_id, md?.genesisTransaction, md?.genesis_txid, md?.genesis_tx_id) || '');
+                        if (gtx && gtx !== '-') return <a className="font-mono text-red-400 hover:text-red-300" target="_blank" rel="noreferrer" href={`https://mempool.space/tx/${gtx}`}>{truncId(gtx)} ↗</a>;
+                        return '-';
+                      })())}
+                      {infoRow('Output Value', detailTextValue(ord?.value ? `${ord.value} sats` : undefined, chain?.utxo?.satoshi ? `${chain.utxo.satoshi} sats` : undefined))}
+                      {infoRow('Content Length', detailTextValue(chain?.contentLength ? `${chain.contentLength.toLocaleString()} bytes` : undefined, ord?.content_length ? `${ord.content_length.toLocaleString()} bytes` : undefined))}
+                      {ord?.height && infoRow('Block Height', <a className="font-mono text-red-400 hover:text-red-300" target="_blank" rel="noreferrer" href={`https://mempool.space/block/${ord.height}`}>{String(ord.height)} ↗</a>)}
+                      {ord?.fee !== undefined && infoRow('Inscription Fee', `${ord.fee.toLocaleString()} sats`)}
+                      {ord?.timestamp && infoRow('Timestamp', new Date(ord.timestamp * 1000).toLocaleString())}
+                    </div>
+                    );
+                  })()}
 
                   {/* Tabs: Offers + Activity */}
                   <div className="border-t border-white/10 pt-3">
