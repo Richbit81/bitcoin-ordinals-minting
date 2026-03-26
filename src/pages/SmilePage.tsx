@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
+import { sanitizeSvg } from '../utils/sanitize';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
@@ -594,7 +595,7 @@ export const SmilePage: React.FC = () => {
               {lightboxImage.svgMarkup ? (
                 <div
                   className="w-full rounded-lg border-2 border-red-600 shadow-2xl shadow-red-600/30 overflow-hidden bg-black"
-                  dangerouslySetInnerHTML={{ __html: lightboxImage.svgMarkup }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(lightboxImage.svgMarkup) }}
                 />
               ) : (
                 <img src={lightboxImage.url} alt={lightboxImage.name}

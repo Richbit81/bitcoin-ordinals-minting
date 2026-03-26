@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, RARITY_COLORS, RARITY_LABELS } from '../types/wallet';
 import { getCachedInscriptionImage } from '../services/inscriptionImage';
+import { sanitizeSvg } from '../utils/sanitize';
 
 interface CardDetailModalProps {
   card: Card;
@@ -116,14 +117,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, onClose 
                   {card.svgIcon && (
                     <div
                       className="w-full max-w-md flex items-center justify-center"
-                      dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
                     />
                   )}
                 </div>
               ) : imageData && isSvg ? (
                 <div
                   className="w-full max-w-md flex items-center justify-center"
-                  dangerouslySetInnerHTML={{ __html: imageData }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(imageData) }}
                   style={{
                     filter: 'none',
                     WebkitFilter: 'none',
@@ -158,7 +159,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, onClose 
             ) : card.svgIcon ? (
               <div
                 className="w-full max-w-md flex items-center justify-center"
-                dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+                dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
               />
             ) : (
               <div className="text-gray-400">No preview available</div>

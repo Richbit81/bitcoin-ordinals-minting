@@ -12,6 +12,7 @@ import { SmileABitCollectionManager } from './admin/SmileABitCollectionManager';
 import { getWalletInscriptions, WalletInscription } from '../services/collectionService';
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
+import { sanitizeSvg } from '../utils/sanitize';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -545,7 +546,7 @@ const CardPreview: React.FC<{ card: Card }> = ({ card }) => {
               {card.svgIcon && (
                 <div 
                   className="w-full h-full flex items-center justify-center p-2 mt-2"
-                  dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
                 />
               )}
             </div>
@@ -565,7 +566,7 @@ const CardPreview: React.FC<{ card: Card }> = ({ card }) => {
           // Fallback: Nur svgIcon wenn keine inscriptionId vorhanden
           <div 
             className="w-full h-full flex items-center justify-center p-2"
-            dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+            dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
           />
         ) : (
           <div className="text-gray-500 text-xs">No preview</div>

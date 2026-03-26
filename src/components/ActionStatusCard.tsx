@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, RARITY_COLORS, RARITY_LABELS } from '../types/wallet';
+import { sanitizeSvg } from '../utils/sanitize';
 
 interface ActionStatusCardProps {
   card: Card;
@@ -44,7 +45,7 @@ export const ActionStatusCard: React.FC<ActionStatusCardProps> = ({ card, showRa
         <div className="p-6 flex items-center justify-center bg-white min-h-[200px]">
           <div
             className="w-full max-w-xs flex items-center justify-center"
-            dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+            dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
             style={{
               // Keine Filter, die Farben verfälschen könnten
               filter: 'none',

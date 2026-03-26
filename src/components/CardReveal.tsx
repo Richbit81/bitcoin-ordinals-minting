@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, RARITY_COLORS, RARITY_LABELS } from '../types/wallet';
 import { ActionStatusCard } from './ActionStatusCard';
+import { sanitizeSvg } from '../utils/sanitize';
 
 interface CardRevealProps {
   card: Card;
@@ -191,7 +192,7 @@ export const CardReveal: React.FC<CardRevealProps> = ({
                     {card.svgIcon && (
                       <div 
                         className="w-full h-full flex items-center justify-center p-2 mt-2"
-                        dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
                       />
                     )}
                   </div>
@@ -215,7 +216,7 @@ export const CardReveal: React.FC<CardRevealProps> = ({
               return (
                 <div 
                   className="w-full h-full flex items-center justify-center p-2"
-                  dangerouslySetInnerHTML={{ __html: card.svgIcon }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svgIcon) }}
                 />
               );
             } else {
