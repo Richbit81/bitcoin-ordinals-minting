@@ -148,7 +148,7 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-interface PreviewCacheEntry { mode: 'img' | 'composited' | 'iframe'; src: string; dataUrl?: string }
+interface PreviewCacheEntry { mode: 'img' | 'composited' | 'iframe'; src: string; dataUrl?: string; pixelArt?: boolean }
 const _previewCache: Record<string, PreviewCacheEntry> = {};
 
 function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
@@ -161,10 +161,11 @@ function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
   });
 }
 
-function compositeOnCanvas(images: HTMLImageElement[], layers: { x: number; y: number; w: number; h: number }[], cW: number, cH: number): string {
+function compositeOnCanvas(images: HTMLImageElement[], layers: { x: number; y: number; w: number; h: number }[], cW: number, cH: number, pixelArt = false): string {
   const c = document.createElement('canvas');
   c.width = cW; c.height = cH;
   const ctx = c.getContext('2d')!;
+  if (pixelArt) ctx.imageSmoothingEnabled = false;
   for (let i = 0; i < images.length; i++) {
     const l = layers[i];
     ctx.drawImage(images[i], l.x, l.y, l.w, l.h);
@@ -205,9 +206,10 @@ async function resolveInscription(inscriptionId: string): Promise<PreviewCacheEn
     const childIds = riMatch[1].split(',').map(s => s.trim()).filter(Boolean);
     const w = parseInt(body.match(/width="(\d+)"/)?.[1] || '400');
     const h = parseInt(body.match(/height="(\d+)"/)?.[1] || '400');
+    const isPixel = /type="pixel"/.test(body);
     const images = await Promise.all(childIds.map(loadInscriptionImage));
     const layers = images.map(() => ({ x: 0, y: 0, w, h }));
-    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, layers, w, h) };
+    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, layers, w, h, isPixel), pixelArt: isPixel };
   }
 
   // 3. Recursive SVG: <image href="/content/{id}">
@@ -323,6 +325,7 @@ const PreviewImage: React.FC<{
           src={compositedSrc}
           alt={alt}
           className={`h-full w-full ${objFit} ${imageClassName || ''}`}
+          style={_previewCache[inscriptionId]?.pixelArt ? { imageRendering: 'pixelated' } : undefined}
         />
       )}
       {mode === 'iframe' && (
