@@ -107,25 +107,6 @@ const toStableOrdinalsMirrorUrl = (raw: string): string => {
   } catch {}
   return s;
 };
-/** Drop backend-provided /content, /preview and /api/inscription/image URLs that duplicate our own ORD_SERVER/API fallbacks — those were forcing api.richart.app first and causing 502 spam before public mirrors. */
-const shouldDeferPreferredToStableChain = (raw: string): boolean => {
-  const low = String(raw || '').trim().toLowerCase();
-  try {
-    const ordHost = new URL(ORD_SERVER_URL).hostname.toLowerCase();
-    const apiHost = new URL(API_URL).hostname.toLowerCase();
-    if (low.includes(`${ordHost}/content/`) || low.includes(`${ordHost}/preview/`)) return true;
-    if (low.includes(`${apiHost}/api/inscription/image/`)) return true;
-  } catch {}
-  try {
-    const u = new URL(raw);
-    const path = u.pathname || '';
-    const ordHost = new URL(ORD_SERVER_URL).hostname;
-    const apiHost = new URL(API_URL).hostname;
-    if (u.hostname === ordHost && /^\/(content|preview)\//i.test(path)) return true;
-    if (u.hostname === apiHost && /^\/api\/inscription\/image\//i.test(path)) return true;
-  } catch {}
-  return false;
-};
 const safeReadCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -231,7 +212,6 @@ const PreviewImage: React.FC<{
   className: string;
   imageClassName?: string;
   fit?: 'cover' | 'contain';
-  preferredSources?: string[];
   lightweight?: boolean;
   preferIframe?: boolean;
 }> = ({
@@ -240,7 +220,6 @@ const PreviewImage: React.FC<{
   className,
   imageClassName = '',
   fit = 'cover',
-  preferredSources = [],
   lightweight = false,
   preferIframe = false,
 }) => {
@@ -254,23 +233,19 @@ const PreviewImage: React.FC<{
   const fallbackApiImageUrl = `${FALLBACK_API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
   const useRichartImageProxy = import.meta.env.VITE_USE_RICHART_IMAGE_PROXY === 'true';
-  const normalizedPreferred = (preferredSources || [])
-    .map((src) => String(src || '').trim())
-    .filter(Boolean)
-    .filter((src) => !shouldDeferPreferredToStableChain(src));
-  const preferredKey = normalizedPreferred.join('\0');
-  // Public mirrors + Railway first; then preferred URLs. Richart /api/inscription/image is off by default (502-heavy); opt-in: VITE_USE_RICHART_IMAGE_PROXY=true.
-  // Do not use ORD_SERVER_URL /content or /preview here — same bytes as ordinals/Railway but unstable; they only spam 502 and slow cards.
+  // Same idea as PinkPuppetsMarketplacePage: derive preview URLs only from inscription id (ordinals.com + Railway fallback).
+  // Do not inject backend previewUrl/contentUrl — those often point at richart.app mirrors.
+  // Richart /api/inscription/image is off by default (502-heavy); opt-in: VITE_USE_RICHART_IMAGE_PROXY=true.
+  // Lightweight grids: try /preview/ first (usually faster for thumbnails), then full /content/.
   const imageSources = Array.from(
     new Set(
       (
         lightweight
           ? [
-              ordinalsContentUrl(inscriptionId),
               ordinalsPreviewUrl(inscriptionId),
-              fallbackOrdContentUrl(inscriptionId),
+              ordinalsContentUrl(inscriptionId),
               fallbackOrdPreviewUrl(inscriptionId),
-              ...normalizedPreferred,
+              fallbackOrdContentUrl(inscriptionId),
               fallbackApiImageUrl,
               ...(useRichartImageProxy ? [apiImageUrl] : []),
             ]
@@ -280,7 +255,6 @@ const PreviewImage: React.FC<{
               ordinalsPreviewUrl(inscriptionId),
               fallbackOrdContentUrl(inscriptionId),
               fallbackOrdPreviewUrl(inscriptionId),
-              ...normalizedPreferred,
               fallbackApiImageUrl,
               ...(useRichartImageProxy ? [apiImageUrl] : []),
             ]
@@ -306,7 +280,8 @@ const PreviewImage: React.FC<{
     setPreprocessedSrc(null);
     setRecursiveSvgDoc(null);
     setHtmlPreviewDoc(null);
-    setDocProbeRequested(preferIframe && !lightweight);
+    // Never probe on mount: eager fetch duplicated <img> and stalled grids. Probe only on blank/error (see onLoad/onError).
+    setDocProbeRequested(false);
     // Fast-first: try direct image sources first, fallback to iframe only when needed.
     setIframeFallback(false);
     setIframeFallbackUsePreview(false);
@@ -315,7 +290,7 @@ const PreviewImage: React.FC<{
       blobUrlRef.current = null;
     }
     debugLog('reset', { imageSources });
-  }, [inscriptionId, preferIframe, lightweight, preferredKey]);
+  }, [inscriptionId, preferIframe, lightweight]);
 
   useEffect(() => {
     if (lightweight) return;
@@ -444,7 +419,12 @@ const PreviewImage: React.FC<{
   useEffect(() => {
     if (loaded || iframeFallback || noPreviewAvailable) return;
     if (!currentSrc) return;
-    const timeoutMs = preferIframe ? 1400 : 3500;
+    // Grids: short hop between mirrors so a slow ordinals.com request does not block 3.5s per step.
+    const timeoutMs = lightweight
+      ? 950
+      : preferIframe
+        ? 1200
+        : 2200;
     const timer = window.setTimeout(() => {
       setLoaded(false);
       setSourceIndex((prev) => {
@@ -457,18 +437,18 @@ const PreviewImage: React.FC<{
       });
     }, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, preferIframe]);
+  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, preferIframe, lightweight]);
 
   useEffect(() => {
     if (!iframeFallback || loaded || noPreviewAvailable || iframeFallbackUsePreview) return;
-    // Keep collection cards responsive: switch to preview endpoint quickly when content stalls.
-    const timeoutMs = 2500;
+    // Collection cards: switch content→preview iframe quickly when content stalls.
+    const timeoutMs = lightweight ? 1200 : 2000;
     const timer = window.setTimeout(() => {
       setIframeFallbackUsePreview(true);
       debugLog('iframe-fallback-switch-to-preview', { timeoutMs, inscriptionId });
     }, timeoutMs);
     return () => window.clearTimeout(timer);
-  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview]);
+  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview, lightweight]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -1127,13 +1107,11 @@ export const MarketplacePage: React.FC = () => {
           limit: INITIAL_SOLD_LISTINGS_LIMIT,
           lightweight: true,
         });
-        const initialActive = await activePromise;
+        const [initialActive, initialSold] = await Promise.all([activePromise, soldPromise]);
         if (cancelCheck?.()) return;
         setListings(initialActive);
-        setListingsLoading(false);
-        const initialSold = await soldPromise;
-        if (cancelCheck?.()) return;
         setSoldListings(initialSold);
+        setListingsLoading(false);
       }
 
       // Vollständige Listen im Hintergrund nachladen (SWR).
@@ -4067,10 +4045,6 @@ export const MarketplacePage: React.FC = () => {
                           fit="contain"
                           lightweight={!forceIframePreview}
                           preferIframe={forceIframePreview}
-                          preferredSources={[
-                            String(ins.previewUrl || '').trim(),
-                            String(ins.contentUrl || '').trim(),
-                          ]}
                         />
                         <div className="p-1.5">
                           <div className="text-[10px] font-mono text-gray-300 truncate">
@@ -4487,7 +4461,7 @@ export const MarketplacePage: React.FC = () => {
                     {selectedInscriptionDetail.inscriptionId}
                   </div>
                   <a
-                    href={toStableOrdinalsMirrorUrl(selectedInscriptionDetail.contentUrl)}
+                    href={ordinalsContentUrl(selectedInscriptionDetail.inscriptionId)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-block text-xs text-red-300 hover:text-red-200 underline"
@@ -4644,7 +4618,7 @@ export const MarketplacePage: React.FC = () => {
                         <div><span className="text-gray-500">Inscription ID:</span> <span className="font-mono">{selectedInscriptionDetail.inscriptionId}</span></div>
                         <div><span className="text-gray-500">Inscription Number:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.inscriptionNumber, selectedInscriptionDetail.chainInfo?.inscription_number, selectedInscriptionDetail.chainInfo?.number)}</div>
                         <div><span className="text-gray-500">Owner:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.marketplaceInscription?.owner_address, selectedInscriptionDetail.chainInfo?.ownerAddress, selectedInscriptionDetail.chainInfo?.owner_address, selectedInscriptionDetail.chainInfo?.address)}</span></div>
-                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={toStableOrdinalsMirrorUrl(selectedInscriptionDetail.contentUrl)}>Link</a></div>
+                        <div><span className="text-gray-500">Content:</span> <a className="underline text-red-300 hover:text-red-200" target="_blank" rel="noreferrer" href={ordinalsContentUrl(selectedInscriptionDetail.inscriptionId)}>Link</a></div>
                         <div><span className="text-gray-500">Content Type:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.contentType, selectedInscriptionDetail.chainInfo?.content_type, selectedInscriptionDetail.marketplaceInscription?.metadata?.contentType, selectedInscriptionDetail.marketplaceInscription?.metadata?.content_type)}</div>
                         <div><span className="text-gray-500">Created:</span> {detailTextValue(selectedInscriptionDetail.chainInfo?.timestamp, selectedInscriptionDetail.chainInfo?.created, selectedInscriptionDetail.marketplaceInscription?.metadata?.created, selectedInscriptionDetail.marketplaceInscription?.created_at)}</div>
                         <div><span className="text-gray-500">Genesis Tx:</span> <span className="font-mono">{detailTextValue(selectedInscriptionDetail.chainInfo?.genesisTransaction, selectedInscriptionDetail.chainInfo?.genesis_txid, selectedInscriptionDetail.chainInfo?.genesis_tx_id, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesisTransaction, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_txid, selectedInscriptionDetail.marketplaceInscription?.metadata?.genesis_tx_id)}</span></div>
