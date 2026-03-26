@@ -33,6 +33,34 @@ type ScoreBreakdown = {
 };
 const PINK_PUPPETS_SLUG = 'pinkpuppets';
 const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const SATS_PER_BTC = 100_000_000;
+const NAKAMOTO_SAT_MAX = 95_000_000_000_000;
+const VINTAGE_SAT_MAX = 5_000_000_000_000;
+const BLOCK_REWARD_0 = 50 * SATS_PER_BTC;
+function deriveSatRarity(sat: number): string {
+  if (!Number.isFinite(sat) || sat < 0) return '-';
+  const s = Math.trunc(sat);
+  const d: string[] = [];
+  if (s === 0) d.push('mythic');
+  if (s < NAKAMOTO_SAT_MAX) d.push('nakamoto');
+  if (s < VINTAGE_SAT_MAX) d.push('vintage');
+  if (s % SATS_PER_BTC === 0) d.push('alpha');
+  if (s % SATS_PER_BTC === SATS_PER_BTC - 1) d.push('omega');
+  if (s % BLOCK_REWARD_0 === 0 && s > 0) d.push('uncommon');
+  const t = String(s);
+  if (t === t.split('').reverse().join('')) d.push('palindrome');
+  const block = Math.floor(s / BLOCK_REWARD_0);
+  if (block === 9) d.push('block 9');
+  if (block === 78) d.push('block 78');
+  if (block < 1000) d.push('early');
+  return d.length ? Array.from(new Set(d)).join(', ') : '-';
+}
+const RARE_SAT_SYMBOLS: Record<string, string> = {
+  mythic: '★', legendary: '◆', epic: '◈', rare: '◉', uncommon: '○',
+  nakamoto: '₿', vintage: '⌛', alpha: 'α', omega: 'Ω', palindrome: '↔',
+  'block 9': '⑨', 'block 78': '⑦⑧', early: '⚒', pizza: '🍕', hitman: '🎯',
+};
+const truncId = (a: string) => a ? `${a.slice(0, 10)}...` : '-';
 
 const formatSats = (value: number) => new Intl.NumberFormat('en-US').format(Math.max(0, Math.floor(value)));
 const shortAddress = (value: string) => (value.length > 14 ? `${value.slice(0, 7)}...${value.slice(-5)}` : value || '-');
@@ -173,6 +201,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   const [ownerByInscription, setOwnerByInscription] = React.useState<Record<string, string>>({});
   const [selectedDetailLoading, setSelectedDetailLoading] = React.useState(false);
   const [selectedDetailError, setSelectedDetailError] = React.useState<string | null>(null);
+  const [ordApiData, setOrdApiData] = React.useState<Record<string, any> | null>(null);
   const resolvingOwnerIdsRef = React.useRef<Set<string>>(new Set());
   const scoreModel = React.useMemo(() => buildPinkPuppetScoreModel(), []);
   const itemIndexById = React.useMemo(() => {
@@ -265,29 +294,29 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   React.useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!selectedId) return;
-      if (ownerByInscription[selectedId]) {
-        setSelectedDetailLoading(false);
+      if (!selectedId) { setOrdApiData(null); return; }
+      setOrdApiData(null);
+      const ownerPromise = (async () => {
+        if (ownerByInscription[selectedId]) { setSelectedDetailLoading(false); setSelectedDetailError(null); return; }
+        setSelectedDetailLoading(true);
         setSelectedDetailError(null);
-        return;
-      }
-      setSelectedDetailLoading(true);
-      setSelectedDetailError(null);
-      try {
-        const resolvedOwner = await resolveOwnerAddress(selectedId);
-        if (!cancelled && resolvedOwner) {
-          setOwnerByInscription((prev) => ({ ...prev, [selectedId]: resolvedOwner }));
+        try {
+          const resolvedOwner = await resolveOwnerAddress(selectedId);
+          if (!cancelled && resolvedOwner) setOwnerByInscription((prev) => ({ ...prev, [selectedId]: resolvedOwner }));
+        } catch (err: any) {
+          if (!cancelled) setSelectedDetailError(err?.message || 'Could not load inscription owner');
+        } finally {
+          if (!cancelled) setSelectedDetailLoading(false);
         }
-      } catch (err: any) {
-        if (!cancelled) setSelectedDetailError(err?.message || 'Could not load inscription owner');
-      } finally {
-        if (!cancelled) setSelectedDetailLoading(false);
-      }
+      })();
+      const ordPromise = fetch(`https://ordinals.com/r/inscription/${encodeURIComponent(selectedId)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (!cancelled && data) setOrdApiData(data); })
+        .catch(() => {});
+      await Promise.all([ownerPromise, ordPromise]);
     };
     void run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [ownerByInscription, resolveOwnerAddress, selectedId]);
 
   const rows = React.useMemo(() => {
@@ -684,16 +713,63 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                         <span>{selected.listing ? formatDateTime(selected.listing.listedAt) : '-'}</span>
                       </div>
                     </div>
-                    <div className="mt-2 rounded border border-pink-300/30 bg-black/40 p-2">
-                      <p className="text-[10px] text-pink-200/70">Inscription ID</p>
-                      <p className="mt-1 break-all text-[11px] text-pink-100">{selected.inscriptionId}</p>
-                    </div>
-                    <div className="mt-2 rounded border border-pink-300/30 bg-black/40 p-2">
-                      <p className="text-[10px] text-pink-200/70">Owner Address</p>
-                      <p className="mt-1 break-all text-[11px] text-pink-100">{selectedOwnerAddress || '-'}</p>
-                    </div>
-                    {selectedDetailLoading && <p className="mt-2 text-[11px] text-pink-200/70">Loading owner wallet...</p>}
+
+                    {selectedDetailLoading && <p className="mt-2 text-[11px] text-pink-200/70">Loading details...</p>}
                     {selectedDetailError && <p className="mt-2 text-[11px] text-yellow-200">Owner fetch failed: {selectedDetailError}</p>}
+                  </div>
+
+                  {/* Chain Info from ordinals.com */}
+                  <div className="rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
+                    <p className="mb-2 text-pink-100 font-semibold">Chain Info</p>
+                    {(() => {
+                      const ord = ordApiData || {} as any;
+                      const infoRow = (label: string, value: React.ReactNode) => (
+                        <div className="flex justify-between items-start py-1.5 border-b border-pink-300/10 last:border-b-0">
+                          <span className="text-pink-200/70 text-xs shrink-0">{label}</span>
+                          <span className="text-xs text-right ml-4 truncate max-w-[60%] font-mono text-pink-100">{value}</span>
+                        </div>
+                      );
+                      const satNum = ord?.sat != null ? Number(ord.sat) : NaN;
+                      const rareSats = Number.isFinite(satNum) ? deriveSatRarity(satNum) : '-';
+                      const rareSatTokens = rareSats !== '-' ? rareSats.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+                      const gtx = selected.inscriptionId.replace(/i\d+$/, '');
+                      return (
+                        <>
+                          {infoRow('Inscription ID', <span title={selected.inscriptionId}>{truncId(selected.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(selected.inscriptionId)} className="text-pink-300/50 hover:text-pink-200 ml-1">⎘</button></span>)}
+                          {infoRow('Content', <a className="text-pink-400 hover:text-pink-300" target="_blank" rel="noreferrer" href={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}>View Content ↗</a>)}
+                          {infoRow('Owner', selectedOwnerAddress ? shortAddress(selectedOwnerAddress) : '-')}
+                          {infoRow('Token Standard', 'ORD')}
+                          {infoRow('Inscription Number', ord?.number != null ? String(ord.number) : '-')}
+                          {infoRow('Sat Number', Number.isFinite(satNum) ? String(Math.trunc(satNum)) : '-')}
+
+                          {rareSatTokens.length > 0 && (
+                            <div className="flex justify-between items-start py-1.5 border-b border-pink-300/10">
+                              <span className="text-pink-200/70 text-xs shrink-0">Rare Sats</span>
+                              <div className="flex flex-wrap gap-1 justify-end ml-4">
+                                {rareSatTokens.map((token: string, i: number) => (
+                                  <span
+                                    key={`${token}-${i}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]"
+                                  >
+                                    {RARE_SAT_SYMBOLS[token] || '◌'} {token}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {infoRow('Content Type', ord?.content_type || '-')}
+                          {infoRow('Location', ord?.satpoint || '-')}
+                          {infoRow('Genesis Transaction', gtx ? <a className="text-pink-400 hover:text-pink-300" target="_blank" rel="noreferrer" href={`https://mempool.space/tx/${gtx}`}>{truncId(gtx)} ↗</a> : '-')}
+                          {ord?.value != null && infoRow('Output Value', `${ord.value} sats`)}
+                          {ord?.content_length != null && infoRow('Content Length', `${ord.content_length.toLocaleString()} bytes`)}
+                          {ord?.height != null && infoRow('Block Height', <a className="text-pink-400 hover:text-pink-300" target="_blank" rel="noreferrer" href={`https://mempool.space/block/${ord.height}`}>{String(ord.height)} ↗</a>)}
+                          {ord?.fee != null && infoRow('Inscription Fee', `${ord.fee.toLocaleString()} sats`)}
+                          {ord?.timestamp != null && infoRow('Timestamp', new Date(ord.timestamp * 1000).toLocaleString())}
+                          {!ordApiData && <p className="text-[10px] text-pink-200/50 mt-1">Loading chain data...</p>}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div className="rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
