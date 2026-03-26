@@ -12,6 +12,16 @@ import { addMintPoints } from '../services/pointsService';
 // 1984 Collection Items
 const ITEMS_1984 = [
   {
+    id: 'book-1984',
+    name: '1984',
+    inscriptionId: 'a15f5e3868d900a1304628f0db817e82e7ba857cce6c837cec34ece7e3c221e7i0',
+    priceInSats: 5000,
+    priceInBTC: 0.00005,
+    description:
+      '1984 by George Orwell is one of the most influential dystopian novels ever written. Preserved fully on Bitcoin.',
+    contentType: 'html' as const,
+  },
+  {
     id: 'war-is-peace',
     name: 'WAR IS PEACE',
     inscriptionId: '5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0',
@@ -29,6 +39,16 @@ const ITEMS_1984 = [
     description: "It's 1984 o'clock! — a tribute to Orwell's dystopian masterpiece, inscribed on Bitcoin.",
     contentType: 'video' as const,
   },
+  {
+    id: 'great-awakening-map',
+    name: 'Great Awakening Map',
+    inscriptionId: 'bcd62e7501be95991be10e7b36141651eb671f6032c5445fc2fd2edeffb793cei0',
+    priceInSats: 5000,
+    priceInBTC: 0.00005,
+    description:
+      'The Great Awakening Map is a massive infographic that links together hundreds of conspiracy theories and alternative narratives, presenting them as part of one interconnected system.',
+    contentType: 'image' as const,
+  },
 ];
 
 const COLLECTION_NAME = '1984';
@@ -45,6 +65,7 @@ export const Orwell1984Page: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [previewItem, setPreviewItem] = useState<(typeof ITEMS_1984)[number] | null>(null);
 
   const handleMint = async (item: typeof ITEMS_1984[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -74,7 +95,7 @@ export const Orwell1984Page: React.FC = () => {
         COLLECTION_NAME,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        'image', // Content type
+        item.contentType,
         item.priceInSats
       );
 
@@ -169,97 +190,109 @@ export const Orwell1984Page: React.FC = () => {
         </div>
 
         {/* Items Grid */}
-        <div className="flex-1 flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-12 max-w-5xl mx-auto w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto w-full items-start">
           {ITEMS_1984.map((item) => (
-            <div key={item.id} className="bg-black/80 border-2 border-red-600/50 rounded-xl p-6 max-w-lg w-full backdrop-blur-md hover:border-red-600 transition-colors duration-300">
+            <div key={item.id} className="bg-black/80 border border-red-600/50 rounded-xl p-3 w-full backdrop-blur-md hover:border-red-600 transition-colors duration-300 flex flex-col">
               {/* Inscription Preview */}
-              {item.contentType === 'video' ? (
-                /* Video Preview - iframe with autoplay permissions */
-                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900"
-                  style={{ paddingBottom: '56.25%' /* 16:9 aspect ratio */ }}
-                >
+              {item.contentType === 'video' || item.contentType === 'html' ? (
+                <div className="relative mb-4 w-full aspect-square rounded-lg overflow-hidden shadow-xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
                   <iframe
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
                     title={item.name}
-                    className="absolute inset-0 w-full h-full border-0 rounded-lg"
+                    className="absolute inset-0 w-full h-full border-0"
                     sandbox="allow-scripts allow-same-origin allow-popups"
                     allow="autoplay; fullscreen"
                     scrolling="no"
                     loading="eager"
                     referrerPolicy="no-referrer"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setPreviewItem(item)}
+                    className="absolute inset-0 z-10 w-full h-full"
+                    title="Open large preview"
+                    aria-label={`Open large preview of ${item.name}`}
+                  />
                 </div>
               ) : (
-                /* Image Preview - direct img tag */
-                <div className="relative mb-6 w-full rounded-lg overflow-hidden shadow-2xl shadow-red-600/20 border border-red-600/30 bg-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(item)}
+                  className="relative mb-4 w-full aspect-square rounded-lg overflow-hidden shadow-xl shadow-red-600/20 border border-red-600/30 bg-gray-900 text-left"
+                  title="Open large preview"
+                >
                   <img
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
                     alt={item.name}
-                    className="w-full h-auto rounded-lg"
+                    className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                </div>
+                </button>
               )}
 
               {/* Item Info */}
-              <h2 className="text-2xl font-black text-white mb-2">{item.name}</h2>
-              <p className="text-sm text-gray-400 mb-4">{item.description}</p>
+              <h2 className="text-lg font-black text-white mb-2 min-h-[3rem]">{item.name}</h2>
+              <p className="text-xs text-gray-400 mb-3 leading-relaxed min-h-[4.5rem] line-clamp-4">{item.description}</p>
 
-              {/* Price */}
-              <div className="text-center mb-4">
-                <p className="text-3xl font-bold text-red-600">
-                  {item.priceInSats.toLocaleString()} sats
-                </p>
-                <p className="text-sm text-gray-500">
-                  ({item.priceInBTC} BTC) + inscription fees
-                </p>
-              </div>
-
-              {/* Fee Rate Selector */}
-              <div className="mb-4">
-                <FeeRateSelector
-                  selectedFeeRate={inscriptionFeeRate}
-                  onFeeRateChange={setInscriptionFeeRate}
-                />
-              </div>
-
-              {/* Minting Status (nur für dieses Item) */}
-              {mintingStatus && mintingItemId === item.id && (
-                <div className="mb-4">
-                  <MintingProgress status={mintingStatus} />
+              <div className="mt-auto">
+                {/* Price */}
+                <div className="text-center mb-3 min-h-[3.75rem]">
+                  <p className="text-2xl font-bold text-red-600">
+                    {item.priceInSats.toLocaleString()} sats
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    ({item.priceInBTC} BTC) + inscription fees
+                  </p>
                 </div>
-              )}
 
-              {/* Mint Button */}
-              {(!mintingStatus || mintingStatus.status === 'error' || mintingItemId !== item.id) ? (
-                <button
-                  onClick={() => handleMint(item)}
-                  disabled={mintingItemId !== null}
-                  className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
-                >
-                  {mintingItemId === item.id ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Minting...
-                    </span>
+                {/* Fee Rate Selector */}
+                <div className="mb-3">
+                  <FeeRateSelector
+                    selectedFeeRate={inscriptionFeeRate}
+                    onFeeRateChange={setInscriptionFeeRate}
+                  />
+                </div>
+
+                {/* Minting Status slot (fixed height for aligned cards) */}
+                <div className="mb-3 min-h-[88px]">
+                  {mintingStatus && mintingItemId === item.id ? (
+                    <MintingProgress status={mintingStatus} />
                   ) : (
-                    `🔴 MINT "${item.name}"`
+                    <div className="h-full w-full rounded-lg border border-transparent" aria-hidden="true" />
                   )}
-                </button>
-              ) : mintingStatus.status === 'success' && mintingItemId === item.id ? (
-                <div className="text-center">
-                  <p className="text-green-400 font-bold mb-4">✅ Mint Successful!</p>
-                  <button
-                    onClick={() => setMintingStatus(null)}
-                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
-                  >
-                    Mint Another
-                  </button>
                 </div>
-              ) : null}
+
+                {/* Mint Button */}
+                {(!mintingStatus || mintingStatus.status === 'error' || mintingItemId !== item.id) ? (
+                  <button
+                    onClick={() => handleMint(item)}
+                    disabled={mintingItemId !== null}
+                    className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-base transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
+                  >
+                    {mintingItemId === item.id ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Minting...
+                      </span>
+                    ) : (
+                      `🔴 MINT "${item.name}"`
+                    )}
+                  </button>
+                ) : mintingStatus.status === 'success' && mintingItemId === item.id ? (
+                  <div className="text-center min-h-[52px] flex flex-col items-center justify-center">
+                    <p className="text-green-400 font-bold mb-3">✅ Mint Successful!</p>
+                    <button
+                      onClick={() => setMintingStatus(null)}
+                      className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                    >
+                      Mint Another
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
@@ -277,6 +310,43 @@ export const Orwell1984Page: React.FC = () => {
             "Freedom is the freedom to say that two plus two make four. If that is granted, all else follows."
           </blockquote>
         </div>
+
+        {/* Large Preview Modal */}
+        {previewItem && (
+          <div
+            className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4"
+            onClick={() => setPreviewItem(null)}
+          >
+            <div
+              className="relative w-full max-w-4xl aspect-square bg-black border border-red-600/50 rounded-xl overflow-hidden"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                className="absolute top-2 right-2 z-10 px-3 py-1 rounded bg-black/70 border border-white/20 text-white hover:bg-black"
+              >
+                Close
+              </button>
+              {previewItem.contentType === 'video' || previewItem.contentType === 'html' ? (
+                <iframe
+                  src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
+                  title={`${previewItem.name} large preview`}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  allow="autoplay; fullscreen"
+                  scrolling="no"
+                />
+              ) : (
+                <img
+                  src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
+                  alt={`${previewItem.name} large preview`}
+                  className="w-full h-full object-contain bg-black"
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Wallet Connect Modal */}
         {showWalletConnect && (

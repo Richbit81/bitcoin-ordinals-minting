@@ -6,6 +6,7 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
+import { logMinting } from '../services/mintingLog';
 
 const BOOK_ITEMS = [
   {
@@ -25,6 +26,15 @@ const BOOK_ITEMS = [
     priceInSats: 5000,
     description:
       '1984 by George Orwell is one of the most influential and prophetic novels ever written. The book portrays a dystopian world ruled by total surveillance, censorship, and absolute control over truth and history. In a society where “Big Brother” is always watching, independent thought itself becomes a crime.\n\nThrough the story of Winston Smith, Orwell explores the dangers of authoritarian power, manipulated information, and the fragile nature of freedom. Decades after its publication, the themes of 1984 remain strikingly relevant.\n\nThis legendary book deserves permanence. A story about truth, control, and freedom belongs on a system that cannot be rewritten.\n\n110% on-chain. Preserved in the blockchain—so the warning Orwell wrote can never be erased.',
+  },
+  {
+    id: 'animal-farm',
+    name: 'Animal Farm',
+    inscriptionId: '098955a9bc5b884423461d9abce71d6fbf2e6762167926569a7ec67093b89d26i0',
+    author: 'George Orwell',
+    priceInSats: 5000,
+    description:
+      'Animal Farm by George Orwell is one of the most powerful political allegories ever written. What begins as a simple fable about animals quickly unfolds into a sharp critique of power, corruption, and the betrayal of ideals.\n\nOn a farm where animals rise up to take control, a vision of equality and freedom is born. But over time, power shifts, truths are distorted, and rules are rewritten-until liberation turns into oppression.\n\nOrwell exposes how easily revolutions can be corrupted and how language itself becomes a tool of control. The chilling realization-“All animals are equal, but some animals are more equal than others”-remains as relevant today as ever.\n\nThis story deserves permanence. A warning about power and manipulation belongs on a system that cannot be altered.\n\n110% on-chain. Preserved in the blockchain-so its truth can never be rewritten.',
   },
 ];
 
@@ -90,6 +100,26 @@ export const BooksOnchainPage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
         txid: result.txid,
       });
+      try {
+        await logMinting({
+          walletAddress: userAddress,
+          packId: 'books-onchain',
+          packName: COLLECTION_NAME,
+          cards: [
+            {
+              id: item.id,
+              name: item.name,
+              inscriptionId: result.inscriptionId,
+              rarity: 'common',
+            },
+          ],
+          inscriptionIds: [result.inscriptionId],
+          txids: result.txid ? [result.txid] : [],
+          paymentTxid: (result as any).paymentTxid || undefined,
+        });
+      } catch {
+        // Keep mint UX successful even when logging endpoint is unavailable.
+      }
     } catch (error: any) {
       setMintingStatus({
         progress: 0,
@@ -136,18 +166,18 @@ export const BooksOnchainPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="max-w-5xl mx-auto w-full mb-8">
+        <div className="max-w-7xl mx-auto w-full mb-8">
           <div className="mb-4">
             <FeeRateSelector selectedFeeRate={inscriptionFeeRate} onFeeRateChange={setInscriptionFeeRate} />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {BOOK_ITEMS.map((item) => {
               const isMintingThis = mintingItemId === item.id;
               const isExpanded = !!expandedDescriptions[item.id];
               return (
                 <div
                   key={item.id}
-                  className="bg-black/80 border border-blue-500/30 rounded-xl p-4 backdrop-blur-md hover:border-blue-400 transition-all"
+                  className="bg-black/80 border border-blue-500/30 rounded-xl p-4 backdrop-blur-md hover:border-blue-400 transition-all h-full flex flex-col"
                 >
                   <div className="rounded-lg overflow-hidden border border-blue-500/20 bg-gray-900 mb-4 aspect-[4/3]">
                     <iframe
@@ -194,7 +224,7 @@ export const BooksOnchainPage: React.FC = () => {
                   <button
                     onClick={() => handleMint(item)}
                     disabled={mintingItemId !== null}
-                    className="w-full py-3 rounded-lg font-bold text-sm transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed"
+                    className="w-full py-3 rounded-lg font-bold text-sm transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed mt-auto"
                   >
                     {isMintingThis ? 'Minting...' : `MINT "${item.name}"`}
                   </button>

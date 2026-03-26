@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { getPointShopItems, mintPointShopItem, PointShopItem } from '../services/pointShopService';
-import { addMintPoints, getPoints } from '../services/pointsService';
+import { addMintPoints, getPointsForWalletAddresses } from '../services/pointsService';
 import { getOrdinalAddress } from '../utils/wallet';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -44,7 +44,8 @@ export const PointShopPage: React.FC = () => {
     if (!walletState.accounts[0]) return;
     
     try {
-      const pointsData = await getPoints(getOrdinalAddress(walletState.accounts));
+      const addresses = walletState.accounts.map((acc) => acc.address).filter(Boolean);
+      const pointsData = await getPointsForWalletAddresses(addresses);
       setUserPoints(pointsData?.points || 0);
     } catch (error) {
       console.error('Error loading points:', error);

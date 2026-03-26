@@ -1,4 +1,41 @@
 const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const API_FALLBACK_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
+
+let _primaryDown = false;
+let _primaryDownSince = 0;
+const PRIMARY_RETRY_MS = 120_000;
+
+async function fetchWithFallback(pathWithQuery: string, init?: RequestInit): Promise<Response> {
+  const now = Date.now();
+  const skipPrimary = _primaryDown && (now - _primaryDownSince) < PRIMARY_RETRY_MS;
+
+  if (!skipPrimary) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const primary = await fetch(`${API_URL}${pathWithQuery}`, {
+        ...init,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (primary.status !== 502 && primary.status !== 503 && primary.status !== 504) {
+        _primaryDown = false;
+        return primary;
+      }
+      _primaryDown = true;
+      _primaryDownSince = now;
+    } catch {
+      _primaryDown = true;
+      _primaryDownSince = now;
+    }
+  }
+
+  return fetch(`${API_FALLBACK_URL}${pathWithQuery}`, init);
+}
+
+async function fetchMarketplace(pathWithQuery: string, init?: RequestInit): Promise<Response> {
+  return fetchWithFallback(pathWithQuery, init);
+}
 
 export interface MarketplaceCollectionRanking {
   slug: string;
@@ -201,7 +238,7 @@ export interface MarketplaceHashlistEntry {
 }
 
 export async function getMarketplaceRanking(): Promise<MarketplaceCollectionRanking[]> {
-  const res = await fetch(`${API_URL}/api/marketplace/v1/ranking/collections`);
+  const res = await fetchMarketplace('/api/marketplace/v1/ranking/collections');
   if (!res.ok) throw new Error('Failed to load marketplace ranking');
   const data = await res.json();
   return data.ranking || [];
@@ -215,7 +252,7 @@ export async function getMarketplaceCollections(params?: {
   if (params?.includeInactive) query.set('includeInactive', '1');
   if (params?.adminAddress) query.set('adminAddress', params.adminAddress);
   const qs = query.toString();
-  const res = await fetch(`${API_URL}/api/marketplace/v1/collections${qs ? `?${qs}` : ''}`);
+  const res = await fetchMarketplace(`/api/marketplace/v1/collections${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error('Failed to load marketplace collections');
   const data = await res.json();
   return data.collections || [];
@@ -231,8 +268,8 @@ export async function getMarketplaceCollectionInscriptions(params: {
   if (params.search) query.set('search', params.search);
   if (typeof params.limit === 'number') query.set('limit', String(params.limit));
   if (typeof params.offset === 'number') query.set('offset', String(params.offset));
-  const res = await fetch(
-    `${API_URL}/api/marketplace/v1/collections/${encodeURIComponent(params.collectionSlug)}/inscriptions?${query.toString()}`
+  const res = await fetchMarketplace(
+    `/api/marketplace/v1/collections/${encodeURIComponent(params.collectionSlug)}/inscriptions?${query.toString()}`
   );
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to load collection inscriptions');
@@ -410,7 +447,7 @@ export async function getMarketplaceHealth(): Promise<{ ok: boolean; db: boolean
 }
 
 export async function getMarketplaceProfile(address: string): Promise<MarketplaceProfile> {
-  const res = await fetch(`${API_URL}/api/marketplace/v1/profile/${encodeURIComponent(address)}`);
+  const res = await fetchWithFallback(`/api/marketplace/v1/profile/${encodeURIComponent(address)}`);
   if (!res.ok) throw new Error('Failed to load marketplace profile');
   return res.json();
 }
@@ -487,11 +524,18 @@ export async function getMarketplaceWalletInscriptionsViaUnisat(
         `${API_URL}/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
         { headers: { Accept: 'application/json' } }
       );
-      if (!res.ok) {
+      let effectiveRes = res;
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        effectiveRes = await fetchWithFallback(
+          `/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
+          { headers: { Accept: 'application/json' } }
+        );
+      }
+      if (!effectiveRes.ok) {
         // Keep already collected rows if UniSat rate-limits/CORS-blocks later pages.
         break;
       }
-      const json = await res.json();
+      const json = await effectiveRes.json();
       if (Number(json?.code) !== 0) {
         break;
       }
@@ -596,14 +640,19 @@ export async function getMarketplaceListings(params?: {
 }
 
 export async function getMarketplaceInscriptionDetail(inscriptionId: string): Promise<MarketplaceInscriptionDetail> {
-  const res = await fetch(`${API_URL}/api/marketplace/v1/inscriptions/${encodeURIComponent(inscriptionId)}/detail`);
+  const res = await fetchWithFallback(`/api/marketplace/v1/inscriptions/${encodeURIComponent(inscriptionId)}/detail`);
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Failed to load inscription detail');
   return data;
 }
 
 export async function getMarketplaceRareSatsBatch(inscriptionIds: string[]): Promise<{
-  items: Array<{ inscriptionId: string; rareSats?: string | null }>;
+  items: Array<{
+    inscriptionId: string;
+    rareSats?: string | null;
+    rareSatsList?: string[];
+    rareSatsRawList?: string[];
+  }>;
   stats?: { requested: number; resolved: number };
 }> {
   const ids = Array.from(new Set((inscriptionIds || []).map((id) => String(id || '').trim()).filter(Boolean)));

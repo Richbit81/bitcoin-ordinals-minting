@@ -155,7 +155,39 @@ export const MintingPage: React.FC = () => {
                 // Prüfe ob sich etwas geändert hat
                 const hasChanges = updatedResults.some((r, i) => r.inscriptionId !== finalResults[i]?.inscriptionId);
                 if (hasChanges) {
+                  const pendingResolvedMap: Record<string, string> = {};
+                  updatedResults.forEach((r, i) => {
+                    const prevId = String(finalResults[i]?.inscriptionId || '');
+                    const nextId = String(r?.inscriptionId || '');
+                    if (prevId.startsWith('pending-') && !nextId.startsWith('pending-') && nextId.length > 0) {
+                      pendingResolvedMap[prevId] = nextId;
+                    }
+                  });
                   finalResults = updatedResults;
+
+                  // Persist pending -> final resolution immediately (server + local fallback).
+                  if (Object.keys(pendingResolvedMap).length > 0) {
+                    try {
+                      await logMinting({
+                        walletAddress: userAddress,
+                        packId: pack.id,
+                        packName: pack.name,
+                        cards: cards.map((card, index) => ({
+                          ...card,
+                          inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
+                        })),
+                        inscriptionIds: finalResults.map(r => r.inscriptionId),
+                        inscriptionId: finalResults[0]?.inscriptionId,
+                        txids: finalResults.map(r => r.txid),
+                        paymentTxid: finalResults[0]?.paymentTxid || 'unisat-api',
+                        orderId: finalResults[0]?.orderId || results[0]?.orderId,
+                        pendingResolvedMap,
+                        resolvedAt: new Date().toISOString(),
+                      });
+                    } catch (syncErr) {
+                      console.warn('[MintingPage] Pending->Final Log-Sync fehlgeschlagen:', syncErr);
+                    }
+                  }
                   
                   // Aktualisiere UI
                   setMintingStatus((prev) => prev ? {
@@ -212,8 +244,18 @@ export const MintingPage: React.FC = () => {
             inscriptionId: finalResults[index]?.inscriptionId || card.inscriptionId,
           })),
           inscriptionIds: finalResults.map(r => r.inscriptionId),
+          inscriptionId: finalResults[0]?.inscriptionId,
           txids: finalResults.map(r => r.txid),
           paymentTxid: finalResults[0]?.paymentTxid || 'unisat-api',
+          orderId: finalResults[0]?.orderId || results[0]?.orderId,
+          pendingResolvedMap: finalResults.reduce((acc, row, idx) => {
+            const pendingId = String(results[idx]?.inscriptionId || '');
+            const finalId = String(row?.inscriptionId || '');
+            if (pendingId.startsWith('pending-') && !finalId.startsWith('pending-') && finalId.length > 0) {
+              acc[pendingId] = finalId;
+            }
+            return acc;
+          }, {} as Record<string, string>),
         });
       } catch (err) {
         console.warn('Error saving minting log:', err);

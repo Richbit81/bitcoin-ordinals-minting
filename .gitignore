@@ -3,3 +3,14 @@ dist/
 .DS_Store
 *.log
 .vercel
+COMMIT_MSG.tmp
+
+# Large binary game assets (use CDN or LFS)
+public/catwar-game/Build/
+public/catwar-game-3rdperson-new/
+public/assets/levels/*.glb
+public/draco/
+public/game-animals/
+public/sounds/
+*.unityweb
+*.wasm

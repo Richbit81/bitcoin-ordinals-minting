@@ -3,12 +3,13 @@ import {
   addLog, getLogs, getRecentLogs, getLogsByAddress,
   getMintCount, getMintedIndices,
   getHashlist, addToHashlist, syncHashlistFromLogs,
-  getWhitelistAddresses, getWhitelistEntries, getWhitelistMintAllowance, addWhitelistAddress, setWhitelistAddressCount, removeWhitelistAddress,
+  getWhitelistAddresses, getWhitelistEntries, getWhitelistMintAllowance, addWhitelistAddress, setWhitelistAddressCount, removeWhitelistAddress, replaceWhitelistEntries,
   getFreeMintUsed, recordFreeMintUsed,
   getBadCatsStorageInfo,
 } from '../services/badcats';
 
 const router = express.Router();
+const ORDINAL_INSCRIPTION_ID_RE = /^[0-9a-f]{64}i\d+$/i;
 
 // ── POST /api/badcats/log ──
 router.post('/log', async (req, res) => {
@@ -95,10 +96,19 @@ router.get('/hashlist', async (_req, res) => {
 // ── POST /api/badcats/hashlist ──
 router.post('/hashlist', async (req, res) => {
   try {
-    const { inscriptionIds } = req.body;
-    if (!Array.isArray(inscriptionIds)) return res.status(400).json({ error: 'inscriptionIds array required' });
-    await addToHashlist(inscriptionIds);
-    res.json({ success: true });
+    const rawIds = Array.isArray(req.body?.inscriptionIds)
+      ? req.body.inscriptionIds
+      : (typeof req.body?.inscriptionId === 'string' ? [req.body.inscriptionId] : []);
+    const inscriptionIds = rawIds
+      .map((id: unknown) => String(id || '').trim())
+      .filter(Boolean);
+    if (inscriptionIds.length === 0) return res.status(400).json({ error: 'inscriptionIds array or inscriptionId required' });
+    const validInscriptionIds = inscriptionIds.filter(id => ORDINAL_INSCRIPTION_ID_RE.test(id));
+    const ignored = inscriptionIds.length - validInscriptionIds.length;
+    if (validInscriptionIds.length > 0) {
+      await addToHashlist(validInscriptionIds);
+    }
+    res.json({ success: true, added: validInscriptionIds.length, ignored });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -122,6 +132,25 @@ router.get('/whitelist-addresses', async (_req, res) => {
       getWhitelistEntries(),
     ]);
     res.json({ addresses, entries });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/badcats/whitelist-addresses/download ──
+router.get('/whitelist-addresses/download', async (_req, res) => {
+  try {
+    const [addresses, entries] = await Promise.all([
+      getWhitelistAddresses(),
+      getWhitelistEntries(),
+    ]);
+    const count = entries.reduce((sum, entry) => sum + Math.max(1, Number(entry.count || 1)), 0);
+    res.json({
+      addresses,
+      entries,
+      exportedAt: new Date().toISOString(),
+      count,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -169,6 +198,50 @@ router.delete('/whitelist-addresses', async (req, res) => {
     const removed = await removeWhitelistAddress(address);
     if (!removed) return res.status(404).json({ error: 'Address not found' });
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/badcats/whitelist-addresses/import ──
+router.post('/whitelist-addresses/import', async (req, res) => {
+  try {
+    const incoming = Array.isArray(req.body?.addresses) ? req.body.addresses : null;
+    if (!incoming) return res.status(400).json({ error: 'addresses array required' });
+
+    const normalizedIncoming = incoming
+      .map((raw: unknown) => String(raw || '').trim())
+      .filter(Boolean);
+
+    if (normalizedIncoming.length === 0) {
+      return res.status(400).json({ error: 'no valid addresses provided' });
+    }
+
+    const existing = await getWhitelistEntries();
+    const merged = new Map<string, { address: string; count: number }>();
+    for (const entry of existing) {
+      const address = String(entry.address || '').trim();
+      if (!address) continue;
+      merged.set(address.toLowerCase(), {
+        address,
+        count: Math.max(1, Math.floor(Number(entry.count || 1))),
+      });
+    }
+
+    let added = 0;
+    let skipped = 0;
+    for (const address of normalizedIncoming) {
+      const key = address.toLowerCase();
+      if (merged.has(key)) {
+        skipped += 1;
+        continue;
+      }
+      merged.set(key, { address, count: 1 });
+      added += 1;
+    }
+
+    await replaceWhitelistEntries([...merged.values()]);
+    res.json({ success: true, added, skipped, total: merged.size });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

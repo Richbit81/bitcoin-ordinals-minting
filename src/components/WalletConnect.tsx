@@ -15,7 +15,6 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
   // Rufe Callback auf, wenn Wallet verbunden wurde
   React.useEffect(() => {
     if (walletState.connected && walletState.accounts && walletState.accounts.length > 0 && onConnected) {
-      console.log('WalletConnect: Wallet connected, calling onConnected callback');
       onConnected();
     }
   }, [walletState.connected, walletState.accounts, onConnected]);
@@ -43,37 +42,6 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({ onConnected }) => 
       setOkxAvailable(FEATURES.ENABLE_OKX && okx);
       setIsCheckingWallets(false);
 
-      // Debug-Ausgabe - Detailliert
-      const debugInfo = {
-        unisat,
-        xverse,
-        windowUnisat: typeof window !== 'undefined' ? typeof window.unisat : 'N/A',
-        windowBitcoinProvider: typeof window !== 'undefined' ? typeof window.BitcoinProvider : 'N/A',
-        windowXverse: typeof window !== 'undefined' ? typeof window.xverse : 'N/A',
-        location: typeof window !== 'undefined' ? window.location?.href : 'N/A',
-        allWindowKeys: typeof window !== 'undefined' ? Object.keys(window).filter(k => k.toLowerCase().includes('bitcoin') || k.toLowerCase().includes('unisat') || k.toLowerCase().includes('xverse')) : [],
-      };
-      console.log('🔍 Wallet Check - Detailliert:', debugInfo);
-      
-      // Prüfe direkt auf window-Objekte
-      if (typeof window !== 'undefined') {
-        console.log('🔍 Direkte Prüfung:');
-        console.log('  window.unisat:', window.unisat);
-        console.log('  window.BitcoinProvider:', window.BitcoinProvider);
-        console.log('  window.xverse:', (window as any).xverse);
-        console.log('  window.bitcoin:', (window as any).bitcoin);
-        
-        // Prüfe alle möglichen Wallet-Keys
-        const walletKeys = Object.keys(window).filter(k => 
-          k.toLowerCase().includes('bitcoin') || 
-          k.toLowerCase().includes('unisat') || 
-          k.toLowerCase().includes('xverse') ||
-          k.toLowerCase().includes('wallet')
-        );
-        if (walletKeys.length > 0) {
-          console.log('  Gefundene Wallet-Keys:', walletKeys);
-        }
-      }
     };
 
     checkWallets();

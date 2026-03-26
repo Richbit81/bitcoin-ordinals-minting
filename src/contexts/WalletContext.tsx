@@ -156,7 +156,6 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         network: 'mainnet',
       };
       
-      console.log('WalletContext: Setting wallet state to connected:', newState);
       setWalletState(newState);
 
       return accounts;

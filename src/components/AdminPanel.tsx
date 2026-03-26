@@ -1743,6 +1743,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
 // Minting Logs Management Component
 const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddress }) => {
   const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const BADCATS_FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
   const RETRO_POINTS_BACKFILL_DONE_KEY = 'retro_points_backfill_v1_done';
   const [logs, setLogs] = useState<{
     blackAndWild: { logs: any[]; totalMints: number };
@@ -1754,17 +1755,80 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     freeStuff: { logs: any[]; totalMints: number };
     smileABit: { logs: any[]; totalMints: number };
     slums: { logs: any[]; totalMints: number };
+    booksOnchain: { logs: any[]; totalMints: number };
     badCats: { logs: any[]; totalMints: number };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats'>('blackAndWild');
+  const [activeLogTab, setActiveLogTab] = useState<'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'booksOnchain' | 'badCats'>('blackAndWild');
   const [badCatsWhitelistInput, setBadCatsWhitelistInput] = useState('');
   const [badCatsWhitelistCountInput, setBadCatsWhitelistCountInput] = useState('1');
   const [badCatsWhitelistEntries, setBadCatsWhitelistEntries] = useState<Array<{ address: string; count: number }>>([]);
   const [badCatsWhitelistSupportsCount, setBadCatsWhitelistSupportsCount] = useState(false);
+  const [badCatsWhitelistBackendSource, setBadCatsWhitelistBackendSource] = useState<'primary' | 'fallback' | 'unknown'>('unknown');
   const [retroPointsBusy, setRetroPointsBusy] = useState(false);
   const [retroPointsSummary, setRetroPointsSummary] = useState('');
   const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
+
+  const parseWhitelistResponse = (data: any): { supportsCount: boolean; entries: Array<{ address: string; count: number }> } => {
+    const entries = Array.isArray(data?.entries)
+      ? data.entries
+          .map((entry: any) => ({
+            address: String(entry?.address || '').trim(),
+            count: Math.max(1, Number(entry?.count || 1)),
+          }))
+          .filter((entry: { address: string }) => entry.address)
+      : Array.isArray(data?.addresses)
+        ? (() => {
+            const grouped = new Map<string, { address: string; count: number }>();
+            for (const raw of data.addresses) {
+              const address = String(raw || '').trim();
+              if (!address) continue;
+              const key = address.toLowerCase();
+              const existing = grouped.get(key);
+              if (existing) existing.count += 1;
+              else grouped.set(key, { address, count: 1 });
+            }
+            return [...grouped.values()];
+          })()
+        : [];
+
+    return {
+      supportsCount: Array.isArray(data?.entries),
+      entries,
+    };
+  };
+
+  const fetchBadCatsApiWithSource = async (
+    path: string,
+    init?: RequestInit
+  ): Promise<{ response: Response; source: 'primary' | 'fallback' }> => {
+    const isWhitelistPath = path.startsWith('/api/badcats/whitelist-addresses');
+    const primaryUrl = `${API_URL}${path}`;
+    try {
+      const primaryRes = await fetch(primaryUrl, init);
+      if (primaryRes.ok) {
+        if (isWhitelistPath) {
+          // For whitelist management we require the modern response shape.
+          const probe = await primaryRes.clone().json().catch(() => null);
+          if (!probe || !Array.isArray(probe.entries)) {
+            const fallbackRes = await fetch(`${BADCATS_FALLBACK_API_URL}${path}`, init);
+            return { response: fallbackRes, source: 'fallback' };
+          }
+        }
+        return { response: primaryRes, source: 'primary' };
+      }
+      if (primaryRes.status < 500 && primaryRes.status !== 404) return { response: primaryRes, source: 'primary' };
+    } catch {
+      // Network/DNS errors fall through to fallback.
+    }
+    const fallbackRes = await fetch(`${BADCATS_FALLBACK_API_URL}${path}`, init);
+    return { response: fallbackRes, source: 'fallback' };
+  };
+
+  const fetchBadCatsApi = async (path: string, init?: RequestInit): Promise<Response> => {
+    const { response } = await fetchBadCatsApiWithSource(path, init);
+    return response;
+  };
 
   useEffect(() => {
     loadLogs();
@@ -1787,12 +1851,33 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     const seen = new Set<string>();
     const result: any[] = [];
     for (const row of rows || []) {
-      const key = String(
-        row?.id ||
+      const inscriptionKey = String(
         row?.inscriptionId ||
-        row?.inscription_id ||
-        `${row?.walletAddress || row?.wallet_address || 'x'}-${row?.timestamp || row?.created_at || Math.random()}`
-      );
+          row?.inscription_id ||
+          row?.finalInscriptionId ||
+          row?.final_inscription_id ||
+          ''
+      )
+        .trim()
+        .toLowerCase();
+      const txKey = String(row?.txid || row?.finalTxid || row?.final_txid || '')
+        .trim()
+        .toLowerCase();
+      const walletKey = String(row?.walletAddress || row?.wallet_address || '')
+        .trim()
+        .toLowerCase();
+      const itemIndexKey = String(row?.itemIndex ?? row?.item_index ?? '').trim();
+      const timestampKey = String(row?.timestamp || row?.created_at || '').trim();
+      const key = inscriptionKey
+        ? `inscription:${inscriptionKey}`
+        : txKey
+          ? `tx:${txKey}`
+          : walletKey && itemIndexKey
+            ? `wallet-item:${walletKey}:${itemIndexKey}`
+            : String(
+                row?.id ||
+                  `${walletKey || 'x'}-${itemIndexKey || 'x'}-${timestampKey || Math.random()}`
+              );
       if (seen.has(key)) continue;
       seen.add(key);
       result.push(row);
@@ -1808,8 +1893,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         const data = await response.json();
         const normalized: any = { ...(data || {}) };
         if (!normalized.badCats && normalized.badcats) normalized.badCats = normalized.badcats;
+        if (!normalized.booksOnchain && normalized.booksonchain) normalized.booksOnchain = normalized.booksonchain;
         if (!normalized.badCats) normalized.badCats = { logs: [], totalMints: 0 };
         if (!normalized.blackAndWild) normalized.blackAndWild = { logs: [], totalMints: 0 };
+        if (!normalized.booksOnchain) normalized.booksOnchain = { logs: [], totalMints: 0 };
 
         const bwLogs = Array.isArray(normalized.blackAndWild.logs) ? normalized.blackAndWild.logs : [];
         const badLogs = Array.isArray(normalized.badCats.logs) ? normalized.badCats.logs : [];
@@ -1845,11 +1932,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             ...endpointLogs,
           ]);
           normalized.badCats.logs = mergedBad;
-          normalized.badCats.totalMints = Math.max(
-            endpointCount,
-            mergedBad.length,
-            Number(normalized.badCats.totalMints || 0)
-          );
+          normalized.badCats.totalMints = endpointCount > 0 ? endpointCount : mergedBad.length;
         } catch {
           // Ignore fallback issues; keep normalized admin response.
         }
@@ -1867,34 +1950,19 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
   const loadBadCatsWhitelist = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`);
+      const { response: res, source } = await fetchBadCatsApiWithSource('/api/badcats/whitelist-addresses');
       if (res.ok) {
         const data = await res.json();
-        setBadCatsWhitelistSupportsCount(Array.isArray(data.entries));
-        const entries = Array.isArray(data.entries)
-          ? data.entries
-              .map((entry: any) => ({
-                address: String(entry?.address || '').trim(),
-                count: Math.max(1, Number(entry?.count || 1)),
-              }))
-              .filter((entry: { address: string }) => entry.address)
-          : Array.isArray(data.addresses)
-            ? (() => {
-                const grouped = new Map<string, { address: string; count: number }>();
-                for (const raw of data.addresses) {
-                  const address = String(raw || '').trim();
-                  if (!address) continue;
-                  const key = address.toLowerCase();
-                  const existing = grouped.get(key);
-                  if (existing) existing.count += 1;
-                  else grouped.set(key, { address, count: 1 });
-                }
-                return [...grouped.values()];
-              })()
-            : [];
+        const parsed = parseWhitelistResponse(data);
+        setBadCatsWhitelistBackendSource(source);
+        setBadCatsWhitelistSupportsCount(parsed.supportsCount);
+        const entries = parsed.entries;
         setBadCatsWhitelistEntries(entries);
       }
-    } catch { console.warn('Could not load BadCats whitelist'); }
+    } catch {
+      setBadCatsWhitelistBackendSource('unknown');
+      console.warn('Could not load BadCats whitelist');
+    }
   };
 
   useEffect(() => { loadBadCatsWhitelist(); }, []);
@@ -1904,7 +1972,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     if (!trimmed) return;
     const count = Math.max(1, parseInt(badCatsWhitelistCountInput || '1', 10) || 1);
     try {
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+      const res = await fetchBadCatsApi('/api/badcats/whitelist-addresses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: trimmed, count }),
@@ -1927,18 +1995,26 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   };
 
   const setBadCatsWhitelistAddressCount = async (address: string, count: number) => {
-    if (!badCatsWhitelistSupportsCount) {
-      alert('Current backend does not support per-address counts yet.');
-      return;
-    }
     const nextCount = Math.max(1, Math.floor(Number(count) || 1));
     try {
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+      const res = await fetchBadCatsApi('/api/badcats/whitelist-addresses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, count: nextCount, setExact: true }),
       });
       if (res.ok) {
+        const verifyRes = await fetchBadCatsApi('/api/badcats/whitelist-addresses');
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const parsed = parseWhitelistResponse(verifyData);
+          const currentCount = parsed.entries.find((entry) => entry.address.toLowerCase() === String(address || '').toLowerCase())?.count || 0;
+          if (currentCount !== nextCount) {
+            alert(
+              `Count update was not persisted by backend (requested ${nextCount}, current ${currentCount}). ` +
+              'Please deploy the latest backend badcats route/service and retry.'
+            );
+          }
+        }
         loadBadCatsWhitelist();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -1951,7 +2027,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
   const removeBadCatsWhitelistAddress = async (address: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses`, {
+      const res = await fetchBadCatsApi('/api/badcats/whitelist-addresses', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
@@ -1966,7 +2042,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
 
   const downloadBadCatsWhitelist = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses/download?adminAddress=${encodeURIComponent(adminAddress)}`);
+      const res = await fetchBadCatsApi(`/api/badcats/whitelist-addresses/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       let payload: { addresses: string[]; entries: Array<{ address: string; count: number }>; exportedAt?: string; count?: number } = {
         addresses: badCatsWhitelistEntries.flatMap((entry) => Array.from({ length: entry.count }, () => entry.address)),
         entries: badCatsWhitelistEntries,
@@ -2016,7 +2092,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         return;
       }
 
-      const res = await fetch(`${API_URL}/api/badcats/whitelist-addresses/import`, {
+      const res = await fetchBadCatsApi('/api/badcats/whitelist-addresses/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2041,7 +2117,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums' | 'badcats') => {
+  const downloadLog = async (logType: 'blackandwild' | 'techgames' | 'mixtape' | '1984' | 'nft' | 'random-stuff' | 'free-stuff' | 'smile-a-bit' | 'slums' | 'books-onchain' | 'badcats') => {
     try {
       const response = await fetch(`${API_URL}/api/admin/logs/${logType}/download?adminAddress=${encodeURIComponent(adminAddress)}`);
       if (response.ok) {
@@ -2062,7 +2138,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     }
   };
 
-  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'badCats') => {
+  const downloadCSV = (logType: 'blackAndWild' | 'techAndGames' | 'mixtape' | '1984' | 'nft' | 'randomStuff' | 'freeStuff' | 'smileABit' | 'slums' | 'booksOnchain' | 'badCats') => {
     if (!logs) return;
     
     const logData = logs[logType].logs;
@@ -2118,6 +2194,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       logData.forEach((log: any) => {
         csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || ''}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || 0},"${log.paymentTxid || ''}"\n`;
       });
+    } else if (logType === 'booksOnchain') {
+      csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
+      logData.forEach((log: any) => {
+        csvContent += `"${log.id || ''}","${log.timestamp}","${log.walletAddress}","${log.itemName || log.packName || 'Books Onchain'}","${log.inscriptionId || (log.inscriptionIds || [])[0] || ''}","${log.txid || ''}",${log.priceInSats || log.priceSats || 0},"${log.paymentTxid || ''}"\n`;
+      });
     } else if (logType === 'badCats') {
       csvContent = 'ID,Timestamp,Wallet Address,Item Name,Inscription ID,TXID,Price (sats),Payment TXID\n';
       logData.forEach((log: any) => {
@@ -2163,6 +2244,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
         { key: 'freeStuff', label: 'Free Stuff', rows: logs.freeStuff?.logs || [] },
         { key: 'smileABit', label: 'Smile A Bit', rows: logs.smileABit?.logs || [] },
         { key: 'slums', label: 'SLUMS', rows: logs.slums?.logs || [] },
+        { key: 'booksOnchain', label: 'Books Onchain', rows: logs.booksOnchain?.logs || [] },
         { key: 'badCats', label: 'BadCats', rows: logs.badCats?.logs || [] },
       ];
 
@@ -2318,6 +2400,11 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             <p className="text-3xl font-bold text-white">{logs.slums?.totalMints || 0}</p>
             <p className="text-xs text-gray-500">Total Mints</p>
           </div>
+          <div className="bg-gray-900 border border-cyan-500 rounded p-4 text-center">
+            <p className="text-gray-400 text-xs uppercase mb-1">Books Onchain</p>
+            <p className="text-3xl font-bold text-white">{logs.booksOnchain?.totalMints || 0}</p>
+            <p className="text-xs text-gray-500">Total Mints</p>
+          </div>
           <div className="bg-gray-900 border border-red-500 rounded p-4 text-center">
             <p className="text-gray-400 text-xs uppercase mb-1">BadCats</p>
             <p className="text-3xl font-bold text-white">{logs.badCats?.totalMints || 0}</p>
@@ -2420,6 +2507,16 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             🏚️ SLUMS
           </button>
           <button
+            onClick={() => setActiveLogTab('booksOnchain')}
+            className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+              activeLogTab === 'booksOnchain'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            📚 Books
+          </button>
+          <button
             onClick={() => setActiveLogTab('badCats')}
             className={`px-2 sm:px-4 py-2 rounded-t text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
               activeLogTab === 'badCats'
@@ -2435,7 +2532,7 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
       {/* Download Buttons */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : activeLogTab === 'slums' ? 'slums' : activeLogTab === 'badCats' ? 'badcats' : 'mixtape')}
+          onClick={() => downloadLog(activeLogTab === 'blackAndWild' ? 'blackandwild' : activeLogTab === 'techAndGames' ? 'techgames' : activeLogTab === '1984' ? '1984' : activeLogTab === 'nft' ? 'nft' : activeLogTab === 'randomStuff' ? 'random-stuff' : activeLogTab === 'freeStuff' ? 'free-stuff' : activeLogTab === 'smileABit' ? 'smile-a-bit' : activeLogTab === 'slums' ? 'slums' : activeLogTab === 'booksOnchain' ? 'books-onchain' : activeLogTab === 'badCats' ? 'badcats' : 'mixtape')}
           className="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs sm:text-sm font-semibold"
         >
           📥 JSON
@@ -2600,7 +2697,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
           </p>
           {!badCatsWhitelistSupportsCount && (
             <p className="text-xs text-amber-300 mb-3">
-              Hinweis: Laufendes Backend liefert nur Legacy-Whitelist (ohne Count). Count-Änderungen sind dort nicht verfügbar.
+              Hinweis: Aktives Backend liefert Legacy-Whitelist (ohne sichtbare Count-Felder). Count-Updates werden trotzdem versucht; falls keine Aenderung sichtbar ist, muss das Count-Backend aktualisiert werden.
+            </p>
+          )}
+          {badCatsWhitelistBackendSource === 'fallback' && (
+            <p className="text-xs text-red-300 mb-3">
+              Warning: Using fallback backend for BadCats whitelist because primary API is unavailable.
             </p>
           )}
           <div className="flex gap-2 mb-3">
@@ -2619,7 +2721,6 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
               onChange={e => setBadCatsWhitelistCountInput(String(Math.max(1, parseInt(e.target.value || '1', 10) || 1)))}
               className="w-24 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white"
               title="Anzahl Free Mints"
-              disabled={!badCatsWhitelistSupportsCount}
             />
             <button
               onClick={() => addBadCatsWhitelistAddress(badCatsWhitelistInput)}
@@ -2671,11 +2772,9 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       value={entry.count}
                       onChange={e => setBadCatsWhitelistAddressCount(entry.address, parseInt(e.target.value || '1', 10) || 1)}
                       className="w-16 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-xs text-center text-white"
-                      disabled={!badCatsWhitelistSupportsCount}
                     />
                     <button
                       onClick={() => setBadCatsWhitelistAddressCount(entry.address, entry.count + 1)}
-                      disabled={!badCatsWhitelistSupportsCount}
                       className="px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-xs"
                     >
                       +
@@ -2754,6 +2853,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       <th className="text-left p-3 text-gray-400">Price</th>
                     </>
                   )}
+                  {activeLogTab === 'booksOnchain' && (
+                    <>
+                      <th className="text-left p-3 text-gray-400">Item</th>
+                      <th className="text-left p-3 text-gray-400">Price</th>
+                    </>
+                  )}
                   {activeLogTab === 'badCats' && (
                     <>
                       <th className="text-left p-3 text-gray-400">Item</th>
@@ -2825,6 +2930,12 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                       {activeLogTab === 'slums' && (
                         <>
                           <td className="p-3 text-white">{log.itemName || log.packName || 'SLUMS'}</td>
+                          <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
+                        </>
+                      )}
+                      {activeLogTab === 'booksOnchain' && (
+                        <>
+                          <td className="p-3 text-white">{log.itemName || log.packName || 'Books Onchain'}</td>
                           <td className="p-3 text-gray-400">{(log.priceInSats || log.priceSats || 0).toLocaleString()} sats</td>
                         </>
                       )}

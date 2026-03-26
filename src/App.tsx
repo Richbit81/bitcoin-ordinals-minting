@@ -1,9 +1,10 @@
 // Force redeploy - Environment Variable Update
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HeaderMenu } from './components/HeaderMenu';
 import { WalletProvider } from './contexts/WalletContext';
 import { useWallet } from './contexts/WalletContext';
+import { PinkChatAuthProvider } from './contexts/PinkChatAuthContext';
 import { isAdminAddress } from './config/admin';
 import { Gallery } from './components/Gallery';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -27,7 +28,6 @@ const LinkGalleryPage = lazy(() => import('./pages/LinkGalleryPage').then((m) =>
 const SmilePage = lazy(() => import('./pages/SmilePage').then((m) => ({ default: m.SmilePage })));
 const SlumsPage = lazy(() => import('./pages/SlumsPage').then((m) => ({ default: m.SlumsPage })));
 const BadCatsPage = lazy(() => import('./pages/BadCatsPage').then((m) => ({ default: m.BadCatsPage })));
-const CatWarPage = lazy(() => import('./pages/CatWarPage').then((m) => ({ default: m.CatWarPage })));
 const PinkPuppetsPage = lazy(() => import('./pages/PinkPuppetsPage').then((m) => ({ default: m.PinkPuppetsPage })));
 const PinkPuppetsMarketplacePage = lazy(() =>
   import('./pages/PinkPuppetsMarketplacePage').then((m) => ({ default: m.PinkPuppetsMarketplacePage }))
@@ -80,8 +80,8 @@ function AppContent() {
           <Route path="/pinkpuppets" element={<PinkPuppetsPage />} />
           <Route path="/pinkpuppets/marketplace" element={<PinkPuppetsMarketplacePage />} />
           <Route path="/pinkpuppets/markerplace" element={<Navigate to="/pinkpuppets/marketplace" replace />} />
-          <Route path="/cattack" element={<CatWarPage />} />
-          <Route path="/catwar" element={<Navigate to="/cattack" replace />} />
+          <Route path="/cattack" element={<ExternalGameRedirect />} />
+          <Route path="/catwar" element={<ExternalGameRedirect />} />
           <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
           <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
           <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />
@@ -104,6 +104,14 @@ function AppContent() {
   );
 }
 
+function ExternalGameRedirect() {
+  useEffect(() => {
+    window.location.replace('https://catwar-game.vercel.app/');
+  }, []);
+
+  return <div className="px-4 py-6 text-sm text-gray-300">Opening game...</div>;
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { walletState } = useWallet();
   const connectedAddress = walletState.accounts?.[0]?.address;
@@ -118,9 +126,11 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <WalletProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <PinkChatAuthProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </PinkChatAuthProvider>
     </WalletProvider>
   );
 }

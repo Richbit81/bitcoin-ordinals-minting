@@ -2,7 +2,13 @@
  * Punkte-Service für Frontend
  */
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const API_FALLBACKS = Array.from(
+  new Set([
+    API_URL,
+    'https://bitcoin-ordinals-backend-production.up.railway.app',
+  ])
+);
 export const MINT_POINTS = 10;
 
 export interface PointsData {
@@ -18,19 +24,37 @@ export interface PointsData {
   createdAt: string | null;
 }
 
+const extractPointsPayload = (raw: any): any => {
+  if (!raw || typeof raw !== 'object') return raw;
+  if (raw.data && typeof raw.data === 'object') return raw.data;
+  if (raw.result && typeof raw.result === 'object') return raw.result;
+  if (raw.payload && typeof raw.payload === 'object') return raw.payload;
+  return raw;
+};
+
 const normalizePointsData = (walletAddress: string, raw: any): PointsData => {
-  const history = Array.isArray(raw?.history) ? raw.history : [];
+  const payload = extractPointsPayload(raw);
+  const history = Array.isArray(payload?.history) ? payload.history : [];
+  const points =
+    Number(
+      payload?.points ??
+      payload?.total ??
+      payload?.totalPoints ??
+      payload?.total_points ??
+      0
+    ) || 0;
+
   return {
-    walletAddress: String(raw?.walletAddress || walletAddress || ''),
-    points: Number(raw?.points ?? raw?.total ?? raw?.totalPoints ?? 0) || 0,
+    walletAddress: String(payload?.walletAddress || payload?.wallet_address || walletAddress || ''),
+    points,
     history: history.map((entry: any) => ({
       points: Number(entry?.points ?? 0) || 0,
       reason: String(entry?.reason || ''),
       timestamp: String(entry?.timestamp || ''),
       details: entry?.details ?? {},
     })),
-    firstMint: raw?.firstMint || raw?.first_mint_at || null,
-    createdAt: raw?.createdAt || raw?.created_at || null,
+    firstMint: payload?.firstMint || payload?.first_mint_at || null,
+    createdAt: payload?.createdAt || payload?.created_at || null,
   };
 };
 
@@ -53,14 +77,21 @@ export interface LeaderboardEntry {
  * Hole Punkte für eine Wallet-Adresse
  */
 export const getPoints = async (walletAddress: string): Promise<PointsData> => {
-  const response = await fetch(`${API_URL}/api/points/${walletAddress}`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch points');
+  let lastError = 'Failed to fetch points';
+  for (const baseUrl of API_FALLBACKS) {
+    try {
+      const response = await fetch(`${baseUrl}/api/points/${encodeURIComponent(walletAddress)}`);
+      if (!response.ok) {
+        lastError = `Failed to fetch points (HTTP ${response.status})`;
+        continue;
+      }
+      const data = await response.json();
+      return normalizePointsData(walletAddress, data);
+    } catch (err: any) {
+      lastError = err?.message || 'Failed to fetch points';
+    }
   }
-  
-  const data = await response.json();
-  return normalizePointsData(walletAddress, data);
+  throw new Error(lastError);
 };
 
 /**
@@ -68,9 +99,14 @@ export const getPoints = async (walletAddress: string): Promise<PointsData> => {
  * Wichtig für Wallets mit getrennten Payment/Ordinals-Adressen.
  */
 export const getPointsForWalletAddresses = async (walletAddresses: string[]): Promise<PointsData> => {
-  const addresses = Array.from(
-    new Set((walletAddresses || []).map((a) => String(a || '').trim()).filter(Boolean))
-  );
+  const fromWallet = (walletAddresses || []).map((a) => String(a || '').trim());
+  const fromStorage = [
+    typeof window !== 'undefined' ? localStorage.getItem('unisat_taproot_address') : null,
+    typeof window !== 'undefined' ? localStorage.getItem('okx_taproot_address') : null,
+    typeof window !== 'undefined' ? localStorage.getItem('okx_payment_address') : null,
+  ].map((a) => String(a || '').trim());
+
+  const addresses = Array.from(new Set([...fromWallet, ...fromStorage].filter(Boolean)));
 
   if (addresses.length === 0) {
     throw new Error('No wallet addresses provided');

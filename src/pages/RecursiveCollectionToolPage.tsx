@@ -68,6 +68,7 @@ interface SavedProject {
   collectionName: string;
   totalCount: number;
   viewBox: string;
+  pixelScale?: number;
   layers: Layer[];
   scanAddress: string;
   walletInscriptions: WalletInscription[];
@@ -78,6 +79,7 @@ interface SavedProject {
 // ============================================================
 const HIRO_API = 'https://api.hiro.so/ordinals/v1';
 const STORAGE_KEY = 'recursive_collection_projects';
+const STORAGE_BACKUP_KEY = 'recursive_collection_projects_backup_v1';
 const LAST_PROJECT_KEY = 'recursive_collection_last_project';
 
 let idCounter = 0;
@@ -86,11 +88,13 @@ function projectId() { return `proj_${Date.now()}_${Math.random().toString(36).s
 
 function buildSvgForViewBox(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
-  viewBox: string
+  viewBox: string,
+  pixelScale = 1
 ): string {
   const vb = viewBox.trim().split(/\s+/).map(Number);
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
+  const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
   const BLEED_PX = 2;
   let visibleLayerIndex = 0;
   const svgImages = layers
@@ -102,36 +106,138 @@ function buildSvgForViewBox(
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" />`;
+      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
       const w = vbW * sc;
       const h = vbH * sc;
       const x = (vbW - w) / 2 + ox - layerBleed;
       const y = (vbH - h) / 2 + oy - layerBleed;
-      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + layerBleed * 2}" height="${h + layerBleed * 2}" preserveAspectRatio="none" />`;
+      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + layerBleed * 2}" height="${h + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
     })
     .join('\n');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden" preserveAspectRatio="none">\n${svgImages}\n</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${vbW * safePixelScale}" height="${vbH * safePixelScale}" overflow="hidden" preserveAspectRatio="none" shape-rendering="crispEdges">
+<style>
+image{
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+</style>
+${svgImages}
+</svg>`;
+}
+
+function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    w: Math.max(1, Math.round(w)),
+    h: Math.max(1, Math.round(h)),
+  };
 }
 
 function loadProjects(): SavedProject[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const rawPrimary = localStorage.getItem(STORAGE_KEY);
+    const rawBackup = localStorage.getItem(STORAGE_BACKUP_KEY);
+    const raw = rawPrimary || rawBackup;
     const parsed: SavedProject[] = raw ? JSON.parse(raw) : [];
     // Restore generated SVGs if they were compacted in storage.
     return parsed.map((project) => {
       const viewBox = project.viewBox || '0 0 1000 1000';
+      const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
       const generated = (project.generated || []).map((item) => {
         const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
         const svg = hasSvg
           ? (item.svg.includes('overflow="hidden"')
             ? item.svg
             : item.svg.replace('<svg ', '<svg overflow="hidden" '))
-          : buildSvgForViewBox(item.layers || [], viewBox);
+          : buildSvgForViewBox(item.layers || [], viewBox, pixelScale);
         return { ...item, svg };
       });
       return { ...project, generated };
     });
-  } catch { return []; }
+  } catch {
+    // Fallback: corrupted primary JSON can still happen after interrupted writes.
+    // In that case try the explicit backup key one more time.
+    try {
+      const rawBackup = localStorage.getItem(STORAGE_BACKUP_KEY);
+      const parsed: SavedProject[] = rawBackup ? JSON.parse(rawBackup) : [];
+      return parsed.map((project) => {
+        const viewBox = project.viewBox || '0 0 1000 1000';
+        const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
+        const generated = (project.generated || []).map((item) => {
+          const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
+          const svg = hasSvg
+            ? (item.svg.includes('overflow="hidden"')
+              ? item.svg
+              : item.svg.replace('<svg ', '<svg overflow="hidden" '))
+            : buildSvgForViewBox(item.layers || [], viewBox, pixelScale);
+          return { ...item, svg };
+        });
+        return { ...project, generated };
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
+function looksLikeSavedProject(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const hasName = typeof item.collectionName === 'string' || typeof item.name === 'string';
+  return hasName && Array.isArray(item.layers);
+}
+
+function normalizeProjectLike(item: any): SavedProject {
+  const now = new Date().toISOString();
+  return {
+    id: typeof item.id === 'string' && item.id ? item.id : projectId(),
+    name: item.name || item.collectionName || 'Recovered Project',
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || now,
+    collectionName: item.collectionName || item.name || 'Recovered Project',
+    totalCount: Number.isFinite(item.totalCount) ? item.totalCount : 100,
+    viewBox: typeof item.viewBox === 'string' && item.viewBox ? item.viewBox : '0 0 1000 1000',
+    pixelScale: Number.isFinite(item.pixelScale) ? Number(item.pixelScale) : 1,
+    layers: Array.isArray(item.layers) ? item.layers : [],
+    scanAddress: typeof item.scanAddress === 'string' ? item.scanAddress : '',
+    walletInscriptions: Array.isArray(item.walletInscriptions) ? item.walletInscriptions : [],
+    generated: Array.isArray(item.generated) ? item.generated : [],
+    hashlist: Array.isArray(item.hashlist) ? item.hashlist : [],
+  };
+}
+
+function scanProjectsFromAllStorageKeys(): SavedProject[] {
+  const recovered: SavedProject[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key === STORAGE_KEY || key === STORAGE_BACKUP_KEY || key === LAST_PROJECT_KEY) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw || raw.length < 4) continue;
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
+      const candidates = parsed.filter(looksLikeSavedProject);
+      if (candidates.length === 0) continue;
+      for (const c of candidates) {
+        recovered.push(normalizeProjectLike(c));
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  const dedup = new Map<string, SavedProject>();
+  for (const p of recovered) {
+    const key = `${(p.collectionName || p.name || '').trim().toLowerCase()}::${p.createdAt || ''}`;
+    if (!dedup.has(key)) dedup.set(key, p);
+  }
+  return [...dedup.values()];
 }
 
 function saveProjects(projects: SavedProject[]): boolean {
@@ -144,7 +250,9 @@ function saveProjects(projects: SavedProject[]): boolean {
         return rest;
       }),
     }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(compacted));
+    const data = JSON.stringify(compacted);
+    localStorage.setItem(STORAGE_KEY, data);
+    localStorage.setItem(STORAGE_BACKUP_KEY, data);
     return true;
   } catch (e) {
     console.error('Save error:', e);
@@ -181,6 +289,14 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const ordinalsAccount = walletState.accounts?.find((a: any) => a.purpose === 'ordinals');
   const connectedAddress = ordinalsAccount?.address || walletState.accounts?.[0]?.address;
   const isAdmin = walletState.connected && isAdminAddress(connectedAddress);
+  const hostInfo = useMemo(() => {
+    if (typeof window === 'undefined') return { host: '', altHost: '', altUrl: '' };
+    const host = window.location.hostname;
+    const isWww = host.startsWith('www.');
+    const altHost = isWww ? host.replace(/^www\./, '') : `www.${host}`;
+    const altUrl = `${window.location.protocol}//${altHost}${window.location.pathname}`;
+    return { host, altHost, altUrl };
+  }, []);
 
   // ---- PROJECT MANAGEMENT ----
   const [projects, setProjects] = useState<SavedProject[]>(() => loadProjects());
@@ -204,6 +320,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [collectionName, setCollectionName] = useState('My Collection');
   const [totalCount, setTotalCount] = useState(100);
   const [viewBox, setViewBox] = useState('0 0 1000 1000');
+  const [pixelScale, setPixelScale] = useState(1);
+  const [hardPixelMode, setHardPixelMode] = useState(true);
 
   // ---- LAYERS ----
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -219,11 +337,17 @@ const RecursiveCollectionToolPage: React.FC = () => {
   const [livePreviewTraits, setLivePreviewTraits] = useState<Record<string, number>>({}); // layerId -> traitIdx
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const pendingHashlistEntries = useMemo(
+    () => hashlist.filter((entry) => String(entry?.id || '').startsWith('pending-')),
+    [hashlist]
+  );
 
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
   const [traitDrag, setTraitDrag] = useState<{ layerId: string; fromIdx: number } | null>(null);
   const [traitDragOverIdx, setTraitDragOverIdx] = useState<number | null>(null);
   const [selectedTraits, setSelectedTraits] = useState<Record<string, Set<number>>>({}); // layerId -> Set of traitIdx
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [previewRenderError, setPreviewRenderError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,12 +357,24 @@ const RecursiveCollectionToolPage: React.FC = () => {
     collectionName: string;
     totalCount: number;
     viewBox: string;
+    pixelScale: number;
     layers: Layer[];
     scanAddress: string;
     walletInscriptions: WalletInscription[];
     generated: GeneratedItem[];
     hashlist: HashlistEntry[];
-  }>({ activeProjectId: null, projects: [], collectionName: '', totalCount: 100, viewBox: '', layers: [], scanAddress: '', walletInscriptions: [], generated: [], hashlist: [] });
+  }>({ activeProjectId: null, projects: [], collectionName: '', totalCount: 100, viewBox: '', pixelScale: 1, layers: [], scanAddress: '', walletInscriptions: [], generated: [], hashlist: [] });
+
+  useEffect(() => {
+    if (projects.length > 0) return;
+    const recovered = scanProjectsFromAllStorageKeys();
+    if (recovered.length === 0) return;
+    const merged = [...recovered, ...projects];
+    setProjects(merged);
+    saveProjects(merged);
+    setSaveStatus(`Recovery: ${recovered.length} Projekt(e) aus anderem localStorage-Key gefunden`);
+    window.setTimeout(() => setSaveStatus(''), 5000);
+  }, [projects]);
 
   // ============================================================
   // PROJECT MANAGEMENT
@@ -247,6 +383,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setCollectionName(project.collectionName || 'My Collection');
     setTotalCount(project.totalCount || 100);
     setViewBox(project.viewBox || '0 0 1000 1000');
+    setPixelScale(Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))));
     setLayers(project.layers || []);
     setScanAddress(project.scanAddress || '');
     setWalletInscriptions(project.walletInscriptions || []);
@@ -275,6 +412,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
       collectionName: name || 'My Collection',
       totalCount: 100,
       viewBox: '0 0 1000 1000',
+      pixelScale: 1,
       layers: [],
       scanAddress: '',
       walletInscriptions: [],
@@ -307,6 +445,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
         collectionName,
         totalCount,
         viewBox,
+        pixelScale,
         layers,
         scanAddress,
         walletInscriptions,
@@ -318,7 +457,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const ok = saveProjects(updated);
     setSaveStatus(ok ? '✅ Gespeichert' : '❌ Save fehlgeschlagen (Speicher voll?) - bitte Backup exportieren');
     setTimeout(() => setSaveStatus(''), 2000);
-  }, [activeProjectId, projects, collectionName, totalCount, viewBox, layers, scanAddress, walletInscriptions, generated, hashlist]);
+  }, [activeProjectId, projects, collectionName, totalCount, viewBox, pixelScale, layers, scanAddress, walletInscriptions, generated, hashlist]);
 
   const deleteProject = useCallback((id: string) => {
     const updated = projects.filter(p => p.id !== id);
@@ -361,6 +500,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
       collectionName,
       totalCount,
       viewBox,
+      pixelScale,
       layers,
       scanAddress,
       walletInscriptions,
@@ -383,6 +523,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
           collectionName: s.collectionName,
           totalCount: s.totalCount,
           viewBox: s.viewBox,
+          pixelScale: s.pixelScale,
           layers: s.layers,
           scanAddress: s.scanAddress,
           walletInscriptions: s.walletInscriptions,
@@ -422,7 +563,18 @@ const RecursiveCollectionToolPage: React.FC = () => {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [layers, collectionName, totalCount, viewBox, scanAddress, walletInscriptions, generated, hashlist, activeProjectId, saveCurrentProject]);
+  }, [layers, collectionName, totalCount, viewBox, pixelScale, scanAddress, walletInscriptions, generated, hashlist, activeProjectId, saveCurrentProject]);
+
+  // Rebuild already generated SVGs when pixel multiplier changes.
+  useEffect(() => {
+    if (generated.length === 0) return;
+    setGenerated((prev) =>
+      prev.map((item) => ({
+        ...item,
+        svg: buildSvgForViewBox(item.layers, viewBox, pixelScale),
+      }))
+    );
+  }, [pixelScale, viewBox]);
 
   // ============================================================
   // WALLET SCANNER (UniSat Open API)
@@ -898,23 +1050,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
       seenCombos.add(comboKey);
 
       const index = items.length + 1;
-      const vbParts = viewBox.split(/\s+/).map(Number);
-      const vbW = vbParts[2] || 1000;
-      const vbH = vbParts[3] || 1000;
-      const BLEED_PX = 2;
-      let visibleLayerIndex = 0;
-      const svgImages = selectedLayers
-        .filter(l => !isNoneTrait(l.trait))
-        .map(l => {
-          const isFirstVisibleLayer = visibleLayerIndex++ === 0;
-          const layerBleed = isFirstVisibleLayer ? 16 : BLEED_PX;
-          return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" />`;
-        })
-        .join('\n');
       items.push({
         index,
         layers: selectedLayers,
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden" preserveAspectRatio="none">\n${svgImages}\n</svg>`,
+        svg: buildSvgForViewBox(selectedLayers, viewBox, pixelScale),
       });
     }
 
@@ -927,36 +1066,14 @@ const RecursiveCollectionToolPage: React.FC = () => {
         attributes: item.layers.map(l => ({ trait_type: l.traitType, value: l.trait.name })),
       },
     })));
-  }, [layers, totalCount, collectionName, viewBox, weightedRandom]);
+  }, [layers, totalCount, collectionName, viewBox, pixelScale, weightedRandom]);
 
   // ============================================================
   // EDIT SINGLE GENERATED ITEM
   // ============================================================
   const buildSvgFromLayers = useCallback((itemLayers: GeneratedItem['layers']) => {
-    const vbParts = viewBox.split(/\s+/).map(Number);
-    const vbW = vbParts[2] || 1000;
-    const vbH = vbParts[3] || 1000;
-    const BLEED_PX = 2;
-    let visibleLayerIndex = 0;
-    const svgImages = itemLayers
-      .filter(l => !isNoneTrait(l.trait))
-      .map(l => {
-        const isFirstVisibleLayer = visibleLayerIndex++ === 0;
-        const layerBleed = isFirstVisibleLayer ? 16 : BLEED_PX;
-        const ox = l.offsetX || 0;
-        const oy = l.offsetY || 0;
-        const sc = l.scale || 1;
-        const hasTransform = ox || oy || sc !== 1;
-        if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" />`;
-        const w = vbW * sc;
-        const h = vbH * sc;
-        const x = (vbW - w) / 2 + ox - layerBleed;
-        const y = (vbH - h) / 2 + oy - layerBleed;
-        return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + layerBleed * 2}" height="${h + layerBleed * 2}" preserveAspectRatio="none" />`;
-      })
-      .join('\n');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" overflow="hidden" preserveAspectRatio="none">\n${svgImages}\n</svg>`;
-  }, [viewBox]);
+    return buildSvgForViewBox(itemLayers, viewBox, pixelScale);
+  }, [viewBox, pixelScale]);
 
   const updateGeneratedItemTrait = useCallback((itemIdx: number, layerIdx: number, newTraitIdx: number) => {
     setGenerated(prev => {
@@ -1258,13 +1375,239 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
+  const loadImageFromUrl = useCallback((url: string) => {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${url}`));
+      img.src = url;
+    });
+  }, []);
+
+  const renderGeneratedItemToPngBlob = useCallback(async (item: GeneratedItem): Promise<Blob> => {
+    const vbParts = viewBox.split(/\s+/).map(Number);
+    const vbW = Math.max(1, vbParts[2] || 1000);
+    const vbH = Math.max(1, vbParts[3] || 1000);
+    const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(vbW * px);
+    canvas.height = Math.round(vbH * px);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas Kontext konnte nicht erstellt werden');
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(px, 0, 0, px, 0, 0);
+    ctx.clearRect(0, 0, vbW, vbH);
+
+    const toHardPixelCanvas = (img: HTMLImageElement): CanvasImageSource => {
+      if (!hardPixelMode) return img;
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = img.naturalWidth || img.width || 1;
+      srcCanvas.height = img.naturalHeight || img.height || 1;
+      const srcCtx = srcCanvas.getContext('2d');
+      if (!srcCtx) return img;
+      srcCtx.imageSmoothingEnabled = false;
+      srcCtx.drawImage(img, 0, 0);
+      const data = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+      const p = data.data;
+      for (let i = 0; i < p.length; i += 4) {
+        if (p[i + 3] < 140) {
+          p[i + 3] = 0;
+          continue;
+        }
+        p[i + 3] = 255;
+        p[i] = Math.round(p[i] / 16) * 16;
+        p[i + 1] = Math.round(p[i + 1] / 16) * 16;
+        p[i + 2] = Math.round(p[i + 2] / 16) * 16;
+      }
+      srcCtx.putImageData(data, 0, 0);
+      return srcCanvas;
+    };
+
+    for (const layer of item.layers.filter((l) => !isNoneTrait(l.trait))) {
+      const inscriptionId = layer.trait?.inscriptionId || '';
+      if (!inscriptionId) continue;
+      const src = `https://ordinals.com/content/${inscriptionId}`;
+      const img = await loadImageFromUrl(src);
+      const source = toHardPixelCanvas(img);
+      const ox = layer.offsetX || 0;
+      const oy = layer.offsetY || 0;
+      const sc = layer.scale || 1;
+      const w = vbW * sc;
+      const h = vbH * sc;
+      const x = (vbW - w) / 2 + ox;
+      const y = (vbH - h) / 2 + oy;
+      const snapped = snapRectToPixelGrid(x, y, w, h);
+      ctx.drawImage(source, snapped.x, snapped.y, snapped.w, snapped.h);
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('PNG konnte nicht erzeugt werden');
+    return blob;
+  }, [viewBox, pixelScale, hardPixelMode, loadImageFromUrl]);
+
+  const renderLayersToCanvas = useCallback(async (
+    layersToRender: GeneratedItem['layers'],
+    canvas: HTMLCanvasElement
+  ) => {
+    const vbParts = viewBox.split(/\s+/).map(Number);
+    const vbW = Math.max(1, vbParts[2] || 1000);
+    const vbH = Math.max(1, vbParts[3] || 1000);
+    const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+    canvas.width = Math.round(vbW * px);
+    canvas.height = Math.round(vbH * px);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(px, 0, 0, px, 0, 0);
+    ctx.clearRect(0, 0, vbW, vbH);
+
+    const toHardPixelCanvas = (img: HTMLImageElement): CanvasImageSource => {
+      if (!hardPixelMode) return img;
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = img.naturalWidth || img.width || 1;
+      srcCanvas.height = img.naturalHeight || img.height || 1;
+      const srcCtx = srcCanvas.getContext('2d');
+      if (!srcCtx) return img;
+      srcCtx.imageSmoothingEnabled = false;
+      srcCtx.drawImage(img, 0, 0);
+      const data = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+      const p = data.data;
+      for (let i = 0; i < p.length; i += 4) {
+        if (p[i + 3] < 140) {
+          p[i + 3] = 0;
+          continue;
+        }
+        p[i + 3] = 255;
+        p[i] = Math.round(p[i] / 16) * 16;
+        p[i + 1] = Math.round(p[i + 1] / 16) * 16;
+        p[i + 2] = Math.round(p[i + 2] / 16) * 16;
+      }
+      srcCtx.putImageData(data, 0, 0);
+      return srcCanvas;
+    };
+
+    for (const layer of layersToRender.filter((l) => !isNoneTrait(l.trait))) {
+      const inscriptionId = layer.trait?.inscriptionId || '';
+      if (!inscriptionId) continue;
+      const img = await loadImageFromUrl(`https://ordinals.com/content/${inscriptionId}`);
+      const source = toHardPixelCanvas(img);
+      const ox = layer.offsetX || 0;
+      const oy = layer.offsetY || 0;
+      const sc = layer.scale || 1;
+      const w = vbW * sc;
+      const h = vbH * sc;
+      const x = (vbW - w) / 2 + ox;
+      const y = (vbH - h) / 2 + oy;
+      const snapped = snapRectToPixelGrid(x, y, w, h);
+      ctx.drawImage(source, snapped.x, snapped.y, snapped.w, snapped.h);
+    }
+  }, [viewBox, pixelScale, hardPixelMode, loadImageFromUrl]);
+
+  useEffect(() => {
+    const canvas = previewCanvasRef.current;
+    const item = generated[previewIndex];
+    if (!canvas || !item) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await renderLayersToCanvas(item.layers, canvas);
+        if (!cancelled) setPreviewRenderError('');
+      } catch (err: any) {
+        if (!cancelled) setPreviewRenderError(err?.message || 'Preview konnte nicht gerendert werden');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [generated, previewIndex, viewBox, pixelScale, renderLayersToCanvas]);
+
+  const downloadPNG = useCallback(async (idx: number) => {
+    const item = generated[idx];
+    if (!item) return;
+    try {
+      setSaveStatus(`Erzeuge PNG #${idx + 1}...`);
+      const blob = await renderGeneratedItemToPngBlob(item);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSaveStatus('✅ PNG exportiert');
+      window.setTimeout(() => setSaveStatus(''), 1800);
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || 'PNG Export fehlgeschlagen');
+    }
+  }, [generated, collectionName, renderGeneratedItemToPngBlob]);
+
+  const downloadAllPNGs = useCallback(async () => {
+    if (generated.length === 0) return;
+    const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
+    try {
+      for (let i = 0; i < generated.length; i++) {
+        setSaveStatus(`PNG Export ${i + 1}/${generated.length}...`);
+        const blob = await renderGeneratedItemToPngBlob(generated[i]);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${slug}_${i + 1}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        await new Promise((r) => window.setTimeout(r, 120));
+      }
+      setSaveStatus(`✅ ${generated.length} PNGs exportiert`);
+      window.setTimeout(() => setSaveStatus(''), 2400);
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || 'PNG Batch-Export fehlgeschlagen');
+    }
+  }, [generated, collectionName, renderGeneratedItemToPngBlob]);
+
+  const blobToDataUrl = useCallback((blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  }), []);
+
+  const downloadPixelSVG = useCallback(async (idx: number) => {
+    const item = generated[idx];
+    if (!item) return;
+    try {
+      setSaveStatus(`Erzeuge Pixel-SVG #${idx + 1}...`);
+      const pngBlob = await renderGeneratedItemToPngBlob(item);
+      const dataUrl = await blobToDataUrl(pngBlob);
+      const vbParts = viewBox.split(/\s+/).map(Number);
+      const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
+      const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
+      const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
+      const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
+      const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW * px}" height="${vbH * px}"><image href="${dataUrl}" x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" preserveAspectRatio="none" style="image-rendering:pixelated;image-rendering:crisp-edges;"/></svg>`;
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${collectionName.replace(/\s+/g, '_').toLowerCase()}_${idx + 1}_pixel.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSaveStatus('✅ Pixel-SVG exportiert');
+      window.setTimeout(() => setSaveStatus(''), 1800);
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || 'Pixel-SVG Export fehlgeschlagen');
+    }
+  }, [generated, collectionName, viewBox, pixelScale, renderGeneratedItemToPngBlob, blobToDataUrl]);
+
   // ============================================================
   // IMPORT / EXPORT CONFIG (file-based)
   // ============================================================
   const exportConfig = useCallback(() => {
-    downloadJSON({ collectionName, totalCount, viewBox, layers },
+    downloadJSON({ collectionName, totalCount, viewBox, pixelScale, layers },
       `${collectionName.replace(/\s+/g, '_').toLowerCase()}_config.json`);
-  }, [collectionName, totalCount, viewBox, layers, downloadJSON]);
+  }, [collectionName, totalCount, viewBox, pixelScale, layers, downloadJSON]);
 
   /** Vollständiges Projekt als JSON extern speichern (Backup – unabhängig von localStorage) */
   const exportProjectToFile = useCallback(() => {
@@ -1277,6 +1620,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
       collectionName,
       totalCount,
       viewBox,
+      pixelScale,
       layers,
       scanAddress,
       walletInscriptions,
@@ -1290,6 +1634,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
       collectionName,
       totalCount,
       viewBox,
+      pixelScale,
       layers,
       scanAddress,
       walletInscriptions,
@@ -1298,7 +1643,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
     };
     const slug = (collectionName || 'projekt').replace(/\s+/g, '_').replace(/[^\w\-]/g, '') || 'projekt';
     downloadJSON(full, `${slug}_backup_${new Date().toISOString().slice(0, 10)}.json`);
-  }, [activeProjectId, projects, collectionName, totalCount, viewBox, layers, scanAddress, walletInscriptions, generated, hashlist, downloadJSON]);
+  }, [activeProjectId, projects, collectionName, totalCount, viewBox, pixelScale, layers, scanAddress, walletInscriptions, generated, hashlist, downloadJSON]);
 
   /** Projekt aus externer JSON-Datei importieren */
   const importProjectFromFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1319,6 +1664,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
           collectionName: data.collectionName || data.name || 'Import',
           totalCount: data.totalCount ?? 100,
           viewBox: data.viewBox || '0 0 1000 1000',
+          pixelScale: Number.isFinite(data.pixelScale) ? Number(data.pixelScale) : 1,
           layers: hasLayers ? data.layers : [],
           scanAddress: data.scanAddress || '',
           walletInscriptions: Array.isArray(data.walletInscriptions) ? data.walletInscriptions : [],
@@ -1369,11 +1715,122 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
         if (config.totalCount) setTotalCount(config.totalCount);
         if (config.viewBox) setViewBox(config.viewBox);
         if (config.layers) setLayers(config.layers);
+        if (Number.isFinite(config.pixelScale)) setPixelScale(Math.max(1, Math.min(64, Math.round(Number(config.pixelScale)))));
       } catch { setError('Ungültige Config-Datei!'); }
     };
     reader.readAsText(file);
     e.target.value = '';
   }, []);
+
+  const recoverCollectionProject = useCallback(async (opts: {
+    label: string;
+    collectionName: string;
+    dataFile: string;
+    recoveredName: string;
+  }) => {
+    try {
+      setError('');
+      setSaveStatus(`Lade ${opts.label} Recovery...`);
+      const res = await fetch(`/data/${opts.dataFile}?v=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${opts.dataFile} nicht gefunden`);
+      const data = await res.json();
+      const generatedItems: GeneratedItem[] = Array.isArray(data.generated) ? data.generated : [];
+      if (generatedItems.length === 0) throw new Error(`${opts.label} Collection enthält keine generierten Items`);
+
+      const layerMap = new Map<string, Layer & { _traitMap: Map<string, TraitItem> }>();
+      for (const item of generatedItems) {
+        const itemLayers = Array.isArray(item.layers) ? item.layers : [];
+        for (const entry of itemLayers) {
+          const layerName = String(entry?.layerName || 'Layer');
+          const traitType = String(entry?.traitType || layerName);
+          const traitRaw = entry?.trait || {};
+          const trait: TraitItem = {
+            inscriptionId: String(traitRaw.inscriptionId || ''),
+            name: String(traitRaw.name || 'unknown'),
+            rarity: Number.isFinite(traitRaw.rarity) ? traitRaw.rarity : 50,
+            contentType: traitRaw.contentType ? String(traitRaw.contentType) : undefined,
+            group: traitRaw.group ? String(traitRaw.group) : undefined,
+          };
+
+          const layerKey = `${layerName}::${traitType}`;
+          if (!layerMap.has(layerKey)) {
+            layerMap.set(layerKey, {
+              id: uid(),
+              name: layerName,
+              traitType,
+              traits: [],
+              expanded: true,
+              _traitMap: new Map<string, TraitItem>(),
+            });
+          }
+          const layer = layerMap.get(layerKey)!;
+          const traitKey = `${trait.inscriptionId}::${trait.name}`;
+          if (!layer._traitMap.has(traitKey)) {
+            layer._traitMap.set(traitKey, trait);
+          }
+        }
+      }
+
+      const recoveredLayers: Layer[] = [...layerMap.values()].map((layer) => ({
+        id: layer.id,
+        name: layer.name,
+        traitType: layer.traitType,
+        traits: [...layer._traitMap.values()],
+        expanded: true,
+      }));
+
+      const now = new Date().toISOString();
+      const recoveredProject: SavedProject = {
+        id: projectId(),
+        name: opts.recoveredName,
+        createdAt: now,
+        updatedAt: now,
+        collectionName: opts.collectionName,
+        totalCount: Number.isFinite(data.totalCount) ? data.totalCount : generatedItems.length,
+        viewBox: typeof data.viewBox === 'string' && data.viewBox ? data.viewBox : '0 0 1000 1000',
+        pixelScale: Number.isFinite(data.pixelScale) ? Number(data.pixelScale) : 1,
+        layers: recoveredLayers,
+        scanAddress: '',
+        walletInscriptions: [],
+        generated: generatedItems,
+        hashlist: Array.isArray(data.hashlist) ? data.hashlist : [],
+      };
+
+      const existingIdx = projects.findIndex((p) => (p.collectionName || p.name || '').trim().toLowerCase() === opts.collectionName.trim().toLowerCase());
+      const updated =
+        existingIdx >= 0
+          ? projects.map((p, idx) => (idx === existingIdx ? { ...recoveredProject, id: p.id, createdAt: p.createdAt || recoveredProject.createdAt } : p))
+          : [recoveredProject, ...projects];
+      const activeId = existingIdx >= 0 ? updated[existingIdx].id : recoveredProject.id;
+      setProjects(updated);
+      saveProjects(updated);
+      setActiveProjectId(activeId);
+      loadProjectIntoState(existingIdx >= 0 ? updated[existingIdx] : recoveredProject);
+      setSaveStatus(`${opts.label} Projekt wiederhergestellt`);
+      window.setTimeout(() => setSaveStatus(''), 3500);
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || `${opts.label} Recovery fehlgeschlagen`);
+    }
+  }, [projects, loadProjectIntoState]);
+
+  const recoverBadCatsProject = useCallback(() => {
+    return recoverCollectionProject({
+      label: 'BadCats',
+      collectionName: 'BadCats',
+      dataFile: 'badcats-collection.json',
+      recoveredName: 'BadCats (Recovered)',
+    });
+  }, [recoverCollectionProject]);
+
+  const recoverSlumsProject = useCallback(() => {
+    return recoverCollectionProject({
+      label: 'SLUMS',
+      collectionName: 'slums',
+      dataFile: 'slums-collection.json',
+      recoveredName: 'slums (Recovered)',
+    });
+  }, [recoverCollectionProject]);
 
   // ============================================================
   // RENDER: ACCESS CHECK
@@ -1411,6 +1868,15 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
               🎨 Recursive Collection Generator
             </h1>
             <p className="text-gray-400 text-sm mt-2">Projekte verwalten – erstellen, speichern, weiterbearbeiten</p>
+            <p className="text-gray-500 text-xs mt-2">
+              Hinweis: Projekte sind browser- und domain-lokal gespeichert (z.B. `richart.app` und `www.richart.app` haben getrennte Speicher).
+            </p>
+            <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-2 rounded-lg border border-amber-600/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-100">
+              <span>Aktuelle Domain: <span className="font-semibold">{hostInfo.host}</span></span>
+              <a href={hostInfo.altUrl} className="underline hover:text-amber-200">
+                Andere Domain prüfen: {hostInfo.altHost}
+              </a>
+            </div>
           </div>
 
           {/* NEW / IMPORT */}
@@ -1426,6 +1892,20 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
               📂 Projekt importieren
               <input type="file" accept=".json" onChange={importProjectFromFile} className="hidden" />
             </label>
+            <button
+              onClick={recoverBadCatsProject}
+              className="px-6 py-4 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl text-lg shadow-lg flex items-center justify-center gap-2 transition-colors"
+              title="Stellt BadCats aus public/data/badcats-collection.json wieder her"
+            >
+              🛟 BadCats Recovery
+            </button>
+            <button
+              onClick={recoverSlumsProject}
+              className="px-6 py-4 bg-orange-700 hover:bg-orange-600 text-white font-bold rounded-xl text-lg shadow-lg flex items-center justify-center gap-2 transition-colors"
+              title="Stellt SLUMS aus public/data/slums-collection.json wieder her"
+            >
+              🛟 SLUMS Recovery
+            </button>
           </div>
           <p className="text-xs text-gray-500 mb-6 -mt-2">Import: JSON-Datei von Export oder Backup – unabhängig von localStorage</p>
 
@@ -1704,7 +2184,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
             ════════════════════════════════════════════════ */}
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 mb-4">
           <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">⚙️</span> Einstellungen</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs text-gray-400 mb-1">Collection Name</label>
               <input type="text" value={collectionName} onChange={e => setCollectionName(e.target.value)}
@@ -1721,6 +2201,47 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
               <input type="text" value={viewBox} onChange={e => setViewBox(e.target.value)}
                 className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
             </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Pixel-Multiplikator (1px → NxN)</label>
+              <input
+                type="number"
+                value={pixelScale}
+                onChange={e => setPixelScale(Math.max(1, Math.min(64, parseInt(e.target.value, 10) || 1)))}
+                min={1}
+                max={64}
+                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm"
+              />
+              <div className="mt-2 flex flex-wrap gap-1">
+                {[1, 2, 4, 8, 10, 16].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setPixelScale(preset)}
+                    className={`px-2 py-1 rounded text-xs border ${
+                      pixelScale === preset
+                        ? 'bg-purple-700 border-purple-500 text-white'
+                        : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {preset}x
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Pixel-Art Modus: Bei `10` wird 1 Quellpixel als 10x10 dargestellt (scharf, ohne Weichzeichnen).
+          </p>
+          <div className="mt-2">
+            <button
+              onClick={() => setHardPixelMode((v) => !v)}
+              className={`px-3 py-1.5 rounded text-xs font-bold border ${
+                hardPixelMode
+                  ? 'bg-emerald-700/40 border-emerald-500 text-emerald-200'
+                  : 'bg-gray-800 border-gray-600 text-gray-300'
+              }`}
+            >
+              Hard Pixel Modus: {hardPixelMode ? 'AN' : 'AUS'}
+            </button>
           </div>
           <div className="flex gap-2 mt-3">
             <button onClick={exportConfig} className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">💾 Config exportieren</button>
@@ -1964,13 +2485,13 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
             <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
               {/* Stacked Preview */}
               <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
-                <div className="w-full aspect-square relative">
+              <div className="w-full aspect-square relative overflow-auto">
                   {livePreviewLayers
                     .filter(lp => !isNoneTrait(lp.trait))
                     .map((lp, i) => (
                       <img key={lp.layerId} src={`https://ordinals.com/content/${lp.trait.inscriptionId}`}
                         alt={lp.trait.name} className="absolute inset-0 w-full h-full object-contain"
-                        style={{ zIndex: i }} loading="lazy" />
+                        style={{ zIndex: i, imageRendering: 'pixelated' }} loading="lazy" />
                     ))}
                 </div>
               </div>
@@ -2042,10 +2563,34 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
             {/* Downloads */}
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-3"><span className="text-purple-400">📥</span> Downloads</h2>
+              {pendingHashlistEntries.length > 0 && (
+                <div className="mb-3 rounded-lg border border-yellow-500/70 bg-yellow-950/30 px-3 py-2 text-xs text-yellow-200">
+                  <div className="font-semibold">Warning: {pendingHashlistEntries.length} pending inscription IDs found in hashlist.</div>
+                  <div className="mt-0.5 text-yellow-100/80">
+                    Resolve and replace these IDs before publishing collection data.
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <button onClick={() => downloadJSON(hashlist, `${collectionName.replace(/\s+/g, '_').toLowerCase()}_hashlist.json`)}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 text-sm font-bold">
                   📋 Hashlist JSON ({generated.length})
+                </button>
+                <button
+                  onClick={() => downloadJSON(
+                    {
+                      exportedAt: new Date().toISOString(),
+                      collectionName,
+                      pendingIds: pendingHashlistEntries.map((entry) => ({
+                        id: entry.id,
+                        name: entry.meta?.name || '',
+                      })),
+                    },
+                    `${collectionName.replace(/\s+/g, '_').toLowerCase()}_pending_ids.json`
+                  )}
+                  className="px-4 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-600 text-sm font-bold"
+                >
+                  ⚠️ Pending IDs Export ({pendingHashlistEntries.length})
                 </button>
                 <button onClick={() => downloadJSON(
                   generated.map((item, idx) => ({
@@ -2058,8 +2603,16 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm font-bold">
                   🖼️ Alle SVGs ({generated.length})
                 </button>
+                <button onClick={downloadAllPNGs}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-sm font-bold">
+                  🖼️ Alle PNGs ({generated.length})
+                </button>
+                <button onClick={() => downloadPixelSVG(previewIndex)}
+                  className="px-4 py-2 bg-fuchsia-700 text-white rounded-lg hover:bg-fuchsia-600 text-sm font-bold">
+                  🧱 Pixel SVG (Preview)
+                </button>
                 <button onClick={() => downloadJSON(
-                  { totalCount, viewBox, generated },
+                  { totalCount, viewBox, pixelScale, generated },
                   `${collectionName.replace(/\s+/g, '_').toLowerCase()}-collection.json`
                 )}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 text-sm font-bold">
@@ -2150,6 +2703,16 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
                     className="w-16 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-white text-center" />
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
+                  <button onClick={() => downloadPNG(previewIndex)}
+                    className="px-3 py-1.5 bg-indigo-900 border border-indigo-600 rounded text-sm text-indigo-300 hover:bg-indigo-800"
+                    title="Aktuelles Item als PNG speichern">
+                    ⬇️ PNG
+                  </button>
+                  <button onClick={() => downloadPixelSVG(previewIndex)}
+                    className="px-3 py-1.5 bg-fuchsia-900 border border-fuchsia-600 rounded text-sm text-fuchsia-300 hover:bg-fuchsia-800"
+                    title="Aktuelles Item als pixelharte SVG speichern">
+                    ⬇️ Pixel SVG
+                  </button>
                   <button onClick={() => downloadInscriptionCode(previewIndex)}
                     className="px-3 py-1.5 bg-orange-900 border border-orange-600 rounded text-sm text-orange-300 hover:bg-orange-800"
                     title="SVG-Code wie er auf die Blockchain geschrieben wird">⬇️ Inscription Code</button>
@@ -2161,28 +2724,25 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
-                  <div className="w-full aspect-square relative">
-                    {(() => {
-                      const vbParts = viewBox.split(/\s+/).map(Number);
-                      const vbW = vbParts[2] || 1000;
-                      const vbH = vbParts[3] || 1000;
-                      return generated[previewIndex]?.layers
-                        .filter(l => !isNoneTrait(l.trait))
-                        .map((layer, i) => (
-                          <img key={`${previewIndex}-${i}-${layer.trait.inscriptionId}`}
-                            src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
-                            alt={layer.trait.name} className="absolute inset-0 w-full h-full object-contain"
-                            style={{
-                              zIndex: i,
-                              ...((layer.offsetX || layer.offsetY || (layer.scale && layer.scale !== 1)) ? {
-                                transform: [
-                                  (layer.offsetX || layer.offsetY) ? `translate(${((layer.offsetX || 0) / vbW) * 100}%, ${((layer.offsetY || 0) / vbH) * 100}%)` : '',
-                                  (layer.scale && layer.scale !== 1) ? `scale(${layer.scale})` : ''
-                                ].filter(Boolean).join(' ')
-                              } : {})
-                            }} loading="lazy" />
-                        ));
-                    })()}
+                  <div className="w-full aspect-square overflow-auto bg-black">
+                    <div
+                      className="relative flex items-start justify-start"
+                      style={{
+                        width: `${Math.min(320, 100 * Math.max(1, pixelScale / 2))}%`,
+                        height: `${Math.min(320, 100 * Math.max(1, pixelScale / 2))}%`,
+                      }}
+                    >
+                      <canvas
+                        ref={previewCanvasRef}
+                        className="block max-w-none max-h-none"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      {previewRenderError && (
+                        <div className="absolute bottom-2 left-2 right-2 text-[11px] text-red-300 bg-red-950/70 border border-red-700 rounded px-2 py-1">
+                          {previewRenderError}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div>
@@ -2355,7 +2915,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
                       {item.layers.filter(l => !isNoneTrait(l.trait)).map((layer, i) => (
                         <img key={i} src={`https://ordinals.com/content/${layer.trait.inscriptionId}`}
                           alt="" className="absolute inset-0 w-full h-full object-contain"
-                          style={{ zIndex: i }} loading="lazy" />
+                          style={{ zIndex: i, imageRendering: 'pixelated' }} loading="lazy" />
                       ))}
                       <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-center">
                         <span className="text-[10px] text-gray-400">#{idx + 1}</span>

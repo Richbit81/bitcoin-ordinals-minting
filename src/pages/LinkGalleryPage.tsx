@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const SLUMS_PREVIEW_LAYERS = [
+  '8f5fc247bf80511bd5b175b1f527cef1098d5e908c34acf81e986bfb99dcfa80i0',
+  'b1776bc34762f7a6ef0122276e7cbd2922dfe6d5301a57bf7eb105bac167a364i0',
+  '3c6549906170fe529005d201f77fa5a4f0cab7bfa283ed2c3e4c44d57887921fi0',
+  '64abdaab518f553ef692fb59fb1244dd7c4833c2ae085b40fe71a14c253b9600i0',
+  '397e179ca9c6b62c7982fd3426c569fcc52ff0e3f7c97a68b5dd9c89ea0bbb5di0',
+  '8e26e5823d7fc3cd092b605feec7d1e7ce6e8908ca320d702a75f6160a552a89i0',
+];
+
 interface LinkItem {
   id: string;
   title: string;
@@ -13,6 +22,23 @@ interface LinkItem {
   features?: string[]; // Für Features (z.B. TACTICAL)
   hasPreview?: boolean; // Ob Item ein Fullscreen-Modal haben soll
 }
+
+const isOrdinalsContentUrl = (value?: string): boolean => {
+  const v = String(value || '').trim();
+  return /^https?:\/\/ordinals\.com\/content\//i.test(v);
+};
+
+const uniqueNonEmpty = (values: Array<string | undefined | null>): string[] => {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const v = String(raw || '').trim();
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+};
 
 const LINK_ITEMS: LinkItem[] = [
   // Games
@@ -234,6 +260,7 @@ const CATEGORY_COLORS: Record<LinkItem['category'], string> = {
 export const LinkGalleryPage: React.FC = () => {
   const navigate = useNavigate();
   const [linkImages, setLinkImages] = useState<Record<string, string>>({});
+  const [slumsPreview, setSlumsPreview] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<LinkItem | null>(null);
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // id of expanded item
 
@@ -266,6 +293,41 @@ export const LinkGalleryPage: React.FC = () => {
     };
 
     loadLinktreeImages();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const renderSlumsPreview = async () => {
+      try {
+        const SIZE = 400;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        for (const id of SLUMS_PREVIEW_LAYERS) {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const el = new Image();
+            el.crossOrigin = 'anonymous';
+            el.onload = () => resolve(el);
+            el.onerror = () => reject(new Error('load failed'));
+            el.src = `https://ordinals.com/content/${id}`;
+          });
+          if (cancelled) return;
+          ctx.drawImage(img, 0, 0, SIZE, SIZE);
+        }
+
+        if (!cancelled) setSlumsPreview(canvas.toDataURL('image/png'));
+      } catch {
+        console.warn('[LinkGallery] SLUMS preview render failed, falling back to static image');
+      }
+    };
+
+    renderSlumsPreview();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const groupedLinks = LINK_ITEMS.reduce((acc, item) => {
@@ -319,83 +381,101 @@ export const LinkGalleryPage: React.FC = () => {
               {CATEGORY_LABELS[category as LinkItem['category']]}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`block rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer overflow-hidden`}
-                  onClick={() => {
-                    if (item.hasPreview) {
-                      setSelectedItem(item);
-                    } else {
-                      window.open(item.url, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                >
-                  {/* Vorschaubild */}
-                  {(item.image || linkImages[item.id]) ? (
-                    <div className="w-full aspect-square overflow-hidden bg-gray-900 relative">
-                      {item.id === 'synthesizer' && item.image?.includes('ordinals.com/content') ? (
-                        // Für Synthesizer: Verwende iframe wie in Tech & Games
-                        <iframe
-                          src={item.image}
-                          className="w-full h-full border-0"
-                          title={item.title}
-                          sandbox="allow-scripts allow-same-origin"
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          style={{
-                            transform: 'translateZ(0)',
-                            willChange: 'auto',
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={item.image || linkImages[item.id] || ''}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            console.warn(`[LinkGallery] Could not load image for ${item.id}, using fallback`);
-                            // Zeige Platzhalter wenn Bild nicht geladen werden kann
-                            const parent = e.currentTarget.parentElement;
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                  <div class="text-center p-2">
-                                    <div class="text-2xl mb-1">🎨</div>
-                                    <p class="text-white text-xs font-semibold">${item.title}</p>
-                                  </div>
-                                </div>
-                              `;
-                            }
-                          }}
-                        />
+              {items.map((item) => {
+                const previewSources = uniqueNonEmpty([
+                  // SLUMS gets explicit robust fallbacks first.
+                  item.id === 'slums'
+                    ? slumsPreview || `https://ordinals.com/content/${SLUMS_PREVIEW_LAYERS[0]}`
+                    : item.image,
+                  linkImages[item.id],
+                  item.image,
+                  // Global hard fallback to avoid broken image icon.
+                  '/images/RichArt.png',
+                ]);
+                const resolvedImage = previewSources[0] || '';
+                const renderAsIframe = isOrdinalsContentUrl(resolvedImage);
+                return (
+                  <div
+                    key={item.id}
+                    className={`block rounded-lg border-2 ${CATEGORY_COLORS[category as LinkItem['category']]} hover:scale-105 transition-all cursor-pointer overflow-hidden`}
+                    onClick={() => {
+                      if (item.hasPreview) {
+                        setSelectedItem(item);
+                      } else {
+                        window.open(item.url, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    {/* Vorschaubild */}
+                    {resolvedImage ? (
+                      <div className="w-full aspect-square overflow-hidden bg-gray-900 relative">
+                        {renderAsIframe ? (
+                          // Robust for HTML/SVG/recursive ordinals content.
+                          <iframe
+                            src={resolvedImage}
+                            className="w-full h-full border-0"
+                            title={item.title}
+                            sandbox="allow-scripts allow-same-origin"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            style={{
+                              transform: 'translateZ(0)',
+                              willChange: 'auto',
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={resolvedImage}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              const index = Number(e.currentTarget.dataset.fallbackIndex || '0');
+                              const next = previewSources[index + 1];
+                              if (next) {
+                                e.currentTarget.dataset.fallbackIndex = String(index + 1);
+                                e.currentTarget.src = next;
+                                return;
+                              }
+                              // Final fallback visual state if all sources fail.
+                              e.currentTarget.style.display = 'none';
+                            }}
+                            data-fallback-index="0"
+                          />
+                        )}
+                        {!renderAsIframe && (
+                          <div className="hidden w-full h-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                            <div className="text-center p-2">
+                              <div className="text-2xl mb-1">🎨</div>
+                              <p className="text-white text-xs font-semibold">{item.title}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                        <div className="text-center p-2">
+                          <div className="text-2xl mb-1">🎨</div>
+                          <p className="text-white text-xs font-semibold">{item.title}</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* Text-Content */}
+                    <div className="p-2">
+                      <h3 className="text-sm font-bold text-white mb-1 line-clamp-1">{item.title}</h3>
+                      {item.description && (
+                        <p className="text-xs text-gray-300 mb-2 line-clamp-2">{item.description}</p>
                       )}
-                    </div>
-                  ) : (
-                    // Fallback wenn kein Bild vorhanden
-                    <div className="w-full aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <div className="text-center p-2">
-                        <div className="text-2xl mb-1">🎨</div>
-                        <p className="text-white text-xs font-semibold">{item.title}</p>
+                      <div className="flex items-center text-[10px] text-gray-400">
+                        <span>Open</span>
+                        <svg className="w-2.5 h-2.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </div>
                     </div>
-                  )}
-                  {/* Text-Content */}
-                  <div className="p-2">
-                    <h3 className="text-sm font-bold text-white mb-1 line-clamp-1">{item.title}</h3>
-                    {item.description && (
-                      <p className="text-xs text-gray-300 mb-2 line-clamp-2">{item.description}</p>
-                    )}
-                    <div className="flex items-center text-[10px] text-gray-400">
-                      <span>Open</span>
-                      <svg className="w-2.5 h-2.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

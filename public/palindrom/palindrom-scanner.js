@@ -2,14 +2,48 @@
 // Nutzt den server-seitigen Scan-Endpoint für maximale Geschwindigkeit
 // (Server macht parallele Requests + permanentes Caching der SAT-Ranges)
 
-// API Base URL - Railway Backend
-const PALINDROM_API_BASE = window.PALINDROM_API_URL || 'https://bitcoin-ordinals-backend-production.up.railway.app';
+// API Base URLs:
+// 1) Primary: stabiler Richart Ord-Server
+// 2) Fallback: bestehender Palindrom-Scanner-Backend-Endpoint
+const PALINDROM_API_BASE = window.PALINDROM_API_URL || 'https://api.richart.app';
+const PALINDROM_API_FALLBACK = 'https://bitcoin-ordinals-backend-production.up.railway.app';
 
 class PalindromScanner {
     constructor() {
         this.isScanning = false;
         this.scanProgress = { current: 0, total: 0, status: '' };
         this.onProgress = null;
+        this.activeApiBase = PALINDROM_API_BASE;
+    }
+
+    async _fetchWithFallback(path) {
+        const primaryUrl = `${PALINDROM_API_BASE}${path}`;
+        const fallbackUrl = `${PALINDROM_API_FALLBACK}${path}`;
+
+        try {
+            const primaryRes = await fetch(primaryUrl);
+            if (primaryRes.ok) {
+                this.activeApiBase = PALINDROM_API_BASE;
+                return primaryRes;
+            }
+            // Wenn Endpoint auf Primary nicht existiert oder fehlschlägt: Fallback.
+            if ([404, 405, 501, 502, 503, 504].includes(primaryRes.status)) {
+                const fallbackRes = await fetch(fallbackUrl);
+                if (fallbackRes.ok) {
+                    this.activeApiBase = PALINDROM_API_FALLBACK;
+                    return fallbackRes;
+                }
+                return fallbackRes;
+            }
+            return primaryRes;
+        } catch (primaryError) {
+            const fallbackRes = await fetch(fallbackUrl);
+            if (fallbackRes.ok) {
+                this.activeApiBase = PALINDROM_API_FALLBACK;
+                return fallbackRes;
+            }
+            throw primaryError;
+        }
     }
 
     // ========================================
@@ -27,7 +61,7 @@ class PalindromScanner {
 
         try {
             // Ein einziger API-Call zum Server – der macht alles parallel + gecached!
-            const response = await fetch(`${PALINDROM_API_BASE}/api/palindrom/scan-palindromes/${address}`);
+            const response = await this._fetchWithFallback(`/api/palindrom/scan-palindromes/${address}`);
 
             if (!response.ok) {
                 let errMsg = `Server-Fehler (${response.status})`;
@@ -47,7 +81,7 @@ class PalindromScanner {
             };
             this._updateProgress();
 
-            console.log(`[Scanner] ${data.palindromes.length} Palindrome in ${data.stats.timeSeconds}s (${data.stats.cachedRanges} cached, ${data.stats.fetchedRanges} neu geladen)`);
+            console.log(`[Scanner] ${data.palindromes.length} Palindrome in ${data.stats.timeSeconds}s (${data.stats.cachedRanges} cached, ${data.stats.fetchedRanges} neu geladen) via ${this.activeApiBase}`);
 
             return data.palindromes;
 
@@ -66,10 +100,12 @@ class PalindromScanner {
 
     async checkApiStatus() {
         try {
-            const response = await fetch(`${PALINDROM_API_BASE}/api/palindrom/status`);
-            return await response.json();
+            const response = await this._fetchWithFallback('/api/palindrom/status');
+            const data = await response.json();
+            data.apiBase = this.activeApiBase;
+            return data;
         } catch (error) {
-            return { mempool: 'offline', ordinals: 'offline', error: error.message };
+            return { mempool: 'offline', ordinals: 'offline', error: error.message, apiBase: null };
         }
     }
 

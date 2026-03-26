@@ -117,7 +117,9 @@ export const getOrdinalAddress = (accounts: WalletAccount[]): string => {
 export const getPaymentAddress = (accounts: WalletAccount[]): string => {
   if (!accounts || accounts.length === 0) return '';
   const payment = accounts.find(acc => acc.purpose === 'payment');
-  return payment?.address || accounts[0].address;
+  if (payment?.address) return payment.address;
+  const nonTaproot = accounts.find((acc) => !String(acc?.address || '').startsWith('bc1p'));
+  return nonTaproot?.address || accounts[0].address;
 };
 
 // Helper-Funktion: Bestimme den Adresstyp
@@ -127,6 +129,38 @@ const getAddressType = (address: string): string => {
   if (address.startsWith('3')) return 'Nested SegWit';
   if (address.startsWith('1')) return 'Legacy';
   return 'Unbekannt';
+};
+
+const normalizeWalletPublicKey = (entry: any): string | undefined => {
+  if (!entry || typeof entry !== 'object') return undefined;
+  const candidates = [
+    entry.publicKey,
+    entry.pubKey,
+    entry.public_key,
+    entry.paymentPublicKey,
+    entry.ordinalsPublicKey,
+    entry.addressPublicKey,
+    entry.btcPublicKey,
+    entry?.keys?.payment?.publicKey,
+    entry?.keys?.ordinals?.publicKey,
+  ];
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim();
+    if (value) return value;
+  }
+  return undefined;
+};
+const extractXverseAddresses = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.result)) return payload.result;
+  if (Array.isArray(payload?.addresses)) return payload.addresses;
+  if (Array.isArray(payload?.addressses)) return payload.addressses;
+  if (Array.isArray(payload?.result?.addresses)) return payload.result.addresses;
+  if (Array.isArray(payload?.result?.addressses)) return payload.result.addressses;
+  if (Array.isArray(payload?.data?.addresses)) return payload.data.addresses;
+  if (Array.isArray(payload?.data?.addressses)) return payload.data.addressses;
+  return [];
 };
 
 export const connectUnisat = async (): Promise<WalletAccount[]> => {
@@ -210,13 +244,16 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
       throw new Error('sats-connect konnte nicht geladen werden. Bitte stellen Sie sicher, dass sats-connect installiert ist (npm install sats-connect).');
     }
     
-    // wallet_connect kann mit null aufgerufen werden für alle Adresstypen
-    const response = await satsConnect.request('wallet_connect', null);
+    // Request both payment + ordinals explicitly to ensure payment publicKey is present.
+    const response = await satsConnect.request('wallet_connect', {
+      addresses: ['payment', 'ordinals'],
+      message: 'Connect wallet for marketplace purchase',
+    });
     
     console.log('Xverse wallet_connect response:', response);
 
     if (response.status === 'success') {
-      const addresses = response.result?.addresses || [];
+      const addresses = extractXverseAddresses(response);
       
       if (!addresses || addresses.length === 0) {
         throw new Error('No addresses returned from Xverse Wallet');
@@ -238,7 +275,7 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
       if (ordinalsAddress && ordinalsAddress.address) {
         accounts.push({
           address: ordinalsAddress.address,
-          publicKey: ordinalsAddress.publicKey,
+          publicKey: normalizeWalletPublicKey(ordinalsAddress),
           purpose: 'ordinals'
         });
         console.log('[Xverse] ✅ Ordinals-Adresse:', ordinalsAddress.address);
@@ -247,7 +284,7 @@ export const connectXverse = async (): Promise<WalletAccount[]> => {
       if (paymentAddress && paymentAddress.address) {
         accounts.push({
           address: paymentAddress.address,
-          publicKey: paymentAddress.publicKey,
+          publicKey: normalizeWalletPublicKey(paymentAddress),
           purpose: 'payment'
         });
         console.log('[Xverse] ✅ Payment-Adresse:', paymentAddress.address);
@@ -376,21 +413,116 @@ export const getXverseAccounts = async (): Promise<WalletAccount[]> => {
       if (!satsConnect || !satsConnect.request) {
         return [];
       }
+      // Newer Xverse API: getAddresses often returns the most complete publicKey data.
+      try {
+        const addressesResponse = await satsConnect.request('getAddresses', {
+          purposes: ['payment', 'ordinals'],
+          message: 'Resolve wallet addresses for purchase',
+        });
+        if (addressesResponse?.status === 'success') {
+          const addresses = extractXverseAddresses(addressesResponse);
+          const accounts: WalletAccount[] = [];
+          const ordinalsAddr = addresses.find((addr: any) => String(addr?.purpose || '').toLowerCase() === 'ordinals');
+          const paymentAddr =
+            addresses.find((addr: any) => String(addr?.purpose || '').toLowerCase() === 'payment') ||
+            addresses.find((addr: any) => String(addr?.addressType || '').toLowerCase() === 'p2sh') ||
+            addresses.find((addr: any) => String(addr?.address || '').startsWith('3')) ||
+            addresses.find((addr: any) => String(addr?.address || '').startsWith('bc1q'));
+          if (ordinalsAddr?.address) {
+            accounts.push({
+              address: String(ordinalsAddr.address).trim(),
+              publicKey: normalizeWalletPublicKey(ordinalsAddr),
+              purpose: 'ordinals'
+            });
+          }
+          if (paymentAddr?.address) {
+            const normalizedAddress = String(paymentAddr.address).trim();
+            const exists = accounts.some((acc) => String(acc.address || '').trim() === normalizedAddress);
+            if (!exists) {
+              accounts.push({
+                address: normalizedAddress,
+                publicKey: normalizeWalletPublicKey(paymentAddr),
+                purpose: 'payment'
+              });
+            }
+          }
+          if (accounts.length > 0) return accounts;
+        }
+      } catch {
+        // ignore and fall through to wallet_getAccount
+      }
       const accountResponse = await satsConnect.request('wallet_getAccount', null);
       
-      if (accountResponse.status === 'success' && accountResponse.result?.addresses) {
-        const addresses = accountResponse.result.addresses || [];
+      if (accountResponse.status === 'success') {
+        const addresses = extractXverseAddresses(accountResponse);
         const accounts: WalletAccount[] = [];
-        
+
         // Finde Ordinals-Adresse
         const ordinalsAddr = addresses.find((addr: any) => addr.purpose === 'ordinals');
         if (ordinalsAddr && ordinalsAddr.address) {
           accounts.push({
             address: ordinalsAddr.address,
-            publicKey: ordinalsAddr.publicKey
+            publicKey: normalizeWalletPublicKey(ordinalsAddr),
+            purpose: 'ordinals'
           });
         }
-        
+
+        // Finde Payment-Adresse (wichtig fuer Marketplace-Funding)
+        const paymentAddr =
+          addresses.find((addr: any) => addr.purpose === 'payment') ||
+          addresses.find((addr: any) => String(addr?.address || '').startsWith('3')) ||
+          addresses.find((addr: any) => String(addr?.address || '').startsWith('bc1q'));
+        if (paymentAddr && paymentAddr.address) {
+          const alreadyIncluded = accounts.some(
+            (acc) => String(acc.address || '').trim() === String(paymentAddr.address || '').trim()
+          );
+          if (!alreadyIncluded) {
+            accounts.push({
+              address: paymentAddr.address,
+              publicKey: normalizeWalletPublicKey(paymentAddr),
+              purpose: 'payment'
+            });
+          } else {
+            // Falls dieselbe Adresse fuer beide Zwecke geliefert wird, Purpose trotzdem markieren.
+            const idx = accounts.findIndex(
+              (acc) => String(acc.address || '').trim() === String(paymentAddr.address || '').trim()
+            );
+            if (idx >= 0 && !accounts[idx].purpose) {
+              accounts[idx] = { ...accounts[idx], purpose: 'payment' };
+            }
+          }
+        }
+
+        // Fallback: falls kein Purpose vom Provider kommt, ueber Bech32/P2SH ableiten.
+        if (accounts.length === 0 && addresses.length > 0) {
+          const normalized = addresses
+            .map((entry: any) => ({
+              address: String(entry?.address || '').trim(),
+              publicKey: String(normalizeWalletPublicKey(entry) || '').trim(),
+            }))
+            .filter((entry: any) => !!entry.address);
+          for (const entry of normalized) {
+            accounts.push({
+              address: entry.address,
+              publicKey: entry.publicKey || undefined,
+              purpose: entry.address.startsWith('bc1p') ? 'ordinals' : 'payment'
+            });
+          }
+        } else if (accounts.length === 1 && accounts[0].purpose === 'ordinals') {
+          // Letzter Sicherheits-Fallback: nutze eine nicht-bc1p Adresse als Payment, falls vorhanden.
+          const altPayment = addresses.find((addr: any) => !String(addr?.address || '').startsWith('bc1p'));
+          if (altPayment?.address) {
+            const exists = accounts.some((acc) => String(acc.address || '') === String(altPayment.address || ''));
+            if (!exists) {
+              accounts.push({
+                address: String(altPayment.address),
+                publicKey: String(normalizeWalletPublicKey(altPayment) || '').trim() || undefined,
+                purpose: 'payment'
+              });
+            }
+          }
+        }
+
         return accounts;
       }
     } catch (err: any) {
@@ -1204,139 +1336,117 @@ export const signPSBTViaUnisat = async (
 export const signPSBTViaXverse = async (
   psbtBase64: string,
   walletAddress?: string,
-  sighashType?: number  // Optional: z.B. 0x82 für SIGHASH_NONE | ANYONECANPAY
+  sighashType?: number,  // Optional: z.B. 0x83 für SIGHASH_SINGLE | ANYONECANPAY
+  signingIndexes?: number[]
 ): Promise<string> => {
   if (!isXverseInstalled()) {
     throw new Error('Xverse Wallet nicht gefunden');
   }
 
   try {
-    console.log('[signPSBTViaXverse] Starting PSBT signing...');
-    console.log('[signPSBTViaXverse] PSBT Base64 length:', psbtBase64.length);
-    console.log('[signPSBTViaXverse] PSBT Base64 preview:', psbtBase64.substring(0, 50) + '...');
-    
     const satsConnect = await import('sats-connect');
     
     if (!satsConnect || !satsConnect.request) {
       throw new Error('Sats Connect nicht verfügbar');
     }
 
-    // ✅ NEUE IMPLEMENTIERUNG: Verwende signMultipleTransactions für custom SIGHASH
-    if (walletAddress && sighashType !== undefined) {
-      console.log('[signPSBTViaXverse] 🎯 Using signMultipleTransactions for custom SIGHASH');
-      console.log('[signPSBTViaXverse] Address:', walletAddress);
-      console.log('[signPSBTViaXverse] SigHash:', `0x${sighashType.toString(16)} (${sighashType})`);
-      
+    // Prefer signMultipleTransactions whenever we need constrained input-signing.
+    if (walletAddress && (sighashType !== undefined || (Array.isArray(signingIndexes) && signingIndexes.length > 0))) {
       // WICHTIG: signMultipleTransactions ist KEINE request() Methode!
       // Es muss direkt aufgerufen werden
       const { signMultipleTransactions } = satsConnect;
       
       if (!signMultipleTransactions || typeof signMultipleTransactions !== 'function') {
-        console.error('[signPSBTViaXverse] ❌ signMultipleTransactions not available in sats-connect');
         throw new Error('signMultipleTransactions ist nicht verfügbar. Bitte aktualisieren Sie sats-connect.');
       }
       
       // Wrap in Promise für async/await Kompatibilität
-      return new Promise((resolve, reject) => {
-        console.log('[signPSBTViaXverse] 📡 Calling signMultipleTransactions directly...');
-        
-        signMultipleTransactions({
-          payload: {
-            network: { type: 'Mainnet' },
-            message: 'Pre-Signing für Collection Item (SIGHASH_NONE | ANYONECANPAY)',
-            psbts: [{
-              psbtBase64: psbtBase64,
-              inputsToSign: [{
-                address: walletAddress,
-                signingIndexes: [0],  // Input 0 signieren
-                sigHash: sighashType  // 0x82 für SIGHASH_NONE | ANYONECANPAY
+      try {
+        return await new Promise((resolve, reject) => {
+          signMultipleTransactions({
+            payload: {
+              network: { type: 'Mainnet' },
+              message: 'Sign Bitcoin transaction',
+              psbts: [{
+                psbtBase64: psbtBase64,
+                inputsToSign: [
+                  {
+                    address: walletAddress,
+                    signingIndexes:
+                      Array.isArray(signingIndexes) && signingIndexes.length > 0
+                        ? signingIndexes
+                        : [0],
+                    ...(sighashType !== undefined ? { sigHash: sighashType } : {}),
+                  },
+                ],
               }]
-            }]
-          },
-          onFinish: (response: any) => {
-            console.log('[signPSBTViaXverse] ✅ signMultipleTransactions finished:', response);
-            console.log('[signPSBTViaXverse] Response type:', typeof response);
-            console.log('[signPSBTViaXverse] Response is Array:', Array.isArray(response));
-            
-            // ✅ FIX: Response kann entweder { psbts: [...] } ODER direkt ein Array sein!
-            let psbts: any[] | undefined;
-            
-            if (Array.isArray(response)) {
-              // Response ist direkt ein Array: [{ psbtBase64: "..." }]
-              console.log('[signPSBTViaXverse] Response is direct array');
-              psbts = response;
-            } else if (response && response.psbts && Array.isArray(response.psbts)) {
-              // Response ist Object mit psbts property: { psbts: [{ psbtBase64: "..." }] }
-              console.log('[signPSBTViaXverse] Response has psbts property');
-              psbts = response.psbts;
-            }
-            
-            if (psbts && psbts.length > 0) {
-              // PSBT kann entweder direkt ein String sein ODER ein Object mit psbtBase64
-              const firstPsbt = psbts[0];
-              let signedPsbtBase64: string;
+            },
+            onFinish: (response: any) => {
+              // ✅ FIX: Response kann entweder { psbts: [...] } ODER direkt ein Array sein!
+              let psbts: any[] | undefined;
               
-              if (typeof firstPsbt === 'string') {
-                signedPsbtBase64 = firstPsbt;
-                console.log('[signPSBTViaXverse] PSBT is string');
-              } else if (firstPsbt && firstPsbt.psbtBase64) {
-                signedPsbtBase64 = firstPsbt.psbtBase64;
-                console.log('[signPSBTViaXverse] PSBT is object with psbtBase64');
-              } else {
-                console.error('[signPSBTViaXverse] Unexpected PSBT format:', firstPsbt);
-                reject(new Error('Unerwartetes PSBT-Format in Response'));
-                return;
+              if (Array.isArray(response)) {
+                // Response ist direkt ein Array: [{ psbtBase64: "..." }]
+                psbts = response;
+              } else if (response && response.psbts && Array.isArray(response.psbts)) {
+                // Response ist Object mit psbts property: { psbts: [{ psbtBase64: "..." }] }
+                psbts = response.psbts;
               }
               
-              console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
-              console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
-              resolve(signedPsbtBase64);
-            } else {
-              console.error('[signPSBTViaXverse] No PSBTs in response:', response);
-              reject(new Error('Keine signierte PSBT in Response erhalten'));
+              if (psbts && psbts.length > 0) {
+                // PSBT kann entweder direkt ein String sein ODER ein Object mit psbtBase64
+                const firstPsbt = psbts[0];
+                let signedPsbtBase64: string;
+                
+                if (typeof firstPsbt === 'string') {
+                  signedPsbtBase64 = firstPsbt;
+                } else if (firstPsbt && firstPsbt.psbtBase64) {
+                  signedPsbtBase64 = firstPsbt.psbtBase64;
+                } else {
+                  reject(new Error('Unerwartetes PSBT-Format in Response'));
+                  return;
+                }
+                
+                resolve(signedPsbtBase64);
+              } else {
+                reject(new Error('Keine signierte PSBT in Response erhalten'));
+              }
+            },
+            onCancel: () => {
+              reject(new Error('User rejected request to sign a psbt'));
             }
-          },
-          onCancel: () => {
-            console.log('[signPSBTViaXverse] ❌ User cancelled signing');
-            reject(new Error('User rejected request to sign a psbt'));
-          }
+          });
         });
-      });
+      } catch (constrainedErr: any) {
+        const constrainedMsg = String(constrainedErr?.message || constrainedErr || '');
+        const looksLikePubKeyScriptMismatch =
+          constrainedMsg.toLowerCase().includes("doesn't have pubkey") ||
+          constrainedMsg.toLowerCase().includes('does not have pubkey') ||
+          constrainedMsg.toLowerCase().includes('input script');
+        if (!looksLikePubKeyScriptMismatch) {
+          throw constrainedErr;
+        }
+        console.warn('[Xverse] signMultipleTransactions failed with script/pubkey mismatch, falling back to signPsbt auto-detection:', constrainedMsg);
+      }
     }
     
-    // ❌ ALTE IMPLEMENTIERUNG: Fallback für normale Signierung ohne custom SIGHASH
-    console.log('[signPSBTViaXverse] Using standard signPsbt (no custom SIGHASH)');
-    
+    // Fallback for generic signPsbt calls.
     const requestParams: any = {
       psbt: psbtBase64,
       network: {
         type: 'Mainnet'
       },
       broadcast: false,
-      autoFinalized: true
+      autoFinalized: false
     };
-    
-    console.log('[signPSBTViaXverse] Request params:', JSON.stringify({ ...requestParams, psbt: psbtBase64.substring(0, 50) + '...' }, null, 2));
-    
+
     const response = await satsConnect.request('signPsbt', requestParams);
-    
-    console.log('[signPSBTViaXverse] Response received:', {
-      status: response.status,
-      hasResult: !!response.result,
-      hasError: !!response.error,
-      errorMessage: response.error?.message,
-      resultKeys: response.result ? Object.keys(response.result) : []
-    });
-    
-    console.log('[signPSBTViaXverse] Full response result:', JSON.stringify(response.result, null, 2));
 
     if (response.status === 'success') {
       const finalTxHex = response.result?.tx || response.result?.txHex || response.result?.txid || response.tx || response.txHex;
       const signedPsbtBase64 = response.result?.psbt || response.psbt;
       
       if (finalTxHex && typeof finalTxHex === 'string' && finalTxHex.length > 500 && /^[0-9a-fA-F]+$/.test(finalTxHex)) {
-        console.log('[signPSBTViaXverse] ✅ Finalized transaction received (Hex), length:', finalTxHex.length);
-        console.log('[signPSBTViaXverse] Transaction preview:', finalTxHex.substring(0, 50) + '...');
         const hexBytes = finalTxHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
         const binaryString = String.fromCharCode(...hexBytes);
         const finalTxBase64 = btoa(binaryString);
@@ -1346,10 +1456,6 @@ export const signPSBTViaXverse = async (
       if (!signedPsbtBase64) {
         throw new Error('Keine signierte PSBT oder finalisierte Transaction erhalten');
       }
-
-      console.log('[signPSBTViaXverse] ✅ Signed PSBT received (Base64), length:', signedPsbtBase64.length);
-      console.log('[signPSBTViaXverse] Signed PSBT preview:', signedPsbtBase64.substring(0, 50) + '...');
-      console.log('[signPSBTViaXverse] ⚠️ PSBT is not finalized - will be finalized in backend');
       
       return signedPsbtBase64;
     } else {
@@ -1375,14 +1481,15 @@ export const signPSBT = async (
   walletType: 'unisat' | 'xverse' | 'okx',
   autoFinalized: boolean = false,
   walletAddress?: string,
-  sighashType?: number
+  sighashType?: number,
+  signingIndexes?: number[]
 ): Promise<string> => {
   if (walletType === 'unisat') {
     return await signPSBTViaUnisat(psbtBase64, autoFinalized);
   } else if (walletType === 'okx') {
     return await signPSBTViaOKX(psbtBase64, autoFinalized);
   } else {
-    return await signPSBTViaXverse(psbtBase64, walletAddress, sighashType);
+    return await signPSBTViaXverse(psbtBase64, walletAddress, sighashType, signingIndexes);
   }
 };
 

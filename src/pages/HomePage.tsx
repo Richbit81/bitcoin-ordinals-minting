@@ -28,7 +28,7 @@ export const HomePage: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
   const [isMempoolModalOpen, setIsMempoolModalOpen] = useState(false);
-  const TEMP_HIDDEN_PROJECT_IDS = new Set(['cattack']);
+  const TEMP_HIDDEN_PROJECT_IDS = new Set<string>();
 
   // Statische Projekte (immer vorhanden)
   const staticProjects = [
@@ -312,46 +312,41 @@ export const HomePage: React.FC = () => {
               key={project.id}
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
-              project.id === 'bitcoin-mixtape' ? 'md:order-1' :
-              project.id === 'badcats' ? 'md:order-2' :
-              project.id === 'smile-a-bit' ? 'md:order-3' :
-              project.id === 'slums' ? 'md:order-4' :
-              project.id === 'black-wild' ? 'md:order-5' :
-              (project as any).collectionId ? 'md:order-6' :
-              project.id === 'tech-games' ? 'md:order-7' :
-              project.id === 'random-stuff' ? 'md:order-8' :
-              project.id === 'point-shop' ? 'md:order-9' :
-              project.id === 'free-stuff' ? 'md:order-10' :
-              project.id === 'books-onchain' ? 'md:order-11' :
-              project.id === 'cattack' ? 'md:order-12' :
-              project.id === 'marketplace' ? 'md:order-last' :
-              project.order >= 8 ? 'md:order-12' :
-              'md:order-13'
+              project.id === 'bitcoin-mixtape' ? 'order-1' :
+              project.id === 'badcats' ? 'order-2' :
+              project.id === 'smile-a-bit' ? 'order-3' :
+              project.id === 'slums' ? 'order-4' :
+              project.id === 'marketplace' ? 'order-5' :
+              project.id === 'tech-games' ? 'order-6' :
+              project.id === 'books-onchain' ? 'order-7' :
+              project.id === 'point-shop' ? 'order-8' :
+              project.id === 'black-wild' ? 'order-9' :
+              project.id === 'random-stuff' ? 'order-10' :
+              project.id === 'free-stuff' ? 'order-11' :
+              project.id === '1984' ? 'order-12' :
+              project.id === 'cattack' ? 'order-last' :
+              (project as any).collectionId ? 'order-[14]' :
+              project.order >= 8 ? 'order-[15]' :
+              'order-[16]'
             } active:scale-95 md:hover:scale-105 hover:shadow-lg hover:shadow-red-600/20`}
           >
             {/* Glassmorphism Background Effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-red-600/0 via-red-600/0 to-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-lg" />
-            {/* Bild-Container - flex-1 damit er den verfügbaren Platz einnimmt */}
-            <div className={`w-full mx-auto flex-1 flex flex-col justify-start min-h-0 relative z-10 ${
-              project.id === 'bitcoin-mixtape' ? 'md:mt-8' :
-              project.id === 'smile-a-bit' ? 'md:-mt-2' :
-              project.id === 'slums' ? 'md:mt-4' :
-              project.id === 'black-wild' ? 'md:mt-16' :
-              (project as any).collectionId ? 'md:mt-20' :
-              project.id === 'point-shop' || project.id === 'tech-games' ? 'md:mt-8' : ''
-            } ${
-              project.id === 'black-wild' ? 'max-w-32' :
-              project.id === 'smile-a-bit' ? 'max-w-[180px]' :
-              project.id === 'slums' ? 'max-w-[180px]' : 'max-w-48'
-            }`}>
+            {/* Einheitliche Media-Box fuer konsistente Groesse/Position */}
+            <div className="w-full mx-auto max-w-48 md:max-w-52 relative z-10">
+              {project.id === 'marketplace' && (
+                <div className="pointer-events-none absolute right-[-30px] top-[12px] z-20 rotate-45 bg-red-600 px-8 py-1 text-[10px] font-extrabold tracking-[0.2em] text-white shadow-lg shadow-red-900/50">
+                  NEW
+                </div>
+              )}
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.id === 'slums' ? (
-                <div className="overflow-hidden rounded relative">
+                <div className="overflow-hidden rounded-xl relative aspect-square bg-transparent flex items-center justify-center">
                   {slumsPreview ? (
                     <img
                       src={slumsPreview}
                       alt="SLUMS"
-                      className="w-full h-auto object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
+                      className="w-full h-full object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
                       style={{ imageRendering: 'pixelated' }}
                     />
                   ) : (
@@ -359,10 +354,6 @@ export const HomePage: React.FC = () => {
                       <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
-                  {/* FREE badge */}
-                  <div className="absolute top-2 -right-6 rotate-45 bg-green-500 text-white font-bold text-[10px] px-6 py-0.5 shadow-lg z-10">
-                    FREE
-                  </div>
                 </div>
               ) : project.id === 'badcats' ? (
                 <div className="overflow-hidden rounded-xl relative" style={{ aspectRatio: '1/1' }}>
@@ -376,15 +367,11 @@ export const HomePage: React.FC = () => {
                   />
                 </div>
               ) : project.thumbnail ? (
-                <div className={
-                  project.id === 'smile-a-bit' ? 'overflow-hidden rounded aspect-square' : ''
-                }>
+                <div className="overflow-hidden rounded-xl aspect-square bg-transparent flex items-center justify-center">
                   <ProgressiveImage
                     src={project.thumbnail}
                     alt={project.name}
-                    className={`w-full transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50 ${
-                      project.id === 'smile-a-bit' ? 'object-cover w-full h-full scale-[1.15]' : 'h-auto object-contain'
-                    }`}
+                    className="w-full h-full object-contain transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg group-hover:drop-shadow-red-600/50"
                     loading="lazy"
                   />
                 </div>
@@ -398,12 +385,8 @@ export const HomePage: React.FC = () => {
               )}
             </div>
             
-            {/* Text unter dem Bild - mt-auto schiebt ihn nach unten, damit alle auf gleicher Höhe sind */}
-            <div className={`mt-auto ${
-              project.id === 'tech-games' ? '-mt-8' : 
-              project.id === 'bitcoin-mixtape' ? '-mt-7' : 
-              '-mt-2'
-            } text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px]`}>
+            {/* Einheitlicher Textbereich unter der Media-Box */}
+            <div className="mt-3 text-center w-full relative z-10 transition-all duration-300 group-hover:translate-y-[-4px] min-h-[86px] flex flex-col justify-start">
               {project.id === 'black-wild' ? (
                 <h2 className="text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-red-600">
                   <span 
@@ -428,9 +411,11 @@ export const HomePage: React.FC = () => {
                   - ABER: Unsichtbarer Platzhalter für gleiche Höhe der Titel
                   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
               {!project.collectionId ? (
-                <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300">{project.description}</p>
+                <p className="text-xs text-gray-400 transition-colors duration-300 group-hover:text-gray-300 min-h-[2.5rem]">
+                  {project.description}
+                </p>
               ) : (
-                <p className="text-xs text-gray-400 opacity-0 pointer-events-none h-4">Placeholder</p>
+                <p className="text-xs text-gray-400 opacity-0 pointer-events-none min-h-[2.5rem]">Placeholder</p>
               )}
             </div>
             </div>

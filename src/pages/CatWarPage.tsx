@@ -7,7 +7,7 @@ import {
   getMarketplaceWalletInscriptionsViaUnisat,
 } from '../services/marketplaceService';
 
-const CATTACK_URL = 'https://character-test-nine.vercel.app/?ws=wss://catwar-server-production.up.railway.app';
+const CATTACK_URL = '/catwar-game/index.html?ws=wss://catwar-server-production.up.railway.app';
 const BAD_CATS_SLUG_FALLBACKS = ['bad-cats', 'badcats'];
 const BAD_CATS_COLLECTION_PAGE_LIMIT = 200;
 const TEMP_DISABLE_BAD_CATS_GATE = true;
@@ -61,6 +61,7 @@ export const CatWarPage: React.FC = () => {
   const [walletCount, setWalletCount] = React.useState(0);
   const [accessError, setAccessError] = React.useState<string | null>(null);
   const [refreshTick, setRefreshTick] = React.useState(0);
+  const gameFrameClass = 'w-full h-[calc(100vh-7.5rem)] overflow-hidden bg-black';
 
   React.useEffect(() => {
     let cancelled = false;
@@ -152,8 +153,8 @@ export const CatWarPage: React.FC = () => {
   }, [walletState.connected, walletState.accounts, refreshTick]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-6 pt-20">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-black text-white px-0 md:px-0 pt-20">
+      <div className="w-full">
         <div className="mb-4 flex items-center justify-between gap-3">
           <img
             src="/images/cattack-logo.png"
@@ -174,11 +175,11 @@ export const CatWarPage: React.FC = () => {
         </div>
 
         {TEMP_DISABLE_BAD_CATS_GATE ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="text-xs text-yellow-300">
               Access verification is temporarily disabled.
             </div>
-            <div className="w-full h-[78vh] rounded-lg overflow-hidden border border-red-900/60 bg-black">
+            <div className={gameFrameClass}>
               <iframe
                 src={CATTACK_URL}
                 title="CATTACK"
@@ -199,11 +200,11 @@ export const CatWarPage: React.FC = () => {
             Verifying Bad Cats ownership...
           </div>
         ) : hasAccess ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="text-xs text-green-400">
               Access granted. Allowlist: {allowlistCount} IDs, wallet scanned: {walletCount} inscriptions.
             </div>
-            <div className="w-full h-[78vh] rounded-lg overflow-hidden border border-red-900/60 bg-black">
+            <div className={gameFrameClass}>
               <iframe
                 src={CATTACK_URL}
                 title="CATTACK"

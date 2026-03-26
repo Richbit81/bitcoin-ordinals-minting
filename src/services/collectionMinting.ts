@@ -184,6 +184,19 @@ img {
 
   console.log(`[CollectionMinting] ✅ Payment successful, TXID: ${paymentTxid}`);
 
+  try {
+    await addMintPoints(recipientAddress, {
+      collection: collectionName,
+      itemName,
+      inscriptionId: result.inscriptionId,
+      txid: result.txid || result.orderId,
+      source: 'createSingleDelegate',
+    });
+  } catch (pointsError) {
+    // Points errors must never break a successful mint.
+    console.warn('[CollectionMinting] Failed to add mint points:', pointsError);
+  }
+
   return {
     inscriptionId: result.inscriptionId,
     txid: result.txid || result.orderId,

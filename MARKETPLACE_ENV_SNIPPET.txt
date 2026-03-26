@@ -1,0 +1,21 @@
+# Marketplace / Ord Server ENV Snippet
+# Stable public Ord endpoint (no auth)
+
+# Development (.env.local)
+VITE_INSCRIPTION_API_URL=https://api.richart.app
+VITE_ORD_SERVER_URL=https://api.richart.app
+
+# Preview (Vercel Project Settings -> Environment Variables -> Preview)
+VITE_INSCRIPTION_API_URL=https://api.richart.app
+VITE_ORD_SERVER_URL=https://api.richart.app
+
+# Production (Vercel Project Settings -> Environment Variables -> Production)
+VITE_INSCRIPTION_API_URL=https://api.richart.app
+VITE_ORD_SERVER_URL=https://api.richart.app
+
+# Notes:
+# - Do NOT use temporary tunnel URLs for marketplace frontend config.
+# - Keep using https://api.richart.app only.
+# - Optional checks:
+#   GET https://api.richart.app/status
+#   GET https://api.richart.app/inscriptions

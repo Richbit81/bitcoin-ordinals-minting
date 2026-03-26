@@ -30,9 +30,6 @@ import {
 import { connectXverse, getOrdinalAddress, getPaymentAddress, signPSBT } from '../utils/wallet';
 import { isAdminAddress } from '../config/admin';
 
-const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
-const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || 'https://api.richart.app').replace(/\/+$/, '');
-const FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
 const HIDDEN_BADCATS_INSCRIPTION_IDS = new Set<string>([
   'd7d43702964e87e537c308878aeac0f52584ef69b936af0a18f210357d049afci0',
 ]);
@@ -60,53 +57,8 @@ const RARE_SATS_MISS_CACHE_TTL_MS = 10 * 60 * 1000;
 const RARE_SAT_OVERRIDES_BY_INSCRIPTION: Record<string, string> = {
   '6efa80055d144fd67b477c828e4778e3c0582e0b6e728bb8f222c05b73ac3723i0': 'silk road',
 };
-const fallbackOrdContentUrl = (id: string) => `${FALLBACK_API_URL}/content/${encodeURIComponent(String(id || '').trim())}`;
-const fallbackOrdPreviewUrl = (id: string) => `${FALLBACK_API_URL}/preview/${encodeURIComponent(String(id || '').trim())}`;
 const ordinalsContentUrl = (id: string) => `https://ordinals.com/content/${encodeURIComponent(String(id || '').trim())}`;
 const ordinalsPreviewUrl = (id: string) => `https://ordinals.com/preview/${encodeURIComponent(String(id || '').trim())}`;
-/** Inscription bodies often hard-code api.richart.app /content|/preview — browser would still request them in iframe/img and flood 502. */
-const rewriteRichartMirrorUrls = (markup: string): string => {
-  let s = String(markup || '');
-  // Literal passes first: catches www., protocol-relative, and env host drift; also fixes nested <image href> inside blob SVGs.
-  s = s.replace(/https?:\/\/(?:www\.)?api\.richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
-  // Any subdomain of richart.app that mirrors ordinals /content|/preview (avoid 502 in nested requests).
-  s = s.replace(/https?:\/\/(?:[a-z0-9-]+\.)*richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
-  s = s.replace(/\/\/api\.richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
-  s = s.replace(/\/\/(?:[a-z0-9-]+\.)*richart\.app\/(content|preview)\//gi, 'https://ordinals.com/$1/');
-  try {
-    const ordHost = new URL(ORD_SERVER_URL).hostname;
-    const apiHost = new URL(API_URL).hostname;
-    const esc = (h: string) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    for (const host of new Set([ordHost, apiHost])) {
-      s = s.replace(new RegExp(`https?://${esc(host)}(?=/content/|/preview/)`, 'gi'), 'https://ordinals.com');
-    }
-  } catch {}
-  return s;
-};
-
-/** True for hosts that serve ordinals /content|/preview but often 502 in the browser (use ordinals.com instead). */
-const isUnstableRichartMirrorHost = (hostname: string): boolean => {
-  const h = String(hostname || '')
-    .replace(/^www\./i, '')
-    .toLowerCase();
-  if (!h) return false;
-  return h === 'richart.app' || h.endsWith('.richart.app');
-};
-
-/** Force top-level <img> / iframe src chains to never hit unstable Richart mirrors (502). Blob URLs pass through. */
-const toStableOrdinalsMirrorUrl = (raw: string): string => {
-  const s = String(raw || '').trim();
-  if (!s || s.startsWith('blob:') || s.startsWith('data:')) return s;
-  try {
-    const u = new URL(s.startsWith('//') ? `https:${s}` : s);
-    const path = u.pathname || '';
-    if (!/^\/(content|preview)\//i.test(path)) return s;
-    if (isUnstableRichartMirrorHost(u.hostname)) {
-      return `https://ordinals.com${path}${u.search}${u.hash}`;
-    }
-  } catch {}
-  return s;
-};
 const safeReadCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -196,16 +148,11 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const isPreviewDebugEnabled = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    return params.has('debugPreview') || import.meta.env.DEV;
-  } catch {
-    return false;
-  }
-};
-
+/**
+ * Vorschau nur aus Inscription-ID: ordinals.com direct.
+ * Schnellster Pfad: ordinals.com/content als img, bei Fehler sofort iframe.
+ * Railway-Fallbacks entfernt (keine /content/ oder /preview/ Routen dort).
+ */
 const PreviewImage: React.FC<{
   inscriptionId: string;
   alt: string;
@@ -223,329 +170,38 @@ const PreviewImage: React.FC<{
   lightweight = false,
   preferIframe = false,
 }) => {
-  const encodedId = encodeURIComponent(inscriptionId);
-  const blobUrlRef = useRef<string | null>(null);
-  const [preprocessedSrc, setPreprocessedSrc] = useState<string | null>(null);
-  const [recursiveSvgDoc, setRecursiveSvgDoc] = useState<string | null>(null);
-  const [htmlPreviewDoc, setHtmlPreviewDoc] = useState<string | null>(null);
-  const [docProbeRequested, setDocProbeRequested] = useState(false);
-  const debugEnabled = useMemo(() => isPreviewDebugEnabled(), []);
-  const fallbackApiImageUrl = `${FALLBACK_API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
-  const apiImageUrl = `${API_URL}/api/inscription/image/${encodedId}${debugEnabled ? '?debug=1' : ''}`;
-  const useRichartImageProxy = import.meta.env.VITE_USE_RICHART_IMAGE_PROXY === 'true';
-  // Same idea as PinkPuppetsMarketplacePage: derive preview URLs only from inscription id (ordinals.com + Railway fallback).
-  // Do not inject backend previewUrl/contentUrl — those often point at richart.app mirrors.
-  // Richart /api/inscription/image is off by default (502-heavy); opt-in: VITE_USE_RICHART_IMAGE_PROXY=true.
-  // Lightweight grids: try /preview/ first (usually faster for thumbnails), then full /content/.
-  const imageSources = Array.from(
-    new Set(
-      (
-        lightweight
-          ? [
-              ordinalsPreviewUrl(inscriptionId),
-              ordinalsContentUrl(inscriptionId),
-              fallbackOrdPreviewUrl(inscriptionId),
-              fallbackOrdContentUrl(inscriptionId),
-              fallbackApiImageUrl,
-              ...(useRichartImageProxy ? [apiImageUrl] : []),
-            ]
-          : [
-              preprocessedSrc,
-              ordinalsContentUrl(inscriptionId),
-              ordinalsPreviewUrl(inscriptionId),
-              fallbackOrdContentUrl(inscriptionId),
-              fallbackOrdPreviewUrl(inscriptionId),
-              fallbackApiImageUrl,
-              ...(useRichartImageProxy ? [apiImageUrl] : []),
-            ]
-      )
-        .filter(Boolean)
-        .map(toStableOrdinalsMirrorUrl) as string[]
-    )
-  );
-  const [loaded, setLoaded] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [iframeFallback, setIframeFallback] = useState(false);
-  const [iframeFallbackUsePreview, setIframeFallbackUsePreview] = useState(false);
-  const currentSrc = imageSources[sourceIndex];
-  const noPreviewAvailable = sourceIndex >= imageSources.length && !iframeFallback;
-  const debugLog = (...args: any[]) => {
-    if (!debugEnabled) return;
-    console.log('[MarketplacePreview]', inscriptionId, ...args);
-  };
+  const [iframe, setIframe] = useState(preferIframe);
 
   useEffect(() => {
-    setLoaded(false);
-    setSourceIndex(0);
-    setPreprocessedSrc(null);
-    setRecursiveSvgDoc(null);
-    setHtmlPreviewDoc(null);
-    // Never probe on mount: eager fetch duplicated <img> and stalled grids. Probe only on blank/error (see onLoad/onError).
-    setDocProbeRequested(false);
-    // Fast-first: try direct image sources first, fallback to iframe only when needed.
-    setIframeFallback(false);
-    setIframeFallbackUsePreview(false);
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-    debugLog('reset', { imageSources });
-  }, [inscriptionId, preferIframe, lightweight]);
+    setIframe(preferIframe);
+  }, [inscriptionId, preferIframe]);
 
-  useEffect(() => {
-    if (lightweight) return;
-    if (!docProbeRequested) return;
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const getContentBaseUrl = (src: string): string => {
-      try {
-        return new URL(src).origin;
-      } catch {
-        return 'https://ordinals.com';
-      }
-    };
-    const normalizeRecursiveSvg = (svgRaw: string, contentBaseUrl: string): string => {
-      let svg = rewriteRichartMirrorUrls(svgRaw);
-      svg = svg.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
-      svg = svg.replace(/(xlink:href|href|src)=["']content\//gi, `$1="${contentBaseUrl}/content/`);
-      svg = svg.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
-      svg = svg.replace(/url\((["']?)content\//gi, `url($1${contentBaseUrl}/content/`);
-      // Some recursive SVGs omit image dimensions; force full-canvas defaults for stability.
-      svg = svg.replace(/<image(?![^>]*\swidth=)(?![^>]*\sheight=)\s/gi, '<image width="1000" height="1000" ');
-      return svg;
-    };
-    const normalizeHtmlDoc = (htmlRaw: string, contentBaseUrl: string): string => {
-      let html = rewriteRichartMirrorUrls(htmlRaw);
-      html = html.replace(/(xlink:href|href|src)=["']\/content\//gi, `$1="${contentBaseUrl}/content/`);
-      html = html.replace(/(xlink:href|href|src)=["']content\//gi, `$1="${contentBaseUrl}/content/`);
-      html = html.replace(/url\((["']?)\/content\//gi, `url($1${contentBaseUrl}/content/`);
-      html = html.replace(/url\((["']?)content\//gi, `url($1${contentBaseUrl}/content/`);
-      if (/<head[^>]*>/i.test(html)) {
-        html = html.replace(
-          /<head([^>]*)>/i,
-          `<head$1><base href="${contentBaseUrl}/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style>`
-        );
-      } else {
-        html = `<head><base href="${contentBaseUrl}/"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111}img,svg,canvas,video{max-width:100%;max-height:100%;object-fit:contain}*{box-sizing:border-box}</style></head>${html}`;
-      }
-      return html;
-    };
-
-    const hydrateRecursiveSvg = async () => {
-      // Avoid cross-origin CORS noise from API content endpoints here.
-      // Direct ordinals.com content fetch works better for srcDoc probing.
-      const sources = [ordinalsContentUrl(inscriptionId), fallbackOrdContentUrl(inscriptionId)];
-      debugLog('preprocess-start', { sources });
-      for (const src of sources) {
-        try {
-          const contentBaseUrl = getContentBaseUrl(src);
-          debugLog('preprocess-try', { src });
-          const res = await fetch(src, {
-            method: 'GET',
-            headers: { Accept: 'image/svg+xml,text/plain,*/*' },
-            signal: controller.signal,
-          });
-          if (!res.ok) {
-            debugLog('preprocess-skip-status', { src, status: res.status });
-            continue;
-          }
-          const text = await res.text();
-          const trimmed = text.trim();
-          if (!trimmed.startsWith('<svg')) {
-            const looksLikeHtml =
-              /^<!doctype html/i.test(trimmed) ||
-              /<html[\s>]/i.test(trimmed) ||
-              /<body[\s>]/i.test(trimmed) ||
-              /<script[\s>]/i.test(trimmed) ||
-              /<div[\s>]/i.test(trimmed) ||
-              /data-l=/i.test(trimmed);
-            if (looksLikeHtml) {
-              const normalizedHtml = normalizeHtmlDoc(trimmed, contentBaseUrl);
-              setHtmlPreviewDoc(normalizedHtml);
-              // Prefer srcDoc rendering for recursive HTML inscriptions.
-              setIframeFallback(false);
-              setSourceIndex(0);
-              debugLog('preprocess-html-success', { src, length: normalizedHtml.length });
-              return;
-            }
-            debugLog('preprocess-skip-not-svg', { src, length: trimmed.length });
-            continue;
-          }
-          const looksLikeRecursiveSvgBody = (body: string) =>
-            body.includes('/content/') ||
-            /(?:href|src|xlink:href)\s*=\s*["'][^"']*content\//i.test(body) ||
-            /https?:\/\/[^"'\s]+\/(content|preview)\//i.test(body) ||
-            (/<image\b/i.test(body) &&
-              /(?:href|src|xlink:href)\s*=\s*["'][^"']*https?:\/\//i.test(body));
-          if (!looksLikeRecursiveSvgBody(trimmed)) {
-            debugLog('preprocess-skip-no-recursive-content', { src });
-            continue;
-          }
-          const normalized = normalizeRecursiveSvg(trimmed, contentBaseUrl);
-          // For recursive SVGs, iframe srcDoc rendering is more reliable than <img src=blob>.
-          setRecursiveSvgDoc(normalized);
-          const blob = new Blob([normalized], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          if (cancelled) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-          blobUrlRef.current = url;
-          setPreprocessedSrc(url);
-          setSourceIndex(0);
-          debugLog('preprocess-success', { src, blobSize: blob.size });
-          return;
-        } catch {
-          debugLog('preprocess-error', { src });
-        }
-      }
-      debugLog('preprocess-no-result');
-    };
-
-    hydrateRecursiveSvg();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [encodedId, docProbeRequested, debugEnabled, lightweight]);
-
-  useEffect(() => {
-    if (!noPreviewAvailable) return;
-    debugLog('all-sources-failed', { imageSources });
-  }, [noPreviewAvailable, inscriptionId, imageSources.length]);
-
-  useEffect(() => {
-    if (loaded || iframeFallback || noPreviewAvailable) return;
-    if (!currentSrc) return;
-    // Grids: short hop between mirrors so a slow ordinals.com request does not block 3.5s per step.
-    const timeoutMs = lightweight
-      ? 950
-      : preferIframe
-        ? 1200
-        : 2200;
-    const timer = window.setTimeout(() => {
-      setLoaded(false);
-      setSourceIndex((prev) => {
-        const next = prev + 1;
-        if (next >= imageSources.length) {
-          setIframeFallback(true);
-        }
-        debugLog('img-load-timeout-next-source', { currentSrc, prev, next, timeoutMs });
-        return next;
-      });
-    }, timeoutMs);
-    return () => window.clearTimeout(timer);
-  }, [loaded, iframeFallback, noPreviewAvailable, currentSrc, imageSources.length, preferIframe, lightweight]);
-
-  useEffect(() => {
-    if (!iframeFallback || loaded || noPreviewAvailable || iframeFallbackUsePreview) return;
-    // Collection cards: switch content→preview iframe quickly when content stalls.
-    const timeoutMs = lightweight ? 1200 : 2000;
-    const timer = window.setTimeout(() => {
-      setIframeFallbackUsePreview(true);
-      debugLog('iframe-fallback-switch-to-preview', { timeoutMs, inscriptionId });
-    }, timeoutMs);
-    return () => window.clearTimeout(timer);
-  }, [iframeFallback, loaded, noPreviewAvailable, inscriptionId, iframeFallbackUsePreview, lightweight]);
+  if (iframe) {
+    return (
+      <div className={`relative overflow-hidden ${className}`}>
+        <iframe
+          title={alt}
+          src={ordinalsContentUrl(inscriptionId)}
+          loading="lazy"
+          className="h-full w-full border-0 bg-zinc-900"
+          sandbox="allow-scripts allow-same-origin"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && !noPreviewAvailable && (
-        <div className="absolute inset-0 animate-pulse bg-zinc-800" />
-      )}
-      {!lightweight && recursiveSvgDoc ? (
-        <iframe
-          title={alt}
-          srcDoc={recursiveSvgDoc}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          onLoad={() => {
-            setLoaded(true);
-            debugLog('iframe-srcdoc-load-success');
-          }}
-        />
-      ) : !lightweight && htmlPreviewDoc ? (
-        <iframe
-          title={alt}
-          srcDoc={htmlPreviewDoc}
-          loading="lazy"
-          className="h-full w-full border-0 bg-zinc-900"
-          scrolling="no"
-          sandbox="allow-scripts allow-same-origin"
-          onLoad={() => {
-            setLoaded(true);
-            debugLog('iframe-html-srcdoc-load-success');
-          }}
-        />
-      ) : iframeFallback ? (
-        <div className="absolute inset-0 overflow-hidden bg-zinc-900">
-          <iframe
-            title={alt}
-            src={iframeFallbackUsePreview ? ordinalsPreviewUrl(inscriptionId) : ordinalsContentUrl(inscriptionId)}
-            loading="lazy"
-            scrolling="no"
-            className="absolute border-0 bg-zinc-900"
-            sandbox="allow-scripts allow-same-origin"
-            style={{
-              width: preferIframe ? '100%' : '170%',
-              height: preferIframe ? '100%' : '170%',
-              transform: preferIframe ? 'none' : 'translate(-20%, -20%) scale(0.6)',
-              transformOrigin: preferIframe ? 'center center' : 'top left',
-            }}
-            onLoad={() => {
-              setLoaded(true);
-              debugLog('iframe-preview-load-success');
-            }}
-          />
-        </div>
-      ) : noPreviewAvailable ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-gray-500 text-xs px-2 text-center">
-          Preview unavailable
-        </div>
-      ) : (
-        <img
-          src={currentSrc}
-          alt={alt}
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-          onLoad={(e) => {
-            setLoaded(true);
-            // Some recursive ordinals "load" in <img> but still render blank.
-            // Trigger doc probing only for suspiciously blank image loads.
-            const img = e.currentTarget;
-            const maybeBlank = !img || img.naturalWidth <= 1 || img.naturalHeight <= 1;
-            if (!lightweight && maybeBlank && !docProbeRequested) {
-              setDocProbeRequested(true);
-            }
-            if (lightweight && maybeBlank) {
-              // Lightweight cards can still be recursive/html inscriptions.
-              // Escalate to iframe fallback when <img> renders blank.
-              setIframeFallback(true);
-            }
-            debugLog('img-load-success', { currentSrc, sourceIndex });
-          }}
-          onError={() => {
-            setLoaded(false);
-            setSourceIndex((prev) => {
-              const next = prev + 1;
-              if (next >= imageSources.length) {
-                // Always use iframe preview fallback after image sources are exhausted.
-                setIframeFallback(true);
-                if (!docProbeRequested) {
-                  setDocProbeRequested(true);
-                }
-              }
-              debugLog('img-load-error-next-source', { currentSrc, prev, next });
-              return next;
-            });
-          }}
-          className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName} ${loaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
-        />
-      )}
+      <img
+        src={ordinalsContentUrl(inscriptionId)}
+        alt={alt}
+        loading={lightweight ? 'lazy' : 'eager'}
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setIframe(true)}
+        className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName}`}
+      />
     </div>
   );
 };
@@ -3987,9 +3643,8 @@ export const MarketplacePage: React.FC = () => {
                   <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                     {filteredCollectionInscriptions.map((ins) => {
                     const normalizedCollectionSlug = String(selectedCollectionSlug || '').trim().toLowerCase();
-                    // Default stable path for all collections:
-                    // lightweight image sources first, and iframe only for known recursive-heavy sets.
-                    const forceIframePreview = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(normalizedCollectionSlug);
+                    // iframe for recursive/HTML/SVG-layer collections (they can't render as <img>)
+                    const forceIframePreview = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(normalizedCollectionSlug);
                     const rareSats = collectionRareSatsByInscription[ins.inscription_id] || extractInscriptionRareSats(ins);
                     const score = collectionCompositeRarityByInscription.rawScores.get(ins.inscription_id) || 0;
                     const isOneOfOne = collectionCompositeRarityByInscription.forceTopRarityById.get(ins.inscription_id) || false;
@@ -4364,7 +4019,7 @@ export const MarketplacePage: React.FC = () => {
               {soldListings.slice(0, 12).map((s) => {
                 const source = String(s.sale_metadata?.source || '');
                 const advanced = source.includes('advanced-psbt');
-                const soldPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(
+                const soldPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(
                   String(s.collection_slug || '')
                 );
                 return (
@@ -4438,7 +4093,7 @@ export const MarketplacePage: React.FC = () => {
               <div className="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div className="xl:col-span-1 space-y-3">
                   {(() => {
-                    const detailPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc)/i.test(
+                    const detailPreferIframe = /(bchalloween|halloween|no-func|no_func|nofunc|sons.*satoshi|satoshi|recursive|svg.*layer|layer)/i.test(
                       String(
                         selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
                           selectedDetailListing?.collection_slug ||

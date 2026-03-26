@@ -58,7 +58,7 @@ export const ActionText: React.FC<ActionTextProps> = ({
 
   return (
     <div
-      className={`absolute pointer-events-none z-50 ${getColor()} font-bold text-2xl md:text-3xl drop-shadow-lg animate-bounce`}
+      className={`absolute pointer-events-none z-50 ${getColor()} font-extrabold text-4xl md:text-6xl tracking-wide drop-shadow-[0_0_14px_rgba(255,255,255,0.35)] animate-bounce`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,

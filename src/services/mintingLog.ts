@@ -12,6 +12,11 @@ export interface MintingLogEntry {
   paymentTxid?: string;
   orderId?: string;
   originalOrderId?: string;
+  inscriptionId?: string;
+  originalInscriptionId?: string | null;
+  originalPendingInscriptionId?: string | null;
+  resolvedAt?: string;
+  pendingResolvedMap?: Record<string, string>;
 }
 
 const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';

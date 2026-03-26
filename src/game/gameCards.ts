@@ -41,7 +41,8 @@ export type EffectAction =
   | 'freeze_animal'
   | 'play_additional_animal'
   | 'return_status'
-  | 'destroy_self';
+  | 'destroy_self'
+  | 'discard_card';
 
 export interface EffectDefinition {
   trigger: EffectTrigger;
@@ -310,7 +311,7 @@ export const GAME_ANIMAL_CARDS: GameCard[] = [
     rarity: 'uncommon',
     atk: 2,
     hp: 3,
-    inscriptionId: 'pig-inscription-id-placeholder', // TODO: Add real inscription ID when available
+    inscriptionId: '8b62f8c6c2a4e8b9c5d3a7f4e2b1c9a8d5e3f7b4a2c6e9d8b5a3f1c7e4b9d2ai0',
     effectText: 'When this animal is damaged, draw 1 card.',
     effects: [
       {

@@ -27,15 +27,9 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
     walletState.accounts[0]?.address && 
     isAdminAddress(walletState.accounts[0].address);
 
-  // Debug: Log wallet state changes
-  React.useEffect(() => {
-    console.log('HeaderMenu: walletState updated:', walletState);
-  }, [walletState]);
-
   // Schließe Modal wenn Wallet verbunden wurde
   React.useEffect(() => {
     if (showWalletModal && walletState.connected && walletState.accounts && walletState.accounts.length > 0) {
-      console.log('HeaderMenu: Closing wallet modal - wallet connected:', walletState.accounts[0].address, 'State:', walletState);
       // Schließe Modal mit kurzer Verzögerung, damit der User sieht, dass es funktioniert hat
       setTimeout(() => {
         setShowWalletModal(false);
@@ -345,7 +339,6 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             </div>
             <div className="p-4">
               <WalletConnect onConnected={() => {
-                console.log('WalletConnect callback called, closing modal');
                 setShowWalletModal(false);
               }} />
             </div>

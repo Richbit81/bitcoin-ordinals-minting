@@ -6,9 +6,21 @@ import {
   cancelMarketplaceListing,
   getMarketplaceActivity,
   getMarketplaceProfile,
+  getMarketplaceWalletInscriptionsByCollectionScan,
+  getMarketplaceWalletInscriptionsViaUnisat,
   MarketplaceActivity,
   MarketplaceProfile,
 } from '../services/marketplaceService';
+import { getOrdinalAddress } from '../utils/wallet';
+
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
+const MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX = 'marketplaceWalletRowsV1:';
+const MARKETPLACE_WALLET_ROWS_LAST_KEY = 'marketplaceWalletRowsLastV1';
+const walletRowInscriptionId = (row: any): string =>
+  String(row?.inscription_id || row?.inscriptionId || '').trim();
+const walletRowCollectionSlug = (row: any): string =>
+  String(row?.collection_slug || row?.collectionSlug || '').trim();
 
 export const MarketplaceProfilePage: React.FC = () => {
   const { walletState } = useWallet();
@@ -18,8 +30,7 @@ export const MarketplaceProfilePage: React.FC = () => {
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   const [activity, setActivity] = useState<MarketplaceActivity[]>([]);
 
-  const address = walletState.accounts?.[0]?.address || '';
-
+  const address = getOrdinalAddress(walletState.accounts || []);
   useEffect(() => {
     const load = async () => {
       if (!walletState.connected || !address) {
@@ -34,7 +45,38 @@ export const MarketplaceProfilePage: React.FC = () => {
           getMarketplaceProfile(address),
           getMarketplaceActivity({ address, limit: 40 }),
         ]);
-        setProfile(data);
+        let mergedProfile = data;
+        try {
+          let walletInscriptions = await getMarketplaceWalletInscriptionsViaUnisat(address);
+          if (walletInscriptions.length === 0) {
+            walletInscriptions = await getMarketplaceWalletInscriptionsByCollectionScan(address);
+          }
+          if (walletInscriptions.length > 0) {
+            mergedProfile = { ...mergedProfile, walletInscriptions };
+          }
+        } catch (fallbackError) {
+          console.warn('[MarketplaceProfile] walletInscriptions unisat fallback failed', fallbackError);
+        }
+        if (typeof window !== 'undefined' && (mergedProfile.walletInscriptions || []).length > 0 && address) {
+          try {
+            const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${String(address).toLowerCase()}`;
+            window.sessionStorage.setItem(
+              cacheKey,
+              JSON.stringify({ ts: Date.now(), data: mergedProfile.walletInscriptions || [] })
+            );
+            window.sessionStorage.setItem(
+              MARKETPLACE_WALLET_ROWS_LAST_KEY,
+              JSON.stringify({
+                ts: Date.now(),
+                address: String(address).toLowerCase(),
+                data: mergedProfile.walletInscriptions || [],
+              })
+            );
+          } catch {
+            // cache optional
+          }
+        }
+        setProfile(mergedProfile);
         setActivity(activityData);
       } catch (err: any) {
         setError(err?.message || 'Failed to load profile');
@@ -51,7 +93,38 @@ export const MarketplaceProfilePage: React.FC = () => {
       getMarketplaceProfile(address),
       getMarketplaceActivity({ address, limit: 40 }),
     ]);
-    setProfile(data);
+    let mergedProfile = data;
+    try {
+      let walletInscriptions = await getMarketplaceWalletInscriptionsViaUnisat(address);
+      if (walletInscriptions.length === 0) {
+        walletInscriptions = await getMarketplaceWalletInscriptionsByCollectionScan(address);
+      }
+      if (walletInscriptions.length > 0) {
+        mergedProfile = { ...mergedProfile, walletInscriptions };
+      }
+    } catch {
+      // optional fallback
+    }
+    if (typeof window !== 'undefined' && (mergedProfile.walletInscriptions || []).length > 0 && address) {
+      try {
+        const cacheKey = `${MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX}${String(address).toLowerCase()}`;
+        window.sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({ ts: Date.now(), data: mergedProfile.walletInscriptions || [] })
+        );
+        window.sessionStorage.setItem(
+          MARKETPLACE_WALLET_ROWS_LAST_KEY,
+          JSON.stringify({
+            ts: Date.now(),
+            address: String(address).toLowerCase(),
+            data: mergedProfile.walletInscriptions || [],
+          })
+        );
+      } catch {
+        // cache optional
+      }
+    }
+    setProfile(mergedProfile);
     setActivity(activityData);
   };
 
@@ -189,6 +262,7 @@ export const MarketplaceProfilePage: React.FC = () => {
                     <table className="min-w-full text-sm">
                       <thead className="bg-zinc-950/80">
                         <tr className="text-left text-gray-400">
+                          <th className="px-4 py-2">Preview</th>
                           <th className="px-4 py-2">Name</th>
                           <th className="px-4 py-2">Collection</th>
                           <th className="px-4 py-2">Inscription</th>
@@ -197,16 +271,49 @@ export const MarketplaceProfilePage: React.FC = () => {
                       </thead>
                       <tbody>
                         {profile.walletInscriptions.map((ins) => {
-                          const inscriptionName = String(ins.metadata?.name || ins.inscription_id);
-                          const collectionLabel = String(ins.collection_name || ins.collection_slug || '-');
-                          const collectionLink = ins.collection_slug
-                            ? `/marketplace?collection=${encodeURIComponent(ins.collection_slug)}&inscription=${encodeURIComponent(ins.inscription_id)}`
-                            : `/marketplace?inscription=${encodeURIComponent(ins.inscription_id)}`;
+                          const inscriptionId = walletRowInscriptionId(ins);
+                          if (!inscriptionId) return null;
+                          const inscriptionName = String(ins.metadata?.name || inscriptionId);
+                          const slug = walletRowCollectionSlug(ins);
+                          const collectionLabel = String(ins.collection_name || slug || '-');
+                          const collectionLink = slug
+                            ? `/marketplace?collection=${encodeURIComponent(slug)}&inscription=${encodeURIComponent(inscriptionId)}`
+                            : `/marketplace?inscription=${encodeURIComponent(inscriptionId)}`;
+                          const encodedId = encodeURIComponent(inscriptionId);
+                          const useRichartImageProxy = import.meta.env.VITE_USE_RICHART_IMAGE_PROXY === 'true';
+                          const previewSources = [
+                            `https://ordinals.com/content/${encodedId}`,
+                            `https://ordinals.com/preview/${encodedId}`,
+                            `${FALLBACK_API_URL}/content/${encodedId}`,
+                            `${FALLBACK_API_URL}/api/inscription/image/${encodedId}`,
+                            ...(useRichartImageProxy ? [`${API_URL}/api/inscription/image/${encodedId}`] : []),
+                          ];
                           return (
-                            <tr key={ins.inscription_id} className="border-t border-white/10">
+                            <tr key={inscriptionId} className="border-t border-white/10">
+                              <td className="px-4 py-2">
+                                <div className="h-10 w-10 rounded overflow-hidden border border-white/10 bg-zinc-900">
+                                  <img
+                                    src={previewSources[0]}
+                                    alt={inscriptionName}
+                                    className="h-full w-full object-contain"
+                                    loading="lazy"
+                                    decoding="async"
+                                    data-fallback-index="0"
+                                    onError={(e) => {
+                                      const img = e.currentTarget;
+                                      const currentIdx = Number(img.dataset.fallbackIndex || '0');
+                                      const nextIdx = currentIdx + 1;
+                                      if (nextIdx < previewSources.length) {
+                                        img.dataset.fallbackIndex = String(nextIdx);
+                                        img.src = previewSources[nextIdx];
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </td>
                               <td className="px-4 py-2 truncate max-w-[220px]" title={inscriptionName}>{inscriptionName}</td>
                               <td className="px-4 py-2 truncate max-w-[180px]" title={collectionLabel}>{collectionLabel}</td>
-                              <td className="px-4 py-2 font-mono text-xs">{ins.inscription_id.slice(0, 14)}...</td>
+                              <td className="px-4 py-2 font-mono text-xs">{inscriptionId.slice(0, 14)}...</td>
                               <td className="px-4 py-2">
                                 <Link to={collectionLink} className="text-red-300 hover:text-red-200 underline text-xs">
                                   Open

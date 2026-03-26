@@ -18,6 +18,7 @@ interface TechGameItem {
   description: string;
   price: number; // in sats
   category: Category;
+  isNew?: boolean;
   specs?: string[]; // Für Specs (z.B. SEQUENCER)
   features?: string[]; // Für Features (z.B. TACTICAL)
   mintable?: boolean; // true = mintbar auch bei price 0 (nur Fees)
@@ -25,11 +26,21 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0',
+    name: '22:17 - The Consistency Protocol',
+    description:
+      'A dystopian time-loop puzzle adventure where every choice rewrites trust, reality, and your own identity. Survive the day, uncover contradictions, and decide how the city exits the loop.',
+    price: 5000,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: 'a346945c962d4c9f25ca8a5bea7cfd4de3bc8665f0640d8991df6137878d2ee0i0',
     name: 'Bitcoin Mix Tape',
     description: 'Not a static Ordinal — but a dynamic, evolving music project fully embedded on the Bitcoin blockchain. The Bitcoin Mixtape is inscribed as Ordinals — 100% on-chain, permanent, interoperable, yet actively changeable and expandable. Features: 17 total tracks as Ordinals inscriptions, high-quality audio streamed from Bitcoin itself, 24 MB of data (5 full blocks!), interactive tracklist, multiple tape covers, Three.js-based 3D cassette player, animated cassette reels, and a dynamic day-and-night sky.',
     price: 20000,
     category: 'music',
+    isNew: true,
     specs: [
       '17 total tracks as Ordinals inscriptions',
       'High-quality audio fully stored on Bitcoin',
@@ -122,6 +133,53 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     category: 'music',
     mintable: false, // Nur Test, nicht mintbar
   },
+  {
+    inscriptionId: '74db17534294de1deba771a9aab334c5b1112f09a304d5c4039d29299aec3e17i0',
+    name: 'Circuit Groove Lab',
+    description:
+      'PulseForge is a browser-based cyberpunk modular synth inspired by Reactable. You can drag and rotate glowing modules on a virtual table, auto-connect them by proximity, and shape sound in real time with Web Audio and animated Canvas visuals.',
+    price: 3000,
+    category: 'music',
+  },
+  {
+    inscriptionId: '8d65b9cba518edf5361ecbe5017001422fc18845111ca01c415aacd03631dd48i0',
+    name: 'Dystopia',
+    description:
+      'Dystopia is a narrative text adventure set in a surveillance state where reality is constantly rewritten. You navigate city sectors, uncover hidden truths, manage suspicion, and make high-stakes choices that branch into multiple endings (escape, revolt, conformity, or arrest). The game features a stylized map interface, save-code progression, and bilingual support in a single file.',
+    price: 3000,
+    category: 'game',
+  },
+  {
+    inscriptionId: 'a57b9c7dc4b7a3488815bc6b52d729f37d99ed68e09042af25482919fed5f756i0',
+    name: 'Messenger',
+    description: 'Simple morse code messenger.',
+    price: 3000,
+    category: 'tool',
+  },
+  {
+    inscriptionId: '6c46e05e93092e2b28a3cb0ab0bba6632bc8ba107ee71f293f207168949d1fcei0',
+    name: 'PulseForge',
+    description:
+      'Circuit Groove Lab is a browser-based modular circuit synth built with pure HTML, JavaScript, and Canvas. It lets you place electronic components, connect pins with smart wires, and turn circuit paths into real-time sound using the Web Audio API. It includes a visual editor (drag, zoom, pan, snap-connect), live oscilloscope/spectrum views, editable parameters, multiple built-in presets (including clock/sequencer patches), and speaker-click audio arming for controlled playback.',
+    price: 5000,
+    category: 'music',
+  },
+  {
+    inscriptionId: '3ad36e0457afaa4778295b1a991e4d426daffecae53520f51f373f6f9312cd3bi0',
+    name: 'Reactor Pulse',
+    description:
+      'Reactor Pulse is a fast-paced neon music arcade game. You connect drifting sound orbs inside a circular reactor to build live beat chains before the orbs destabilize and explode. The longer and more complex your chains, the stronger the music and the higher your score and combo multiplier. As time passes, intensity rises through levels, special orbs add chaos or bonuses, and the run ends in reactor overload at 100%.',
+    price: 5000,
+    category: 'game',
+  },
+  {
+    inscriptionId: '07113c9d4ce1ae696c7e674207cff6a0afd19d78c2345abaa200d499d31616d6i0',
+    name: 'Aural Disk',
+    description:
+      'Aural Disk is a browser-based modular music instrument with a circular interactive table. You can place, move, and rotate sound modules (bass, drums, synths, effects, and controllers) that auto-connect into a live audio signal chain using Web Audio. It offers genre presets, touch/mouse gestures, real-time visual feedback, and a compact side dock for fast performance control.',
+    price: 5000,
+    category: 'music',
+  },
 ];
 
 export const TechGamesPage: React.FC = () => {
@@ -134,6 +192,7 @@ export const TechGamesPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<TechGameItem | null>(null);
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // inscriptionId of expanded item
+  const isImmersiveTryMode = selectedItem?.inscriptionId === '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0';
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
@@ -400,6 +459,11 @@ export const TechGamesPage: React.FC = () => {
               <span className={`px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${getPriceBadge(item).color} shadow-sm`}>
                 {getPriceBadge(item).label}
               </span>
+              {item.isNew && (
+                <span className="px-2 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-pink-600 text-white shadow-sm animate-pulse">
+                  NEW
+                </span>
+              )}
             </div>
 
             {/* Preview - HTML Inscription in iframe - Optimized for performance */}
@@ -630,7 +694,7 @@ export const TechGamesPage: React.FC = () => {
           onClick={() => setSelectedItem(null)}
         >
           {/* Header with Close Button */}
-          <div className="flex justify-between items-center p-4 border-b-2 border-red-600 bg-gray-900">
+          <div className={`flex justify-between items-center p-4 ${isImmersiveTryMode ? 'absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/85 to-transparent border-0' : 'border-b-2 border-red-600 bg-gray-900'}`}>
             <h2 className="text-2xl font-bold text-white">{selectedItem.name}</h2>
             <div className="flex items-center gap-4">
               {/* Mint Button - anzeigen wenn price > 0 oder mintable */}
@@ -660,7 +724,7 @@ export const TechGamesPage: React.FC = () => {
           
           {/* Fullscreen iframe - Optimized for performance */}
           <div 
-            className="flex-1 w-full h-full bg-black overflow-hidden relative"
+            className={`${isImmersiveTryMode ? 'w-full h-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
             onClick={(e) => e.stopPropagation()}
             style={{
               willChange: 'contents',
@@ -711,68 +775,70 @@ export const TechGamesPage: React.FC = () => {
           </div>
 
           {/* Footer with Info */}
-          <div 
-            className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="max-w-7xl mx-auto">
-              {/* Description */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-300">{selectedItem.description}</p>
-              </div>
-              
-              {/* Specs/Features - Aufklappbar */}
-              {(selectedItem.specs || selectedItem.features) && (
+          {!isImmersiveTryMode && (
+            <div
+              className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-w-7xl mx-auto">
+                {/* Description */}
                 <div className="mb-4">
-                  <button
-                    onClick={() => setExpandedSpecs(expandedSpecs === selectedItem.inscriptionId ? null : selectedItem.inscriptionId)}
-                    className="w-full text-left text-sm text-red-400 hover:text-red-300 font-semibold flex items-center justify-between transition-colors duration-300 mb-2"
-                  >
-                    <span>{selectedItem.specs ? 'Specs' : 'Main Features'}</span>
-                    <svg
-                      className={`w-5 h-5 transition-transform duration-300 ${expandedSpecs === selectedItem.inscriptionId ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <p className="text-sm text-gray-300">{selectedItem.description}</p>
+                </div>
+
+                {/* Specs/Features - Aufklappbar */}
+                {(selectedItem.specs || selectedItem.features) && (
+                  <div className="mb-4">
+                    <button
+                      onClick={() => setExpandedSpecs(expandedSpecs === selectedItem.inscriptionId ? null : selectedItem.inscriptionId)}
+                      className="w-full text-left text-sm text-red-400 hover:text-red-300 font-semibold flex items-center justify-between transition-colors duration-300 mb-2"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {expandedSpecs === selectedItem.inscriptionId && (
-                    <div className="space-y-2 bg-gray-800/50 rounded p-3 max-h-64 overflow-y-auto">
-                      {(selectedItem.specs || selectedItem.features)?.map((itemText, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-300">
-                          <span className="text-red-600 mt-0.5">•</span>
-                          <span>{itemText}</span>
-                        </div>
-                      ))}
+                      <span>{selectedItem.specs ? 'Specs' : 'Main Features'}</span>
+                      <svg
+                        className={`w-5 h-5 transition-transform duration-300 ${expandedSpecs === selectedItem.inscriptionId ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {expandedSpecs === selectedItem.inscriptionId && (
+                      <div className="space-y-2 bg-gray-800/50 rounded p-3 max-h-64 overflow-y-auto">
+                        {(selectedItem.specs || selectedItem.features)?.map((itemText, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                            <span className="text-red-600 mt-0.5">•</span>
+                            <span>{itemText}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Price Info */}
+                {selectedItem.price > 0 ? (
+                  <div className="flex justify-between items-center border-t border-gray-700 pt-4">
+                    <div className="flex-1" />
+                    <div className="text-right">
+                      <p className="text-sm text-gray-400">Price</p>
+                      <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
+                      <p className="text-xs text-gray-500">+ inscription fees</p>
                     </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Price Info */}
-              {selectedItem.price > 0 ? (
-                <div className="flex justify-between items-center border-t border-gray-700 pt-4">
-                  <div className="flex-1" />
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">Price</p>
-                    <p className="text-lg font-bold text-red-600">{formatPrice(selectedItem.price)}</p>
-                    <p className="text-xs text-gray-500">+ inscription fees</p>
                   </div>
-                </div>
-              ) : selectedItem.mintable ? (
-                <div className="flex justify-between items-center border-t border-gray-700 pt-4">
-                  <div className="flex-1" />
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">Price</p>
-                    <p className="text-lg font-bold text-green-400">FREE</p>
-                    <p className="text-xs text-gray-500">only inscription fees</p>
+                ) : selectedItem.mintable ? (
+                  <div className="flex justify-between items-center border-t border-gray-700 pt-4">
+                    <div className="flex-1" />
+                    <div className="text-right">
+                      <p className="text-sm text-gray-400">Price</p>
+                      <p className="text-lg font-bold text-green-400">FREE</p>
+                      <p className="text-xs text-gray-500">only inscription fees</p>
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

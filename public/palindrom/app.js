@@ -498,13 +498,18 @@ class PalindromSoundBox {
 
         try {
             const status = await palindromScanner.checkApiStatus();
+            const apiLabel = status.apiBase && status.apiBase.includes('api.richart.app')
+                ? 'api.richart.app'
+                : status.apiBase && status.apiBase.includes('railway.app')
+                    ? 'railway fallback'
+                    : 'palindrom api';
 
             if (status.mempool === 'online' && status.ordinals === 'online') {
                 if (ordIcon) ordIcon.className = 'online';
-                if (ordText) ordText.textContent = 'APIs: mempool.space ✓ | ordinals.com ✓';
+                if (ordText) ordText.textContent = `APIs: mempool.space ✓ | ${apiLabel} ✓`;
             } else if (status.mempool === 'online') {
                 if (ordIcon) ordIcon.className = 'checking';
-                if (ordText) ordText.textContent = 'APIs: mempool.space ✓ | ordinals.com ✕';
+                if (ordText) ordText.textContent = `APIs: mempool.space ✓ | ${apiLabel} ✕`;
             } else {
                 if (ordIcon) ordIcon.className = 'offline';
                 if (ordText) ordText.textContent = 'APIs: Unreachable';

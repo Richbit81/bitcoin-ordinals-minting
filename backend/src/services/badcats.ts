@@ -27,6 +27,8 @@ if (!postgresConfigured && !persistentStorageConfigured && process.env.NODE_ENV 
 const DATA_DIR = persistentStorageConfigured
   ? path.resolve(configuredDataPath)
   : path.join(process.cwd(), 'data', 'badcats');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const BACKUP_RETENTION = Math.max(20, Math.floor(Number(process.env.BADCATS_BACKUP_RETENTION || 200) || 200));
 
 const dataFile = () => path.join(DATA_DIR, 'badcats-data.json');
 
@@ -55,6 +57,13 @@ const ensurePostgresSchema = async () => {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS badcats_state_history (
+      id BIGSERIAL PRIMARY KEY,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
   await pool.query(
     `INSERT INTO badcats_state (id, payload)
      VALUES (1, $1::jsonb)
@@ -74,6 +83,26 @@ export const getBadCatsStorageInfo = () => ({
 
 const ensureDir = async () => {
   try { await fs.access(DATA_DIR); } catch { await fs.mkdir(DATA_DIR, { recursive: true }); }
+};
+
+const createFileBackupIfExists = async () => {
+  try {
+    const previousRaw = await fs.readFile(dataFile(), 'utf-8');
+    if (!previousRaw.trim()) return;
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(BACKUP_DIR, `badcats-data-${stamp}.json`);
+    await fs.writeFile(backupPath, previousRaw);
+
+    const files = await fs.readdir(BACKUP_DIR);
+    const backupFiles = files
+      .filter(name => /^badcats-data-.*\.json$/i.test(name))
+      .sort((a, b) => b.localeCompare(a));
+    const stale = backupFiles.slice(BACKUP_RETENTION);
+    await Promise.all(stale.map(name => fs.unlink(path.join(BACKUP_DIR, name)).catch(() => undefined)));
+  } catch {
+    // No previous file or backup failure should not block writes.
+  }
 };
 
 const normalizeWhitelistEntries = (input: unknown): BadCatsWhitelistEntry[] => {
@@ -143,6 +172,21 @@ const writeData = async (data: BadCatsData): Promise<void> => {
   if (postgresConfigured) {
     await ensurePostgresSchema();
     const pool = getPgPool();
+    const current = await pool.query(`SELECT payload FROM badcats_state WHERE id = 1 LIMIT 1`);
+    const currentPayload = current.rows?.[0]?.payload;
+    if (currentPayload) {
+      await pool.query(
+        `INSERT INTO badcats_state_history (payload) VALUES ($1::jsonb)`,
+        [JSON.stringify(currentPayload)]
+      );
+      await pool.query(
+        `DELETE FROM badcats_state_history
+         WHERE id NOT IN (
+           SELECT id FROM badcats_state_history ORDER BY id DESC LIMIT $1
+         )`,
+        [BACKUP_RETENTION]
+      );
+    }
     await pool.query(
       `UPDATE badcats_state SET payload = $1::jsonb, updated_at = NOW() WHERE id = 1`,
       [JSON.stringify(data)]
@@ -151,6 +195,7 @@ const writeData = async (data: BadCatsData): Promise<void> => {
   }
 
   await ensureDir();
+  await createFileBackupIfExists();
   await fs.writeFile(dataFile(), JSON.stringify(data, null, 2));
 };
 
@@ -225,6 +270,12 @@ export const syncHashlistFromLogs = async (): Promise<number> => {
 
 export const getWhitelistEntries = async (): Promise<BadCatsWhitelistEntry[]> => {
   return (await readData()).whitelistAddresses;
+};
+
+export const replaceWhitelistEntries = async (entries: BadCatsWhitelistEntry[]): Promise<void> => {
+  const data = await readData();
+  data.whitelistAddresses = normalizeWhitelistEntries(entries);
+  await writeData(data);
 };
 
 export const getWhitelistAddresses = async (): Promise<string[]> => {

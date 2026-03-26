@@ -20,6 +20,7 @@ const API_URL = getApiUrl();
 const BADCATS_RECENT_MINTS_START_AT = '2026-02-28T16:45:00.000Z';
 
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Creepster&family=Bangers&display=swap';
+const HIDDEN_RECENT_MINT_INDICES = new Set<number>([18, 78]);
 
 const FREE_MINT_INSCRIPTION_IDS = [
   '334a6ae4a4a12092e154aa5a3266db96bff335e991da3d98c6bbfd8f7b2f0b52i0',
@@ -136,6 +137,7 @@ const FREE_MINT_INSCRIPTION_IDS = [
 ];
 
 const STORAGE_KEY_FREE_MINTS_USED = 'badcats_free_mints_used';
+const ORDINAL_INSCRIPTION_ID_RE = /^[0-9a-f]{64}i\d+$/i;
 
 function getLocalFreeMintTracker(): Record<string, number> {
   try {
@@ -458,7 +460,7 @@ export const BadCatsPage: React.FC = () => {
             previewDoc: null,
           };
         })
-        .filter((mint: any) => mint.itemIndex > 0)
+        .filter((mint: any) => mint.itemIndex > 0 && !HIDDEN_RECENT_MINT_INDICES.has(mint.itemIndex))
         .slice(0, 10);
       setRecentMints(filtered);
     } catch {
@@ -566,8 +568,13 @@ export const BadCatsPage: React.FC = () => {
             rarity: 'common',
           }],
           inscriptionIds: [result.inscriptionId],
+          inscriptionId: result.inscriptionId,
           txids: result.txid ? [result.txid] : [],
           paymentTxid: result.paymentTxid,
+          orderId: result.orderId,
+          originalPendingInscriptionId: String(result.inscriptionId || '').startsWith('pending-')
+            ? result.inscriptionId
+            : undefined,
         });
       } catch { /* backup log failed */ }
 
@@ -588,16 +595,21 @@ export const BadCatsPage: React.FC = () => {
           trait_type: layer.traitType,
           value: layer.trait.name,
         }));
-        await fetch(`${API_URL}/api/badcats/hashlist`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inscriptionId: result.inscriptionId,
-            itemIndex: result.item.index,
-            name: `BadCats #${result.item.index}`,
-            attributes,
-          }),
-        });
+        if (ORDINAL_INSCRIPTION_ID_RE.test(String(result.inscriptionId || '').trim())) {
+          await fetch(`${API_URL}/api/badcats/hashlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inscriptionIds: [result.inscriptionId],
+              inscriptionId: result.inscriptionId,
+              itemIndex: result.item.index,
+              name: `BadCats #${result.item.index}`,
+              attributes,
+            }),
+          });
+        } else {
+          console.warn('[BadCats] Skip hashlist add for non-final inscription id:', result.inscriptionId);
+        }
       } catch { /* hashlist failed */ }
 
       if (isFreeForUser) {
@@ -622,6 +634,9 @@ export const BadCatsPage: React.FC = () => {
       setMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
       setRecentMints(prev => {
+        if (HIDDEN_RECENT_MINT_INDICES.has(result.item.index)) {
+          return prev;
+        }
         const resultPreviewDoc = buildPreviewDocFromResultItem(result.item);
         const nextEntry = {
           itemIndex: result.item.index,
