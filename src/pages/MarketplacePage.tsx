@@ -148,10 +148,13 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
+const _htmlCollectionSlugs = new Set<string>();
+const _htmlInscriptionIds = new Set<string>();
+
 /**
- * Vorschau nur aus Inscription-ID: ordinals.com direct.
- * Schnellster Pfad: ordinals.com/content als img, bei Fehler sofort iframe.
- * Railway-Fallbacks entfernt (keine /content/ oder /preview/ Routen dort).
+ * Vorschau per Inscription-ID direkt von ordinals.com.
+ * img-first, bei Fehler sofort iframe + merke die Collection als HTML.
+ * Alle weiteren Inscriptions der selben Collection starten direkt als iframe.
  */
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -161,6 +164,8 @@ const PreviewImage: React.FC<{
   fit?: 'cover' | 'contain';
   lightweight?: boolean;
   preferIframe?: boolean;
+  collectionSlug?: string;
+  onHtmlDetected?: () => void;
 }> = ({
   inscriptionId,
   alt,
@@ -169,12 +174,20 @@ const PreviewImage: React.FC<{
   fit = 'cover',
   lightweight = false,
   preferIframe = false,
+  collectionSlug,
+  onHtmlDetected,
 }) => {
-  const [iframe, setIframe] = useState(preferIframe);
+  const shouldIframe = preferIframe
+    || _htmlInscriptionIds.has(inscriptionId)
+    || (collectionSlug ? _htmlCollectionSlugs.has(collectionSlug) : false);
+  const [iframe, setIframe] = useState(shouldIframe);
 
   useEffect(() => {
-    setIframe(preferIframe);
-  }, [inscriptionId, preferIframe]);
+    const next = preferIframe
+      || _htmlInscriptionIds.has(inscriptionId)
+      || (collectionSlug ? _htmlCollectionSlugs.has(collectionSlug) : false);
+    setIframe(next);
+  }, [inscriptionId, preferIframe, collectionSlug]);
 
   if (iframe) {
     return (
@@ -199,7 +212,12 @@ const PreviewImage: React.FC<{
         loading={lightweight ? 'lazy' : 'eager'}
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={() => setIframe(true)}
+        onError={() => {
+          _htmlInscriptionIds.add(inscriptionId);
+          if (collectionSlug) _htmlCollectionSlugs.add(collectionSlug);
+          setIframe(true);
+          onHtmlDetected?.();
+        }}
         className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${imageClassName}`}
       />
     </div>
@@ -3384,6 +3402,7 @@ export const MarketplacePage: React.FC = () => {
                       className="w-full aspect-square"
                       fit="contain"
                       lightweight
+                      collectionSlug={String(l.collection_slug || '').trim().toLowerCase()}
                     />
                     <div className="px-1 py-1 text-[9px] font-mono text-gray-400 truncate">
                       {inscriptionId}
@@ -3700,6 +3719,7 @@ export const MarketplacePage: React.FC = () => {
                           fit="contain"
                           lightweight={!forceIframePreview}
                           preferIframe={forceIframePreview}
+                          collectionSlug={normalizedCollectionSlug}
                         />
                         <div className="p-1.5">
                           <div className="text-[10px] font-mono text-gray-300 truncate">
@@ -3848,6 +3868,7 @@ export const MarketplacePage: React.FC = () => {
                         imageClassName="group-hover:scale-[1.03] transition-transform duration-300"
                         fit="contain"
                         lightweight
+                        collectionSlug={String(l.collection_slug || '').trim().toLowerCase()}
                       />
                       <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
                       <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-white/20 text-[10px] font-mono">
@@ -4032,6 +4053,7 @@ export const MarketplacePage: React.FC = () => {
                         fit="contain"
                         lightweight={!soldPreferIframe}
                         preferIframe={soldPreferIframe}
+                        collectionSlug={String(s.collection_slug || '').trim().toLowerCase()}
                       />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{s.collection_slug}</div>
@@ -4109,6 +4131,12 @@ export const MarketplacePage: React.FC = () => {
                     fit="contain"
                     lightweight={!detailPreferIframe}
                     preferIframe={detailPreferIframe}
+                    collectionSlug={String(
+                      selectedInscriptionDetail.marketplaceInscription?.collection_slug ||
+                        selectedDetailListing?.collection_slug ||
+                        selectedCollectionSlug ||
+                        ''
+                    ).trim().toLowerCase()}
                   />
                     );
                   })()}
