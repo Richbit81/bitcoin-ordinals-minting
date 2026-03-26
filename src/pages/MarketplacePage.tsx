@@ -54,6 +54,25 @@ const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX_EXCLUSIVE = 95_000_000_000_000;
 const VINTAGE_SAT_MAX_EXCLUSIVE = 5_000_000_000_000;
 const RARE_SATS_MISS_CACHE_TTL_MS = 10 * 60 * 1000;
+const BLOCK_REWARD_INITIAL = 50 * SATS_PER_BTC;
+function deriveSatRarity(sat: number): string {
+  if (!Number.isFinite(sat) || sat < 0) return '-';
+  const s = Math.trunc(sat);
+  const derived: string[] = [];
+  if (s === 0) derived.push('mythic');
+  if (s < NAKAMOTO_SAT_MAX_EXCLUSIVE) derived.push('nakamoto');
+  if (s < VINTAGE_SAT_MAX_EXCLUSIVE) derived.push('vintage');
+  if (s % SATS_PER_BTC === 0) derived.push('alpha');
+  if (s % SATS_PER_BTC === SATS_PER_BTC - 1) derived.push('omega');
+  if (s % BLOCK_REWARD_INITIAL === 0 && s > 0) derived.push('uncommon');
+  const satText = String(s);
+  if (satText === satText.split('').reverse().join('')) derived.push('palindrome');
+  const block = Math.floor(s / BLOCK_REWARD_INITIAL);
+  if (block === 9) derived.push('block 9');
+  if (block === 78) derived.push('block 78');
+  if (block < 1000) derived.push('early');
+  return derived.length ? Array.from(new Set(derived)).join(', ') : '-';
+}
 const RARE_SAT_OVERRIDES_BY_INSCRIPTION: Record<string, string> = {
   '6efa80055d144fd67b477c828e4778e3c0582e0b6e728bb8f222c05b73ac3723i0': 'silk road',
 };
@@ -2592,52 +2611,60 @@ export const MarketplacePage: React.FC = () => {
       md?.sat_number ??
       md?.sat
     );
-    if (!Number.isFinite(satCandidate) || satCandidate < 0) return '-';
-    const sat = Math.trunc(satCandidate);
-    const derived: string[] = [];
-    if (sat < NAKAMOTO_SAT_MAX_EXCLUSIVE) derived.push('nakamoto');
-    if (sat < VINTAGE_SAT_MAX_EXCLUSIVE) derived.push('vintage');
-    if (sat % SATS_PER_BTC === 0) derived.push('alpha');
-    if (sat % SATS_PER_BTC === SATS_PER_BTC - 1) derived.push('omega');
-    const satText = String(sat);
-    if (satText === satText.split('').reverse().join('')) derived.push('palindrome');
-    return derived.length ? Array.from(new Set(derived)).join(', ') : '-';
+    return deriveSatRarity(satCandidate);
   };
 
-  const fetchExternalSatributesBySatNumber = async (_satNumber: number): Promise<string> => {
-    // External per-sat crawling can trigger aggressive 429 rate limits.
-    return '-';
+  const fetchSatFromOrdinals = async (inscriptionId: string): Promise<number | null> => {
+    try {
+      const res = await fetch(`https://ordinals.com/r/inscription/${encodeURIComponent(inscriptionId)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const sat = Number(data?.sat);
+      return Number.isFinite(sat) && sat >= 0 ? sat : null;
+    } catch { return null; }
   };
 
   const hydrateRareSatsFromDetailFallback = async (
     ids: string[],
     byId: Map<string, string>
   ): Promise<void> => {
-    for (const id of ids) {
-      if ((byId.get(id) || '-') !== '-') continue;
+    const unresolved = ids.filter((id) => (byId.get(id) || '-') === '-');
+    if (!unresolved.length) return;
+
+    const resolveOne = async (id: string): Promise<void> => {
       try {
-        const detail = await getMarketplaceInscriptionDetail(id);
-        let normalized = extractRareSatsFromDetail(detail);
-        if (normalized === '-') {
-          const satCandidate = Number(
-            detail?.chainInfo?.satNumber ??
-            detail?.chainInfo?.sat_number ??
-            detail?.chainInfo?.sat ??
-            detail?.marketplaceInscription?.metadata?.satNumber ??
-            detail?.marketplaceInscription?.metadata?.sat_number ??
-            detail?.marketplaceInscription?.metadata?.sat
+        let satCandidate = NaN;
+        try {
+          const detail = await getMarketplaceInscriptionDetail(id);
+          const fromDetail = extractRareSatsFromDetail(detail);
+          if (fromDetail !== '-') {
+            byId.set(id, fromDetail);
+            delete rareSatsMissCacheRef.current[id];
+            return;
+          }
+          satCandidate = Number(
+            detail?.chainInfo?.satNumber ?? detail?.chainInfo?.sat_number ?? detail?.chainInfo?.sat ??
+            detail?.marketplaceInscription?.metadata?.satNumber ?? detail?.marketplaceInscription?.metadata?.sat_number ?? detail?.marketplaceInscription?.metadata?.sat
           );
-          if (Number.isFinite(satCandidate) && satCandidate >= 0) {
-            normalized = await fetchExternalSatributesBySatNumber(satCandidate);
+        } catch { /* backend failed, try ordinals.com */ }
+
+        if (!Number.isFinite(satCandidate) || satCandidate < 0) {
+          const ordSat = await fetchSatFromOrdinals(id);
+          if (ordSat !== null) satCandidate = ordSat;
+        }
+        if (Number.isFinite(satCandidate) && satCandidate >= 0) {
+          const normalized = deriveSatRarity(satCandidate);
+          if (normalized !== '-') {
+            byId.set(id, normalized);
+            delete rareSatsMissCacheRef.current[id];
           }
         }
-        if (normalized !== '-') {
-          byId.set(id, normalized);
-          delete rareSatsMissCacheRef.current[id];
-        }
-      } catch {
-        // Retry on later hydration cycles; don't mark as permanent no-hit on transient API errors.
-      }
+      } catch { /* transient error */ }
+    };
+
+    const CONCURRENCY = 4;
+    for (let i = 0; i < unresolved.length; i += CONCURRENCY) {
+      await Promise.allSettled(unresolved.slice(i, i + CONCURRENCY).map(resolveOne));
     }
   };
 
@@ -3548,7 +3575,7 @@ export const MarketplacePage: React.FC = () => {
                       className="w-full aspect-square"
                       fit="contain"
                       lightweight
-                      collectionSlug={String(l.collection_slug || '').trim().toLowerCase()}
+                      collectionSlug={String(activeListing?.collection_slug || selectedCollectionSlug || '').trim().toLowerCase()}
                     />
                     <div className="px-1 py-1 text-[9px] font-mono text-gray-400 truncate">
                       {inscriptionId}
@@ -4241,15 +4268,7 @@ export const MarketplacePage: React.FC = () => {
         const ordSat = ordApiData?.sat != null ? Number(ordApiData.sat) : NaN;
         let enrichedRareSats = detailRareSats;
         if (enrichedRareSats === '-' && Number.isFinite(ordSat) && ordSat >= 0) {
-          const sat = Math.trunc(ordSat);
-          const derived: string[] = [];
-          if (sat < NAKAMOTO_SAT_MAX_EXCLUSIVE) derived.push('nakamoto');
-          if (sat < VINTAGE_SAT_MAX_EXCLUSIVE) derived.push('vintage');
-          if (sat % SATS_PER_BTC === 0) derived.push('alpha');
-          if (sat % SATS_PER_BTC === SATS_PER_BTC - 1) derived.push('omega');
-          const satText = String(sat);
-          if (satText === satText.split('').reverse().join('')) derived.push('palindrome');
-          if (derived.length) enrichedRareSats = derived.join(', ');
+          enrichedRareSats = deriveSatRarity(ordSat);
         }
         if (Array.isArray(ordApiData?.charms) && ordApiData!.charms.length > 0) {
           const charmNames = ordApiData!.charms.map((c: any) => String(c).toLowerCase());
