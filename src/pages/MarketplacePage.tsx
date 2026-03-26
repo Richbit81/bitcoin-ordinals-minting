@@ -148,7 +148,66 @@ const extractXverseProviderAccounts = (payload: any): any[] => {
   return [];
 };
 
-const _contentTypeCache: Record<string, 'image' | 'html'> = {};
+const _contentTypeCache: Record<string, 'image' | 'recursive'> = {};
+
+function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = ordinalsContentUrl(id);
+  });
+}
+
+function compositeToDataUrl(body: string): Promise<string> | null {
+  // Pattern A: Ordlify <recursive-images inscriptions="id1, id2, ...">
+  const insMatch = body.match(/inscriptions="([^"]+)"/);
+  if (insMatch) {
+    const childIds = insMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+    const w = parseInt(body.match(/width="(\d+)"/)?.[1] || '400');
+    const h = parseInt(body.match(/height="(\d+)"/)?.[1] || '400');
+    return Promise.all(childIds.map(loadInscriptionImage)).then((images) => {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d')!;
+      for (const img of images) ctx.drawImage(img, 0, 0, w, h);
+      return c.toDataURL('image/png');
+    });
+  }
+
+  // Pattern B: SVG with <image href="/content/{id}" x y width height>
+  const svgLayers: { id: string; x: number; y: number; w: number; h: number }[] = [];
+  const re = /<image[^>]*href="\/content\/([^"]+)"[^>]*>/gi;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const tag = m[0];
+    svgLayers.push({
+      id: m[1],
+      x: parseFloat(tag.match(/\bx="([^"]*?)"/)?.[1] || '0'),
+      y: parseFloat(tag.match(/\by="([^"]*?)"/)?.[1] || '0'),
+      w: parseFloat(tag.match(/\bwidth="([^"]*?)"/)?.[1] || '0'),
+      h: parseFloat(tag.match(/\bheight="([^"]*?)"/)?.[1] || '0'),
+    });
+  }
+  if (svgLayers.length > 0) {
+    const vb = body.match(/viewBox="\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)\s*"/);
+    const cW = Math.round(parseFloat(vb?.[1] || '1000'));
+    const cH = Math.round(parseFloat(vb?.[2] || '1000'));
+    return Promise.all(svgLayers.map((l) => loadInscriptionImage(l.id))).then((images) => {
+      const c = document.createElement('canvas');
+      c.width = cW; c.height = cH;
+      const ctx = c.getContext('2d')!;
+      for (let i = 0; i < svgLayers.length; i++) {
+        const l = svgLayers[i];
+        ctx.drawImage(images[i], l.x, l.y, l.w, l.h);
+      }
+      return c.toDataURL('image/png');
+    });
+  }
+
+  return null;
+}
 
 const PreviewImage: React.FC<{
   inscriptionId: string;
@@ -178,49 +237,25 @@ const PreviewImage: React.FC<{
 
     const showAsImage = () => { if (!cancelled) setMode('img'); };
 
-    const compositeRecursive = async () => {
+    const compositeFromBody = async (body: string) => {
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        const html = await res.text();
-
-        const insMatch = html.match(/inscriptions="([^"]+)"/);
-        if (!insMatch) {
+        const promise = compositeToDataUrl(body);
+        if (!promise) {
           if (!cancelled) setMode('iframe');
           return;
         }
+        const dataUrl = await promise;
+        if (!cancelled) { setCompositedSrc(dataUrl); setMode('composited'); }
+      } catch {
+        if (!cancelled) setMode('iframe');
+      }
+    };
 
-        const childIds = insMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-        const w = parseInt(html.match(/width="(\d+)"/)?.[1] || '400');
-        const h = parseInt(html.match(/height="(\d+)"/)?.[1] || '400');
-
-        const images = await Promise.all(
-          childIds.map(
-            (id) =>
-              new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = ordinalsContentUrl(id);
-              }),
-          ),
-        );
-
-        if (cancelled) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error();
-        for (const img of images) ctx.drawImage(img, 0, 0, w, h);
-
-        const dataUrl = canvas.toDataURL('image/png');
-        if (!cancelled) {
-          setCompositedSrc(dataUrl);
-          setMode('composited');
-        }
+    const fetchAndComposite = async () => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error();
+        await compositeFromBody(await res.text());
       } catch {
         if (!cancelled) setMode('iframe');
       }
@@ -228,18 +263,29 @@ const PreviewImage: React.FC<{
 
     const cached = slug ? _contentTypeCache[slug] : undefined;
     if (cached === 'image') { showAsImage(); return; }
-    if (cached === 'html') { compositeRecursive(); return; }
+    if (cached === 'recursive') { fetchAndComposite(); return; }
 
     fetch(url, { method: 'HEAD' })
       .then((r) => {
         if (cancelled) return;
         const ct = r.headers.get('content-type') || '';
-        if (ct.startsWith('image/')) {
+        const isSvg = ct.includes('svg');
+        const isImage = ct.startsWith('image/') && !isSvg;
+
+        if (isImage) {
           if (slug) _contentTypeCache[slug] = 'image';
           showAsImage();
+        } else if (isSvg) {
+          fetch(url).then(r2 => r2.text()).then((body) => {
+            if (cancelled) return;
+            const hasChildRefs = /\/content\//.test(body);
+            if (slug) _contentTypeCache[slug] = hasChildRefs ? 'recursive' : 'image';
+            if (hasChildRefs) compositeFromBody(body);
+            else showAsImage();
+          }).catch(() => showAsImage());
         } else {
-          if (slug) _contentTypeCache[slug] = 'html';
-          compositeRecursive();
+          if (slug) _contentTypeCache[slug] = 'recursive';
+          fetchAndComposite();
         }
       })
       .catch(() => showAsImage());
