@@ -19,7 +19,7 @@ export interface RecentMintsResponse {
   total: number;
 }
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 /**
  * Ruft die letzten geminteten Karten ab

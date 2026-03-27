@@ -3,7 +3,7 @@
 
 import { PACK_CONFIGS } from '../config/packs';
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export interface PackAvailability {
   packId: string;

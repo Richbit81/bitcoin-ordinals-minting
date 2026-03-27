@@ -15,7 +15,7 @@ export interface DelegateContent {
 }
 
 // API-Endpunkt für Inskriptionen
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 // Recipient Address für Pack-Verkauf
 const RECIPIENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';

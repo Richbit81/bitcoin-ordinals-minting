@@ -29,14 +29,14 @@ export const CardReveal: React.FC<CardRevealProps> = ({
     
     // PRIORITÄT 2: Für "pending-" IDs: Verwende Backend-Endpoint
     if (card.inscriptionId && card.inscriptionId.startsWith('pending-')) {
-      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
       console.log(`[CardReveal] ⏳ Using pending ID with backend: ${card.inscriptionId}`);
       return `${API_URL}/api/inscription/image/${card.inscriptionId}`;
     }
     
     // PRIORITÄT 3: Für finale Delegate-IDs: Verwende Backend-Endpoint, der das Bild aus HTML extrahiert
     if (card.inscriptionId && !card.inscriptionId.startsWith('mock-')) {
-      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
       console.log(`[CardReveal] 🔄 Using delegate ID with backend: ${card.inscriptionId}`);
       return `${API_URL}/api/inscription/image/${card.inscriptionId}`;
     }

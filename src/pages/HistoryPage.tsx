@@ -40,7 +40,7 @@ export const HistoryPage: React.FC = () => {
 
     setChecking(true);
     try {
-      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+      const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
       const walletAddress = getOrdinalAddress(walletState.accounts);
       
       console.log('[History] 🔍 Checking pending inscriptions...');

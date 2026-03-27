@@ -21,7 +21,7 @@ export interface WalletCard {
  * EBENE 3: Registry Cache (letzter Fallback)
  */
 export const fetchWalletCards = async (walletAddress: string): Promise<WalletCard[]> => {
-  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
   
   let delegates: DelegateCard[] = [];
   let source = 'unknown';

@@ -29,7 +29,7 @@ const FREE_ITEMS = [
 const COLLECTION_NAME = 'Free Stuff';
 
 // API URL
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const FreeStuffPage: React.FC = () => {
   const navigate = useNavigate();

@@ -19,7 +19,7 @@ const MIXTAPE_CONFIG = {
 };
 
 // API URL für Inscription-Bilder
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const BitcoinMixtapePage: React.FC = () => {
   const navigate = useNavigate();

@@ -80,7 +80,7 @@ const RANDOM_ITEMS = [
 const COLLECTION_NAME = 'Random Stuff';
 
 // API URL
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const RandomStuffPage: React.FC = () => {
   const navigate = useNavigate();

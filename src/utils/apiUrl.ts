@@ -4,7 +4,7 @@
  * Also converts http:// to https:// for production (Mixed Content prevention)
  */
 export function getApiUrl(): string {
-  let apiUrl = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  let apiUrl = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
   // Fix: Füge https:// hinzu, falls Protokoll fehlt (außer bei localhost)
   if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {

@@ -3,7 +3,7 @@
  * Stellt sicher, dass SVG-Bilder 1:1 korrekt abgerufen werden
  */
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 /**
  * Ruft das SVG-Bild einer Inscription vom Backend ab

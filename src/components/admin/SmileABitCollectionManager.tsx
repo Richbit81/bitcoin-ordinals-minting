@@ -14,7 +14,7 @@ import { createTransfer, confirmTransfer } from '../../services/pointShopService
 import { signPSBT } from '../../utils/wallet';
 import { useWallet } from '../../contexts/WalletContext';
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 interface SmileABitCollectionManagerProps {
   adminAddress: string;

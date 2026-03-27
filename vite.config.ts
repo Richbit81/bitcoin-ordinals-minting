@@ -11,6 +11,9 @@ export default defineConfig({
     open: true,
     fs: {
       strict: false
+    },
+    proxy: {
+      '/api': 'http://localhost:3003'
     }
   },
   resolve: {

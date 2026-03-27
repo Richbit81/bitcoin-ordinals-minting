@@ -15,7 +15,7 @@ import { useWallet } from '../../contexts/WalletContext';
 import { signPSBT } from '../../utils/wallet';
 import { preparePresign, savePresigned } from '../../services/collectionPresigning';
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 interface CollectionManagerProps {
   adminAddress: string;

@@ -7,7 +7,7 @@
 import { createUnisatInscription, UnisatInscriptionResponse } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX } from '../utils/wallet';
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 /**
  * Erstellt eine Delegate-Inskription für ein Point Shop Item

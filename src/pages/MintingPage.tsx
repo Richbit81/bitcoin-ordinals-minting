@@ -109,7 +109,7 @@ export const MintingPage: React.FC = () => {
       
       const checkForFinalIds = async () => {
         try {
-          const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+          const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
           const checkResponse = await fetch(`${API_URL}/api/unisat/check-pending-inscriptions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

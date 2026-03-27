@@ -54,7 +54,7 @@ const ITEMS_1984 = [
 const COLLECTION_NAME = '1984';
 
 // API URL
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const Orwell1984Page: React.FC = () => {
   const navigate = useNavigate();

@@ -19,7 +19,7 @@ export interface MintingLogEntry {
   pendingResolvedMap?: Record<string, string>;
 }
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 const LOG_STORAGE_KEY = 'minting_logs';
 
 /**

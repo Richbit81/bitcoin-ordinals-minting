@@ -14,7 +14,7 @@ interface RecentMintsBannerProps {
   collection?: Collection; // Optional: für Wallet-Fallback
 }
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const RecentMintsBanner: React.FC<RecentMintsBannerProps> = ({ collectionId, collection }) => {
   const [items, setItems] = useState<RecentMintItem[]>([]);

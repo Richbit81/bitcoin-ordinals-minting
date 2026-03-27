@@ -3,7 +3,7 @@
  * Erstellt Inskriptionen über die UniSat OpenAPI
  */
 
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export interface UnisatInscriptionRequest {
   file: File;

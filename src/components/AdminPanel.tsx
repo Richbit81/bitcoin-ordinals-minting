@@ -600,7 +600,7 @@ const CardPreview: React.FC<{ card: Card }> = ({ card }) => {
 
 // Point Shop Management Component
 const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress }) => {
-  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
   const { walletState } = useWallet();
   const [items, setItems] = useState<PointShopItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1743,7 +1743,7 @@ const PointShopManagement: React.FC<{ adminAddress?: string }> = ({ adminAddress
 
 // Minting Logs Management Component
 const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddress }) => {
-  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+  const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
   const BADCATS_FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
   const RETRO_POINTS_BACKFILL_DONE_KEY = 'retro_points_backfill_v1_done';
   const [logs, setLogs] = useState<{

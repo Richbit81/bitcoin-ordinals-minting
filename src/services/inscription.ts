@@ -5,7 +5,7 @@ import { generatePremiumPack, generateStarterPack } from '../utils/rarityDistrib
 import { createBatchDelegates } from './delegate';
 
 // API-Endpunkt für Inskriptionen
-const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const INSCRIPTION_API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export interface InscriptionResponse {
   inscriptionIds: string[];

@@ -23,7 +23,7 @@ const NFT_ITEM = {
 const COLLECTION_NAME = 'NFT';
 
 // API URL
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 export const NftMintingPage: React.FC = () => {
   const navigate = useNavigate();

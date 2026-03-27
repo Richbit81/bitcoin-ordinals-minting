@@ -8,7 +8,7 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || 'http://localhost:3003';
+const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 type Category = 'game' | 'tool' | 'music';
 
