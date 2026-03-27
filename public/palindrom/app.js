@@ -1027,20 +1027,13 @@ class PalindromSoundBox {
     }
 
     calculateNoteSteps(sequence) {
-        // Berechnet für jede Ziffer die Anzahl Beat-Steps (ganzzahlig!)
-        // KEINE Wiederholung von Ziffern – nur längere Notendauer!
-        // Verteilung symmetrisch von der Mitte nach außen
-        // → Melodie bleibt 1:1 erhalten, passt perfekt in den 16-Step-Takt
-        
         const TARGET = 16;
         const n = sequence.length;
         
-        // Edge Cases
-        if (n === 0) return [TARGET];
+        if (n === 0) return { steps: [TARGET], indices: null };
         
-        // Zu lang (>16): Jede Note bekommt 1 Step, überzählige werden übersprungen
+        // More than 16 digits: pick 16 evenly spaced notes
         if (n > TARGET) {
-            // Gleichmäßig auswählen welche Noten gespielt werden
             const selectedIndices = [];
             for (let step = 0; step < TARGET; step++) {
                 selectedIndices.push(Math.round(step * (n - 1) / (TARGET - 1)));
@@ -1048,57 +1041,20 @@ class PalindromSoundBox {
             return { steps: new Array(TARGET).fill(1), indices: selectedIndices };
         }
         
-        // Jede Note bekommt mindestens 1 Beat-Step
-        const steps = new Array(n).fill(1);
-        let remaining = TARGET - n;
+        // Each note gets a base number of steps; extras distributed evenly
+        const base = Math.floor(TARGET / n);
+        const extra = TARGET % n;
+        const steps = new Array(n).fill(base);
         
-        // Wenn nichts zu verteilen ist, fertig
-        if (remaining === 0) {
-            console.log(`[NoteSteps] "${sequence}" (${n}) → Steps: [${steps.join(',')}] = ${TARGET}`);
-            return { steps, indices: null };
-        }
-        
-        const mid = Math.floor((n - 1) / 2);
-        
-        // Symmetrische Paare bilden (Mitte zuerst, dann nach außen)
-        const priorityPairs = [];
-        
-        if (n % 2 === 1) {
-            // Ungerade Länge: Mitte ist einzeln, dann Paare
-            priorityPairs.push([mid]);
-            for (let d = 1; d <= mid; d++) {
-                priorityPairs.push([mid - d, mid + d]);
-            }
-        } else {
-            // Gerade Länge: nur Paare
-            for (let d = 0; d < n / 2; d++) {
-                priorityPairs.push([mid - d, mid + 1 + d]);
+        if (extra > 0) {
+            // Distribute extra steps as evenly spaced as possible
+            // e.g. n=5, extra=1 → middle gets +1; n=7, extra=2 → positions 2,4 get +1
+            for (let i = 0; i < extra; i++) {
+                const pos = Math.round((i + 0.5) * n / extra - 0.5);
+                steps[Math.min(pos, n - 1)]++;
             }
         }
         
-        // Extra-Steps symmetrisch verteilen (Round-Robin)
-        let pairIdx = 0;
-        while (remaining > 0) {
-            const pair = priorityPairs[pairIdx % priorityPairs.length];
-            
-            if (pair.length === 2) {
-                if (remaining >= 2) {
-                    steps[pair[0]]++;
-                    steps[pair[1]]++;
-                    remaining -= 2;
-                } else {
-                    // Nur 1 übrig: Mitte bekommt es
-                    steps[mid]++;
-                    remaining--;
-                }
-            } else {
-                steps[pair[0]]++;
-                remaining--;
-            }
-            pairIdx++;
-        }
-        
-        console.log(`[NoteSteps] "${sequence}" (${n}) → Steps: [${steps.join(',')}] = ${steps.reduce((a,b) => a+b, 0)}`);
         return { steps, indices: null };
     }
 
@@ -1214,6 +1170,8 @@ class PalindromSoundBox {
             audioSystem.stopBeats();
         }
         
+        this.clearAllHighlights();
+        
         const currentNumber = document.getElementById('currentNumber');
         if (currentNumber) {
             currentNumber.textContent = '-';
@@ -1281,23 +1239,81 @@ class PalindromSoundBox {
         
         const sequence = sequences[this.currentSequenceIndex];
         if (!sequence || sequence.length === 0) {
-            // Leere Sequenz überspringen (per setTimeout, um Endlosrekursion zu vermeiden)
             this.currentSequenceIndex++;
             if (this.beatStepDuration > 0) {
                 this.nextBeatTime += this.beatStepDuration * 16;
             }
             this.playTimeout = setTimeout(() => {
-                if (this.isPlaying) {
-                    this.playSequenceBeatSync(sequences);
-                }
+                if (this.isPlaying) this.playSequenceBeatSync(sequences);
             }, 0);
             return;
         }
         
-        // Ganzzahlige Beat-Steps pro Note berechnen (KEINE Wiederholung!)
-        // Jede Note bekommt 1, 2 oder mehr Steps → Melodie bleibt original
         const { steps, indices } = this.calculateNoteSteps(sequence);
-        this.playSequenceNumbersBeatSync(sequence, sequences, steps, indices);
+        this._scheduleBeatSyncBar(sequence, sequences, steps, indices);
+    }
+
+    _scheduleBeatSyncBar(sequence, allSequences, noteSteps, selectedIndices) {
+        if (!this.isPlaying) return;
+        
+        const now = audioSystem.audioContext.currentTime;
+        let currentTime = Math.max(this.nextBeatTime, now);
+        const patternStartTime = currentTime;
+        const totalPatternTime = this.beatStepDuration * 16;
+        
+        const digits = selectedIndices
+            ? selectedIndices.map(idx => sequence[idx])
+            : sequence.split('');
+        
+        // Schedule all notes via Web Audio (sample-accurate)
+        const noteTimings = [];
+        for (let i = 0; i < digits.length; i++) {
+            const number = parseInt(digits[i]);
+            if (isNaN(number)) continue;
+            const noteDuration = this.beatStepDuration * noteSteps[i];
+            audioSystem.playTone(number, noteDuration, currentTime, true);
+            noteTimings.push({
+                time: currentTime, number, duration: noteDuration,
+                seqIdx: this.currentSequenceIndex,
+                noteIdx: selectedIndices ? selectedIndices[i] : i
+            });
+            currentTime += noteDuration;
+        }
+        
+        // Schedule UI updates to match audio (setTimeout-based, close enough for visuals)
+        for (const nt of noteTimings) {
+            const delayFromNow = Math.max(0, (nt.time - now) * 1000);
+            setTimeout(() => {
+                if (!this.isPlaying) return;
+                const el = document.getElementById('currentNumber');
+                if (el) el.textContent = nt.number;
+                this.highlightStep(nt.seqIdx, nt.noteIdx);
+                this.updatePalindrom();
+            }, delayFromNow);
+        }
+        
+        // Advance to next sequence/loop
+        this.currentNumberIndex = 0;
+        this.currentSequenceIndex++;
+        const nextPatternStart = patternStartTime + totalPatternTime;
+        this.nextBeatTime = nextPatternStart;
+        const delayMs = Math.max(10, (nextPatternStart - now) * 1000);
+        
+        if (this.currentSequenceIndex >= allSequences.length) {
+            if (this.isLooping) {
+                this.currentSequenceIndex = 0;
+                this.currentNumberIndex = 0;
+                this.playTimeout = setTimeout(() => {
+                    if (this.isPlaying) this.playSequenceBeatSync(allSequences);
+                }, delayMs);
+            } else {
+                this.playTimeout = setTimeout(() => this.stop(), delayMs);
+            }
+        } else {
+            this.playTimeout = setTimeout(() => {
+                if (this.isPlaying) this.playSequenceBeatSync(allSequences);
+            }, delayMs);
+        }
     }
 
     // ========================================
@@ -1309,7 +1325,86 @@ class PalindromSoundBox {
         const maxLen = Math.max(...sequences.map(s => s.length));
         if (maxLen === 0) { this.stop(); return; }
         this.currentNumberIndex = 0;
-        this._polyStep(sequences, maxLen);
+        
+        if (this.beatSync && audioSystem.audioContext) {
+            this._polyBeatSync(sequences, maxLen);
+        } else {
+            this._polyStep(sequences, maxLen);
+        }
+    }
+
+    _polyBeatSync(sequences, maxLen) {
+        if (!this.isPlaying) return;
+        
+        const now = audioSystem.audioContext.currentTime;
+        let currentTime = Math.max(this.nextBeatTime, now);
+        const patternStartTime = currentTime;
+        const totalPatternTime = this.beatStepDuration * 16;
+        const TARGET = 16;
+        
+        // Determine how many positions to play and step durations
+        let playCount, stepDurations, selectedPositions;
+        
+        if (maxLen > TARGET) {
+            playCount = TARGET;
+            stepDurations = new Array(TARGET).fill(1);
+            selectedPositions = [];
+            for (let i = 0; i < TARGET; i++) {
+                selectedPositions.push(Math.round(i * (maxLen - 1) / (TARGET - 1)));
+            }
+        } else {
+            playCount = maxLen;
+            const base = Math.floor(TARGET / maxLen);
+            const extra = TARGET % maxLen;
+            stepDurations = new Array(maxLen).fill(base);
+            for (let i = 0; i < extra; i++) {
+                const pos = Math.round((i + 0.5) * maxLen / extra - 0.5);
+                stepDurations[Math.min(pos, maxLen - 1)]++;
+            }
+            selectedPositions = null;
+        }
+        
+        const noteTimings = [];
+        for (let i = 0; i < playCount; i++) {
+            const srcIdx = selectedPositions ? selectedPositions[i] : i;
+            const noteDuration = this.beatStepDuration * stepDurations[i];
+            
+            for (let s = 0; s < sequences.length; s++) {
+                const seq = sequences[s];
+                if (srcIdx >= seq.length) continue;
+                const num = parseInt(seq[srcIdx]);
+                if (isNaN(num)) continue;
+                audioSystem.playTone(num, noteDuration, currentTime, true);
+            }
+            
+            noteTimings.push({ time: currentTime, srcIdx, duration: noteDuration });
+            currentTime += noteDuration;
+        }
+        
+        for (const nt of noteTimings) {
+            const delayFromNow = Math.max(0, (nt.time - now) * 1000);
+            setTimeout(() => {
+                if (!this.isPlaying) return;
+                for (let s = 0; s < sequences.length; s++) {
+                    if (nt.srcIdx < sequences[s].length) {
+                        this.highlightStep(s, nt.srcIdx);
+                    }
+                }
+                this.updatePalindrom();
+            }, delayFromNow);
+        }
+        
+        const nextPatternStart = patternStartTime + totalPatternTime;
+        this.nextBeatTime = nextPatternStart;
+        const delayMs = Math.max(10, (nextPatternStart - now) * 1000);
+        
+        if (this.isLooping) {
+            this.playTimeout = setTimeout(() => {
+                if (this.isPlaying) this._polyBeatSync(sequences, maxLen);
+            }, delayMs);
+        } else {
+            this.playTimeout = setTimeout(() => this.stop(), delayMs);
+        }
     }
 
     _polyStep(sequences, maxLen) {
@@ -1388,15 +1483,16 @@ class PalindromSoundBox {
         
         this.highlightStep(this.currentSequenceIndex, this.currentNumberIndex);
         
-        // Ton spielen - kürzere Dauer (in Millisekunden für Timeout, in Sekunden für Audio)
-        const durationMs = (11 - audioSystem.speed) * 50; // Kürzere Dauer: 50-500ms
-        const durationSec = durationMs / 1000; // Für Audio in Sekunden
+        const el = document.getElementById('currentNumber');
+        if (el) el.textContent = number;
+        
+        const durationMs = (11 - audioSystem.speed) * 50;
+        const durationSec = durationMs / 1000;
         
         if (audioSystem.audioContext) {
             audioSystem.playTone(number, durationSec);
         }
         
-        // Palindrom aktualisieren
         this.updatePalindrom();
         
         // Nächste Zahl NACH dem Timeout setzen (im Timeout selbst)
@@ -1412,88 +1508,7 @@ class PalindromSoundBox {
         }, durationMs);
     }
 
-    playSequenceNumbersBeatSync(sequence, allSequences, noteSteps, selectedIndices) {
-        if (!this.isPlaying) return;
-        
-        // Alle Töne der Sequenz auf einmal planen (nicht rekursiv!)
-        const now = audioSystem.audioContext.currentTime;
-        let currentTime = this.nextBeatTime;
-        
-        // Stelle sicher, dass wir nicht in der Vergangenheit planen
-        if (currentTime < now) {
-            currentTime = now;
-        }
-        
-        const patternStartTime = currentTime;
-        
-        // Gesamte Pattern-Dauer (immer exakt 16 Beat-Steps = 1 Takt)
-        const totalPatternTime = this.beatStepDuration * 16;
-        
-        // Bestimme welche Ziffern gespielt werden und wie lange
-        const playSequence = selectedIndices 
-            ? selectedIndices.map(idx => sequence[idx])  // Bei >16 Ziffern: ausgewählte
-            : sequence.split('');                         // Normal: alle Ziffern
-        
-        for (let i = 0; i < playSequence.length; i++) {
-            const number = parseInt(playSequence[i]);
-            if (isNaN(number)) continue;
-            
-            // Notenlänge = Beat-Step-Dauer × Anzahl Steps für diese Note
-            const noteDuration = this.beatStepDuration * noteSteps[i];
-            
-            // Ton zum geplanten Beat-Zeitpunkt spielen
-            audioSystem.playTone(number, noteDuration, currentTime, true);
-            
-            // UI aktualisieren für ersten Ton
-            if (i === 0) {
-                const currentNumberEl = document.getElementById('currentNumber');
-                if (currentNumberEl) {
-                    currentNumberEl.textContent = number;
-                }
-            }
-            
-            currentTime += noteDuration;
-        }
-        
-        // Palindrom aktualisieren
-        this.updatePalindrom();
-        
-        // Sequenz beendet, zur nächsten Sequenz
-        this.currentNumberIndex = 0;
-        this.currentSequenceIndex++;
-        
-        // Nächster Pattern-Start = Start dieses Patterns + 1 Takt
-        const nextPatternStart = patternStartTime + totalPatternTime;
-        // Wie lange müssen wir real warten? (Millisekunden ab jetzt)
-        const delayMs = Math.max(10, (nextPatternStart - now) * 1000);
-        
-        if (this.currentSequenceIndex >= allSequences.length) {
-            if (this.isLooping) {
-                // Loop: nächste Iteration nach diesem Takt
-                this.currentSequenceIndex = 0;
-                this.currentNumberIndex = 0;
-                this.nextBeatTime = nextPatternStart;
-                this.playTimeout = setTimeout(() => {
-                    if (this.isPlaying) {
-                        this.playSequenceBeatSync(allSequences);
-                    }
-                }, delayMs);
-            } else {
-                // Stoppen nach letzter Sequenz
-                this.playTimeout = setTimeout(() => {
-                    this.stop();
-                }, delayMs);
-            }
-        } else {
-            // Nächste Sequenz nach diesem Takt
-            this.nextBeatTime = nextPatternStart;
-            this.playTimeout = setTimeout(() => {
-                if (this.isPlaying) {
-                    this.playSequenceBeatSync(allSequences);
-                }
-            }, delayMs);
-        }
-    }
+    // (Beat-sync scheduling handled by _scheduleBeatSyncBar above)
 
     updateUI() {}
 
@@ -1524,9 +1539,15 @@ class PalindromSoundBox {
     }
 
     highlightStep(seqIdx, charIdx) {
-        document.querySelectorAll('.step-cell.active').forEach(el => el.classList.remove('active'));
+        // Only clear this row's highlights (not all rows, so polyphonic works)
+        document.querySelectorAll(`.step-cell[data-seq="${seqIdx}"].active`)
+            .forEach(el => el.classList.remove('active'));
         const cell = document.querySelector(`.step-cell[data-seq="${seqIdx}"][data-idx="${charIdx}"]`);
         if (cell) cell.classList.add('active');
+    }
+
+    clearAllHighlights() {
+        document.querySelectorAll('.step-cell.active').forEach(el => el.classList.remove('active'));
     }
 
     // ========================================

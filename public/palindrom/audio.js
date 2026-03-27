@@ -795,26 +795,41 @@ class AudioSystem {
         const pattern = this.beatPatterns[this.beatStyle];
         if (!pattern) return;
         
-        const stepDuration = 60 / (this.bpm * 4);
-        let nextBeatTime = this.audioContext.currentTime;
+        this._beatNextStepTime = this.audioContext.currentTime;
+        this._beatPattern = pattern;
+        this._beatRunning = true;
         
-        const scheduleBeats = () => {
-            const step = this.beatStep % 16;
-            if (pattern.kick[step])  this.playKick(nextBeatTime);
-            if (pattern.snare[step]) this.playSnare(nextBeatTime);
-            if (pattern.hihat[step]) this.playHiHat(nextBeatTime);
-            this.beatStep++;
-            nextBeatTime += stepDuration;
+        // Lookahead scheduler: schedules beats 150ms ahead, wakes every 25ms
+        const LOOKAHEAD_SEC = 0.15;
+        const INTERVAL_MS = 25;
+        
+        const scheduler = () => {
+            if (!this._beatRunning) return;
+            const stepDuration = 60 / (this.bpm * 4);
+            const horizon = this.audioContext.currentTime + LOOKAHEAD_SEC;
+            
+            while (this._beatNextStepTime < horizon) {
+                const step = this.beatStep % 16;
+                const p = this._beatPattern;
+                if (p.kick  && p.kick[step])  this.playKick(this._beatNextStepTime);
+                if (p.snare && p.snare[step]) this.playSnare(this._beatNextStepTime);
+                if (p.hihat && p.hihat[step]) this.playHiHat(this._beatNextStepTime);
+                if (p.clap  && p.clap[step])  this.playClap?.(this._beatNextStepTime);
+                if (p.openHat && p.openHat[step]) this.playOpenHiHat?.(this._beatNextStepTime);
+                if (p.rim   && p.rim[step])   this.playRim?.(this._beatNextStepTime);
+                if (p.tom   && p.tom[step])   this.playTom?.(this._beatNextStepTime);
+                if (p.crash && p.crash[step]) this.playCrash?.(this._beatNextStepTime);
+                this.beatStep++;
+                this._beatNextStepTime += stepDuration;
+            }
         };
         
-        for (let i = 0; i < 32; i++) scheduleBeats();
-        
-        this.beatInterval = setInterval(() => {
-            scheduleBeats();
-        }, stepDuration * 1000);
+        scheduler();
+        this.beatInterval = setInterval(scheduler, INTERVAL_MS);
     }
 
     stopBeats() {
+        this._beatRunning = false;
         if (this.beatInterval) {
             clearInterval(this.beatInterval);
             this.beatInterval = null;
