@@ -129,23 +129,16 @@ class PalindromScanner {
         const processUtxo = async (utxo) => {
             const key = `${utxo.txid}:${utxo.vout}`;
             try {
-                const res = await fetch(`${ORDINALS_DIRECT_URL}/r/output/${key}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.sat_ranges && Array.isArray(data.sat_ranges)) {
-                        for (const [start, end] of data.sat_ranges) {
-                            const found = this._findPalindromesInRange(start, end);
-                            for (const pal of found) {
-                                allPalindromes.push({
-                                    ...pal,
-                                    utxo: key,
-                                    utxoValue: utxo.value,
-                                    confirmed: utxo.status?.confirmed ?? true
-                                });
-                            }
-                        }
+                const ranges = await this._fetchSatRangesFromHtml(key);
+                for (const [start, end] of ranges) {
+                    const found = this._findPalindromesInRange(start, end);
+                    for (const pal of found) {
+                        allPalindromes.push({
+                            ...pal,
+                            utxo: key,
+                            utxoValue: utxo.value,
+                            confirmed: utxo.status?.confirmed ?? true
+                        });
                     }
                 }
             } catch (e) { /* skip this UTXO */ }
@@ -185,6 +178,19 @@ class PalindromScanner {
         this._updateProgress();
         console.log(`[Scanner] Client: ${allPalindromes.length} Palindrome in ${elapsed}s (${total} UTXOs)`);
         return allPalindromes;
+    }
+
+    async _fetchSatRangesFromHtml(utxoKey) {
+        const res = await fetch(`${ORDINALS_DIRECT_URL}/output/${utxoKey}`);
+        if (!res.ok) return [];
+        const html = await res.text();
+        const ranges = [];
+        const re = /href=\/sat\/(\d+)[^>]*>[^<]*<\/a>\s*[-\u2013]\s*<a[^>]*href=\/sat\/(\d+)/g;
+        let m;
+        while ((m = re.exec(html)) !== null) {
+            ranges.push([Number(m[1]), Number(m[2])]);
+        }
+        return ranges;
     }
 
     _isPalindrome(n) {
