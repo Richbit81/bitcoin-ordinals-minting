@@ -302,22 +302,50 @@ class AudioSystem {
     // ================================================================
     
     _createReverbImpulse() {
-        const length = this.audioContext.sampleRate * 1.5; // 1.5s (kürzer, natürlicher)
-        const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
+        const sr = this.audioContext.sampleRate;
+        const length = sr * 2.5;
+        const impulse = this.audioContext.createBuffer(2, length, sr);
         
         for (let channel = 0; channel < 2; channel++) {
             const data = impulse.getChannelData(channel);
-            for (let i = 0; i < length; i++) {
-                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+            
+            // Early reflections (first 80ms) - gives space and depth
+            const earlyEnd = Math.floor(sr * 0.08);
+            const reflections = [
+                { time: 0.012, gain: 0.6 }, { time: 0.019, gain: 0.45 },
+                { time: 0.028, gain: 0.35 }, { time: 0.037, gain: 0.28 },
+                { time: 0.048, gain: 0.2 },  { time: 0.062, gain: 0.15 },
+                { time: 0.074, gain: 0.1 }
+            ];
+            for (const ref of reflections) {
+                const idx = Math.floor(ref.time * sr);
+                const spread = 4;
+                for (let j = -spread; j <= spread; j++) {
+                    const k = idx + j + (channel * 3);
+                    if (k >= 0 && k < earlyEnd) {
+                        data[k] += ref.gain * (1 - Math.abs(j) / (spread + 1))
+                            * (0.8 + Math.random() * 0.4);
+                    }
+                }
+            }
+            
+            // Late diffuse tail with frequency-dependent decay
+            for (let i = earlyEnd; i < length; i++) {
+                const t = i / length;
+                const decay = Math.exp(-3.5 * t) * (1 - t);
+                const hfDamping = Math.exp(-6 * t);
+                const lf = (Math.random() * 2 - 1) * decay;
+                const hf = (Math.random() * 2 - 1) * decay * hfDamping * 0.6;
+                data[i] = lf * 0.7 + hf * 0.3;
             }
         }
         
         this.reverbConvolver = this.audioContext.createConvolver();
         this.reverbConvolver.buffer = impulse;
         this.reverbWetGain = this.audioContext.createGain();
-        this.reverbWetGain.gain.value = 0; // 0 = aus
+        this.reverbWetGain.gain.value = 0;
         this.reverbConvolver.connect(this.reverbWetGain);
-        this.reverbWetGain.connect(this.eqLowFilter); // Return → EQ → Master
+        this.reverbWetGain.connect(this.eqLowFilter);
     }
 
     // ================================================================
@@ -401,176 +429,226 @@ class AudioSystem {
     }
 
     _createTone(frequency, duration, now, beatSync) {
-        // Instrument-Konfigurationen
-        // WICHTIG: Alle Gains sind niedrig, Summe pro Instrument ≤ 0.35
         const configs = {
             piano: {
                 oscs: [
-                    { type: 'sine', gain: 0.18, detune: 0 },
-                    { type: 'sine', gain: 0.10, detune: 12 },
-                    { type: 'sine', gain: 0.05, detune: 24 }
+                    { type: 'sine', gain: 0.13, detune: 0, cents: -4 },
+                    { type: 'sine', gain: 0.13, detune: 0, cents: 4 },
+                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
+                    { type: 'sine', gain: 0.02, freqRatio: 3.0 },
+                    { type: 'sine', gain: 0.01, freqRatio: 4.0 },
                 ],
-                attack: 0.008, decay: 0.12, sustainLevel: 0.35, release: 0.15
+                attack: 0.005, decay: 0.25, sustainLevel: 0.25, release: 0.3,
+                filterEnv: { start: 5000, end: 1200, time: 0.4 },
+                noise: { level: 0.06, duration: 0.015, filter: 4000 }
             },
             strings: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.12, detune: 0 },
-                    { type: 'sawtooth', gain: 0.08, detune: -5 },
-                    { type: 'sawtooth', gain: 0.05, detune: 5 }
+                    { type: 'sawtooth', gain: 0.07, cents: -12 },
+                    { type: 'sawtooth', gain: 0.07, cents: 12 },
+                    { type: 'sawtooth', gain: 0.05, cents: -7, detune: -12 },
+                    { type: 'sawtooth', gain: 0.05, cents: 7, detune: -12 },
+                    { type: 'sawtooth', gain: 0.03, cents: 3 },
                 ],
-                attack: 0.15, decay: 0.2, sustainLevel: 0.55, release: 0.25
+                attack: 0.18, decay: 0.3, sustainLevel: 0.6, release: 0.4,
+                filterEnv: { start: 2500, end: 3500, time: 0.6 }
             },
             brass: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.15, detune: 0 },
-                    { type: 'square', gain: 0.08, detune: 0 }
+                    { type: 'sawtooth', gain: 0.11, cents: -6 },
+                    { type: 'sawtooth', gain: 0.11, cents: 6 },
+                    { type: 'square', gain: 0.04, cents: 0 }
                 ],
-                attack: 0.08, decay: 0.1, sustainLevel: 0.5, release: 0.15
+                attack: 0.06, decay: 0.15, sustainLevel: 0.5, release: 0.12,
+                filterEnv: { start: 600, end: 3000, time: 0.12 },
+                noise: { level: 0.03, duration: 0.04, filter: 2000 }
             },
             flute: {
                 oscs: [
-                    { type: 'sine', gain: 0.22, detune: 0 },
-                    { type: 'sine', gain: 0.06, detune: 12 }
+                    { type: 'sine', gain: 0.16, cents: 0 },
+                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
+                    { type: 'triangle', gain: 0.03, cents: 3 }
                 ],
-                attack: 0.1, decay: 0.1, sustainLevel: 0.65, release: 0.2
+                attack: 0.12, decay: 0.1, sustainLevel: 0.6, release: 0.25,
+                filterEnv: { start: 3000, end: 2000, time: 0.3 },
+                noise: { level: 0.04, duration: 0.08, filter: 3000, sustained: true }
             },
             organ: {
                 oscs: [
-                    { type: 'sine', gain: 0.13, detune: 0 },
-                    { type: 'sine', gain: 0.09, detune: 12 },
-                    { type: 'sine', gain: 0.05, detune: 24 }
+                    { type: 'sine', gain: 0.09, freqRatio: 0.5 },
+                    { type: 'sine', gain: 0.10, freqRatio: 1.0 },
+                    { type: 'sine', gain: 0.06, freqRatio: 2.0 },
+                    { type: 'sine', gain: 0.04, freqRatio: 3.0 },
+                    { type: 'sine', gain: 0.02, freqRatio: 4.0 },
+                    { type: 'sine', gain: 0.015, freqRatio: 6.0 }
                 ],
-                attack: 0.01, decay: 0.05, sustainLevel: 0.75, release: 0.08
+                attack: 0.008, decay: 0.03, sustainLevel: 0.8, release: 0.06
             },
             bell: {
                 oscs: [
-                    { type: 'sine', gain: 0.14, detune: 0 },
-                    { type: 'sine', gain: 0.09, detune: 12 },
-                    { type: 'sine', gain: 0.06, detune: 19 },
-                    { type: 'sine', gain: 0.04, detune: 24 }
+                    { type: 'sine', gain: 0.10, freqRatio: 1.0 },
+                    { type: 'sine', gain: 0.07, freqRatio: 2.76 },
+                    { type: 'sine', gain: 0.05, freqRatio: 5.04 },
+                    { type: 'sine', gain: 0.03, freqRatio: 7.28 },
+                    { type: 'sine', gain: 0.02, freqRatio: 10.56 }
                 ],
-                attack: 0.003, decay: 0.35, sustainLevel: 0.12, release: 0.3
+                attack: 0.001, decay: 0.6, sustainLevel: 0.05, release: 0.5,
+                filterEnv: { start: 8000, end: 1500, time: 0.8 }
             },
             synth: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.14, detune: 0 },
-                    { type: 'square', gain: 0.08, detune: 7 }
+                    { type: 'sawtooth', gain: 0.09, cents: -10 },
+                    { type: 'sawtooth', gain: 0.09, cents: 10 },
+                    { type: 'square', gain: 0.05, cents: -15, detune: -12 },
+                    { type: 'square', gain: 0.05, cents: 15 }
                 ],
-                attack: 0.02, decay: 0.1, sustainLevel: 0.5, release: 0.12
+                attack: 0.01, decay: 0.15, sustainLevel: 0.45, release: 0.15,
+                filterEnv: { start: 6000, end: 1800, time: 0.25 }
             },
             guitar: {
                 oscs: [
-                    { type: 'triangle', gain: 0.18, detune: 0 },
-                    { type: 'sine', gain: 0.08, detune: 12 }
+                    { type: 'triangle', gain: 0.12, cents: -3 },
+                    { type: 'triangle', gain: 0.12, cents: 3 },
+                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
+                    { type: 'sine', gain: 0.02, freqRatio: 3.0 }
                 ],
-                attack: 0.003, decay: 0.2, sustainLevel: 0.3, release: 0.2
+                attack: 0.002, decay: 0.3, sustainLevel: 0.2, release: 0.25,
+                filterEnv: { start: 5000, end: 900, time: 0.35 },
+                noise: { level: 0.08, duration: 0.01, filter: 6000 }
             }
         };
         
         const config = configs[this.instrument] || configs.piano;
         
-        // Sustain + Smoothness beeinflussen ADSR
-        const sustainFactor = this.sustain / 100;       // 0-1
-        const smoothFactor = this.smoothness / 100;     // 0-1
+        const sustainFactor = this.sustain / 100;
+        const smoothFactor = this.smoothness / 100;
         
         const attack = config.attack * (1 + smoothFactor * 1.5);
         const decay = config.decay;
         const sustainLevel = config.sustainLevel * (0.3 + sustainFactor * 0.7);
         const release = config.release * (1 + smoothFactor * 2);
         
-        // Envelope GainNode
         const envGain = this.audioContext.createGain();
-        
         let totalDuration;
         
         if (beatSync) {
-            // ============================================================
-            // BEAT-SYNC: Spezielle "Legato" Envelope für flüssige Übergänge
-            // ============================================================
-            // Problem: Normale ADSR fällt auf ~0 → Stille zwischen Tönen = abgehackt
-            // Lösung: Großer Overlap (70%) + schneller Attack + langer sanfter Release
-            // → Vorheriger Ton klingt noch nach während neuer Ton bereits voll da ist
-            
-            const legato = Math.min(0.25, duration * 0.7);  // Bis 250ms oder 70% Overlap
+            const legato = Math.min(0.25, duration * 0.7);
             totalDuration = duration + legato;
-            
-            const beatAttack = 0.012;                        // 12ms — sehr schnell hörbar
-            const beatSustain = Math.max(sustainLevel, 0.5); // Mindestens 50% Sustain
-            const holdEnd = now + duration - 0.01;           // Sustain halten bis fast zum Beat-Ende
-            
+            const beatAttack = 0.012;
+            const beatSustain = Math.max(sustainLevel, 0.5);
+            const holdEnd = now + duration - 0.01;
             envGain.gain.setValueAtTime(0.001, now);
             envGain.gain.linearRampToValueAtTime(1.0, now + beatAttack);
-            
-            // Kurzer Decay zum Sustain-Level
             if (duration > beatAttack + 0.03) {
                 envGain.gain.linearRampToValueAtTime(beatSustain, now + beatAttack + 0.03);
-                // Sustain halten bis knapp vor dem Beat-Ende
                 envGain.gain.setValueAtTime(beatSustain, holdEnd);
             }
-            
-            // Sanfter Release über die gesamte Overlap-Zone
-            // Endet bei 0.005 (nicht 0.0001!) → noch hörbar wenn nächster Ton startet
             envGain.gain.exponentialRampToValueAtTime(0.005, now + totalDuration);
-            
         } else {
-            // ============================================================
-            // NORMAL: Legato ADSR Envelope (auch ohne Beat flüssig!)
-            // ============================================================
-            // Auch im Normal-Modus: Overlap hinzufügen damit der Release
-            // eines Tons mit dem Attack des nächsten überlappt
             const normalLegato = Math.min(0.15, duration * 0.5);
             totalDuration = duration + normalLegato;
-            
             const safeAttack = Math.min(attack, totalDuration * 0.2);
-            const safeRelease = Math.min(release, normalLegato + 0.05, 0.3);
             const holdEnd = now + duration - 0.005;
-            
             envGain.gain.setValueAtTime(0.001, now);
             envGain.gain.linearRampToValueAtTime(1.0, now + safeAttack);
             envGain.gain.linearRampToValueAtTime(sustainLevel, now + safeAttack + decay);
-            
             if (duration > safeAttack + decay + 0.02) {
-                // Sustain halten bis kurz vor dem nächsten Ton
                 envGain.gain.setValueAtTime(sustainLevel, holdEnd);
             }
-            
-            // Sanfter Release über die Overlap-Zone
             envGain.gain.exponentialRampToValueAtTime(0.003, now + totalDuration);
         }
         
-        // Oszillatoren erstellen
+        // Per-note filter envelope for natural timbral movement
+        let noteFilter = null;
+        if (config.filterEnv) {
+            noteFilter = this.audioContext.createBiquadFilter();
+            noteFilter.type = 'lowpass';
+            noteFilter.Q.value = 1.2;
+            const fe = config.filterEnv;
+            noteFilter.frequency.setValueAtTime(fe.start, now);
+            noteFilter.frequency.exponentialRampToValueAtTime(
+                Math.max(fe.end, 20), now + fe.time
+            );
+        }
+        
+        // Build oscillators
         const oscillators = [];
-        for (const oscConfig of config.oscs) {
+        for (const oc of config.oscs) {
             const osc = this.audioContext.createOscillator();
-            osc.type = oscConfig.type;
-            osc.frequency.value = frequency * Math.pow(2, oscConfig.detune / 12);
+            osc.type = oc.type;
+            
+            let freq = frequency;
+            if (oc.freqRatio !== undefined) {
+                freq = frequency * oc.freqRatio;
+            } else if (oc.detune) {
+                freq = frequency * Math.pow(2, oc.detune / 12);
+            }
+            osc.frequency.value = freq;
+            
+            if (oc.cents) osc.detune.value = oc.cents;
             
             const oscGain = this.audioContext.createGain();
-            oscGain.gain.value = oscConfig.gain;
+            oscGain.gain.value = oc.gain;
             
             osc.connect(oscGain);
-            oscGain.connect(envGain);
+            if (noteFilter) {
+                oscGain.connect(noteFilter);
+            } else {
+                oscGain.connect(envGain);
+            }
             
-            // Vibrato: LFO moduliert die TONHÖHE (detune in Cents) - KORREKT!
             this.vibratoLFOGain.connect(osc.detune);
-            
             osc.start(now);
             osc.stop(now + totalDuration + 0.1);
-            
             oscillators.push(osc);
         }
         
-        // An den instrumentBus → feste Effektkette
+        if (noteFilter) {
+            noteFilter.connect(envGain);
+        }
+        
+        // Noise transient layer for realistic attacks
+        if (config.noise && config.noise.level > 0) {
+            const noiseDur = config.noise.sustained
+                ? totalDuration : config.noise.duration;
+            const bufSize = Math.max(128,
+                Math.floor(this.audioContext.sampleRate * noiseDur));
+            const buf = this.audioContext.createBuffer(
+                1, bufSize, this.audioContext.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            
+            const noiseSrc = this.audioContext.createBufferSource();
+            noiseSrc.buffer = buf;
+            const nf = this.audioContext.createBiquadFilter();
+            nf.type = 'bandpass';
+            nf.frequency.value = config.noise.filter;
+            nf.Q.value = 0.8;
+            const ng = this.audioContext.createGain();
+            
+            if (config.noise.sustained) {
+                ng.gain.setValueAtTime(config.noise.level * 0.5, now);
+                ng.gain.linearRampToValueAtTime(config.noise.level, now + attack);
+                ng.gain.setValueAtTime(config.noise.level * sustainLevel, now + attack + 0.05);
+                ng.gain.exponentialRampToValueAtTime(0.001, now + totalDuration);
+            } else {
+                ng.gain.setValueAtTime(config.noise.level, now);
+                ng.gain.exponentialRampToValueAtTime(0.001, now + noiseDur);
+            }
+            
+            noiseSrc.connect(nf);
+            nf.connect(ng);
+            ng.connect(envGain);
+            noiseSrc.start(now);
+            noiseSrc.stop(now + noiseDur + 0.01);
+        }
+        
         envGain.connect(this.instrumentBus);
         
-        // Tracking für Cleanup
         this.activeOscillators.push({
-            oscillators,
-            envGain,
+            oscillators, envGain,
             stopTime: now + totalDuration + 0.1
         });
-        
-        // Abgelaufene Oszillatoren aufräumen
         this._cleanupFinished();
         
         return { oscillators, envGain };
@@ -581,74 +659,128 @@ class AudioSystem {
     // ================================================================
 
     playKick(time) {
-        const osc = this.audioContext.createOscillator();
-        const gain = this.audioContext.createGain();
+        // Sub body oscillator
+        const sub = this.audioContext.createOscillator();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(150, time);
+        sub.frequency.exponentialRampToValueAtTime(35, time + 0.08);
+        sub.frequency.exponentialRampToValueAtTime(28, time + 0.2);
+        const subGain = this.audioContext.createGain();
+        subGain.gain.setValueAtTime(0.5, time);
+        subGain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+        sub.connect(subGain);
+        subGain.connect(this.beatGain);
+        sub.start(time);
+        sub.stop(time + 0.35);
         
-        osc.frequency.setValueAtTime(55, time);
-        osc.frequency.exponentialRampToValueAtTime(28, time + 0.12);
+        // Click transient
+        const click = this.audioContext.createOscillator();
+        click.type = 'triangle';
+        click.frequency.setValueAtTime(800, time);
+        click.frequency.exponentialRampToValueAtTime(200, time + 0.02);
+        const clickGain = this.audioContext.createGain();
+        clickGain.gain.setValueAtTime(0.25, time);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+        click.connect(clickGain);
+        clickGain.connect(this.beatGain);
+        click.start(time);
+        click.stop(time + 0.05);
         
-        gain.gain.setValueAtTime(0.45, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-        
-        osc.connect(gain);
-        gain.connect(this.beatGain);
-        
-        osc.start(time);
-        osc.stop(time + 0.25);
+        // Punch noise burst
+        const punchBuf = this.audioContext.createBuffer(
+            1, Math.floor(this.audioContext.sampleRate * 0.02), this.audioContext.sampleRate);
+        const pd = punchBuf.getChannelData(0);
+        for (let i = 0; i < pd.length; i++) pd[i] = Math.random() * 2 - 1;
+        const punchSrc = this.audioContext.createBufferSource();
+        punchSrc.buffer = punchBuf;
+        const punchFilt = this.audioContext.createBiquadFilter();
+        punchFilt.type = 'lowpass';
+        punchFilt.frequency.value = 600;
+        const punchGain = this.audioContext.createGain();
+        punchGain.gain.setValueAtTime(0.12, time);
+        punchGain.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
+        punchSrc.connect(punchFilt);
+        punchFilt.connect(punchGain);
+        punchGain.connect(this.beatGain);
+        punchSrc.start(time);
+        punchSrc.stop(time + 0.03);
     }
 
     playSnare(time) {
-        const bufferSize = Math.floor(this.audioContext.sampleRate * 0.15);
-        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = (Math.random() * 2 - 1) * 0.7;
-        }
+        // Tonal body
+        const body = this.audioContext.createOscillator();
+        body.type = 'triangle';
+        body.frequency.setValueAtTime(220, time);
+        body.frequency.exponentialRampToValueAtTime(120, time + 0.05);
+        const bodyGain = this.audioContext.createGain();
+        bodyGain.gain.setValueAtTime(0.28, time);
+        bodyGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+        body.connect(bodyGain);
+        bodyGain.connect(this.beatGain);
+        body.start(time);
+        body.stop(time + 0.12);
         
+        // Wire/snare noise
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.18);
+        const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = buffer;
-        
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.value = 1500;
-        
-        const gain = this.audioContext.createGain();
-        gain.gain.setValueAtTime(0.3, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-        
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.beatGain);
-        
+        noise.buffer = buf;
+        const hp = this.audioContext.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 2000;
+        const bp = this.audioContext.createBiquadFilter();
+        bp.type = 'peaking';
+        bp.frequency.value = 4500;
+        bp.gain.value = 6;
+        bp.Q.value = 1.5;
+        const noiseGain = this.audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.25, time);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.17);
+        noise.connect(hp);
+        hp.connect(bp);
+        bp.connect(noiseGain);
+        noiseGain.connect(this.beatGain);
         noise.start(time);
-        noise.stop(time + 0.15);
+        noise.stop(time + 0.18);
     }
 
     playHiHat(time) {
-        const bufferSize = Math.floor(this.audioContext.sampleRate * 0.04);
-        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = (Math.random() * 2 - 1) * 0.4;
+        // Metallic oscillators (square waves at inharmonic ratios)
+        const ratios = [1, 1.34, 1.61, 1.88];
+        const baseFreq = 6200;
+        for (const ratio of ratios) {
+            const osc = this.audioContext.createOscillator();
+            osc.type = 'square';
+            osc.frequency.value = baseFreq * ratio;
+            const g = this.audioContext.createGain();
+            g.gain.setValueAtTime(0.03, time);
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.045);
+            osc.connect(g);
+            g.connect(this.beatGain);
+            osc.start(time);
+            osc.stop(time + 0.06);
         }
         
+        // Noise layer
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.05);
+        const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
         const noise = this.audioContext.createBufferSource();
-        noise.buffer = buffer;
-        
-        const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.value = 9000;
-        
-        const gain = this.audioContext.createGain();
-        gain.gain.setValueAtTime(0.18, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
-        
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.beatGain);
-        
+        noise.buffer = buf;
+        const hp = this.audioContext.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 9000;
+        const ng = this.audioContext.createGain();
+        ng.gain.setValueAtTime(0.14, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        noise.connect(hp);
+        hp.connect(ng);
+        ng.connect(this.beatGain);
         noise.start(time);
-        noise.stop(time + 0.05);
+        noise.stop(time + 0.06);
     }
 
     startBeats() {
