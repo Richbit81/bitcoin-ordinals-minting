@@ -32,7 +32,7 @@ type ScoreBreakdown = {
   percentile: number;
 };
 const PINK_PUPPETS_SLUG = 'pinkpuppets';
-const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || '').replace(/\/+$/, '');
 const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX = 95_000_000_000_000;
 const VINTAGE_SAT_MAX = 5_000_000_000_000;

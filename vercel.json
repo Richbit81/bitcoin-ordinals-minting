@@ -42,6 +42,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "https://bitcoin-ordinals-backend-production.up.railway.app/api/$1"
+    },
+    {
       "source": "/palindrom/(.*)",
       "destination": "/palindrom/$1"
     },

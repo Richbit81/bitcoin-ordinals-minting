@@ -547,8 +547,8 @@ class PalindromSoundBox {
 
         try {
             const status = await palindromScanner.checkApiStatus();
-            const apiLabel = status.apiBase && status.apiBase.includes('api.richart.app')
-                ? 'api.richart.app'
+            const apiLabel = !status.apiBase || status.apiBase === ''
+                ? 'richart.app (proxy)'
                 : status.apiBase && status.apiBase.includes('railway.app')
                     ? 'railway fallback'
                     : 'palindrom api';

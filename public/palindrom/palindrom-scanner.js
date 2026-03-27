@@ -3,9 +3,9 @@
 // (Server macht parallele Requests + permanentes Caching der SAT-Ranges)
 
 // API Base URLs:
-// 1) Primary: stabiler Richart Ord-Server
-// 2) Fallback: bestehender Palindrom-Scanner-Backend-Endpoint
-const PALINDROM_API_BASE = window.PALINDROM_API_URL || 'https://api.richart.app';
+// Primary: same-origin via Vercel rewrite (no CORS needed)
+// Fallback: direct Railway backend URL
+const PALINDROM_API_BASE = window.PALINDROM_API_URL || '';
 const PALINDROM_API_FALLBACK = 'https://bitcoin-ordinals-backend-production.up.railway.app';
 
 class PalindromScanner {

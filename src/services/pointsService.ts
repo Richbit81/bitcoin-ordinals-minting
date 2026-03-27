@@ -2,7 +2,7 @@
  * Punkte-Service für Frontend
  */
 
-const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || '').replace(/\/+$/, '');
 const API_FALLBACKS = Array.from(
   new Set([
     API_URL,

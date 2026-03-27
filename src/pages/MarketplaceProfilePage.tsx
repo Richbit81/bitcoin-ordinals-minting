@@ -13,7 +13,7 @@ import {
 } from '../services/marketplaceService';
 import { getOrdinalAddress } from '../utils/wallet';
 
-const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || 'https://api.richart.app').replace(/\/+$/, '');
+const API_URL = String(import.meta.env.VITE_INSCRIPTION_API_URL || '').replace(/\/+$/, '');
 const FALLBACK_API_URL = 'https://bitcoin-ordinals-backend-production.up.railway.app';
 const MARKETPLACE_WALLET_ROWS_CACHE_KEY_PREFIX = 'marketplaceWalletRowsV1:';
 const MARKETPLACE_WALLET_ROWS_LAST_KEY = 'marketplaceWalletRowsLastV1';
