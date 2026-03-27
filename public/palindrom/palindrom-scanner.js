@@ -207,7 +207,8 @@ class PalindromScanner {
         const results = [];
         for (let sat = start; sat < end; sat++) {
             if (this._isPalindrome(sat)) {
-                results.push({ sat, digits: String(sat).length });
+                const s = String(sat);
+                results.push({ sat, sequence: s, digits: s.length, coreSequence: s.substring(0, Math.ceil(s.length / 2)) });
             }
         }
         return results;
