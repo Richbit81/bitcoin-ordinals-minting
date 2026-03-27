@@ -833,6 +833,7 @@ body {
 
 .step-sequencer {
     min-height: 36px;
+    overflow: hidden;
 }
 
 .step-grid {
@@ -845,7 +846,7 @@ body {
     display: flex;
     gap: 2px;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow: hidden;
 }
 
 .step-cell {
@@ -860,7 +861,6 @@ body {
     font-family: 'Orbitron', monospace;
     font-size: 11px;
     color: var(--text-secondary);
-    transition: all 0.1s ease;
     flex-shrink: 0;
 }
 
@@ -868,8 +868,7 @@ body {
     background: var(--accent-orange);
     color: #000;
     border-color: var(--accent-orange);
-    box-shadow: 0 0 8px var(--accent-orange-glow);
-    transform: scale(1.15);
+    box-shadow: 0 0 6px var(--accent-orange-glow);
     font-weight: 900;
 }
 
