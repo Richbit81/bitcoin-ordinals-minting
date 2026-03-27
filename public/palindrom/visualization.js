@@ -165,28 +165,72 @@ class ButterflyVisualization {
         this.particles = [];
         
         for (let i = 0; i < this.particleCount; i++) {
-            this.particles.push({
-                x: (Math.random() - 0.5) * 0.3,
-                y: (Math.random() - 0.5) * 0.3,
-                age: (i / this.particleCount) * this.maxParticleAge * 0.3
-            });
+            this.particles.push(this._createParticle(i));
         }
     }
 
-    // Deterministisches Partikel-Seeding: Gleiches Palindrom → gleiche Startpositionen
+    _createParticle(i) {
+        const m = this.patternMode;
+        const t = i / this.particleCount;
+        
+        if (m === 'starfield') {
+            return { x: (Math.random() - 0.5) * 4, y: (Math.random() - 0.5) * 4,
+                     z: Math.random() * 4, age: 0, speed: 0.002 + Math.random() * 0.01 };
+        }
+        if (m === 'boids') {
+            const a = Math.random() * Math.PI * 2;
+            const r = 0.5 + Math.random() * 1.5;
+            return { x: Math.cos(a) * r, y: Math.sin(a) * r,
+                     vx: (Math.random() - 0.5) * 0.02, vy: (Math.random() - 0.5) * 0.02,
+                     age: Math.floor(t * this.maxParticleAge * 0.3) };
+        }
+        if (m === 'dna') {
+            return { x: 0, y: (Math.random() - 0.5) * 4, phase: Math.random() * Math.PI * 2,
+                     strand: i % 2, age: 0 };
+        }
+        if (m === 'explosion') {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * 0.01;
+            return { x: Math.cos(a) * r, y: Math.sin(a) * r,
+                     vx: 0, vy: 0, life: 0, maxLife: 60 + Math.random() * 120,
+                     age: Math.floor(t * this.maxParticleAge * 0.3) };
+        }
+        if (m === 'freqring') {
+            return { x: 0, y: 0, angle: t * Math.PI * 2, band: Math.floor(t * 32),
+                     baseR: 0.8 + Math.random() * 0.4, age: 0 };
+        }
+        if (m === 'aurora') {
+            return { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 2,
+                     baseY: (Math.random() - 0.5) * 1.5, drift: (Math.random() - 0.5) * 0.005,
+                     age: Math.floor(t * this.maxParticleAge * 0.3) };
+        }
+        if (m === 'nebula') {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * 2;
+            return { x: Math.cos(a) * r, y: Math.sin(a) * r,
+                     vx: 0, vy: 0, age: Math.floor(t * this.maxParticleAge * 0.3) };
+        }
+        if (m === 'mandala') {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * 2;
+            return { x: Math.cos(a) * r, y: Math.sin(a) * r,
+                     age: Math.floor(t * this.maxParticleAge * 0.3) };
+        }
+        
+        // Default (attractor modes)
+        const p = { x: (Math.random() - 0.5) * 0.3, y: (Math.random() - 0.5) * 0.3,
+                    age: Math.floor(t * this.maxParticleAge * 0.3) };
+        if (m === 'lorenz') p.z = 20 + Math.random() * 5;
+        return p;
+    }
+
     initParticlesSeeded(seed) {
         this.particles = [];
-        const isLorenz = this.patternMode === 'lorenz';
-        
         for (let i = 0; i < this.particleCount; i++) {
-            const p = {
-                x: (this._seededRandom(seed + i * 2) - 0.5) * 0.3,
-                y: (this._seededRandom(seed + i * 2 + 1) - 0.5) * 0.3,
-                age: Math.floor((i / this.particleCount) * this.maxParticleAge * 0.3)
-            };
-            if (isLorenz) {
-                p.z = 20 + this._seededRandom(seed + i * 2 + 2) * 5;
-            }
+            const p = this._createParticle(i);
+            // Override positions with seeded random for deterministic look
+            p.x = (this._seededRandom(seed + i * 2) - 0.5) * (Math.abs(p.x) > 0.5 ? 4 : 0.3);
+            p.y = (this._seededRandom(seed + i * 2 + 1) - 0.5) * (Math.abs(p.y) > 0.5 ? 4 : 0.3);
             this.particles.push(p);
         }
     }
@@ -338,110 +382,284 @@ class ButterflyVisualization {
         const x = particle.x;
         const y = particle.y;
         const { a, b, c, d, k } = this.cachedParams;
+        const ar = this.audioReactivity;
+        const t = this.breathingPhase;
         let nx, ny;
         
         switch (this.patternMode) {
             case 'butterfly':
             default:
-                // Butterfly Attractor - Original
                 nx = Math.sin(a * y) - Math.cos(b * x) + k * Math.sin(y);
                 ny = Math.sin(c * x) - Math.cos(d * y) - k * Math.sin(x);
                 break;
                 
             case 'clifford':
-                // Clifford Attractor - Elegante Schleifen
                 nx = Math.sin(a * y) + c * Math.cos(a * x);
                 ny = Math.sin(b * x) + d * Math.cos(b * y);
                 break;
                 
             case 'dejong':
-                // Peter de Jong Attractor - Chaotische Wirbel
                 nx = Math.sin(a * y) - Math.cos(b * x);
                 ny = Math.sin(c * x) - Math.cos(d * y);
                 break;
                 
-            case 'lorenz':
-                // Lorenz-Projektion (2D) - Doppelschleife
-                const sigma = a * 5 + 5;   // ~5-15
-                const rho = b * 10 + 20;   // ~20-30
-                const beta = k + 1.5;      // ~1.5-3
+            case 'lorenz': {
+                const sigma = a * 5 + 5;
+                const rho = b * 10 + 20;
+                const beta = k + 1.5;
                 const dt = 0.005;
                 const z = particle.z || 20;
-                const dxL = sigma * (y - x);
-                const dyL = x * (rho - z) - y;
-                const dzL = x * y - beta * z;
-                nx = x + dxL * dt;
-                ny = y + dyL * dt;
-                particle.z = z + dzL * dt;
+                nx = x + sigma * (y - x) * dt;
+                ny = y + (x * (rho - z) - y) * dt;
+                particle.z = z + (x * y - beta * z) * dt;
                 break;
+            }
                 
-            case 'spiral':
-                // Spiral Galaxy - Spiralarme mit Attraktor
+            case 'spiral': {
                 const r = Math.sqrt(x * x + y * y);
                 const theta = Math.atan2(y, x);
                 const newTheta = theta + 0.02 + k * 0.01 / (r + 0.5);
                 const newR = r + Math.sin(a * theta + b * r) * 0.01 - 0.002;
                 nx = newR * Math.cos(newTheta) + Math.sin(c * y) * 0.02;
                 ny = newR * Math.sin(newTheta) + Math.cos(d * x) * 0.02;
-                // Reset wenn zu weit weg
                 if (Math.abs(nx) > 4 || Math.abs(ny) > 4) {
                     nx = (Math.random() - 0.5) * 0.5;
                     ny = (Math.random() - 0.5) * 0.5;
                 }
                 break;
+            }
                 
-            case 'flower':
-                // Flower of Life - Rosenförmige Muster
+            case 'flower': {
                 const rF = Math.sqrt(x * x + y * y) + 0.001;
                 const thetaF = Math.atan2(y, x);
-                const petals = Math.floor(a * 3) + 3; // 3-8 Blütenblätter
+                const petals = Math.floor(a * 3) + 3;
                 const roseR = Math.cos(petals * thetaF) * 0.5;
                 const targetR = Math.abs(roseR) + k * 0.3;
                 const dR = (targetR - rF) * 0.03;
                 const dTheta = 0.015 + b * 0.005 + Math.sin(c * rF) * 0.008;
                 const finalR = rF + dR + Math.sin(d * thetaF * 2) * 0.005;
-                const finalTheta = thetaF + dTheta;
-                nx = finalR * Math.cos(finalTheta);
-                ny = finalR * Math.sin(finalTheta);
+                nx = finalR * Math.cos(thetaF + dTheta);
+                ny = finalR * Math.sin(thetaF + dTheta);
                 if (Math.abs(nx) > 3 || Math.abs(ny) > 3) {
                     nx = (Math.random() - 0.5) * 0.2;
                     ny = (Math.random() - 0.5) * 0.2;
                 }
                 break;
+            }
+
+            // ===== NEW MODES =====
+
+            case 'nebula': {
+                const r = Math.sqrt(x * x + y * y) + 0.001;
+                const theta = Math.atan2(y, x);
+                // Orbital rotation with turbulence
+                const orbitalSpeed = 0.008 + k * 0.004 / (r + 0.3);
+                const turbulence = Math.sin(r * a * 3 + t) * 0.005 + Math.cos(theta * b * 2 + t * 0.7) * 0.004;
+                const newTheta = theta + orbitalSpeed;
+                // Bass expands, silence contracts
+                const bassExpand = 1.0 + (ar.bassEnergy || 0) * 0.4;
+                // Shockwave on beat
+                const beatPulse = (ar.beatDecay || 0) * Math.sin(r * 8 - t * 6) * 0.03;
+                const drift = -0.001 + turbulence + beatPulse;
+                const newR = r * bassExpand + drift;
+                nx = newR * Math.cos(newTheta);
+                ny = newR * Math.sin(newTheta);
+                // Gravity pull back
+                nx += -x * 0.003;
+                ny += -y * 0.003;
+                if (r > 3.5) { nx = (Math.random() - 0.5) * 0.5; ny = (Math.random() - 0.5) * 0.5; }
+                break;
+            }
+
+            case 'explosion': {
+                particle.life = (particle.life || 0) + 1;
+                const beatTrigger = (ar.beatDecay || 0) > 0.5;
+                if (particle.life > (particle.maxLife || 100) || beatTrigger && particle.life > 30) {
+                    // Re-explode from center
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 0.02 + Math.random() * 0.06 + (ar.bassEnergy || 0) * 0.04;
+                    particle.vx = Math.cos(angle) * speed;
+                    particle.vy = Math.sin(angle) * speed;
+                    particle.life = 0;
+                    particle.maxLife = 60 + Math.random() * 120;
+                    nx = 0; ny = 0;
+                } else {
+                    // Fly outward, decelerate, then attract back
+                    const lifeRatio = particle.life / (particle.maxLife || 100);
+                    const drag = lifeRatio > 0.4 ? 0.97 : 0.995;
+                    const gravity = lifeRatio > 0.5 ? 0.0008 : 0;
+                    particle.vx = (particle.vx || 0) * drag - x * gravity;
+                    particle.vy = (particle.vy || 0) * drag - y * gravity;
+                    nx = x + particle.vx;
+                    ny = y + particle.vy;
+                }
+                if (Math.abs(nx) > 4 || Math.abs(ny) > 4) { nx = 0; ny = 0; particle.life = particle.maxLife; }
+                break;
+            }
+
+            case 'aurora': {
+                // Flowing horizontal curtains
+                const waveSpeed = 0.003 + (ar.smoothVolume || 0) * 0.005;
+                const freq1 = a * 2 + 1;
+                const freq2 = b * 1.5 + 0.5;
+                nx = x + (particle.drift || 0) + Math.sin(t * 0.5 + y * freq1) * 0.003;
+                // Vertical wave motion driven by audio
+                const targetY = (particle.baseY || 0) + Math.sin(x * freq2 + t * 0.8) * 0.4
+                    + Math.sin(x * 0.5 + t * 0.3) * 0.3
+                    + (ar.bassEnergy || 0) * Math.sin(x * 3 + t * 2) * 0.4
+                    + (ar.highEnergy || 0) * Math.sin(x * 8 + t * 4) * 0.15;
+                ny = y + (targetY - y) * 0.05;
+                // Wrap horizontally
+                if (nx > 3) { nx = -3; particle.baseY = (Math.random() - 0.5) * 1.5; }
+                if (nx < -3) { nx = 3; particle.baseY = (Math.random() - 0.5) * 1.5; }
+                break;
+            }
+
+            case 'freqring': {
+                // Circular frequency visualizer
+                const band = particle.band || 0;
+                const freqVal = (ar.frequency && ar.frequency[band]) || 0;
+                const baseR = particle.baseR || 1.0;
+                // Radius expands with frequency data
+                const targetR2 = baseR + freqVal * 2.5 + (ar.bassEnergy || 0) * 0.5;
+                const currentR = Math.sqrt(x * x + y * y) || baseR;
+                const newR2 = currentR + (targetR2 - currentR) * 0.12;
+                // Slow rotation + beat-kick
+                const baseAngle = particle.angle || 0;
+                const rotSpeed = 0.005 + (ar.smoothVolume || 0) * 0.01 + (ar.beatDecay || 0) * 0.02;
+                particle.angle = baseAngle + rotSpeed;
+                nx = newR2 * Math.cos(particle.angle);
+                ny = newR2 * Math.sin(particle.angle);
+                break;
+            }
+
+            case 'starfield': {
+                // Particles fly toward viewer (z decreases)
+                const speed = (particle.speed || 0.005) * (1 + (ar.smoothVolume || 0) * 3);
+                // Beat triggers warp jump
+                const warpBoost = (ar.beatDecay || 0) > 0.3 ? 4.0 : 1.0;
+                particle.z = (particle.z || 2) - speed * warpBoost;
+                if (particle.z <= 0.01) {
+                    // Reset to far plane
+                    particle.x = (Math.random() - 0.5) * 4;
+                    particle.y = (Math.random() - 0.5) * 4;
+                    particle.z = 3.5 + Math.random() * 0.5;
+                    particle.speed = 0.002 + Math.random() * 0.01;
+                }
+                // Perspective projection
+                const perspective = 1.0 / (particle.z + 0.1);
+                nx = particle.x * perspective;
+                ny = particle.y * perspective;
+                // Store projected coords for rendering, keep 3D coords for simulation
+                particle._projX = nx;
+                particle._projY = ny;
+                particle._brightness = Math.min(1, perspective * 0.8);
+                return; // Skip normal assignment
+            }
+
+            case 'boids': {
+                // Simplified boids: separation + cohesion + alignment via field
+                let vx = particle.vx || 0;
+                let vy = particle.vy || 0;
+                
+                // Attraction toward a rotating center point
+                const centerX = Math.sin(t * 0.3) * (ar.bassEnergy || 0) * 0.8;
+                const centerY = Math.cos(t * 0.4) * (ar.bassEnergy || 0) * 0.6;
+                const dx2 = centerX - x;
+                const dy2 = centerY - y;
+                const cohesion = 0.0003 + (ar.midEnergy || 0) * 0.001;
+                vx += dx2 * cohesion;
+                vy += dy2 * cohesion;
+                
+                // Tangential (orbital) force for swirling
+                const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2) + 0.01;
+                const tangentForce = 0.0008 + (ar.highEnergy || 0) * 0.002;
+                vx += (-dy2 / dist) * tangentForce;
+                vy += (dx2 / dist) * tangentForce;
+                
+                // Field-based separation (sine noise)
+                const sep = 0.0005 + (ar.highEnergy || 0) * 0.002;
+                vx += Math.sin(y * 5 + t) * sep;
+                vy += Math.cos(x * 5 + t * 0.7) * sep;
+                
+                // Beat scatters the flock
+                if ((ar.beatDecay || 0) > 0.4) {
+                    vx += (Math.random() - 0.5) * 0.008 * ar.beatDecay;
+                    vy += (Math.random() - 0.5) * 0.008 * ar.beatDecay;
+                }
+                
+                // Speed limit + drag
+                const maxSpeed = 0.04 + (ar.smoothVolume || 0) * 0.03;
+                const spd = Math.sqrt(vx * vx + vy * vy);
+                if (spd > maxSpeed) { vx = (vx / spd) * maxSpeed; vy = (vy / spd) * maxSpeed; }
+                vx *= 0.98; vy *= 0.98;
+                
+                particle.vx = vx; particle.vy = vy;
+                nx = x + vx; ny = y + vy;
+                if (Math.abs(nx) > 3 || Math.abs(ny) > 3) {
+                    nx = (Math.random() - 0.5) * 1; ny = (Math.random() - 0.5) * 1;
+                    particle.vx = 0; particle.vy = 0;
+                }
+                break;
+            }
+
+            case 'dna': {
+                // Double helix rotating around Y axis
+                const helixY = particle.y || 0;
+                const phase = (particle.phase || 0) + 0.015 + (ar.smoothVolume || 0) * 0.02;
+                particle.phase = phase;
+                const strandOffset = particle.strand ? Math.PI : 0;
+                const helixR = 0.8 + Math.sin(helixY * 2 + t) * 0.15 + (ar.bassEnergy || 0) * 0.4;
+                nx = Math.cos(helixY * a * 2 + phase + strandOffset) * helixR;
+                // Vertical drift
+                const ySpeed = 0.008 + (ar.midEnergy || 0) * 0.01;
+                particle.y += ySpeed;
+                ny = particle.y;
+                // Beat compresses/stretches the helix
+                ny += (ar.beatDecay || 0) * Math.sin(phase * 3) * 0.3;
+                if (particle.y > 2.5) { particle.y = -2.5; }
+                break;
+            }
+
+            case 'mandala': {
+                const r = Math.sqrt(x * x + y * y) + 0.001;
+                const theta = Math.atan2(y, x);
+                // N-fold symmetry based on palindrome length
+                const symN = Math.max(3, Math.min(12, (this.palindromStr || '').length || 6));
+                const symAngle = (Math.PI * 2) / symN;
+                const foldedTheta = ((theta % symAngle) + symAngle) % symAngle;
+                // Rose curve target with audio modulation
+                const roseK = a + (ar.bassEnergy || 0) * 0.5;
+                const targetR3 = Math.abs(Math.cos(roseK * foldedTheta * symN * 0.5)) * 1.5 + k * 0.3
+                    + (ar.midEnergy || 0) * 0.5;
+                const dR2 = (targetR3 - r) * 0.02;
+                const rotSpeed2 = 0.008 + b * 0.003 + (ar.smoothVolume || 0) * 0.01
+                    + (ar.beatDecay || 0) * 0.015;
+                const newR3 = r + dR2 + Math.sin(d * theta * 2 + t) * 0.003;
+                const newTheta3 = theta + rotSpeed2;
+                nx = newR3 * Math.cos(newTheta3);
+                ny = newR3 * Math.sin(newTheta3);
+                if (r > 3) { nx = (Math.random() - 0.5) * 0.3; ny = (Math.random() - 0.5) * 0.3; }
+                break;
+            }
         }
         
         particle.x = nx;
         particle.y = ny;
         particle.age++;
         
-        // Safety: reset particle if coordinates become NaN/Infinity or too large
+        // Safety reset
         if (!isFinite(particle.x) || !isFinite(particle.y) || 
             Math.abs(particle.x) > 500 || Math.abs(particle.y) > 500 ||
             (particle.z !== undefined && (!isFinite(particle.z) || Math.abs(particle.z) > 500))) {
-            particle.x = (Math.random() - 0.5) * 0.3;
-            particle.y = (Math.random() - 0.5) * 0.3;
-            if (this.patternMode === 'lorenz') {
-                particle.z = 20 + Math.random() * 10;
-            } else {
-                delete particle.z;
-            }
+            Object.assign(particle, this._createParticle(0));
             particle.age = 0;
             return;
         }
         
-        // Partikel zurücksetzen wenn zu alt
         if (particle.age > this.maxParticleAge) {
             if (Math.random() < 0.1) {
-                if (this.patternMode === 'lorenz') {
-                    // Lorenz: re-seed near attractor region
-                    particle.x = (Math.random() - 0.5) * 2;
-                    particle.y = (Math.random() - 0.5) * 2;
-                    particle.z = 20 + Math.random() * 10;
-                } else {
-                    particle.x = (Math.random() - 0.5) * 0.3;
-                    particle.y = (Math.random() - 0.5) * 0.3;
-                    delete particle.z;
-                }
+                Object.assign(particle, this._createParticle(0));
                 particle.age = 0;
             } else {
                 particle.age = this.maxParticleAge * 0.9;
@@ -822,113 +1040,113 @@ class ButterflyVisualization {
         const wavePhase = this.breathingPhase * 2;
         
         // Pattern-spezifische Skalierung
-        let patternScaleFactor = 1.0;
-        if (this.patternMode === 'lorenz') patternScaleFactor = 0.07;
-        else if (this.patternMode === 'spiral') patternScaleFactor = 0.8;
-        else if (this.patternMode === 'flower') patternScaleFactor = 1.2;
+        const scaleFactors = {
+            lorenz: 0.07, spiral: 0.8, flower: 1.2,
+            nebula: 0.6, explosion: 0.55, aurora: 0.45, freqring: 0.5,
+            starfield: 0.5, boids: 0.5, dna: 0.45, mandala: 0.55
+        };
+        const patternScaleFactor = scaleFactors[this.patternMode] || 1.0;
         
-        // Palindrom-spezifische Flügelform + Audio-Reaktivität:
+        // Modes that should NOT use 4-way butterfly mirroring
+        const noMirror = ['nebula','explosion','aurora','freqring','starfield','boids','dna','mandala'];
+        const useMirror = !noMirror.includes(this.patternMode);
+        
         const wingScaleX = baseScale * breathing * audioPulse * dynamicWingRatio * patternScaleFactor;
         const wingScaleY = baseScale * breathing * audioPulse * (2.3 - dynamicWingRatio) * patternScaleFactor;
+        // Uniform scale for non-mirrored modes
+        const uniformScale = baseScale * breathing * audioPulse * patternScaleFactor;
         
-        // Render Partikel - Batch-Verarbeitung
         this.frameSkip = (this.frameSkip + 1) % 2;
+        const ar2 = this.audioReactivity;
         
         for (let i = 0; i < this.particles.length; i++) {
-            // Skip jeden zweiten Partikel abwechselnd für Performance
             if (i % 2 === this.frameSkip) continue;
             
             const p = this.particles[i];
-            
-            // Partikel-Schritt
             this.particleStep(p);
             
-            // Koordinaten auf Canvas umrechnen + Wellen + Rotation
-            let px = p.x * wingScaleX;
-            let py = p.y * wingScaleY;
-            
-            // Wellen-Verzerrung: Sinuswelle verzerrt Positionen
-            if (waveAmp > 0.5) {
-                const dist = Math.sqrt(px * px + py * py);
-                const waveOffset = Math.sin(dist * 0.008 * waveFreq + wavePhase) * waveAmp;
-                const waveOffsetY = Math.cos(dist * 0.006 * waveFreq + wavePhase * 0.7) * waveAmp * 0.7;
-                px += waveOffset;
-                py += waveOffsetY;
+            let px, py;
+            if (useMirror) {
+                px = p.x * wingScaleX;
+                py = p.y * wingScaleY;
+            } else if (this.patternMode === 'starfield') {
+                px = (p._projX || p.x) * uniformScale;
+                py = (p._projY || p.y) * uniformScale;
+            } else {
+                px = p.x * uniformScale;
+                py = p.y * uniformScale;
             }
             
-            // Leichte Rotation bei Audio
+            // Wave distortion
+            if (waveAmp > 0.5) {
+                const dist = Math.sqrt(px * px + py * py);
+                px += Math.sin(dist * 0.008 * waveFreq + wavePhase) * waveAmp;
+                py += Math.cos(dist * 0.006 * waveFreq + wavePhase * 0.7) * waveAmp * 0.7;
+            }
+            
+            // Audio rotation
             if (rot > 0.001) {
                 const rx = px * cosRot - py * sinRot;
                 const ry = px * sinRot + py * cosRot;
-                px = rx;
-                py = ry;
+                px = rx; py = ry;
             }
             
             const x = cx + px;
             const y = cy + py;
-            
-            // Nur rendern wenn im sichtbaren Bereich
             const xInt = x | 0;
             const yInt = y | 0;
-            if (xInt >= 0 && xInt < this.width && yInt >= 0 && yInt < this.height) {
-                const dx = x - cx;
-                const dy = y - cy;
-                const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-                
-                // Überspringe sehr kleine Mitte
-                if (distFromCenter < 3) {
-                    continue;
-                }
-                
-                // Farbe berechnen
+            
+            if (xInt < 0 || xInt >= this.width || yInt < 0 || yInt >= this.height) continue;
+            
+            // Compute color (mode-specific for new modes, or generic)
+            let h, s, l, alpha;
+            const modeColor = this._getModeColor(p, i, x, y, cx, cy);
+            if (modeColor) {
+                h = modeColor.h; s = modeColor.s; l = modeColor.l; alpha = modeColor.a;
+            } else {
+                const dxC = x - cx, dyC = y - cy;
+                if (Math.sqrt(dxC * dxC + dyC * dyC) < 3) continue;
                 const color = this.getButterflyColor(x, y, p.age);
-                
-                // Wenn transparent (Mitte), überspringe
-                if (color.a === 0) {
-                    continue;
-                }
-                
-                // Partikel-Alter beeinflusst Intensität
-                const ageFactor = Math.max(0.6, 1 - (p.age / this.maxParticleAge) * 0.4);
-                let a = color.a * this.particleIntensity; // Intensität anwenden
-                
-                // Junge Partikel starten schwach und werden stärker
-                const youngFactor = Math.min(1, p.age / 300);
-                a = a * ageFactor * youngFactor;
-                
-                // === AUDIO-REACTIVE: Farbintensität verstärkt bei Sound ===
-                const audioBoost = 1.0 + this.audioReactivity.smoothVolume * 1.5 + this.audioReactivity.bassEnergy * 0.8;
-                a = a * audioBoost;
-                
-                // Sicherstellen, dass Alpha nicht zu klein ist
-                if (a < 0.001) continue;
-                
-                // Alpha verstärken für bessere Sichtbarkeit
-                a = Math.min(1, a * 1.5);
-                
-                // RGB berechnen (a ist 0-1, wird in hslToRgba zu 0-255 konvertiert)
-                const rgba = this.hslToRgba(color.h, color.s, color.l, a);
-                
-                // VIERFACHE SPIEGELUNG für perfekte Schmetterlingsform
+                if (color.a === 0) continue;
+                h = color.h; s = color.s; l = color.l; alpha = color.a;
+            }
+            
+            // Intensity / age / audio boost
+            const ageFactor = Math.max(0.6, 1 - (p.age / this.maxParticleAge) * 0.4);
+            const youngFactor = Math.min(1, p.age / 300);
+            const audioBoost = 1.0 + (ar2.smoothVolume || 0) * 1.5 + (ar2.bassEnergy || 0) * 0.8;
+            let a = alpha * this.particleIntensity * ageFactor * youngFactor * audioBoost;
+            if (a < 0.001) continue;
+            a = Math.min(1, a * 1.5);
+            
+            const rgba = this.hslToRgba(h, s, l, a);
+            
+            const audioSizeBoost = Math.floor((this.audioParticleSize || 0) * 3);
+            const particleSize = Math.max(this.particleSize, this.particleSize + audioSizeBoost);
+            
+            if (useMirror) {
                 const mirroredX = (cx - (x - cx)) | 0;
                 const mirroredY = (cy - (y - cy)) | 0;
-                
-                // === AUDIO-REACTIVE: Partikelgröße reagiert auf Frequenzen ===
-                // Mid+High Energie → größere Partikel (2-4px)
-                const audioSizeBoost = Math.floor(this.audioParticleSize * 3);
-                const particleSize = Math.max(this.particleSize, this.particleSize + audioSizeBoost);
-                
-                // Original-Position (oberer linker Flügel)
                 this.setButterflyPixelArea(xInt, yInt, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
-                
-                // Horizontal gespiegelt (oberer rechter Flügel)
                 this.setButterflyPixelArea(mirroredX, yInt, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
-                
-                // Vertikal gespiegelt (unterer linker Flügel)
                 this.setButterflyPixelArea(xInt, mirroredY, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
-                
-                // Beide gespiegelt (unterer rechter Flügel)
                 this.setButterflyPixelArea(mirroredX, mirroredY, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
+            } else if (this.patternMode === 'mandala') {
+                // N-fold symmetry rendering
+                const symN = Math.max(3, Math.min(12, (this.palindromStr || '').length || 6));
+                const symAngle = (Math.PI * 2) / symN;
+                const relX = x - cx, relY = y - cy;
+                for (let si = 0; si < symN; si++) {
+                    const sa = si * symAngle;
+                    const cs = Math.cos(sa), sn = Math.sin(sa);
+                    const sx = (cx + relX * cs - relY * sn) | 0;
+                    const sy = (cy + relX * sn + relY * cs) | 0;
+                    if (sx >= 0 && sx < this.width && sy >= 0 && sy < this.height) {
+                        this.setButterflyPixelArea(sx, sy, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
+                    }
+                }
+            } else {
+                this.setButterflyPixelArea(xInt, yInt, rgba.r, rgba.g, rgba.b, rgba.a, particleSize);
             }
         }
         
@@ -952,25 +1170,91 @@ class ButterflyVisualization {
         }
     }
 
+    _getModeColor(particle, index, x, y, cx, cy) {
+        const ar = this.audioReactivity;
+        const t = this.breathingPhase;
+        const m = this.patternMode;
+        
+        if (m === 'nebula') {
+            const r = Math.sqrt((x-cx)*(x-cx) + (y-cy)*(y-cy));
+            const maxR = Math.min(this.availableWidth || this.width, this.availableHeight || this.height) * 0.4;
+            const norm = Math.min(1, r / maxR);
+            const h = (220 + norm * 80 + Math.sin(t * 0.5) * 30 + this.palindromHue) % 360;
+            const s = 60 + (ar.midEnergy || 0) * 30;
+            const l = 25 + norm * 30 + (ar.smoothVolume || 0) * 15;
+            return { h, s, l, a: 0.06 + (ar.bassEnergy || 0) * 0.03 };
+        }
+        
+        if (m === 'explosion') {
+            const life = particle.life || 0;
+            const maxLife = particle.maxLife || 100;
+            const ratio = life / maxLife;
+            const h = (30 + ratio * 30 + (ar.beatDecay || 0) * 40 + this.palindromHue) % 360;
+            const s = 90 - ratio * 30;
+            const l = 60 - ratio * 30 + (ar.smoothVolume || 0) * 20;
+            return { h, s, l, a: 0.08 * (1 - ratio * 0.7) };
+        }
+        
+        if (m === 'aurora') {
+            const normX = (x - cx) / ((this.availableWidth || this.width) * 0.5);
+            const h = (120 + normX * 60 + (ar.bassEnergy || 0) * -40 + (ar.highEnergy || 0) * 80 + this.palindromHue) % 360;
+            const s = 70 + (ar.midEnergy || 0) * 25;
+            const l = 35 + Math.sin(normX * 3 + t) * 10 + (ar.smoothVolume || 0) * 20;
+            return { h, s, l, a: 0.05 + (ar.smoothVolume || 0) * 0.03 };
+        }
+        
+        if (m === 'freqring') {
+            const band = particle.band || 0;
+            const freqVal = (ar.frequency && ar.frequency[band]) || 0;
+            const h = (band * 11.25 + this.palindromHue) % 360;
+            const s = 80 + freqVal * 20;
+            const l = 35 + freqVal * 35 + (ar.smoothVolume || 0) * 10;
+            return { h, s, l, a: 0.06 + freqVal * 0.06 };
+        }
+        
+        if (m === 'starfield') {
+            const brightness = particle._brightness || 0.3;
+            const h = (200 + brightness * 60 + this.palindromHue) % 360;
+            const warp = (ar.beatDecay || 0) > 0.3;
+            const s = warp ? 30 : 10;
+            const l = 50 + brightness * 40;
+            return { h, s, l, a: 0.05 + brightness * 0.12 };
+        }
+        
+        if (m === 'boids') {
+            const speed = Math.sqrt((particle.vx||0)**2 + (particle.vy||0)**2);
+            const h = (180 + speed * 2000 + Math.sin(t * 0.3 + index * 0.001) * 30 + this.palindromHue) % 360;
+            const s = 70 + (ar.midEnergy || 0) * 25;
+            const l = 40 + speed * 500 + (ar.smoothVolume || 0) * 15;
+            return { h, s, l, a: 0.05 + (ar.smoothVolume || 0) * 0.03 };
+        }
+        
+        if (m === 'dna') {
+            const strand = particle.strand || 0;
+            const baseH = strand ? 0 : 200;
+            const h = (baseH + Math.sin(particle.y * 2 + t) * 30 + this.palindromHue) % 360;
+            const s = 80 + (ar.midEnergy || 0) * 15;
+            const l = 45 + (ar.smoothVolume || 0) * 20;
+            return { h, s, l, a: 0.06 + (ar.bassEnergy || 0) * 0.03 };
+        }
+        
+        if (m === 'mandala') {
+            const angle = Math.atan2(y - cy, x - cx);
+            const r = Math.sqrt((x-cx)*(x-cx) + (y-cy)*(y-cy));
+            const maxR = Math.min(this.availableWidth || this.width, this.availableHeight || this.height) * 0.35;
+            const norm = Math.min(1, r / maxR);
+            const h = (angle * 180 / Math.PI + 360 + norm * 60 + t * 10 + this.palindromHue) % 360;
+            const s = 75 + (ar.midEnergy || 0) * 20;
+            const l = 35 + norm * 25 + (ar.smoothVolume || 0) * 15;
+            return { h, s, l, a: 0.05 + (ar.bassEnergy || 0) * 0.03 };
+        }
+        
+        return null; // Use default getButterflyColor
+    }
+
     setPatternMode(mode) {
         this.patternMode = mode;
-        // Re-initialize particles for the new pattern
-        // Lorenz needs z-coordinate
-        if (mode === 'lorenz') {
-            for (const p of this.particles) {
-                p.x = (Math.random() - 0.5) * 0.3;
-                p.y = (Math.random() - 0.5) * 0.3;
-                p.z = 20 + Math.random() * 5;
-                p.age = Math.floor(Math.random() * this.maxParticleAge * 0.3);
-            }
-        } else {
-            for (const p of this.particles) {
-                p.x = (Math.random() - 0.5) * 0.3;
-                p.y = (Math.random() - 0.5) * 0.3;
-                delete p.z;
-                p.age = Math.floor(Math.random() * this.maxParticleAge * 0.3);
-            }
-        }
+        this.initParticles();
     }
 
     setColorMode(mode) {
