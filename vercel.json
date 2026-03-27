@@ -42,6 +42,10 @@
   ],
   "rewrites": [
     {
+      "source": "/ord-proxy/(.*)",
+      "destination": "https://ordinals.com/$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://bitcoin-ordinals-backend-production.up.railway.app/api/$1"
     },
