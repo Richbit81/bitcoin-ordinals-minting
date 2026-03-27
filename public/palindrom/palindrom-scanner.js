@@ -1,12 +1,12 @@
 // Palindrom Scanner - Findet Palindrom Rare SATs in einem Wallet
-// Nutzt den server-seitigen Scan-Endpoint für maximale Geschwindigkeit
-// (Server macht parallele Requests + permanentes Caching der SAT-Ranges)
+// Primary: server-seitiger Scan (schnell, parallel, gecached)
+// Fallback: client-seitiger Scan direkt via ordinals.com (Browser nicht blockiert)
 
-// API Base URLs:
-// Primary: same-origin via Vercel rewrite (no CORS needed)
-// Fallback: direct Railway backend URL
 const PALINDROM_API_BASE = window.PALINDROM_API_URL || '';
 const PALINDROM_API_FALLBACK = 'https://bitcoin-ordinals-backend-production.up.railway.app';
+const ORDINALS_DIRECT_URL = 'https://ordinals.com';
+const MEMPOOL_API = 'https://mempool.space/api';
+const CLIENT_SCAN_CONCURRENCY = 6;
 
 class PalindromScanner {
     constructor() {
@@ -19,79 +19,182 @@ class PalindromScanner {
     async _fetchWithFallback(path) {
         const primaryUrl = `${PALINDROM_API_BASE}${path}`;
         const fallbackUrl = `${PALINDROM_API_FALLBACK}${path}`;
-
         try {
             const primaryRes = await fetch(primaryUrl);
-            if (primaryRes.ok) {
-                this.activeApiBase = PALINDROM_API_BASE;
-                return primaryRes;
-            }
-            // Wenn Endpoint auf Primary nicht existiert oder fehlschlägt: Fallback.
+            if (primaryRes.ok) { this.activeApiBase = PALINDROM_API_BASE; return primaryRes; }
             if ([404, 405, 501, 502, 503, 504].includes(primaryRes.status)) {
                 const fallbackRes = await fetch(fallbackUrl);
-                if (fallbackRes.ok) {
-                    this.activeApiBase = PALINDROM_API_FALLBACK;
-                    return fallbackRes;
-                }
+                if (fallbackRes.ok) { this.activeApiBase = PALINDROM_API_FALLBACK; return fallbackRes; }
                 return fallbackRes;
             }
             return primaryRes;
         } catch (primaryError) {
-            const fallbackRes = await fetch(fallbackUrl);
-            if (fallbackRes.ok) {
-                this.activeApiBase = PALINDROM_API_FALLBACK;
-                return fallbackRes;
-            }
+            try {
+                const fallbackRes = await fetch(fallbackUrl);
+                if (fallbackRes.ok) { this.activeApiBase = PALINDROM_API_FALLBACK; return fallbackRes; }
+            } catch (e) { /* both failed */ }
             throw primaryError;
         }
     }
 
     // ========================================
-    // Haupt-Scan-Funktion (server-seitig!)
+    // Main scan: server-first, client-fallback
     // ========================================
 
     async scanWalletForPalindromes(address) {
-        if (this.isScanning) {
-            throw new Error('Scan already in progress');
-        }
-
+        if (this.isScanning) throw new Error('Scan already in progress');
         this.isScanning = true;
         this.scanProgress = { current: 0, total: 1, status: 'Scanning wallet for Palindrom SATs...' };
         this._updateProgress();
 
         try {
-            // Ein einziger API-Call zum Server – der macht alles parallel + gecached!
-            const response = await this._fetchWithFallback(`/api/palindrom/scan-palindromes/${address}`);
+            // 1) Try server-side scan
+            const palindromes = await this._serverScan(address);
+            if (palindromes && palindromes.length > 0) return palindromes;
 
-            if (!response.ok) {
-                let errMsg = `Server-Fehler (${response.status})`;
-                try {
-                    const err = await response.json();
-                    errMsg = err.error || errMsg;
-                } catch (e) { /* ignore */ }
-                throw new Error(errMsg);
-            }
-
-            const data = await response.json();
-
-            this.scanProgress = {
-                current: 1,
-                total: 1,
-                status: `✓ ${data.palindromes.length} palindromes found! (${data.stats.utxos} UTXOs, ${data.stats.timeSeconds}s)`
-            };
+            // 2) Server returned 0 — check if ordinals was reachable
+            console.log('[Scanner] Server found 0 palindromes, trying client-side scan...');
+            this.scanProgress.status = 'Server-Scan fand nichts, starte Browser-Scan...';
             this._updateProgress();
 
-            console.log(`[Scanner] ${data.palindromes.length} Palindrome in ${data.stats.timeSeconds}s (${data.stats.cachedRanges} cached, ${data.stats.fetchedRanges} neu geladen) via ${this.activeApiBase}`);
-
-            return data.palindromes;
-
+            return await this._clientScan(address);
         } catch (error) {
-            this.scanProgress.status = `Error: ${error.message}`;
+            // 3) Server failed entirely — try client-side
+            console.warn('[Scanner] Server scan failed, falling back to client-side:', error.message);
+            this.scanProgress.status = 'Server nicht erreichbar, starte Browser-Scan...';
             this._updateProgress();
-            throw error;
+            try {
+                return await this._clientScan(address);
+            } catch (clientError) {
+                this.scanProgress.status = `Error: ${clientError.message}`;
+                this._updateProgress();
+                throw clientError;
+            }
         } finally {
             this.isScanning = false;
         }
+    }
+
+    // ========================================
+    // Server-side scan (fast path)
+    // ========================================
+
+    async _serverScan(address) {
+        const response = await this._fetchWithFallback(`/api/palindrom/scan-palindromes/${address}`);
+        if (!response.ok) {
+            let errMsg = `Server error (${response.status})`;
+            try { const err = await response.json(); errMsg = err.error || errMsg; } catch (e) {}
+            throw new Error(errMsg);
+        }
+        const data = await response.json();
+        this.scanProgress = {
+            current: 1, total: 1,
+            status: `✓ ${data.palindromes.length} palindromes found! (${data.stats.utxos} UTXOs, ${data.stats.timeSeconds}s)`
+        };
+        this._updateProgress();
+        console.log(`[Scanner] Server: ${data.palindromes.length} Palindrome in ${data.stats.timeSeconds}s via ${this.activeApiBase}`);
+        return data.palindromes;
+    }
+
+    // ========================================
+    // Client-side scan (fallback — browser fetches ordinals.com directly)
+    // ========================================
+
+    async _clientScan(address) {
+        const startTime = Date.now();
+
+        // Step 1: Get UTXOs from mempool.space
+        this.scanProgress.status = 'Lade UTXOs von mempool.space...';
+        this._updateProgress();
+        const utxoRes = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
+        if (!utxoRes.ok) throw new Error('Konnte UTXOs nicht laden');
+        const utxos = await utxoRes.json();
+        console.log(`[Scanner] Client: ${utxos.length} UTXOs from mempool.space`);
+
+        // Step 2: Fetch sat ranges from ordinals.com (browser is not blocked!)
+        const allPalindromes = [];
+        let completed = 0;
+        const total = utxos.length;
+
+        const processUtxo = async (utxo) => {
+            const key = `${utxo.txid}:${utxo.vout}`;
+            try {
+                const res = await fetch(`${ORDINALS_DIRECT_URL}/r/output/${key}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.sat_ranges && Array.isArray(data.sat_ranges)) {
+                        for (const [start, end] of data.sat_ranges) {
+                            const found = this._findPalindromesInRange(start, end);
+                            for (const pal of found) {
+                                allPalindromes.push({
+                                    ...pal,
+                                    utxo: key,
+                                    utxoValue: utxo.value,
+                                    confirmed: utxo.status?.confirmed ?? true
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (e) { /* skip this UTXO */ }
+            completed++;
+            if (completed % 5 === 0 || completed === total) {
+                this.scanProgress = {
+                    current: completed, total,
+                    status: `Browser-Scan: ${completed}/${total} UTXOs... (${allPalindromes.length} gefunden)`
+                };
+                this._updateProgress();
+            }
+        };
+
+        // Concurrency-limited parallel processing
+        const queue = [...utxos];
+        const workers = [];
+        for (let i = 0; i < CLIENT_SCAN_CONCURRENCY; i++) {
+            workers.push((async () => {
+                while (queue.length > 0) {
+                    const utxo = queue.shift();
+                    if (utxo) await processUtxo(utxo);
+                }
+            })());
+        }
+        await Promise.all(workers);
+
+        allPalindromes.sort((a, b) => {
+            if (a.digits !== b.digits) return a.digits - b.digits;
+            return a.sat - b.sat;
+        });
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        this.scanProgress = {
+            current: total, total,
+            status: `✓ ${allPalindromes.length} palindromes found! (${total} UTXOs, ${elapsed}s, browser-scan)`
+        };
+        this._updateProgress();
+        console.log(`[Scanner] Client: ${allPalindromes.length} Palindrome in ${elapsed}s (${total} UTXOs)`);
+        return allPalindromes;
+    }
+
+    _isPalindrome(n) {
+        const s = String(n);
+        if (s.length < 3) return false;
+        const len = s.length;
+        for (let i = 0; i < len >> 1; i++) {
+            if (s[i] !== s[len - 1 - i]) return false;
+        }
+        return true;
+    }
+
+    _findPalindromesInRange(start, end) {
+        const results = [];
+        for (let sat = start; sat < end; sat++) {
+            if (this._isPalindrome(sat)) {
+                results.push({ sat, digits: String(sat).length });
+            }
+        }
+        return results;
     }
 
     // ========================================
@@ -114,9 +217,7 @@ class PalindromScanner {
     // ========================================
 
     _updateProgress() {
-        if (this.onProgress) {
-            this.onProgress({ ...this.scanProgress });
-        }
+        if (this.onProgress) this.onProgress({ ...this.scanProgress });
         console.log(`[Scanner] ${this.scanProgress.status}`);
     }
 
