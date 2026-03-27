@@ -11,7 +11,9 @@ class PalindromSoundBox {
         this.currentNumberIndex = 0;
         this.playTimeout = null;
         this.selectedPalindroms = [];
-        this.isStarting = false; // Schutz gegen mehrfache Start-Aufrufe
+        this.isStarting = false;
+        this.polyphony = false;
+        this.isRecording = false;
         
         // Beat-Synchronisation
         this.beatSync = false;
@@ -173,6 +175,41 @@ class PalindromSoundBox {
             resetBtn.addEventListener('click', () => this.resetSound());
         }
 
+        // Polyphony toggle
+        const polyphonyCheckbox = document.getElementById('polyphonyCheckbox');
+        if (polyphonyCheckbox) {
+            polyphonyCheckbox.addEventListener('change', (e) => { this.polyphony = e.target.checked; });
+        }
+
+        // Record button
+        const recordBtn = document.getElementById('recordBtn');
+        if (recordBtn) {
+            recordBtn.addEventListener('click', () => this.toggleRecording());
+        }
+
+        // Preset controls
+        const savePresetBtn = document.getElementById('savePresetBtn');
+        if (savePresetBtn) {
+            savePresetBtn.addEventListener('click', () => this.savePreset());
+        }
+        this.loadPresetList();
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+            switch (e.code) {
+                case 'Space': e.preventDefault(); this.isPlaying ? this.pause() : this.play(); break;
+                case 'Escape': e.preventDefault(); this.stop(); break;
+                case 'KeyR': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); this.randomizeSound(); } break;
+                case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': {
+                    const idx = parseInt(e.code.slice(-1)) - 1;
+                    const cb = document.querySelector(`.seq-checkbox[data-seq="${idx}"]`);
+                    if (cb) { cb.checked = !cb.checked; this.activeSequences[idx] = cb.checked; this.updatePalindrom(); this.updateStepDisplay(); }
+                    break;
+                }
+            }
+        });
+
         // Audio-Einstellungen
         const instrumentSelect = document.getElementById('instrumentSelect');
         const keySelect = document.getElementById('keySelect');
@@ -187,6 +224,18 @@ class PalindromSoundBox {
         if (keySelect) {
             keySelect.addEventListener('change', (e) => {
                 audioSystem.setKey(e.target.value);
+            });
+        }
+        const scaleSelect = document.getElementById('scaleSelect');
+        if (scaleSelect) {
+            scaleSelect.addEventListener('change', (e) => { audioSystem.setScale(e.target.value); });
+        }
+        const octaveSlider = document.getElementById('octaveSlider');
+        if (octaveSlider) {
+            octaveSlider.addEventListener('input', (e) => {
+                const v = parseInt(e.target.value);
+                document.getElementById('octaveValue').textContent = v > 0 ? `+${v}` : v;
+                audioSystem.setOctave(v);
             });
         }
         if (speedSlider) {
@@ -540,6 +589,17 @@ class PalindromSoundBox {
         const keyEl = document.getElementById('keySelect');
         if (keyEl) { keyEl.value = key; audioSystem.setKey(key); }
 
+        // Scale
+        const scales = ['major', 'minor', 'pentatonic', 'blues', 'dorian', 'mixolydian', 'japanese'];
+        const scale = pickRandom(scales);
+        const scaleEl = document.getElementById('scaleSelect');
+        if (scaleEl) { scaleEl.value = scale; audioSystem.setScale(scale); }
+
+        // Octave (-1 to +1)
+        const octave = rand(-1, 1);
+        const octaveEl = document.getElementById('octaveSlider');
+        if (octaveEl) { octaveEl.value = octave; document.getElementById('octaveValue').textContent = octave > 0 ? `+${octave}` : octave; audioSystem.setOctave(octave); }
+
         // Speed (2-9)
         const speed = rand(2, 9);
         const speedEl = document.getElementById('speedSlider');
@@ -619,9 +679,17 @@ class PalindromSoundBox {
         const instrumentEl = document.getElementById('instrumentSelect');
         if (instrumentEl) { instrumentEl.value = 'piano'; audioSystem.setInstrument('piano'); }
 
-        // Key: C Major
+        // Key: C
         const keyEl = document.getElementById('keySelect');
         if (keyEl) { keyEl.value = 'C'; audioSystem.setKey('C'); }
+
+        // Scale: Major
+        const scaleEl = document.getElementById('scaleSelect');
+        if (scaleEl) { scaleEl.value = 'major'; audioSystem.setScale('major'); }
+
+        // Octave: 0
+        const octaveEl = document.getElementById('octaveSlider');
+        if (octaveEl) { octaveEl.value = 0; document.getElementById('octaveValue').textContent = '0'; audioSystem.setOctave(0); }
 
         // Speed: 5
         setSlider('speedSlider', 'speedValue', 5); audioSystem.setSpeed(5);
@@ -920,6 +988,7 @@ class PalindromSoundBox {
         }
 
         this.updatePalindrom();
+        this.updateStepDisplay();
     }
 
     updatePalindrom() {
@@ -1088,8 +1157,12 @@ class PalindromSoundBox {
         this.isPlaying = true;
         this.isStarting = false; // Start abgeschlossen
         
+        this.updateStepDisplay();
+        
         // Wiedergabe starten
-        if (this.beatSync && audioSystem.audioContext) {
+        if (this.polyphony) {
+            this.playPolyphonic(activeSeqs);
+        } else if (this.beatSync && audioSystem.audioContext) {
             this.playSequenceBeatSync(activeSeqs);
         } else {
             this.playSequence(activeSeqs);
@@ -1227,6 +1300,50 @@ class PalindromSoundBox {
         this.playSequenceNumbersBeatSync(sequence, sequences, steps, indices);
     }
 
+    // ========================================
+    // Polyphonic Playback (all sequences simultaneously)
+    // ========================================
+
+    playPolyphonic(sequences) {
+        if (!this.isPlaying) return;
+        const maxLen = Math.max(...sequences.map(s => s.length));
+        if (maxLen === 0) { this.stop(); return; }
+        this.currentNumberIndex = 0;
+        this._polyStep(sequences, maxLen);
+    }
+
+    _polyStep(sequences, maxLen) {
+        if (!this.isPlaying || this.currentNumberIndex >= maxLen) {
+            if (this.isLooping && this.isPlaying) {
+                this.currentNumberIndex = 0;
+                this._polyStep(sequences, maxLen);
+            } else {
+                this.stop();
+            }
+            return;
+        }
+        const idx = this.currentNumberIndex;
+        for (let s = 0; s < sequences.length; s++) {
+            const seq = sequences[s];
+            if (idx < seq.length) {
+                const num = parseInt(seq[idx]);
+                if (!isNaN(num)) {
+                    const durationMs = (11 - audioSystem.speed) * 50;
+                    if (audioSystem.audioContext) audioSystem.playTone(num, durationMs / 1000);
+                }
+                this.highlightStep(s, idx);
+            }
+        }
+        this.updatePalindrom();
+        const durationMs = (11 - audioSystem.speed) * 50;
+        const ci = this.currentNumberIndex;
+        this.playTimeout = setTimeout(() => {
+            if (!this.isPlaying || this.currentNumberIndex !== ci) return;
+            this.currentNumberIndex++;
+            this._polyStep(sequences, maxLen);
+        }, durationMs);
+    }
+
     playSequenceNumbers(sequence, allSequences) {
         if (!this.isPlaying) return;
         
@@ -1269,10 +1386,7 @@ class PalindromSoundBox {
             return;
         }
         
-        const currentNumberEl = document.getElementById('currentNumber');
-        if (currentNumberEl) {
-            currentNumberEl.textContent = number;
-        }
+        this.highlightStep(this.currentSequenceIndex, this.currentNumberIndex);
         
         // Ton spielen - kürzere Dauer (in Millisekunden für Timeout, in Sekunden für Audio)
         const durationMs = (11 - audioSystem.speed) * 50; // Kürzere Dauer: 50-500ms
@@ -1381,9 +1495,144 @@ class PalindromSoundBox {
         }
     }
 
-    updateUI() {
-        // Initiale UI-Werte setzen
-        // (wird bereits durch Event-Handler gemacht)
+    updateUI() {}
+
+    // ========================================
+    // Step Sequencer Display
+    // ========================================
+
+    updateStepDisplay() {
+        const grid = document.getElementById('stepGrid');
+        const label = document.getElementById('stepLabel');
+        if (!grid) return;
+        const seqs = this.getActiveSequences();
+        if (seqs.length === 0) {
+            grid.innerHTML = '';
+            if (label) label.textContent = 'Load palindromes to begin';
+            return;
+        }
+        if (label) label.textContent = `${seqs.length} sequence${seqs.length > 1 ? 's' : ''} active`;
+        let html = '';
+        seqs.forEach((seq, si) => {
+            html += `<div class="step-row" data-seq-idx="${si}">`;
+            for (let i = 0; i < seq.length; i++) {
+                html += `<div class="step-cell" data-seq="${si}" data-idx="${i}">${seq[i]}</div>`;
+            }
+            html += '</div>';
+        });
+        grid.innerHTML = html;
+    }
+
+    highlightStep(seqIdx, charIdx) {
+        document.querySelectorAll('.step-cell.active').forEach(el => el.classList.remove('active'));
+        const cell = document.querySelector(`.step-cell[data-seq="${seqIdx}"][data-idx="${charIdx}"]`);
+        if (cell) cell.classList.add('active');
+    }
+
+    // ========================================
+    // Recording
+    // ========================================
+
+    async toggleRecording() {
+        const btn = document.getElementById('recordBtn');
+        if (this.isRecording) {
+            const blob = await audioSystem.stopRecording();
+            this.isRecording = false;
+            if (btn) { btn.textContent = '● Rec'; btn.classList.remove('recording'); }
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `palindrom-${Date.now()}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        } else {
+            if (audioSystem.startRecording()) {
+                this.isRecording = true;
+                if (btn) { btn.textContent = '■ Stop Rec'; btn.classList.add('recording'); }
+            }
+        }
+    }
+
+    // ========================================
+    // Preset System
+    // ========================================
+
+    getPresetData() {
+        const getVal = (id) => document.getElementById(id)?.value;
+        return {
+            instrument: getVal('instrumentSelect'), key: getVal('keySelect'), scale: getVal('scaleSelect'),
+            speed: getVal('speedSlider'), volume: getVal('volumeSlider'), octave: getVal('octaveSlider'),
+            vibrato: getVal('vibratoSlider'), delay: getVal('delaySlider'), filter: getVal('filterSlider'),
+            distortion: getVal('distortionSlider'), reverb: getVal('reverbSlider'), sustain: getVal('sustainSlider'),
+            smoothness: getVal('smoothnessSlider'), chorus: getVal('chorusSlider'), phaser: getVal('phaserSlider'),
+            tremolo: getVal('tremoloSlider'), compression: getVal('compressionSlider'),
+            eqLow: getVal('eqLowSlider'), eqMid: getVal('eqMidSlider'), eqHigh: getVal('eqHighSlider'),
+            beatStyle: getVal('beatStyleSelect'), bpm: getVal('bpmSlider'), beatVolume: getVal('beatVolumeSlider'),
+            sequenceTempo: getVal('sequenceTempoSelect'),
+        };
+    }
+
+    applyPresetData(p) {
+        const set = (id, val, labelId, fn) => {
+            const el = document.getElementById(id);
+            if (el && val !== undefined) { el.value = val; if (labelId) { const lb = document.getElementById(labelId); if (lb) lb.textContent = val; } if (fn && audioSystem[fn]) audioSystem[fn](parseFloat(val)); }
+        };
+        set('instrumentSelect', p.instrument, null, 'setInstrument');
+        set('keySelect', p.key, null, 'setKey');
+        set('scaleSelect', p.scale, null, 'setScale');
+        set('speedSlider', p.speed, 'speedValue', 'setSpeed');
+        set('volumeSlider', p.volume, 'volumeValue', 'setVolume');
+        set('octaveSlider', p.octave, 'octaveValue', 'setOctave');
+        set('vibratoSlider', p.vibrato, 'vibratoValue', 'setVibrato');
+        set('delaySlider', p.delay, 'delayValue', 'setDelay');
+        set('filterSlider', p.filter, 'filterValue', 'setFilter');
+        set('distortionSlider', p.distortion, 'distortionValue', 'setDistortion');
+        set('reverbSlider', p.reverb, 'reverbValue', 'setReverb');
+        set('sustainSlider', p.sustain, 'sustainValue', 'setSustain');
+        set('smoothnessSlider', p.smoothness, 'smoothnessValue', 'setSmoothness');
+        set('chorusSlider', p.chorus, 'chorusValue', 'setChorus');
+        set('phaserSlider', p.phaser, 'phaserValue', 'setPhaser');
+        set('tremoloSlider', p.tremolo, 'tremoloValue', 'setTremolo');
+        set('compressionSlider', p.compression, 'compressionValue', 'setCompression');
+        set('eqLowSlider', p.eqLow, 'eqLowValue', 'setEQLow');
+        set('eqMidSlider', p.eqMid, 'eqMidValue', 'setEQMid');
+        set('eqHighSlider', p.eqHigh, 'eqHighValue', 'setEQHigh');
+        set('beatStyleSelect', p.beatStyle, null, 'setBeatStyle');
+        set('bpmSlider', p.bpm, 'bpmValue', 'setBPM');
+        set('beatVolumeSlider', p.beatVolume, 'beatVolumeValue', 'setBeatVolume');
+        set('sequenceTempoSelect', p.sequenceTempo, null, 'setSequenceTempo');
+    }
+
+    savePreset() {
+        const nameEl = document.getElementById('presetName');
+        const name = (nameEl?.value || '').trim();
+        if (!name) { alert('Enter a preset name'); return; }
+        const presets = JSON.parse(localStorage.getItem('psb_presets') || '{}');
+        presets[name] = this.getPresetData();
+        localStorage.setItem('psb_presets', JSON.stringify(presets));
+        nameEl.value = '';
+        this.loadPresetList();
+    }
+
+    loadPresetList() {
+        const list = document.getElementById('presetList');
+        if (!list) return;
+        const presets = JSON.parse(localStorage.getItem('psb_presets') || '{}');
+        const names = Object.keys(presets);
+        if (names.length === 0) { list.innerHTML = '<div class="progress-text">No saved presets</div>'; return; }
+        list.innerHTML = '';
+        names.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'preset-item';
+            item.innerHTML = `<span class="preset-name">${name}</span><span class="preset-actions"><button class="preset-load" data-name="${name}">Load</button><button class="preset-delete" data-name="${name}">✕</button></span>`;
+            item.querySelector('.preset-load').addEventListener('click', () => { this.applyPresetData(presets[name]); });
+            item.querySelector('.preset-delete').addEventListener('click', () => {
+                delete presets[name]; localStorage.setItem('psb_presets', JSON.stringify(presets)); this.loadPresetList();
+            });
+            list.appendChild(item);
+        });
     }
 }
 

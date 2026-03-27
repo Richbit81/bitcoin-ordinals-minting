@@ -117,17 +117,29 @@
                 </div>
             </div>
 
+            <!-- Step Sequencer Display -->
+            <div class="section step-display-section">
+                <div id="stepSequencer" class="step-sequencer">
+                    <div id="stepGrid" class="step-grid"></div>
+                    <div id="stepLabel" class="step-label">Load palindromes to begin</div>
+                </div>
+            </div>
+
             <!-- Playback Controls -->
             <div class="section controls-section">
                 <div class="playback-controls">
                     <button id="playBtn" class="btn btn-play">▶ Play</button>
                     <button id="stopBtn" class="btn btn-stop">■ Stop</button>
+                    <button id="recordBtn" class="btn btn-record" title="Record">● Rec</button>
                     <label class="checkbox-label">
                         <input type="checkbox" id="loopCheckbox">
                         <span>Loop</span>
                     </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="polyphonyCheckbox">
+                        <span>Poly</span>
+                    </label>
                 </div>
-                <div id="currentNumber" class="current-number">-</div>
             </div>
 
             <!-- Randomize & Reset Buttons -->
@@ -135,6 +147,23 @@
                 <div class="randomize-row">
                     <button id="randomizeBtn" class="btn btn-randomize">🎲 Randomize</button>
                     <button id="resetBtn" class="btn btn-reset">↺ Reset</button>
+                </div>
+            </div>
+
+            <!-- Presets -->
+            <div class="section presets-section collapsible collapsed">
+                <div class="section-header">
+                    <h2>Presets</h2>
+                    <span class="collapse-arrow">▼</span>
+                </div>
+                <div class="section-body">
+                    <div class="preset-controls">
+                        <div class="preset-save-row">
+                            <input type="text" id="presetName" class="seq-input" placeholder="Preset name..." style="flex:1">
+                            <button id="savePresetBtn" class="btn btn-primary btn-small" style="width:auto;padding:8px 12px">Save</button>
+                        </div>
+                        <div id="presetList" class="preset-list"></div>
+                    </div>
                 </div>
             </div>
 
@@ -162,19 +191,36 @@
                         <div class="setting-item">
                             <label>Key</label>
                             <select id="keySelect" class="select">
-                                <option value="C">C Major</option>
-                                <option value="C#">C# Major</option>
-                                <option value="D">D Major</option>
-                                <option value="D#">D# Major</option>
-                                <option value="E">E Major</option>
-                                <option value="F">F Major</option>
-                                <option value="F#">F# Major</option>
-                                <option value="G">G Major</option>
-                                <option value="G#">G# Major</option>
-                                <option value="A">A Major</option>
-                                <option value="A#">A# Major</option>
-                                <option value="B">B Major</option>
+                                <option value="C">C</option>
+                                <option value="C#">C#</option>
+                                <option value="D">D</option>
+                                <option value="D#">D#</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="F#">F#</option>
+                                <option value="G">G</option>
+                                <option value="G#">G#</option>
+                                <option value="A">A</option>
+                                <option value="A#">A#</option>
+                                <option value="B">B</option>
                             </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>Scale</label>
+                            <select id="scaleSelect" class="select">
+                                <option value="major">Major</option>
+                                <option value="minor">Minor</option>
+                                <option value="pentatonic">Pentatonic</option>
+                                <option value="blues">Blues</option>
+                                <option value="dorian">Dorian</option>
+                                <option value="mixolydian">Mixolydian</option>
+                                <option value="chromatic">Chromatic</option>
+                                <option value="japanese">Japanese</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>Octave: <span id="octaveValue">0</span></label>
+                            <input type="range" id="octaveSlider" min="-2" max="2" value="0" class="slider">
                         </div>
                         <div class="setting-item">
                             <label>Speed: <span id="speedValue">5</span></label>

@@ -81,7 +81,19 @@ class AudioSystem {
         
         // Frequenzen
         this.baseFreq = 261.63; // C4
+        this.octaveShift = 0; // -2 to +2
         this.frequencies = {};
+        this.scale = 'major';
+        this.scaleIntervals = {
+            major:      [0, 2, 4, 5, 7, 9, 11, 12, 14, 16],
+            minor:      [0, 2, 3, 5, 7, 8, 10, 12, 14, 15],
+            pentatonic: [0, 2, 4, 7, 9, 12, 14, 16, 19, 21],
+            blues:      [0, 3, 5, 6, 7, 10, 12, 15, 17, 18],
+            dorian:     [0, 2, 3, 5, 7, 9, 10, 12, 14, 15],
+            mixolydian: [0, 2, 4, 5, 7, 9, 10, 12, 14, 16],
+            chromatic:  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            japanese:   [0, 1, 5, 7, 8, 12, 13, 17, 19, 20],
+        };
         this.updateFrequenciesForKey();
         
         // Beat-Patterns (16 Schritte)
@@ -347,16 +359,23 @@ class AudioSystem {
         };
         
         const offset = semitones[this.key] || 0;
-        
-        // Dur-Tonleiter: Ziffern 0-9 → harmonische Intervalle
-        // 0=Grundton, 1=Sekunde, 2=Terz, 3=Quarte, 4=Quinte,
-        // 5=Sexte, 6=Septime, 7=Oktave, 8=None, 9=Dezime
-        const scaleIntervals = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16];
+        const intervals = this.scaleIntervals[this.scale] || this.scaleIntervals.major;
+        const octaveOffset = this.octaveShift * 12;
         
         for (let i = 0; i < 10; i++) {
-            const semitone = offset + scaleIntervals[i];
+            const semitone = offset + intervals[i] + octaveOffset;
             this.frequencies[i] = this.baseFreq * Math.pow(2, semitone / 12);
         }
+    }
+
+    setScale(scale) {
+        this.scale = scale;
+        this.updateFrequenciesForKey();
+    }
+
+    setOctave(shift) {
+        this.octaveShift = Math.max(-2, Math.min(2, shift));
+        this.updateFrequenciesForKey();
     }
 
     getFrequency(number) {
@@ -885,6 +904,41 @@ class AudioSystem {
 
     setSequenceTempo(tempo) {
         this.sequenceTempo = parseFloat(tempo);
+    }
+
+    // ================================================================
+    // RECORDING (MediaRecorder → WAV download)
+    // ================================================================
+
+    startRecording() {
+        if (!this.audioContext || this.isRecording) return false;
+        const dest = this.audioContext.createMediaStreamDestination();
+        this.masterLimiter.connect(dest);
+        this._recordDest = dest;
+        this._mediaRecorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+        this._recordChunks = [];
+        this._mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) this._recordChunks.push(e.data); };
+        this._mediaRecorder.start();
+        this.isRecording = true;
+        return true;
+    }
+
+    stopRecording() {
+        if (!this._mediaRecorder || !this.isRecording) return null;
+        return new Promise((resolve) => {
+            this._mediaRecorder.onstop = () => {
+                const blob = new Blob(this._recordChunks, { type: 'audio/webm' });
+                if (this._recordDest) {
+                    try { this.masterLimiter.disconnect(this._recordDest); } catch(e) {}
+                }
+                this._recordDest = null;
+                this._mediaRecorder = null;
+                this._recordChunks = [];
+                this.isRecording = false;
+                resolve(blob);
+            };
+            this._mediaRecorder.stop();
+        });
     }
 
     // ================================================================
