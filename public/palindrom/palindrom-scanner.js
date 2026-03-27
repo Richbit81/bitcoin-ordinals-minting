@@ -103,13 +103,23 @@ class PalindromScanner {
     async _clientScan(address) {
         const startTime = Date.now();
 
-        // Step 1: Get UTXOs from mempool.space
-        this.scanProgress.status = 'Lade UTXOs von mempool.space...';
+        // Step 1: Get UTXOs from server (handles >500 UTXO wallets)
+        this.scanProgress.status = 'Lade UTXOs vom Server...';
         this._updateProgress();
-        const utxoRes = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
-        if (!utxoRes.ok) throw new Error('Konnte UTXOs nicht laden');
-        const utxos = await utxoRes.json();
-        console.log(`[Scanner] Client: ${utxos.length} UTXOs from mempool.space`);
+        let utxos;
+        try {
+            const utxoRes = await this._fetchWithFallback(`/api/palindrom/utxos/${address}`);
+            if (utxoRes.ok) {
+                const data = await utxoRes.json();
+                utxos = data.utxos;
+            }
+        } catch (e) { /* fall through to mempool.space */ }
+        if (!utxos || utxos.length === 0) {
+            const utxoRes = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
+            if (utxoRes.ok) utxos = await utxoRes.json();
+        }
+        if (!utxos || utxos.length === 0) throw new Error('Konnte UTXOs nicht laden');
+        console.log(`[Scanner] Client: ${utxos.length} UTXOs loaded`);
 
         // Step 2: Fetch sat ranges from ordinals.com (browser is not blocked!)
         const allPalindromes = [];
