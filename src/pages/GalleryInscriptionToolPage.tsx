@@ -25,6 +25,7 @@ import {
   loadImageData,
   saveGalleryDataHex,
   loadGalleryDataHex,
+  buildInscriptionEnvelope,
 } from '../services/inscriptionBuilder';
 import { hex as hexCodec } from '@scure/base';
 
@@ -107,6 +108,9 @@ export const GalleryInscriptionToolPage: React.FC = () => {
 
   const [enablePixelUpscale, setEnablePixelUpscale] = useState(false);
   const [pixelScale, setPixelScale] = useState<number>(2);
+
+  const [enableGalleryViewer, setEnableGalleryViewer] = useState(false);
+  const [galleryViewerDelegateId, setGalleryViewerDelegateId] = useState<string>('509557d5769d29c56237a7c6f78bc9fb25eb2935f2ff910d3efbf4e1127d54dbi0');
 
   // ---- SETTINGS ----
   const [feeRate, setFeeRate] = useState<number>(2);
@@ -359,6 +363,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
           metadata,
           contentEncoding: enableBrotli && isTextBasedContent(ct) ? 'br' : null,
           propertiesEncoding: inscriptions.length === 0 ? propertiesEncoding : null,
+          delegateId: enableGalleryViewer && inscriptions.length === 0 ? galleryViewerDelegateId : null,
         });
       }
       return inscriptions;
@@ -390,6 +395,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       contentEncoding: enableBrotli && isTextBasedContent(ct) ? contentEncoding : null,
       propertiesEncoding,
       reinscribeId: enableReinscribe ? reinscribeId : null,
+      delegateId: enableGalleryViewer ? galleryViewerDelegateId : null,
     }];
   }, [
     imageData, imageContentType, galleryCborData,
@@ -397,6 +403,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     enableParent, parentIds, enableBrotli, enableGalleryBrotli, brotliAvailable,
     enableBatch, batchFiles, enableReinscribe, reinscribeId,
     enablePixelUpscale, pixelScale, pixelUpscaleImage,
+    enableGalleryViewer, galleryViewerDelegateId,
   ]);
 
   // ============================================================
@@ -982,6 +989,28 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                   </FeatureToggle>
                 )}
 
+                {/* Gallery Viewer Delegate */}
+                <FeatureToggle
+                  label="Gallery Viewer (Delegate)"
+                  description="Setzt einen interaktiven HTML-Viewer als Delegate – zeigt die Gallery mit Thumbnails, Traits, Suche & Filter direkt auf ordinals.com an (wie tOPCATs)"
+                  checked={enableGalleryViewer}
+                  onChange={setEnableGalleryViewer}
+                >
+                  <div className="space-y-2">
+                    <label className="block text-xs text-gray-400">Delegate Inscription ID</label>
+                    <input
+                      type="text"
+                      className="w-full bg-black text-white border border-gray-600 rounded px-3 py-1.5 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                      value={galleryViewerDelegateId}
+                      onChange={e => setGalleryViewerDelegateId(e.target.value.trim())}
+                      placeholder="z.B. 509557d5...i0"
+                    />
+                    <p className="text-emerald-400 text-xs">
+                      Standard: tOPCATs Generic Gallery Viewer. Die Gallery-Inscription rendert dann automatisch die interaktive Übersicht mit allen Items.
+                    </p>
+                  </div>
+                </FeatureToggle>
+
                 {/* Batch */}
                 <FeatureToggle label="Batch Inscribing" description="Mehrere Inscriptions in einer einzigen Transaktion (spart Commit-Fees)" checked={enableBatch} onChange={setEnableBatch}>
                   <p className="text-gray-400 text-xs">Wähle mehrere Dateien in Schritt 1 oben aus. Jede Datei wird eine separate Inscription.</p>
@@ -1031,7 +1060,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                   </div>
 
                   {/* Active features summary */}
-                  {(enableTitle || enableTraits || enableParent || enableBrotli || enablePackedEncoding || enableGalleryBrotli || enableSpecificSat || enableReinscribe || enableBatch) && (
+                  {(enableTitle || enableTraits || enableParent || enableBrotli || enablePackedEncoding || enableGalleryBrotli || enableSpecificSat || enableReinscribe || enableBatch || enableGalleryViewer) && (
                     <div className="bg-gray-800 rounded-lg p-3">
                       <p className="text-gray-400 text-xs mb-1">Aktive Features:</p>
                       <div className="flex flex-wrap gap-2">
@@ -1043,7 +1072,69 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                         {enableGalleryBrotli && <span className="text-xs px-2 py-0.5 bg-cyan-900 text-cyan-300 rounded">Brotli (Gallery)</span>}
                         {enableSpecificSat && <span className="text-xs px-2 py-0.5 bg-yellow-900 text-yellow-300 rounded">Specific SAT</span>}
                         {enableReinscribe && <span className="text-xs px-2 py-0.5 bg-orange-900 text-orange-300 rounded">Reinscription</span>}
+                        {enableGalleryViewer && <span className="text-xs px-2 py-0.5 bg-amber-900 text-amber-300 rounded">Gallery Viewer</span>}
                         {enableBatch && <span className="text-xs px-2 py-0.5 bg-purple-900 text-purple-300 rounded">Batch ({batchFiles.length})</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inscription Envelope Download */}
+                  {enableGalleryViewer && (
+                    <div className="bg-gray-800 rounded-lg border border-amber-700/50 p-4 space-y-3">
+                      <p className="text-amber-300 text-sm font-semibold">📜 Inscription Envelope – Download & Test</p>
+                      <p className="text-gray-400 text-xs">Lade den kompletten Inscription-Envelope als Binärdatei oder Hex herunter, um ihn vor dem Einschreiben zu prüfen.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const opts = await buildInscriptionOptionsList();
+                              const envelope = new Uint8Array(buildInscriptionEnvelope(opts[0]));
+                              const blob = new Blob([envelope], { type: 'application/octet-stream' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = 'inscription-envelope.bin';
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch (e: any) { setError(`Download-Fehler: ${e.message}`); }
+                          }}
+                          disabled={!imageData && !enableBatch}
+                          className="px-4 py-2 bg-amber-700 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ⬇ Envelope (.bin)
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const opts = await buildInscriptionOptionsList();
+                              const envelope = new Uint8Array(buildInscriptionEnvelope(opts[0]));
+                              const hexStr = Array.from(envelope).map(b => b.toString(16).padStart(2, '0')).join('');
+                              const blob = new Blob([hexStr], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = 'inscription-envelope.hex';
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch (e: any) { setError(`Download-Fehler: ${e.message}`); }
+                          }}
+                          disabled={!imageData && !enableBatch}
+                          className="px-4 py-2 bg-gray-700 text-white text-sm font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ⬇ Envelope (.hex)
+                        </button>
+                      </div>
+                      <div className="bg-black rounded-lg p-3 text-xs font-mono text-gray-400">
+                        <p>Tags in dieser Inscription:</p>
+                        <p className="text-white mt-1">
+                          Tag 1 (Content-Type): {imageContentType || '–'}
+                          {enableParent && parentIds.trim() ? ` · Tag 3 (Parent): ${parentIds.split(',').length}x` : ''}
+                          {(enableTitle || enableTraits) ? ' · Tag 5 (Metadata)' : ''}
+                          {enableBrotli ? ' · Tag 9 (br)' : ''}
+                          {' · Tag 11 (Delegate): '}{galleryViewerDelegateId ? `${galleryViewerDelegateId.substring(0, 12)}...` : '–'}
+                          {galleryCborData ? ` · Tag 17 (Gallery): ${galleryItems.length} Items` : ''}
+                          {enableGalleryBrotli && brotliAvailable ? ' · Tag 19 (br)' : ''}
+                        </p>
                       </div>
                     </div>
                   )}

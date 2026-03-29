@@ -47,6 +47,7 @@ export interface InscriptionOptions {
   propertiesEncoding?: string | null; // "br" for brotli-compressed gallery data (Tag 19)
   pointer?: number | null;           // SAT offset for batch mode
   reinscribeId?: string | null;      // Inscription ID to reinscribe on
+  delegateId?: string | null;        // Delegate inscription ID (Tag 11) - renders delegate content instead of own body
 }
 
 export interface InscriptionSession {
@@ -504,7 +505,7 @@ export function encodeMetadataAsCBOR(
  * Build a single inscription envelope (OP_FALSE OP_IF ... OP_ENDIF)
  * Does NOT include the leading <pubkey> OP_CHECKSIG (added separately for batch)
  */
-function buildInscriptionEnvelope(opts: InscriptionOptions): number[] {
+export function buildInscriptionEnvelope(opts: InscriptionOptions): number[] {
   const script: number[] = [];
 
   // OP_FALSE OP_IF
@@ -543,8 +544,11 @@ function buildInscriptionEnvelope(opts: InscriptionOptions): number[] {
     script.push(...scriptPushData(new TextEncoder().encode(opts.contentEncoding)));
   }
 
-  // Tag 11 (0x0b): reinscribe on existing inscription
-  // (already handled elsewhere if needed)
+  // Tag 11 (0x0b): delegate inscription ID
+  if (opts.delegateId) {
+    script.push(...scriptPushData(new Uint8Array([0x0b])));
+    script.push(...scriptPushData(encodeInscriptionIdBytes(opts.delegateId)));
+  }
 
   // Tag 17 (0x11): gallery/properties (CBOR, chunked)
   if (opts.galleryData && opts.galleryData.length > 0) {
