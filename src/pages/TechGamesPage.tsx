@@ -180,6 +180,14 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     price: 5000,
     category: 'music',
   },
+  {
+    inscriptionId: '927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0',
+    name: 'GAVS - Generative Audio Visual System',
+    description:
+      'GAVS – Generative Audio Visual System. GAVS blends art and music. 9 different operators.',
+    price: 10000,
+    category: 'music',
+  },
 ];
 
 export const TechGamesPage: React.FC = () => {
