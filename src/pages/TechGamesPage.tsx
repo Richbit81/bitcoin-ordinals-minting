@@ -26,6 +26,15 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: '927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0',
+    name: 'GAVS - Generative Audio Visual System',
+    description:
+      'GAVS – Generative Audio Visual System. GAVS blends art and music. 9 different operators.',
+    price: 10000,
+    category: 'music',
+    isNew: true,
+  },
+  {
     inscriptionId: '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0',
     name: '22:17 - The Consistency Protocol',
     description:
@@ -178,14 +187,6 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     description:
       'Aural Disk is a browser-based modular music instrument with a circular interactive table. You can place, move, and rotate sound modules (bass, drums, synths, effects, and controllers) that auto-connect into a live audio signal chain using Web Audio. It offers genre presets, touch/mouse gestures, real-time visual feedback, and a compact side dock for fast performance control.',
     price: 5000,
-    category: 'music',
-  },
-  {
-    inscriptionId: '927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0',
-    name: 'GAVS - Generative Audio Visual System',
-    description:
-      'GAVS – Generative Audio Visual System. GAVS blends art and music. 9 different operators.',
-    price: 10000,
     category: 'music',
   },
 ];
