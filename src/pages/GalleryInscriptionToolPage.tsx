@@ -98,6 +98,10 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   const [brotliAvailable, setBrotliAvailable] = useState(false);
   const [brotliSavings, setBrotliSavings] = useState<number | null>(null);
 
+  const [enablePackedEncoding, setEnablePackedEncoding] = useState(false);
+
+  const [enableGalleryBrotli, setEnableGalleryBrotli] = useState(false);
+
   const [enableBatch, setEnableBatch] = useState(false);
   const [batchFiles, setBatchFiles] = useState<BatchFileEntry[]>([]);
 
@@ -163,6 +167,22 @@ export const GalleryInscriptionToolPage: React.FC = () => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, [session?.status]);
 
+  // Re-encode gallery CBOR when packed encoding toggle changes
+  useEffect(() => {
+    if (galleryItems.length === 0) return;
+    const reEncode = async () => {
+      let cbor = encodeGalleryAsCBOR(galleryItems, enablePackedEncoding);
+      if (enableGalleryBrotli && brotliAvailable) {
+        cbor = await compressWithBrotli(cbor);
+      }
+      setGalleryCborData(cbor);
+      const mode = enablePackedEncoding ? 'Packed' : 'Inline';
+      const comp = enableGalleryBrotli ? ' + Brotli' : '';
+      setStatusMessage(`✅ ${galleryItems.length} Gallery-Items (${mode}${comp}, ${(cbor.length / 1024).toFixed(1)} KB)`);
+    };
+    reEncode().catch(err => setError(`Re-encode Fehler: ${err.message}`));
+  }, [galleryItems, enablePackedEncoding, enableGalleryBrotli, brotliAvailable]);
+
   // Brotli savings estimation
   useEffect(() => {
     if (!enableBrotli || !imageData || !brotliAvailable) { setBrotliSavings(null); return; }
@@ -211,7 +231,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
           return { id: item.id, meta: { name: item.meta.name, attributes: item.meta.attributes || [] } };
         });
         setGalleryItems(items);
-        const cbor = encodeGalleryAsCBOR(items);
+        const cbor = encodeGalleryAsCBOR(items, enablePackedEncoding);
         setGalleryCborData(cbor);
         setStatusMessage(`✅ ${items.length} Gallery-Items geladen (${(cbor.length / 1024).toFixed(1)} KB CBOR)`);
       } catch (err: any) { setError(`JSON Fehler: ${err.message}`); }
@@ -312,6 +332,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
 
     // Content encoding
     const contentEncoding = enableBrotli ? 'br' : null;
+    const propertiesEncoding = enableGalleryBrotli ? 'br' : null;
 
     if (enableBatch && batchFiles.length > 0) {
       // BATCH MODE: one inscription per file
@@ -333,10 +354,11 @@ export const GalleryInscriptionToolPage: React.FC = () => {
         inscriptions.push({
           contentType: ct,
           body,
-          galleryData: inscriptions.length === 0 ? galleryCborData : null, // gallery only on first
+          galleryData: inscriptions.length === 0 ? galleryCborData : null,
           parentIds: parents,
           metadata,
           contentEncoding: enableBrotli && isTextBasedContent(ct) ? 'br' : null,
+          propertiesEncoding: inscriptions.length === 0 ? propertiesEncoding : null,
         });
       }
       return inscriptions;
@@ -366,12 +388,13 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       parentIds: parents,
       metadata,
       contentEncoding: enableBrotli && isTextBasedContent(ct) ? contentEncoding : null,
+      propertiesEncoding,
       reinscribeId: enableReinscribe ? reinscribeId : null,
     }];
   }, [
     imageData, imageContentType, galleryCborData,
     enableTitle, title, enableTraits, traits,
-    enableParent, parentIds, enableBrotli,
+    enableParent, parentIds, enableBrotli, enableGalleryBrotli,
     enableBatch, batchFiles, enableReinscribe, reinscribeId,
     enablePixelUpscale, pixelScale, pixelUpscaleImage,
   ]);
@@ -927,6 +950,38 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                   </div>
                 </FeatureToggle>
 
+                {/* Packed Encoding for Gallery */}
+                {galleryItems.length > 0 && (
+                  <FeatureToggle
+                    label="Gallery: Packed Encoding"
+                    description="Kompakteres Format für große Galleries – TXIDs werden einmalig konkateniert statt pro Item wiederholt"
+                    checked={enablePackedEncoding}
+                    onChange={setEnablePackedEncoding}
+                  >
+                    <p className="text-xs text-gray-400">
+                      Spart ca. 30-50% bei vielen Items mit gleicher TXID. Empfohlen ab ~50 Items.
+                    </p>
+                  </FeatureToggle>
+                )}
+
+                {/* Brotli for Gallery Properties */}
+                {galleryItems.length > 0 && (
+                  <FeatureToggle
+                    label="Gallery: Brotli Kompression"
+                    description="Komprimiert die Gallery-Properties-Daten mit Brotli (Tag 19)"
+                    checked={enableGalleryBrotli}
+                    onChange={setEnableGalleryBrotli}
+                  >
+                    {!brotliAvailable ? (
+                      <p className="text-red-400 text-xs">⚠️ Brotli-WASM konnte nicht geladen werden.</p>
+                    ) : (
+                      <p className="text-emerald-400 text-xs">
+                        ✅ Brotli verfügbar – Gallery-CBOR wird komprimiert (spart On-Chain-Kosten).
+                      </p>
+                    )}
+                  </FeatureToggle>
+                )}
+
                 {/* Batch */}
                 <FeatureToggle label="Batch Inscribing" description="Mehrere Inscriptions in einer einzigen Transaktion (spart Commit-Fees)" checked={enableBatch} onChange={setEnableBatch}>
                   <p className="text-gray-400 text-xs">Wähle mehrere Dateien in Schritt 1 oben aus. Jede Datei wird eine separate Inscription.</p>
@@ -976,14 +1031,16 @@ export const GalleryInscriptionToolPage: React.FC = () => {
                   </div>
 
                   {/* Active features summary */}
-                  {(enableTitle || enableTraits || enableParent || enableBrotli || enableSpecificSat || enableReinscribe || enableBatch) && (
+                  {(enableTitle || enableTraits || enableParent || enableBrotli || enablePackedEncoding || enableGalleryBrotli || enableSpecificSat || enableReinscribe || enableBatch) && (
                     <div className="bg-gray-800 rounded-lg p-3">
                       <p className="text-gray-400 text-xs mb-1">Aktive Features:</p>
                       <div className="flex flex-wrap gap-2">
                         {enableTitle && <span className="text-xs px-2 py-0.5 bg-emerald-900 text-emerald-300 rounded">Titel</span>}
                         {enableTraits && <span className="text-xs px-2 py-0.5 bg-emerald-900 text-emerald-300 rounded">Traits ({traits.filter(t => t.key && t.value).length})</span>}
                         {enableParent && <span className="text-xs px-2 py-0.5 bg-blue-900 text-blue-300 rounded">Parent</span>}
-                        {enableBrotli && <span className="text-xs px-2 py-0.5 bg-purple-900 text-purple-300 rounded">Brotli</span>}
+                        {enableBrotli && <span className="text-xs px-2 py-0.5 bg-purple-900 text-purple-300 rounded">Brotli (Content)</span>}
+                        {enablePackedEncoding && <span className="text-xs px-2 py-0.5 bg-cyan-900 text-cyan-300 rounded">Packed Gallery</span>}
+                        {enableGalleryBrotli && <span className="text-xs px-2 py-0.5 bg-cyan-900 text-cyan-300 rounded">Brotli (Gallery)</span>}
                         {enableSpecificSat && <span className="text-xs px-2 py-0.5 bg-yellow-900 text-yellow-300 rounded">Specific SAT</span>}
                         {enableReinscribe && <span className="text-xs px-2 py-0.5 bg-orange-900 text-orange-300 rounded">Reinscription</span>}
                         {enableBatch && <span className="text-xs px-2 py-0.5 bg-purple-900 text-purple-300 rounded">Batch ({batchFiles.length})</span>}

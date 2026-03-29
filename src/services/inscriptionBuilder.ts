@@ -5,13 +5,14 @@
  * Nutzt das Commit+Reveal Transaktionsmuster.
  * 
  * Inscription Envelope Tags:
- * - Tag 1  = Content-Type
- * - Tag 2  = Pointer (SAT offset in outputs, for batch)
- * - Tag 3  = Parent Inscription ID
- * - Tag 5  = Metadata (CBOR-encoded: title, traits)
- * - Tag 9  = Content-Encoding ("br" for brotli)
- * - Tag 11 = Delegate
- * - Tag 17 = Properties/Gallery (CBOR-encoded)
+ * - Tag 1  (0x01) = Content-Type
+ * - Tag 2  (0x02) = Pointer (SAT offset in outputs, for batch)
+ * - Tag 3  (0x03) = Parent Inscription ID
+ * - Tag 5  (0x05) = Metadata (CBOR-encoded: title, traits)
+ * - Tag 9  (0x09) = Content-Encoding ("br" for brotli)
+ * - Tag 11 (0x0b) = Delegate
+ * - Tag 17 (0x11) = Properties/Gallery (CBOR-encoded)
+ * - Tag 19 (0x13) = Properties-Encoding ("br" for brotli-compressed properties)
  */
 
 import * as btc from '@scure/btc-signer';
@@ -43,6 +44,7 @@ export interface InscriptionOptions {
   parentIds?: string[];
   metadata?: Uint8Array | null;      // CBOR-encoded metadata (title + traits)
   contentEncoding?: string | null;   // "br" for brotli
+  propertiesEncoding?: string | null; // "br" for brotli-compressed gallery data (Tag 19)
   pointer?: number | null;           // SAT offset for batch mode
   reinscribeId?: string | null;      // Inscription ID to reinscribe on
 }
@@ -121,6 +123,31 @@ class CBOREncoder {
 
   encodeMapHeader(length: number) {
     this.writeHeader(5, length);
+  }
+
+  encodeBool(value: boolean) {
+    this.push([value ? 0xf5 : 0xf4]);
+  }
+
+  encodeNull() {
+    this.push([0xf6]);
+  }
+
+  encodeNegInt(value: number) {
+    this.writeHeader(1, -1 - value);
+  }
+
+  encodeTraitValue(value: unknown) {
+    if (value === null || value === undefined) {
+      this.encodeNull();
+    } else if (typeof value === 'boolean') {
+      this.encodeBool(value);
+    } else if (typeof value === 'number' && Number.isInteger(value)) {
+      if (value >= 0) this.encodeUint(value);
+      else this.encodeNegInt(value);
+    } else {
+      this.encodeText(String(value));
+    }
   }
 
   getResult(): Uint8Array {
@@ -295,33 +322,134 @@ export async function isBrotliAvailable(): Promise<boolean> {
 
 /**
  * Encode gallery items as CBOR (Tag 17 / Properties)
+ * 
+ * Supports two encoding modes per the ord specification:
+ * - Inline: each item stores its full inscription ID bytes under Item key 0
+ * - Packed: all 32-byte txids concatenated under Properties key 2,
+ *   indices stored per item under Item key 2 (saves space for large galleries)
+ * 
+ * Trait values are encoded as their correct CBOR types:
+ * bool → CBOR true/false, int → CBOR uint/negint, null → CBOR null, else → text
  */
-export function encodeGalleryAsCBOR(items: GalleryItem[]): Uint8Array {
+export function encodeGalleryAsCBOR(items: GalleryItem[], usePacked = false): Uint8Array {
   const encoder = new CBOREncoder();
-  encoder.encodeMapHeader(1);
-  encoder.encodeUint(0);
-  encoder.encodeArrayHeader(items.length);
 
-  for (const item of items) {
-    const idBytes = encodeInscriptionIdBytes(item.id);
-    encoder.encodeMapHeader(2);
-    encoder.encodeUint(0);
-    encoder.encodeBytes(idBytes);
-    encoder.encodeUint(1);
+  if (!usePacked) {
+    // ─── INLINE ENCODING ───
+    encoder.encodeMapHeader(1);
+    encoder.encodeUint(0); // key 0 = Items array
+    encoder.encodeArrayHeader(items.length);
 
-    const attrs = item.meta.attributes;
-    encoder.encodeMapHeader(2);
-    encoder.encodeUint(0);
-    encoder.encodeText(item.meta.name);
-    encoder.encodeUint(1);
-    encoder.encodeMapHeader(attrs.length);
-    for (const attr of attrs) {
-      encoder.encodeText(attr.trait_type);
-      encoder.encodeText(attr.value);
+    for (const item of items) {
+      const idBytes = encodeInscriptionIdBytes(item.id);
+      const attrs = item.meta.attributes;
+      const hasAttrs = item.meta.name || attrs.length > 0;
+
+      encoder.encodeMapHeader(hasAttrs ? 2 : 1);
+      encoder.encodeUint(0); // Item key 0 = inscription ID
+      encoder.encodeBytes(idBytes);
+
+      if (hasAttrs) {
+        encoder.encodeUint(1); // Item key 1 = Attributes
+        const attrCount = (item.meta.name ? 1 : 0) + (attrs.length > 0 ? 1 : 0);
+        encoder.encodeMapHeader(attrCount);
+        if (item.meta.name) {
+          encoder.encodeUint(0); // Attributes key 0 = title
+          encoder.encodeText(item.meta.name);
+        }
+        if (attrs.length > 0) {
+          encoder.encodeUint(1); // Attributes key 1 = Traits
+          encoder.encodeMapHeader(attrs.length);
+          for (const attr of attrs) {
+            encoder.encodeText(attr.trait_type);
+            encoder.encodeTraitValue(parseTraitValue(attr.value));
+          }
+        }
+      }
     }
+  } else {
+    // ─── PACKED ENCODING ───
+    // Properties key 2 = concatenated 32-byte txids
+    // Item key 2 = inscription ID index (omitted if 0)
+    const txidBuf: Uint8Array[] = [];
+    const indices: number[] = [];
+
+    for (const item of items) {
+      const { txidBytes, index } = parseInscriptionId(item.id);
+      txidBuf.push(txidBytes);
+      indices.push(index);
+    }
+
+    const packedTxids = new Uint8Array(txidBuf.length * 32);
+    txidBuf.forEach((t, i) => packedTxids.set(t, i * 32));
+
+    const hasItems = items.some(it => it.meta.name || it.meta.attributes.length > 0);
+    const propsMapSize = 1 + (hasItems ? 1 : 0); // key 2 always, key 0 only if items have attrs
+    encoder.encodeMapHeader(propsMapSize);
+
+    if (hasItems) {
+      encoder.encodeUint(0); // key 0 = Items array
+      encoder.encodeArrayHeader(items.length);
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const attrs = item.meta.attributes;
+        const hasAttrs = item.meta.name || attrs.length > 0;
+        const hasIndex = indices[i] !== 0;
+        const itemMapSize = (hasAttrs ? 1 : 0) + (hasIndex ? 1 : 0);
+
+        if (itemMapSize === 0) {
+          encoder.encodeMapHeader(0);
+          continue;
+        }
+
+        encoder.encodeMapHeader(itemMapSize);
+
+        if (hasIndex) {
+          encoder.encodeUint(2); // Item key 2 = index
+          encoder.encodeUint(indices[i]);
+        }
+
+        if (hasAttrs) {
+          encoder.encodeUint(1); // Item key 1 = Attributes
+          const attrCount = (item.meta.name ? 1 : 0) + (attrs.length > 0 ? 1 : 0);
+          encoder.encodeMapHeader(attrCount);
+          if (item.meta.name) {
+            encoder.encodeUint(0);
+            encoder.encodeText(item.meta.name);
+          }
+          if (attrs.length > 0) {
+            encoder.encodeUint(1);
+            encoder.encodeMapHeader(attrs.length);
+            for (const attr of attrs) {
+              encoder.encodeText(attr.trait_type);
+              encoder.encodeTraitValue(parseTraitValue(attr.value));
+            }
+          }
+        }
+      }
+    }
+
+    encoder.encodeUint(2); // Properties key 2 = packed txids
+    encoder.encodeBytes(packedTxids);
   }
 
   return encoder.getResult();
+}
+
+/**
+ * Parse a trait value string into its correct type.
+ * "true"/"false" → boolean, integers → number, "null" → null, else → string
+ */
+function parseTraitValue(value: string): unknown {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+  if (/^-?\d+$/.test(value)) {
+    const n = parseInt(value, 10);
+    if (Number.isSafeInteger(n)) return n;
+  }
+  return value;
 }
 
 /**
@@ -415,9 +543,18 @@ function buildInscriptionEnvelope(opts: InscriptionOptions): number[] {
     script.push(...scriptPushData(new TextEncoder().encode(opts.contentEncoding)));
   }
 
-  // Tag 17: gallery/properties (CBOR, chunked)
+  // Tag 11 (0x0b): reinscribe on existing inscription
+  // (already handled elsewhere if needed)
+
+  // Tag 17 (0x11): gallery/properties (CBOR, chunked)
   if (opts.galleryData && opts.galleryData.length > 0) {
     scriptPushTaggedChunks(script, 0x11, opts.galleryData);
+  }
+
+  // Tag 19 (0x13): properties-encoding ("br" for brotli-compressed properties)
+  if (opts.propertiesEncoding) {
+    script.push(...scriptPushData(new Uint8Array([0x13])));
+    script.push(...scriptPushData(new TextEncoder().encode(opts.propertiesEncoding)));
   }
 
   // OP_0 (body separator)
