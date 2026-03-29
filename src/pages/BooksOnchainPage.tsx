@@ -36,6 +36,15 @@ const BOOK_ITEMS = [
     description:
       'Animal Farm by George Orwell is one of the most powerful political allegories ever written. What begins as a simple fable about animals quickly unfolds into a sharp critique of power, corruption, and the betrayal of ideals.\n\nOn a farm where animals rise up to take control, a vision of equality and freedom is born. But over time, power shifts, truths are distorted, and rules are rewritten-until liberation turns into oppression.\n\nOrwell exposes how easily revolutions can be corrupted and how language itself becomes a tool of control. The chilling realization-“All animals are equal, but some animals are more equal than others”-remains as relevant today as ever.\n\nThis story deserves permanence. A warning about power and manipulation belongs on a system that cannot be altered.\n\n110% on-chain. Preserved in the blockchain-so its truth can never be rewritten.',
   },
+  {
+    id: 'we',
+    name: 'WE',
+    inscriptionId: '01807f4e1ca904d2945e6403d3c82379900cb2c155970fa99b1bd0fafe41e907i0',
+    author: 'Yevgeny Zamyatin',
+    priceInSats: 5000,
+    description:
+      'The story is set in a totalitarian society called the "One State," where people are known by numbers and live under strict mathematical rules. Individuality, emotions, and freedom are suppressed.\n\nThe protagonist, D-503, is an engineer who records his thoughts in a journal while working on a spaceship. When he meets the mysterious I-330, his worldview begins to change, and he starts questioning the system.\n\nMain themes:\n\nSurveillance and control\nLoss of individuality\nReason vs. emotion\nFreedom vs. security',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
