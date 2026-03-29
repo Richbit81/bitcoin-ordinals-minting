@@ -237,7 +237,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
       } catch (err: any) { setError(`JSON Fehler: ${err.message}`); }
     };
     reader.readAsText(file);
-  }, []);
+  }, [enablePackedEncoding]);
 
   const handleBatchUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -332,7 +332,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
 
     // Content encoding
     const contentEncoding = enableBrotli ? 'br' : null;
-    const propertiesEncoding = enableGalleryBrotli ? 'br' : null;
+    const propertiesEncoding = (enableGalleryBrotli && brotliAvailable) ? 'br' : null;
 
     if (enableBatch && batchFiles.length > 0) {
       // BATCH MODE: one inscription per file
@@ -394,7 +394,7 @@ export const GalleryInscriptionToolPage: React.FC = () => {
   }, [
     imageData, imageContentType, galleryCborData,
     enableTitle, title, enableTraits, traits,
-    enableParent, parentIds, enableBrotli, enableGalleryBrotli,
+    enableParent, parentIds, enableBrotli, enableGalleryBrotli, brotliAvailable,
     enableBatch, batchFiles, enableReinscribe, reinscribeId,
     enablePixelUpscale, pixelScale, pixelUpscaleImage,
   ]);
