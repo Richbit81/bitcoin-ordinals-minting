@@ -1186,6 +1186,15 @@ target.z=(r+thick*Math.cos(h4*6.28))*Math.sin(th);
 color.r=.3+.5*la;color.g=.5+.3*Math.sin(la*6.28);color.b=.6+.4*(1.0-la);`;}
   ];
   const code=pick(templates)();
+  const styles=Object.keys(meshes);
+  const newStyle=pick(styles);
+  if(newStyle!==state.activeStyle){
+    meshes[state.activeStyle].visible=false;
+    state.activeStyle=newStyle;
+    activeMesh=meshes[newStyle];
+    activeMesh.visible=true;
+    document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===newStyle));
+  }
   state.customCode=true;
   clearUserState();
   cmEditor.setValue(code);
