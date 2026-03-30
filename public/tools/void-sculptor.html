@@ -2105,29 +2105,39 @@ document.getElementById('btnInsWalletXverse').addEventListener('click',async()=>
   try{
     insMsg('Connecting Xverse...','info');
     const provider=findXverseProvider();
-    if(!provider){
-      insMsg('Trying sats-connect...','info');
-      const sc=await ldWallet();
-      const resp=await sc.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
+    if(provider){
+      console.log('[VS] Found native BitcoinProvider, using getAccounts');
+      const resp=await provider.request('getAccounts',{purposes:['ordinals','payment'],message:'Void Sculptor Inscription'});
+      console.log('[VS] getAccounts response:',JSON.stringify(resp));
       if(resp.status==='success'){
-        const addrs=extractAddresses(resp);
-        const ord=addrs.find(a=>a.purpose==='ordinals');
-        const pay=addrs.find(a=>a.purpose==='payment');
-        if(!ord?.address)throw new Error('No ordinals address');
-        walletConnected(ord.address,pay?.address,'Xverse');
-      }else{throw new Error(resp.error?.message||'Connection rejected');}
-      return;
+        const accs=Array.isArray(resp.result)?resp.result:extractAddresses(resp);
+        const ord=accs.find(a=>a.purpose==='ordinals');
+        const pay=accs.find(a=>a.purpose==='payment');
+        if(ord?.address){walletConnected(ord.address,pay?.address,'Xverse');return;}
+      }
     }
-    const resp=await provider.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
-    if(resp.status==='success'){
-      const addrs=extractAddresses(resp);
-      const ord=addrs.find(a=>a.purpose==='ordinals');
-      const pay=addrs.find(a=>a.purpose==='payment');
-      if(!ord?.address)throw new Error('No ordinals address returned');
-      walletConnected(ord.address,pay?.address,'Xverse');
-    } else {
-      throw new Error(resp.error?.message||'Connection rejected');
+    console.log('[VS] Trying sats-connect library');
+    insMsg('Trying sats-connect...','info');
+    const sc=await ldWallet();
+    const methods=['wallet_connect','getAccounts','getAddresses'];
+    for(const method of methods){
+      try{
+        console.log('[VS] Trying sats-connect method:',method);
+        const params=method==='wallet_connect'
+          ?{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'}
+          :{purposes:['ordinals','payment'],message:'Void Sculptor Inscription'};
+        const resp=await sc.request(method,params);
+        console.log('[VS]',method,'response:',JSON.stringify(resp));
+        if(resp.status==='success'){
+          const addrs=extractAddresses(resp);
+          const accs=Array.isArray(resp.result)?resp.result:addrs;
+          const ord=accs.find(a=>a.purpose==='ordinals');
+          const pay=accs.find(a=>a.purpose==='payment');
+          if(ord?.address){walletConnected(ord.address,pay?.address,'Xverse');return;}
+        }
+      }catch(me){console.log('[VS]',method,'failed:',me.message);}
     }
+    throw new Error('Could not connect. Is Xverse installed and unlocked?');
   }catch(e){insMsg('Xverse: '+e.message,'err');}
 });
 document.getElementById('btnInsWalletUnisat').addEventListener('click',async()=>{
