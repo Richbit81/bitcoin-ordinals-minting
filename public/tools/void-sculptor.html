@@ -1153,7 +1153,7 @@ document.getElementById('sidebarToggle').addEventListener('click',()=>{
 document.querySelectorAll('.style-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const s=btn.dataset.style;
-    if(s===state.activeStyle) return;
+    if(!s||s===state.activeStyle) return;
     meshes[state.activeStyle].visible=false;
     state.activeStyle=s;
     activeMesh=meshes[s];
