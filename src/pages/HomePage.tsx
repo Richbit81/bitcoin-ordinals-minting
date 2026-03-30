@@ -120,8 +120,9 @@ export const HomePage: React.FC = () => {
       id: 'void-sculptor',
       name: 'Void Sculptor',
       thumbnail: 'https://ordinals.com/content/663aece070e8500f10c3aea0d87b9da00981f16699abcf7c95eb044d95a46828i0',
+
       description: '3D Particle Editor & Ordinals Inscription Tool',
-      order: 6,
+      order: 998,
     },
     {
       id: 'random-stuff',
@@ -331,7 +332,7 @@ export const HomePage: React.FC = () => {
               project.id === 'random-stuff' ? 'order-10' :
               project.id === 'free-stuff' ? 'order-11' :
               project.id === '1984' ? 'order-12' :
-              project.id === 'void-sculptor' ? 'order-[6]' :
+              project.id === 'void-sculptor' ? 'order-[998]' :
               project.id === 'cattack' ? 'order-last' :
               (project as any).collectionId ? 'order-[14]' :
               project.order >= 8 ? 'order-[15]' :
