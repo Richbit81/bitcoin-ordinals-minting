@@ -689,7 +689,8 @@ function validateCode(code){
     return false;
   }
   try{
-    const fn=new Function('i','count','target','color','THREE','time','info','label','param',code);
+    const fn=new Function('i','count','target','color','THREE','time','info','label','param',
+      'const fract=x=>x-Math.floor(x);const hash=n=>fract(Math.sin(n)*43758.5453);\n'+code);
     const t={x:0,y:0,z:0},c={r:0,g:0,b:0};
     fn(0,100,t,c,THREE,0,()=>{},()=>{},()=>0);
     return true;
