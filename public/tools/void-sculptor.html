@@ -2109,7 +2109,7 @@ document.getElementById('btnInsWalletXverse').addEventListener('click',async()=>
       console.log('[VS] Found native BitcoinProvider, using getAccounts');
       const resp=await provider.request('getAccounts',{purposes:['ordinals','payment'],message:'Void Sculptor Inscription'});
       console.log('[VS] getAccounts response:',JSON.stringify(resp));
-      if(resp.status==='success'){
+      if(resp.status==='success'||Array.isArray(resp.result)){
         const accs=Array.isArray(resp.result)?resp.result:extractAddresses(resp);
         const ord=accs.find(a=>a.purpose==='ordinals');
         const pay=accs.find(a=>a.purpose==='payment');
