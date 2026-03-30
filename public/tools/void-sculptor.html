@@ -1116,21 +1116,75 @@ function randomizeSettings(){
 }
 
 function generateRandom(){
-  const funcs=['Math.sin','Math.cos'];
-  const scales=[5,10,15,20,25,30,35];
-  const freqs=[1,2,3,5,7,10,20,50];
   const pick=a=>a[Math.floor(Math.random()*a.length)];
-  const rnd=()=>(Math.random()*2-1).toFixed(2);
-  const code=`const t = i / count;
-const a = t * Math.PI * 2 * ${pick(freqs)};
-const r = ${pick(scales)} * ${pick(funcs)}(t * ${pick(freqs)}) + ${rnd()} * ${pick(scales)};
-target.x = r * ${pick(funcs)}(a + ${rnd()});
-target.y = ${pick(scales)} * ${pick(funcs)}(t * ${pick(freqs)} + ${rnd()});
-target.z = r * ${pick(funcs)}(a * ${rnd()});
-const h = t;
-color.r = .5 + .5 * Math.sin(h * 6.28);
-color.g = .5 + .5 * Math.sin(h * 6.28 + 2.09);
-color.b = .5 + .5 * Math.sin(h * 6.28 + 4.19);`;
+  const rf=()=>(Math.random()*2-1).toFixed(2);
+  const ri=()=>pick([1,2,3,4,5,6,7,8]);
+  const rs=()=>pick([8,12,16,20,25,30]);
+  const templates=[
+    ()=>{const R=rs(),r=pick([3,5,7,9]),tw=ri();return`const t=i/count,a=t*Math.PI*2*${ri()},b=t*Math.PI*${ri()};
+const h1=hash(i*3.1),h2=hash(i*7.7),h3=hash(i*13.3);
+const R=${R}+h1*${pick([3,5,8])},th=a+h2*${rf()},ph=b+h3*${rf()};
+target.x=R*Math.sin(ph)*Math.cos(th);
+target.y=R*Math.sin(ph)*Math.sin(th)*${rf()};
+target.z=R*Math.cos(ph);
+const d=Math.sqrt(target.x*target.x+target.y*target.y+target.z*target.z)/${R};
+color.r=.5+.5*Math.sin(d*6.28);color.g=.3+.4*Math.cos(d*4.0+1.0);color.b=.5+.5*Math.sin(d*3.0+2.5);`;},
+    ()=>{const R=rs(),r=pick([4,6,8,10]);return`const t=i/count,a=t*Math.PI*2*${ri()};
+const h=hash(i*5.1),th=t*Math.PI*2*${ri()},ph=a;
+const rr=${R}+${r}*Math.cos(th)+h*${pick([2,4,6])};
+target.x=rr*Math.cos(ph);
+target.y=${r}*Math.sin(th)*(1.0+hash(i*2.3)*${rf()});
+target.z=rr*Math.sin(ph);
+color.r=.5+.5*Math.sin(th);color.g=.5+.5*Math.cos(ph*2.0);color.b=.4+.3*Math.sin(th+ph);`;},
+    ()=>{const s=rs(),arms=pick([2,3,4,5,6]),w=pick([3,5,7]);return`const t=i/count,h1=hash(i*3.7),h2=hash(i*11.3),h3=hash(i*7.1);
+const arm=Math.floor(h1*${arms}),aa=arm/${arms}*Math.PI*2;
+const r=t*${s}+h2*${w};
+const spin=r*${rf()}+aa;
+target.x=r*Math.cos(spin)+h3*${pick([1,2,3])};
+target.y=(h2-0.5)*${pick([5,8,12,15])}+Math.sin(r*${rf()})*${pick([2,4,6])};
+target.z=r*Math.sin(spin)+h1*${pick([1,2,3])};
+const d=r/${s};color.r=.4+.6*d;color.g=.2+.5*(1.0-d);color.b=.5+.5*Math.sin(arm*1.5);`;},
+    ()=>{const s=rs();return`const h1=hash(i*1.1),h2=hash(i*3.3),h3=hash(i*5.5),h4=hash(i*7.7);
+const x=(h1-0.5)*2,y=(h2-0.5)*2,z=(h3-0.5)*2;
+const d=Math.sqrt(x*x+y*y+z*z)+0.001;
+const f=Math.pow(h4,${rf()}>0?0.5:0.33);
+target.x=x/d*f*${s};target.y=y/d*f*${s};target.z=z/d*f*${s};
+const n=f;color.r=.3+.7*n;color.g=.1+.5*(1.0-n)+.3*Math.sin(n*8.0);color.b=.5+.5*(1.0-n);`;},
+    ()=>{const s=rs(),ly=pick([3,5,8,12]),tw=pick([2,3,5,7]);return`const t=i/count,h=hash(i*9.1);
+const a=t*Math.PI*2*${tw},r=${s}*(0.3+0.7*Math.abs(Math.sin(t*Math.PI*${ri()})));
+const spread=h*${pick([2,4,6])};
+target.x=(r+spread)*Math.cos(a);
+target.y=(t-0.5)*${ly}*2+Math.sin(a*${ri()})*${pick([2,3,5])};
+target.z=(r+spread)*Math.sin(a);
+const p=t;color.r=.5+.5*Math.cos(p*6.28);color.g=.5+.5*Math.sin(p*6.28+2.0);color.b=.3+.4*Math.cos(p*3.14);`;},
+    ()=>{const s=rs(),n=pick([2,3,4,5]);return`const t=i/count,h1=hash(i*2.9),h2=hash(i*6.7),h3=hash(i*11.1);
+const cx=Math.floor(h1*${n})*${Math.round(rs()/2)}-${Math.round(rs()/2*((n-1)/2))};
+const cy=Math.floor(h2*${n})*${Math.round(rs()/2)}-${Math.round(rs()/2*((n-1)/2))};
+const cz=Math.floor(h3*${n})*${Math.round(rs()/2)}-${Math.round(rs()/2*((n-1)/2))};
+const r=${pick([3,5,7,9])}*hash(i*17.3);
+const th=hash(i*4.1)*Math.PI*2,ph=hash(i*8.3)*Math.PI;
+target.x=cx+r*Math.sin(ph)*Math.cos(th);
+target.y=cy+r*Math.sin(ph)*Math.sin(th);
+target.z=cz+r*Math.cos(ph);
+const ci=Math.floor(h1*${n});color.r=.3+.4*Math.sin(ci*2.1);color.g=.3+.4*Math.cos(ci*1.7);color.b=.5+.4*Math.sin(ci*3.3);`;},
+    ()=>{const s=rs(),freq=pick([1,2,3,4,5]);return`const t=i/count,h=hash(i*4.3);
+const u=t*Math.PI*2*${freq},v=h*Math.PI*2;
+const wave=${pick([3,5,7])}*Math.sin(u*${ri()})*Math.cos(v*${ri()});
+const r=${s}+wave;
+target.x=r*Math.sin(v)*Math.cos(u);
+target.y=r*Math.cos(v)+Math.sin(u*${ri()})*${pick([3,5,8])};
+target.z=r*Math.sin(v)*Math.sin(u);
+const d=wave/${s};color.r=.5+.5*d;color.g=.4+.3*Math.sin(u*3.0);color.b=.5+.5*Math.cos(v*2.0);`;},
+    ()=>{const s=rs();return`const h1=hash(i*1.7),h2=hash(i*5.3),h3=hash(i*9.9),h4=hash(i*13.7);
+const layer=Math.floor(h1*${pick([5,8,12])});
+const la=layer/${pick([5,8,12])},r=${s}*la;
+const th=h2*Math.PI*2,thick=h3*${pick([2,4,6,8])};
+target.x=(r+thick*Math.cos(h4*6.28))*Math.cos(th);
+target.y=(h1-0.5)*${pick([5,10,15])}+Math.sin(th*${ri()})*${pick([2,3,5])};
+target.z=(r+thick*Math.cos(h4*6.28))*Math.sin(th);
+color.r=.3+.5*la;color.g=.5+.3*Math.sin(la*6.28);color.b=.6+.4*(1.0-la);`;}
+  ];
+  const code=pick(templates)();
   state.customCode=true;
   clearUserState();
   cmEditor.setValue(code);
