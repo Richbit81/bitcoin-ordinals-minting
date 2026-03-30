@@ -365,7 +365,10 @@ select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
       <div id="insSetup">
         <div class="ins-step">
           <h3>1. Wallet</h3>
-          <button id="btnInsWallet" class="ins-btn wallet">Connect Xverse Wallet</button>
+          <div style="display:flex;gap:6px">
+            <button id="btnInsWalletXverse" class="ins-btn wallet" style="flex:1">Xverse</button>
+            <button id="btnInsWalletUnisat" class="ins-btn wallet" style="flex:1;background:#e8a526">UniSat</button>
+          </div>
           <div id="insWalletInfo" style="font-size:11px;color:var(--text2);display:none"></div>
         </div>
         <div class="ins-step">
@@ -2058,30 +2061,54 @@ document.getElementById('btnOpenInscribe').addEventListener('click',()=>{
 
 document.getElementById('insFeeRate').addEventListener('input',updEst);
 
-document.getElementById('btnInsWallet').addEventListener('click',async()=>{
+function extractAddresses(payload){
+  if(!payload)return[];
+  if(Array.isArray(payload))return payload;
+  if(Array.isArray(payload?.result))return payload.result;
+  if(Array.isArray(payload?.addresses))return payload.addresses;
+  if(Array.isArray(payload?.result?.addresses))return payload.result.addresses;
+  if(Array.isArray(payload?.data?.addresses))return payload.data.addresses;
+  return[];
+}
+function walletConnected(ordAddr,payAddr,label){
+  insS.wAddr=ordAddr;
+  insS.pAddr=payAddr||ordAddr;
+  insS.walletType=label;
+  document.getElementById('insWalletInfo').style.display='block';
+  document.getElementById('insWalletInfo').textContent=label+': '+insS.wAddr.substring(0,12)+'...';
+  document.getElementById('btnInsWalletXverse').disabled=true;
+  document.getElementById('btnInsWalletUnisat').disabled=true;
+  if(!document.getElementById('insDest').value&&insS.wAddr){
+    document.getElementById('insDest').value=insS.wAddr;
+  }
+  document.getElementById('btnInsCommit').disabled=false;
+  insMsg('Wallet connected! ('+label+')','ok');
+}
+document.getElementById('btnInsWalletXverse').addEventListener('click',async()=>{
   try{
-    insMsg('Connecting wallet...','info');
+    insMsg('Connecting Xverse...','info');
     const sc=await ldWallet();
-    const resp=await sc.request('getAccounts',{purposes:['ordinals','payment'],message:'Void Sculptor Inscription'});
+    const resp=await sc.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
     if(resp.status==='success'){
-      const accs=resp.result;
-      const ord=accs.find(a=>a.purpose==='ordinals');
-      const pay=accs.find(a=>a.purpose==='payment');
-      insS.wAddr=ord?.address||accs[0]?.address;
-      insS.pAddr=pay?.address||accs[0]?.address;
-      document.getElementById('insWalletInfo').style.display='block';
-      document.getElementById('insWalletInfo').textContent='Connected: '+insS.wAddr.substring(0,12)+'...';
-      document.getElementById('btnInsWallet').textContent='Connected';
-      document.getElementById('btnInsWallet').disabled=true;
-      if(!document.getElementById('insDest').value&&insS.wAddr){
-        document.getElementById('insDest').value=insS.wAddr;
-      }
-      document.getElementById('btnInsCommit').disabled=false;
-      insMsg('Wallet connected!','ok');
+      const addrs=extractAddresses(resp);
+      const ord=addrs.find(a=>a.purpose==='ordinals');
+      const pay=addrs.find(a=>a.purpose==='payment');
+      if(!ord?.address)throw new Error('No ordinals address returned');
+      walletConnected(ord.address,pay?.address,'Xverse');
     } else {
       throw new Error(resp.error?.message||'Connection rejected');
     }
-  }catch(e){insMsg('Wallet: '+e.message,'err');}
+  }catch(e){insMsg('Xverse: '+e.message,'err');}
+});
+document.getElementById('btnInsWalletUnisat').addEventListener('click',async()=>{
+  try{
+    insMsg('Connecting UniSat...','info');
+    if(!window.unisat)throw new Error('UniSat Wallet not installed');
+    const accounts=await window.unisat.requestAccounts();
+    if(!accounts||accounts.length===0)throw new Error('No accounts returned');
+    const addr=accounts[0];
+    walletConnected(addr,addr,'UniSat');
+  }catch(e){insMsg('UniSat: '+e.message,'err');}
 });
 
 document.getElementById('btnInsUseMine').addEventListener('click',()=>{
@@ -2130,12 +2157,18 @@ document.getElementById('btnInsPay').addEventListener('click',async()=>{
   try{
     document.getElementById('btnInsPay').disabled=true;
     insMsg('Opening wallet...','info');
-    const sc=await ldWallet();
-    const resp=await sc.request('sendTransfer',{recipients:[{address:insS.ses.addr,amount:insS.ses.req}]});
-    if(resp.status==='success'){
-      insMsg('Payment sent! Waiting for confirmation...','ok');
-    } else {
-      throw new Error(resp.error?.message||'Payment rejected');
+    if(insS.walletType==='UniSat'){
+      if(!window.unisat)throw new Error('UniSat not available');
+      const txid=await window.unisat.sendBitcoin(insS.ses.addr,insS.ses.req);
+      if(txid)insMsg('Payment sent! TxID: '+txid.substring(0,12)+'...','ok');
+    }else{
+      const sc=await ldWallet();
+      const resp=await sc.request('sendTransfer',{recipients:[{address:insS.ses.addr,amount:insS.ses.req}]});
+      if(resp.status==='success'){
+        insMsg('Payment sent! Waiting for confirmation...','ok');
+      } else {
+        throw new Error(resp.error?.message||'Payment rejected');
+      }
     }
   }catch(e){
     insMsg('Payment: '+e.message,'err');
