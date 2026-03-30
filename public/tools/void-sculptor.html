@@ -2087,18 +2087,33 @@ function walletConnected(ordAddr,payAddr,label){
 document.getElementById('btnInsWalletXverse').addEventListener('click',async()=>{
   try{
     insMsg('Connecting Xverse...','info');
-    const sc=await ldWallet();
-    const resp=await sc.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
+    const provider=window.XverseProviders?.BitcoinProvider||window.BitcoinProvider;
+    if(!provider)throw new Error('Xverse Wallet not found. Please install the Xverse browser extension.');
+    const resp=await provider.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
     if(resp.status==='success'){
       const addrs=extractAddresses(resp);
       const ord=addrs.find(a=>a.purpose==='ordinals');
       const pay=addrs.find(a=>a.purpose==='payment');
-      if(!ord?.address)throw new Error('No ordinals address returned');
+      if(!ord?.address)throw new Error('No ordinals address returned. Try sats-connect fallback.');
       walletConnected(ord.address,pay?.address,'Xverse');
     } else {
       throw new Error(resp.error?.message||'Connection rejected');
     }
-  }catch(e){insMsg('Xverse: '+e.message,'err');}
+  }catch(e){
+    if(e.message&&e.message.includes('not found')){insMsg(e.message,'err');return;}
+    try{
+      insMsg('Trying sats-connect fallback...','info');
+      const sc=await ldWallet();
+      const resp=await sc.request('wallet_connect',{addresses:['payment','ordinals'],message:'Void Sculptor Inscription'});
+      if(resp.status==='success'){
+        const addrs=extractAddresses(resp);
+        const ord=addrs.find(a=>a.purpose==='ordinals');
+        const pay=addrs.find(a=>a.purpose==='payment');
+        if(!ord?.address)throw new Error('No ordinals address');
+        walletConnected(ord.address,pay?.address,'Xverse');
+      }else{throw new Error(resp.error?.message||'Connection rejected');}
+    }catch(e2){insMsg('Xverse: '+e2.message,'err');}
+  }
 });
 document.getElementById('btnInsWalletUnisat').addEventListener('click',async()=>{
   try{
