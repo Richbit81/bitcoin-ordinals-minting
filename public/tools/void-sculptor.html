@@ -2039,7 +2039,7 @@ window.resetIns=function(){
 
 document.getElementById('btnOpenInscribe').addEventListener('click',()=>{
   if(window.self!==window.top){
-    window.open(window.location.href,'_blank');
+    window.open(window.location.href+'#inscribe','_blank');
     toggleModal('modalExport',false);
     return;
   }
@@ -2506,6 +2506,18 @@ document.getElementById('btnRotate').classList.add('active');
 
 document.getElementById('loader').classList.add('done');
 setTimeout(()=>{const l=document.getElementById('loader');if(l)l.remove();},600);
+
+if(window.location.hash==='#inscribe'){
+  setTimeout(()=>{
+    toggleModal('modalInscribe',true);
+    const saved=loadIns();
+    if(saved&&saved.status!=='revealed'){
+      insS.ses=saved;
+      showFunding();
+      if(saved.status==='created')startPoll();
+    }
+  },500);
+}
 
 animate();
 </script>
