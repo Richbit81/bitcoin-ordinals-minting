@@ -290,7 +290,7 @@ select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
       <button class="style-btn" data-style="point">Point</button>
       <button class="style-btn" data-style="glow">Glow</button>
       <button class="style-btn" data-style="spike">Spike</button>
-      <button class="style-btn" id="btnTbRandom" title="Random Formation" style="background:var(--accent)!important;color:#000!important;font-weight:700">&#9858;</button>
+      <button class="style-btn" id="btnTbRandom" title="Randomize Settings" style="background:var(--accent)!important;color:#000!important;font-weight:700">&#9858;</button>
     </div>
     <div class="tb-sep"></div>
     <div class="tb-group" id="tbSliders">
@@ -1073,6 +1073,46 @@ function updateFXCount(){
   const n=FX_DEFS.filter(f=>fxState[f.id].on).length;
   const tab=document.querySelector('.tab[data-tab="fx"]');
   tab.textContent=n>0?`FX (${n})`:'FX';
+}
+
+function randomizeSettings(){
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const rng=(min,max,step)=>{const steps=Math.round((max-min)/step);return min+Math.round(Math.random()*steps)*step;};
+
+  const styles=Object.keys(meshes);
+  const newStyle=pick(styles);
+  if(newStyle!==state.activeStyle){
+    meshes[state.activeStyle].visible=false;
+    state.activeStyle=newStyle;
+    activeMesh=meshes[newStyle];
+    activeMesh.visible=true;
+    document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===newStyle));
+  }
+
+  const ranges={sldDensity:{min:0.05,max:1,step:0.05},sldSpeed:{min:0.1,max:3,step:0.1},sldBloom:{min:0,max:3,step:0.1},sldSize:{min:0.1,max:2,step:0.1},sldFog:{min:0,max:0.03,step:0.001},sldTrails:{min:0.01,max:1,step:0.01},sldSizeVar:{min:0,max:100,step:5}};
+  sliderMap.forEach(({id,val,key,fmt})=>{
+    const r=ranges[id];if(!r)return;
+    const v=rng(r.min,r.max,r.step);
+    const sl=document.getElementById(id);
+    const sp=document.getElementById(val);
+    sl.value=v;state[key]=v;sp.textContent=fmt(v);
+    if(key==='bloomStrength') bloomPass.strength=v;
+    if(key==='fogDensity') scene.fog.density=v;
+    if(key==='lerpFactor') state.currentLerp=v;
+    if(key==='density') activeMesh.count=Math.floor(COUNT*v);
+  });
+
+  const palNames=Object.keys(PAL_DISPLAY);
+  const newPal=Math.random()<0.3?null:pick(palNames);
+  state.activePalette=newPal;
+  document.querySelectorAll('.pal-btn').forEach(b=>b.classList.toggle('active',b.dataset.palette===newPal));
+  if(newPal) applyPalette(newPal);
+
+  const bgs=['void','deep','stars','grid','nebulaBg','gradient','warmBg'];
+  const newBg=pick(bgs);
+  state.activeBackground=newBg;
+  document.querySelectorAll('.bg-btn').forEach(b=>b.classList.toggle('active',b.dataset.bg===newBg));
+  applyBackground(newBg);
 }
 
 function generateRandom(){
@@ -2172,7 +2212,7 @@ window.addEventListener('resize', onResize);
 buildPresetPanel();
 buildFXPanel();
 buildPalettes();
-document.getElementById('btnTbRandom').addEventListener('click',generateRandom);
+document.getElementById('btnTbRandom').addEventListener('click',randomizeSettings);
 
 const defaultPreset=PRESETS[0];
 loadPreset(defaultPreset);
