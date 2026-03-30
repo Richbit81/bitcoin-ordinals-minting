@@ -296,7 +296,7 @@ select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
     <div class="tb-group" id="tbSliders">
       <div class="tb-slider"><label>Density <span id="valDensity">1.0</span></label><input type="range" id="sldDensity" min="0.05" max="1" step="0.05" value="1"></div>
       <div class="tb-slider"><label>Speed <span id="valSpeed">1.0</span></label><input type="range" id="sldSpeed" min="0.1" max="3" step="0.1" value="1"></div>
-      <div class="tb-slider"><label>Bloom <span id="valBloom">1.0</span></label><input type="range" id="sldBloom" min="0" max="3" step="0.1" value="1"></div>
+      <div class="tb-slider"><label>Bloom <span id="valBloom">1.0</span></label><input type="range" id="sldBloom" min="0" max="2" step="0.1" value="1"></div>
       <div class="tb-slider"><label>Size <span id="valSize">1.0</span></label><input type="range" id="sldSize" min="0.1" max="2" step="0.1" value="1"></div>
       <div class="tb-slider"><label>Fog <span id="valFog">0.008</span></label><input type="range" id="sldFog" min="0" max="0.03" step="0.001" value="0.008"></div>
       <div class="tb-slider"><label>Trails <span id="valTrails">0.10</span></label><input type="range" id="sldTrails" min="0.01" max="1" step="0.01" value="0.1"></div>
@@ -615,7 +615,7 @@ function createNebulaStars(){
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(vp.clientWidth, vp.clientHeight), 1.0, 0.4, 0.85);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(vp.clientWidth, vp.clientHeight), 0.2, 0.4, 0.85);
 composer.addPass(bloomPass);
 try{ composer.addPass(new OutputPass()); }catch(e){}
 
@@ -1089,14 +1089,14 @@ function randomizeSettings(){
     document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===newStyle));
   }
 
-  const ranges={sldDensity:{min:0.05,max:1,step:0.05},sldSpeed:{min:0.1,max:3,step:0.1},sldBloom:{min:0,max:3,step:0.1},sldSize:{min:0.1,max:2,step:0.1},sldFog:{min:0,max:0.03,step:0.001},sldTrails:{min:0.01,max:1,step:0.01},sldSizeVar:{min:0,max:100,step:5}};
+  const ranges={sldDensity:{min:0.05,max:1,step:0.05},sldSpeed:{min:0.1,max:3,step:0.1},sldBloom:{min:0,max:2,step:0.1},sldSize:{min:0.1,max:2,step:0.1},sldFog:{min:0,max:0.03,step:0.001},sldTrails:{min:0.01,max:1,step:0.01},sldSizeVar:{min:0,max:100,step:5}};
   sliderMap.forEach(({id,val,key,fmt})=>{
     const r=ranges[id];if(!r)return;
     const v=rng(r.min,r.max,r.step);
     const sl=document.getElementById(id);
     const sp=document.getElementById(val);
     sl.value=v;state[key]=v;sp.textContent=fmt(v);
-    if(key==='bloomStrength') bloomPass.strength=v;
+    if(key==='bloomStrength') bloomPass.strength=v*0.2;
     if(key==='fogDensity') scene.fog.density=v;
     if(key==='lerpFactor') state.currentLerp=v;
     if(key==='density') activeMesh.count=Math.floor(COUNT*v);
@@ -1218,7 +1218,7 @@ sliderMap.forEach(({id,val,key,fmt})=>{
     const v=parseFloat(sl.value);
     state[key]=v;
     sp.textContent=fmt(v);
-    if(key==='bloomStrength') bloomPass.strength=v;
+    if(key==='bloomStrength') bloomPass.strength=v*0.2;
     if(key==='fogDensity') scene.fog.density=v;
     if(key==='lerpFactor') state.currentLerp=v;
     if(key==='density') activeMesh.count=Math.floor(COUNT*v);
@@ -1395,7 +1395,7 @@ document.getElementById('btnExHTML').addEventListener('click',()=>{
   const styleKey=state.activeStyle;
   const fogD=state.fogDensity;
   const sz=state.sizeScale;
-  const bloom=state.bloomStrength;
+  const bloom=state.bloomStrength*0.2;
   const fxCode=buildFXExportCode();
   const fxCall=fxCode?'applyFX(el);':'';
 
