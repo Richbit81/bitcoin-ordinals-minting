@@ -119,7 +119,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'void-sculptor',
       name: 'Void Sculptor',
-      thumbnail: '/techgame.png',
+      thumbnail: 'https://ordinals.com/content/663aece070e8500f10c3aea0d87b9da00981f16699abcf7c95eb044d95a46828i0',
       description: '3D Particle Editor & Ordinals Inscription Tool',
       order: 6,
     },
@@ -363,7 +363,7 @@ export const HomePage: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ) : project.id === 'badcats' ? (
+              ) : project.id === 'badcats' || project.id === 'void-sculptor' ? (
                 <div className="overflow-hidden rounded-xl relative" style={{ aspectRatio: '1/1' }}>
                   <iframe
                     src={project.thumbnail}
