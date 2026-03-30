@@ -315,6 +315,15 @@ select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
       <button class="bg-btn" data-bg="warmBg">Warm</button>
     </div>
     <div class="tb-sep"></div>
+    <div class="tb-group" id="tbCamPresets">
+      <button class="bg-btn" data-cam="front" title="Front">F</button>
+      <button class="bg-btn" data-cam="top" title="Top">T</button>
+      <button class="bg-btn" data-cam="side" title="Side">S</button>
+      <button class="bg-btn" data-cam="close" title="Close-Up">C</button>
+      <button class="bg-btn" data-cam="far" title="Far">W</button>
+      <button class="bg-btn" data-cam="angle" title="Angle">A</button>
+    </div>
+    <div class="tb-sep"></div>
     <div class="tb-group">
       <button class="toggle-btn" id="btnRotate" title="Auto Rotate">&#8635;</button>
       <button class="toggle-btn" id="btnFullscreen" title="Fullscreen">&#9974;</button>
@@ -330,6 +339,19 @@ select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
       <button id="btnExHTML">&#128196; Export Standalone HTML</button>
       <button id="btnExOrd">&#9939; Export Ordinals HTML (Preview)</button>
       <button id="btnOpenInscribe" style="background:var(--accent)!important;color:#000!important;border-color:var(--accent)!important">&#8383; Inscribe on Bitcoin (Ordinals)</button>
+      <hr style="border-color:var(--border);margin:10px 0">
+      <button id="btnGenCollection">&#127922; Generate Collection Variants</button>
+      <div id="collectionSetup" style="display:none;margin-top:10px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <label style="font-size:12px;color:var(--text2)">Variants:</label>
+          <input type="number" id="collCount" value="10" min="2" max="50" style="width:60px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px">
+          <button id="btnRunCollection" style="padding:6px 14px;border-radius:var(--radius);background:var(--accent);color:#000;font-weight:700;font-size:12px;border:1px solid var(--accent)">Generate</button>
+        </div>
+        <div id="collGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-height:400px;overflow-y:auto"></div>
+        <div id="collActions" style="display:none;margin-top:8px;display:flex;gap:6px">
+          <button id="btnCollExport" style="flex:1;padding:8px;border-radius:var(--radius);background:var(--accent);color:#000;font-weight:700;font-size:12px;border:1px solid var(--accent)">&#128196; Export All as ZIP</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -678,7 +700,37 @@ const PRESETS = [
   { name:'Rose', category:'Science', code:`const k=5;\nconst t=i/count*Math.PI*2*k;\nconst rr=28*Math.cos(k*t);\ntarget.x=rr*Math.cos(t);\ntarget.y=rr*Math.sin(t);\ntarget.z=(hash(i*13.7)-.5)*8;\ncolor.r=1;color.g=.15+.35*Math.abs(Math.cos(t*3));color.b=.4;` },
   { name:'Shell', category:'Science', code:`const t=i/count;\nconst turns=6;\nconst th=t*Math.PI*2*turns;\nconst a=1,b=.18;\nconst r=a*Math.exp(b*th);\nconst y=r*Math.cos(th)*.5;\nconst x=r*Math.sin(th)*.5;\nconst z=(t-.5)*r*.6;\ntarget.x=x;target.y=y;target.z=z;\ncolor.r=.9;color.g=.65-.3*t;color.b=.3+.3*t;` },
   { name:'Snowflake', category:'Science', code:`const arm=i%6;\nconst j=Math.floor(i/6);\nconst seg=j/(count/6);\nconst ang=arm*Math.PI/3;\nconst len=seg*30;\nconst branch=Math.floor(seg*4);\nconst bOff=(seg*4-branch)*8;\nconst side=hash(i*3.1)>.5?1:-1;\nconst bx=Math.sin(ang+side*.5)*bOff*(branch>0?1:0);\nconst by=Math.cos(ang+side*.5)*bOff*(branch>0?1:0);\ntarget.x=Math.sin(ang)*len+bx;\ntarget.y=Math.cos(ang)*len+by;\ntarget.z=(hash(i*7.7)-.5)*2;\ncolor.r=.8;color.g=.9;color.b=1;` },
-  { name:'Sierpinski', category:'Science', code:`const v0=[0,30,0],v1=[-26,-15,-15],v2=[26,-15,-15],v3=[0,-15,26];\nlet px=0,py=0,pz=0;\nfor(let k=0;k<i+10;k++){\n  const r=Math.floor(hash(k*1.618+i*.001)*4);\n  const vt=[v0,v1,v2,v3][r];\n  px=(px+vt[0])/2;py=(py+vt[1])/2;pz=(pz+vt[2])/2;\n}\ntarget.x=px;target.y=py;target.z=pz;\nconst d=Math.sqrt(px*px+py*py+pz*pz);\ncolor.r=.3+.7*(py+15)/45;color.g=.8;color.b=.3+.5*(1-d/30);` }
+  { name:'Sierpinski', category:'Science', code:`const v0=[0,30,0],v1=[-26,-15,-15],v2=[26,-15,-15],v3=[0,-15,26];\nlet px=0,py=0,pz=0;\nfor(let k=0;k<i+10;k++){\n  const r=Math.floor(hash(k*1.618+i*.001)*4);\n  const vt=[v0,v1,v2,v3][r];\n  px=(px+vt[0])/2;py=(py+vt[1])/2;pz=(pz+vt[2])/2;\n}\ntarget.x=px;target.y=py;target.z=pz;\nconst d=Math.sqrt(px*px+py*py+pz*pz);\ncolor.r=.3+.7*(py+15)/45;color.g=.8;color.b=.3+.5*(1-d/30);` },
+  { name:'Lorenz', category:'Chaos', code:`let x=0.1,y=0,z=0;\nconst dt=0.005,s=10,rho=28,b=8/3;\nconst steps=i*3+20;\nfor(let k=0;k<steps;k++){\n  const dx=s*(y-x),dy=x*(rho-z)-y,dz=x*y-b*z;\n  x+=dx*dt;y+=dy*dt;z+=dz*dt;\n}\ntarget.x=x*0.9;target.y=(z-25)*0.9;target.z=y*0.9;\nconst sp=Math.sqrt(x*x+y*y)/50;\ncolor.r=.9;color.g=.3+.6*sp;color.b=.1+.5*(1-sp);` },
+  { name:'Aizawa', category:'Chaos', code:`let x=0.1,y=0,z=0;\nconst dt=0.01,a=0.95,b=0.7,c=0.6,d=3.5,e=0.25,f=0.1;\nfor(let k=0;k<i*2+30;k++){\n  const dx=(z-b)*x-d*y,dy=d*x+(z-b)*y,dz=c+a*z-z*z*z/3-(x*x+y*y)*(1+e*z)+f*z*x*x*x;\n  x+=dx*dt;y+=dy*dt;z+=dz*dt;\n}\ntarget.x=x*14;target.y=z*14;target.z=y*14;\ncolor.r=.4+.6*Math.abs(Math.sin(z));color.g=.2+.4*Math.abs(Math.cos(x));color.b=.7+.3*Math.sin(y);` },
+  { name:'Thomas', category:'Chaos', code:`let x=1.1,y=1.1,z=-0.01;\nconst dt=0.03,b=0.208186;\nfor(let k=0;k<i*2+50;k++){\n  const dx=Math.sin(y)-b*x,dy=Math.sin(z)-b*y,dz=Math.sin(x)-b*z;\n  x+=dx*dt;y+=dy*dt;z+=dz*dt;\n}\ntarget.x=x*9;target.y=y*9;target.z=z*9;\nconst d=Math.sqrt(x*x+y*y+z*z);\ncolor.r=.5+.5*Math.sin(d*2);color.g=.5+.5*Math.cos(d*1.7);color.b=.6+.4*Math.sin(d*2.3);` },
+  { name:'Halvorsen', category:'Chaos', code:`let x=-1.48,y=-1.51,z=2.04;\nconst dt=0.003,a=1.89;\nfor(let k=0;k<i*2+30;k++){\n  const dx=-a*x-4*y-4*z-y*y,dy=-a*y-4*z-4*x-z*z,dz=-a*z-4*x-4*y-x*x;\n  x+=dx*dt;y+=dy*dt;z+=dz*dt;\n}\ntarget.x=x*1.2;target.y=y*1.2;target.z=z*1.2;\ncolor.r=.9;color.g=.4+.4*Math.sin(x*.3);color.b=.1+.5*Math.cos(z*.3);` },
+  { name:'Rossler', category:'Chaos', code:`let x=0.1,y=0,z=0;\nconst dt=0.015,a=0.2,b=0.2,c=5.7;\nfor(let k=0;k<i*3+40;k++){\n  const dx=-y-z,dy=x+a*y,dz=b+z*(x-c);\n  x+=dx*dt;y+=dy*dt;z+=dz*dt;\n}\ntarget.x=x*1.5;target.y=z*1.2-10;target.z=y*1.5;\nconst d=Math.sqrt(x*x+y*y);\ncolor.r=.8+.2*Math.sin(d*.2);color.g=.3+.3*Math.cos(d*.15);color.b=.5;` },
+  { name:'Clifford', category:'Chaos', code:`let x=0.1,y=0.1;\nconst a=-1.4,b=1.6,c=1.0,d=0.7;\nfor(let k=0;k<i+20;k++){\n  const nx=Math.sin(a*y)+c*Math.cos(a*x),ny=Math.sin(b*x)+d*Math.cos(b*y);\n  x=nx;y=ny;\n}\nconst h=hash(i*7.7);\ntarget.x=x*18;target.y=y*18;target.z=(h-.5)*12;\ncolor.r=.5+.5*Math.sin(x*2);color.g=.3+.4*Math.cos(y*3);color.b=.6+.4*Math.sin(x+y);` },
+  { name:'Dejong', category:'Chaos', code:`let x=0.1,y=0.1;\nconst a=-2.24,b=0.43,c=-0.65,d=-2.43;\nfor(let k=0;k<i+20;k++){\n  const nx=Math.sin(a*y)-Math.cos(b*x),ny=Math.sin(c*x)-Math.cos(d*y);\n  x=nx;y=ny;\n}\ntarget.x=x*16;target.y=y*16;target.z=(hash(i*11.3)-.5)*10;\nconst dd=Math.sqrt(x*x+y*y);\ncolor.r=.6+.4*Math.sin(dd*3);color.g=.2+.6*Math.abs(Math.cos(x*2));color.b=.8;` },
+  { name:'Sunflower', category:'Nature', code:`const golden=Math.PI*(3-Math.sqrt(5));\nconst t=i/count;\nconst th=i*golden;\nconst r=Math.sqrt(t)*30;\nconst layers=hash(i*3.1)*8;\ntarget.x=r*Math.cos(th);\ntarget.y=r*Math.sin(th);\ntarget.z=Math.sin(r*0.3)*4+layers;\ncolor.r=.9;color.g=.6+.4*(1-t);color.b=.05+.2*t;` },
+  { name:'Fern', category:'Nature', code:`let x=0,y=0;\nfor(let k=0;k<i+30;k++){\n  const r=hash(k*1.618+i*0.001);\n  let nx,ny;\n  if(r<0.01){nx=0;ny=0.16*y;}\n  else if(r<0.86){nx=0.85*x+0.04*y;ny=-0.04*x+0.85*y+1.6;}\n  else if(r<0.93){nx=0.2*x-0.26*y;ny=0.23*x+0.22*y+1.6;}\n  else{nx=-0.15*x+0.28*y;ny=0.26*x+0.24*y+0.44;}\n  x=nx;y=ny;\n}\ntarget.x=x*5;target.y=(y-5)*5;target.z=(hash(i*9.1)-.5)*4;\ncolor.r=.15+.3*Math.abs(Math.sin(y*.5));color.g=.5+.5*(y/12);color.b=.1;` },
+  { name:'Coral', category:'Nature', code:`const branch=Math.floor(hash(i*1.3)*8);\nconst ba=branch/8*Math.PI*2;\nconst t=i/count;\nconst seg=hash(i*3.7);\nconst h=seg*35;\nconst spread=h*0.4;\nconst twist=h*0.15+ba;\nconst sub=hash(i*7.1)*spread*0.6;\ntarget.x=spread*Math.cos(twist)+sub*Math.cos(twist*3+hash(i*11.3)*6);\ntarget.y=h-15;\ntarget.z=spread*Math.sin(twist)+sub*Math.sin(twist*3+hash(i*13.7)*6);\ncolor.r=.9+.1*Math.sin(h*.2);color.g=.3+.3*(h/35);color.b=.4+.3*Math.cos(branch);` },
+  { name:'Lightning', category:'Nature', code:`const bolt=Math.floor(hash(i*1.1)*5);\nconst ba=bolt/5*Math.PI*2;\nconst t=hash(i*3.3);\nconst y=(1-t)*60-30;\nlet x=0,z=0;\nconst steps=Math.floor(t*12);\nfor(let k=0;k<steps;k++){\n  x+=(hash(i*7+k*31)-.5)*6;\n  z+=(hash(i*13+k*47)-.5)*6;\n}\nx+=Math.sin(ba)*t*8;z+=Math.cos(ba)*t*8;\ntarget.x=x;target.y=y;target.z=z;\nconst bright=1-t*0.6;\ncolor.r=.6+.4*bright;color.g=.5+.5*bright;color.b=1;` },
+  { name:'Tentacles', category:'Nature', code:`const arm=Math.floor(hash(i*1.7)*8);\nconst aa=arm/8*Math.PI*2;\nconst t=hash(i*3.1);\nconst len=t*35;\nconst wobble=Math.sin(t*8+arm*2)*5*t;\nconst thick=(1-t)*4*hash(i*9.3);\ntarget.x=Math.cos(aa)*len+wobble*Math.sin(aa)+thick*Math.cos(hash(i*5.5)*6.28);\ntarget.y=-len*0.5+5;\ntarget.z=Math.sin(aa)*len+wobble*Math.cos(aa)+thick*Math.sin(hash(i*7.7)*6.28);\ncolor.r=.6+.4*t;color.g=.1+.3*(1-t);color.b=.5+.3*Math.sin(arm);` },
+  { name:'Menger', category:'Fractal', code:`const n=27;\nlet x=i%n,y=Math.floor(i/n)%n,z=Math.floor(i/(n*n))%n;\nlet keep=true;\nlet tx=x,ty=y,tz=z;\nfor(let k=0;k<3&&keep;k++){\n  const mx=Math.floor(tx)%3,my=Math.floor(ty)%3,mz=Math.floor(tz)%3;\n  if((mx===1&&my===1)||(my===1&&mz===1)||(mx===1&&mz===1))keep=false;\n  tx/=3;ty/=3;tz/=3;\n}\nif(!keep){target.x=0;target.y=-999;target.z=0;}else{\n  const s=2.2;\n  target.x=(x-n/2)*s;target.y=(y-n/2)*s;target.z=(z-n/2)*s;\n  color.r=.6+.4*(x/n);color.g=.6+.4*(y/n);color.b=.6+.4*(z/n);\n}` },
+  { name:'Mandelbrot', category:'Fractal', code:`const px=(hash(i*1.1)*3.5-2.5),py=(hash(i*3.3)*3-1.5);\nlet zr=0,zi=0,iter=0;\nfor(;iter<50;iter++){\n  const zr2=zr*zr,zi2=zi*zi;\n  if(zr2+zi2>4)break;\n  zi=2*zr*zi+py;zr=zr2-zi2+px;\n}\nif(iter>=50){target.x=0;target.y=-999;target.z=0;}else{\n  const t=iter/50;\n  target.x=px*18;target.y=py*18;target.z=(hash(i*7.7)-.5)*t*15;\n  color.r=.5+.5*Math.sin(t*8);color.g=.3+.5*Math.sin(t*6+2);color.b=.5+.5*Math.cos(t*7);\n}` },
+  { name:'Julia', category:'Fractal', code:`const cr=-0.7269,ci=0.1889;\nlet zr=(hash(i*1.1)*4-2),zi=(hash(i*3.3)*4-2),iter=0;\nfor(;iter<40;iter++){\n  const zr2=zr*zr,zi2=zi*zi;\n  if(zr2+zi2>4)break;\n  const nzr=zr2-zi2+cr;\n  zi=2*zr*zi+ci;zr=nzr;\n}\nif(iter>=40){target.x=0;target.y=-999;target.z=0;}else{\n  const t=iter/40;\n  target.x=zr*15;target.y=zi*15;target.z=t*12-6;\n  color.r=.1+.9*t;color.g=.2+.4*Math.sin(t*6);color.b=.8*(1-t);\n}` },
+  { name:'Supernova', category:'Cosmic', code:`const shell=Math.floor(hash(i*1.3)*6);\nconst r=(shell+1)*5+hash(i*3.7)*4;\nconst phi=Math.acos(1-2*hash(i*5.1));\nconst th=hash(i*7.7)*Math.PI*2;\nconst jet=Math.abs(phi-Math.PI/2)<0.15?r*1.8:r;\ntarget.x=jet*Math.sin(phi)*Math.cos(th);\ntarget.y=jet*Math.sin(phi)*Math.sin(th);\ntarget.z=jet*Math.cos(phi);\nconst bright=1-shell/6;\ncolor.r=1;color.g=.2+.6*bright;color.b=.1+.4*bright*bright;` },
+  { name:'Nebula', category:'Cosmic', code:`const t=i/count;\nconst phi=hash(i*1.1)*Math.PI*2;\nconst th=hash(i*3.3)*Math.PI;\nconst base=20+hash(i*5.5)*15;\nconst turb=Math.sin(phi*3)*Math.cos(th*2)*10;\nconst r=base+turb;\ntarget.x=r*Math.sin(th)*Math.cos(phi);\ntarget.y=r*Math.sin(th)*Math.sin(phi)*0.4;\ntarget.z=r*Math.cos(th);\nconst d=r/35;\ncolor.r=.3+.5*Math.sin(d*3);color.g=.1+.3*Math.cos(phi*2);color.b=.5+.5*d;` },
+  { name:'Wormhole', category:'Cosmic', code:`const t=i/count;\nconst u=t*Math.PI*2*20;\nconst throat=4;\nconst z2=(hash(i*5.1)-.5)*50;\nconst r=throat+Math.sqrt(Math.abs(z2))*2.5;\ntarget.x=r*Math.cos(u+z2*0.1);\ntarget.y=r*Math.sin(u+z2*0.1);\ntarget.z=z2;\nconst d=Math.abs(z2)/25;\ncolor.r=.3+.5*(1-d);color.g=.1+.6*(1-d);color.b=.8+.2*d;` },
+  { name:'Rings of Saturn', category:'Cosmic', code:`const ring=hash(i*1.1);\nconst gap=(ring>.35&&ring<.42)||(ring>.58&&ring<.63);\nif(gap){target.x=0;target.y=-999;target.z=0;}else{\n  const r=15+ring*25;\n  const th=hash(i*3.3)*Math.PI*2;\n  const thick=(hash(i*5.5)-.5)*1.5;\n  target.x=r*Math.cos(th);\n  target.y=thick;\n  target.z=r*Math.sin(th);\n  const d=(r-15)/25;\n  color.r=.8+.2*d;color.g=.7+.2*d;color.b=.5+.3*d;\n}` },
+  { name:'Chladni', category:'Wave', code:`const n=Math.sqrt(count)|0;\nconst ix=i%n,iy=Math.floor(i/n);\nconst x=(ix/n-.5)*2*Math.PI,y2=(iy/n-.5)*2*Math.PI;\nconst m=3,nn=5;\nconst val=Math.sin(m*x)*Math.sin(nn*y2)-Math.sin(nn*x)*Math.sin(m*y2);\nconst onLine=Math.abs(val)<0.15;\ntarget.x=(ix/n-.5)*50;target.z=(iy/n-.5)*50;\ntarget.y=onLine?0:(hash(i*7.7)-.5)*2-999*(Math.abs(val)>2?1:0);\nif(Math.abs(val)>0.5){target.y=-999;}\ncolor.r=1;color.g=.8+.2*Math.sin(x*3);color.b=.4;` },
+  { name:'Standing Wave', category:'Wave', code:`const n=Math.sqrt(count)|0;\nconst ix=i%n,iy=Math.floor(i/n);\nconst x=(ix/n-.5)*60,z=(iy/n-.5)*60;\nconst d=Math.sqrt(x*x+z*z);\nconst y=Math.sin(d*0.4)*8*Math.cos(d*0.15)*Math.exp(-d*0.02);\ntarget.x=x;target.y=y;target.z=z;\nconst h=y/8;\ncolor.r=.5+.5*h;color.g=.2+.3*Math.abs(h);color.b=.8-.3*h;` },
+  { name:'Interference', category:'Wave', code:`const n=Math.sqrt(count)|0;\nconst ix=i%n,iy=Math.floor(i/n);\nconst x=(ix/n-.5)*60,z=(iy/n-.5)*60;\nconst d1=Math.sqrt((x-15)*(x-15)+z*z);\nconst d2=Math.sqrt((x+15)*(x+15)+z*z);\nconst y=Math.sin(d1*0.5)*4+Math.sin(d2*0.5)*4;\ntarget.x=x;target.y=y;target.z=z;\nconst v=(y+8)/16;\ncolor.r=.1+.8*v;color.g=.2+.5*v;color.b=.9-.4*v;` },
+  { name:'Klein Bottle', category:'Topology', code:`const t=i/count;\nconst u=t*Math.PI*2*20;\nconst v=hash(i*7.7)*Math.PI*2;\nconst cu=Math.cos(u),su=Math.sin(u),cv=Math.cos(v),sv=Math.sin(v);\nlet x,y,z;\nif(u<Math.PI){\n  x=6*cu*(1+su)+4*(1-cu/2)*cv;\n  z=-16*su;\n  y=4*(1-cu/2)*sv;\n}else{\n  x=6*cu*(1+su)-4*(1-cu/2)*cv;\n  z=-16*su;\n  y=4*(1-cu/2)*sv;\n}\ntarget.x=x*1.2;target.y=z*0.8+5;target.z=y*1.2;\ncolor.r=.4+.6*Math.abs(su);color.g=.3+.5*Math.abs(cv);color.b=.7;` },
+  { name:'Vortex Rings', category:'Topology', code:`const ring=Math.floor(hash(i*1.3)*4);\nconst R=18;\nconst rr=5+ring*1.5;\nconst th=hash(i*3.7)*Math.PI*2;\nconst ph=hash(i*5.1)*Math.PI*2;\nconst tilt=ring*Math.PI/4;\nconst cx=0,cy=ring*8-12;\nconst x2=(R+rr*Math.cos(ph))*Math.cos(th);\nconst y2=rr*Math.sin(ph);\nconst z2=(R+rr*Math.cos(ph))*Math.sin(th);\ntarget.x=x2*Math.cos(tilt)-y2*Math.sin(tilt);\ntarget.y=x2*Math.sin(tilt)+y2*Math.cos(tilt)+cy;\ntarget.z=z2;\nconst h=ring/4;\ncolor.r=.5+.5*Math.sin(h*6);color.g=.5+.5*Math.sin(h*6+2);color.b=.5+.5*Math.sin(h*6+4);` },
+  { name:'Terrain', category:'Landscape', code:`const n=Math.sqrt(count)|0;\nconst ix=i%n,iy=Math.floor(i/n);\nconst x=(ix/n-.5)*80,z=(iy/n-.5)*80;\nconst nx=x*0.06,nz=z*0.06;\nconst y=Math.sin(nx*1.7)*Math.cos(nz*1.3)*8+Math.sin(nx*3.1+1)*Math.cos(nz*2.7+2)*4+Math.sin(nx*7+3)*Math.cos(nz*5+1)*2;\ntarget.x=x;target.y=y-5;target.z=z;\nconst h=(y+14)/28;\ncolor.r=.2+.6*Math.max(0,h-.5)*2;color.g=.3+.5*h;color.b=.2+.3*(1-h);` },
+  { name:'City', category:'Landscape', code:`const grid=20;\nconst bx=Math.floor(hash(i*1.1)*grid),bz=Math.floor(hash(i*3.3)*grid);\nconst bh=(hash(bx*31.7+bz*47.3)*30)+2;\nconst ly=hash(i*5.5)*bh;\nconst lx=(hash(i*7.7)-.5)*3.5;\nconst lz=(hash(i*9.9)-.5)*3.5;\ntarget.x=(bx-grid/2)*4.5+lx;\ntarget.y=ly-5;\ntarget.z=(bz-grid/2)*4.5+lz;\nconst h=ly/30;\ncolor.r=1*h;color.g=.7*h;color.b=.3+.2*h;` },
+  { name:'Neural Net', category:'Abstract', code:`const nodes=30;\nconst node=Math.floor(hash(i*1.3)*nodes);\nconst nx=(hash(node*31.1)-.5)*50,ny=(hash(node*47.3)-.5)*50,nz=(hash(node*71.7)-.5)*50;\nconst isNode=hash(i*5.5)>0.7;\nif(isNode){\n  target.x=nx+(hash(i*7.7)-.5)*4;\n  target.y=ny+(hash(i*9.1)-.5)*4;\n  target.z=nz+(hash(i*11.3)-.5)*4;\n  color.r=1;color.g=.8;color.b=.2;\n}else{\n  const n2=Math.floor(hash(i*13.7)*nodes);\n  const nx2=(hash(n2*31.1)-.5)*50,ny2=(hash(n2*47.3)-.5)*50,nz2=(hash(n2*71.7)-.5)*50;\n  const t2=hash(i*17.1);\n  target.x=nx+(nx2-nx)*t2;target.y=ny+(ny2-ny)*t2;target.z=nz+(nz2-nz)*t2;\n  color.r=.2+.3*t2;color.g=.4+.4*t2;color.b=.9;\n}` },
+  { name:'Noise Field', category:'Abstract', code:`const h1=hash(i*1.1),h2=hash(i*3.3),h3=hash(i*5.5);\nlet x=(h1-.5)*60,y=(h2-.5)*60,z=(h3-.5)*60;\nconst fx=Math.sin(x*.15)*Math.cos(z*.1)*8;\nconst fy=Math.sin(y*.12)*Math.cos(x*.08)*8;\nconst fz=Math.cos(y*.1)*Math.sin(z*.15)*8;\ntarget.x=x+fx;target.y=y+fy;target.z=z+fz;\nconst d=Math.sqrt(x*x+y*y+z*z)/30;\ncolor.r=.3+.5*Math.sin(d*3);color.g=.3+.5*Math.cos(d*2.5);color.b=.4+.4*Math.sin(d*4);` },
+  { name:'Shockwave', category:'Abstract', code:`const rings=5;\nconst ring=Math.floor(hash(i*1.1)*rings);\nconst r=8+ring*7;\nconst th=hash(i*3.3)*Math.PI*2;\nconst expand=Math.sin(ring*1.2)*3;\nconst y2=(hash(i*5.5)-.5)*3+expand;\ntarget.x=(r+hash(i*7.7)*2)*Math.cos(th);\ntarget.y=y2;\ntarget.z=(r+hash(i*7.7)*2)*Math.sin(th);\nconst bright=1-ring/rings;\ncolor.r=.3+.7*bright;color.g=.5+.5*bright;color.b=1;` },
+  { name:'Flower of Life', category:'Abstract', code:`const circles=7;\nconst ci=Math.floor(hash(i*1.1)*circles);\nconst R=12;\nconst cx=ci===0?0:R*Math.cos(ci/6*Math.PI*2);\nconst cy=ci===0?0:R*Math.sin(ci/6*Math.PI*2);\nconst th=hash(i*3.3)*Math.PI*2;\nconst rr=R+hash(i*5.5)*1.5;\ntarget.x=cx+rr*Math.cos(th);\ntarget.y=cy+rr*Math.sin(th);\ntarget.z=(hash(i*7.7)-.5)*5;\ncolor.r=.9;color.g=.7+.3*Math.sin(th);color.b=.2+.3*(ci/circles);` }
 ];
 
 const FORBIDDEN = /\b(document|window|global(?:This)?|eval\s*\(|Function\s*\(|import\s|require\s*\(|fetch\s*\(|XMLHttp|WebSocket|Worker|localStorage|sessionStorage|cookie|alert\s*\(|confirm\s*\(|prompt\s*\(|location|navigator|process|child_process|__proto__|constructor\s*\[)\b/;
@@ -1183,7 +1235,31 @@ const th=h2*Math.PI*2,thick=h3*${pick([2,4,6,8])};
 target.x=(r+thick*Math.cos(h4*6.28))*Math.cos(th);
 target.y=(h1-0.5)*${pick([5,10,15])}+Math.sin(th*${ri()})*${pick([2,3,5])};
 target.z=(r+thick*Math.cos(h4*6.28))*Math.sin(th);
-color.r=.3+.5*la;color.g=.5+.3*Math.sin(la*6.28);color.b=.6+.4*(1.0-la);`;}
+color.r=.3+.5*la;color.g=.5+.3*Math.sin(la*6.28);color.b=.6+.4*(1.0-la);`;},
+    ()=>{const s=pick([10,12,14]),rho=pick([24,28,32]),bv=pick([2,2.5,3]);return`let x=0.1,y=0,z=0;
+const dt=0.005,sigma=${s},rho=${rho},beta=${bv};
+for(let k=0;k<i*3+20;k++){const dx=sigma*(y-x),dy=x*(rho-z)-y,dz=x*y-beta*z;x+=dx*dt;y+=dy*dt;z+=dz*dt;}
+target.x=x*${rf()>0?'1.0':'0.8'};target.y=(z-25)*0.9;target.z=y*0.9;
+const sp=Math.sqrt(x*x+y*y)/50;color.r=.9;color.g=.3+.6*sp;color.b=.1+.5*(1-sp);`;},
+    ()=>{const a=pick([-1.4,-1.7,-2.0]),b=pick([1.5,1.6,1.8]),c=pick([0.7,1.0,1.3]),d2=pick([0.5,0.7,0.9]);return`let x=0.1,y=0.1;
+const a=${a},b=${b},c=${c},d=${d2};
+for(let k=0;k<i+20;k++){const nx=Math.sin(a*y)+c*Math.cos(a*x),ny=Math.sin(b*x)+d*Math.cos(b*y);x=nx;y=ny;}
+target.x=x*18;target.y=y*18;target.z=(hash(i*7.7)-.5)*12;
+color.r=.5+.5*Math.sin(x*2);color.g=.3+.4*Math.cos(y*3);color.b=.6+.4*Math.sin(x+y);`;},
+    ()=>{const grid=pick([15,20,25]);return`const grid=${grid};
+const bx=Math.floor(hash(i*1.1)*grid),bz=Math.floor(hash(i*3.3)*grid);
+const bh=hash(bx*31.7+bz*47.3)*${pick([25,30,40])}+2;
+const ly=hash(i*5.5)*bh,lx=(hash(i*7.7)-.5)*3.5,lz=(hash(i*9.9)-.5)*3.5;
+target.x=(bx-grid/2)*4.5+lx;target.y=ly-5;target.z=(bz-grid/2)*4.5+lz;
+const h=ly/30;color.r=1*h;color.g=.7*h;color.b=.3+.2*h;`;},
+    ()=>{return`const n=Math.sqrt(count)|0;
+const ix=i%n,iy=Math.floor(i/n);
+const x=(ix/n-.5)*60,z=(iy/n-.5)*60;
+const d1=Math.sqrt((x-${pick([10,15,20])})*(x-${pick([10,15,20])})+z*z);
+const d2=Math.sqrt((x+${pick([10,15,20])})*(x+${pick([10,15,20])})+z*z);
+const y=Math.sin(d1*${pick([0.3,0.4,0.5])})*${pick([3,4,5])}+Math.sin(d2*${pick([0.3,0.4,0.5])})*${pick([3,4,5])};
+target.x=x;target.y=y;target.z=z;
+const v=(y+8)/16;color.r=.1+.8*v;color.g=.2+.5*v;color.b=.9-.4*v;`;}
   ];
   const code=pick(templates)();
   const styles=Object.keys(meshes);
@@ -1252,6 +1328,21 @@ document.getElementById('sidebarToggle').addEventListener('click',()=>{
   document.getElementById('sidebar').classList.remove('collapsed');
   document.getElementById('viewport').classList.remove('expanded');
   onResize();
+});
+
+const CAM_PRESETS={
+  front:{pos:[0,0,65],target:[0,0,0]},
+  top:{pos:[0,70,0.1],target:[0,0,0]},
+  side:{pos:[65,5,0],target:[0,0,0]},
+  close:{pos:[0,5,30],target:[0,0,0]},
+  far:{pos:[0,15,120],target:[0,0,0]},
+  angle:{pos:[40,35,40],target:[0,0,0]}
+};
+document.querySelectorAll('[data-cam]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const p=CAM_PRESETS[btn.dataset.cam];if(!p)return;
+    camera.position.set(...p.pos);controls.target.set(...p.target);controls.update();
+  });
 });
 
 document.querySelectorAll('.style-btn').forEach(btn=>{
@@ -1535,6 +1626,61 @@ document.getElementById('btnExOrd').addEventListener('click',()=>{
   link.href=URL.createObjectURL(blob);
   link.click();
   toggleModal('modalExport',false);
+});
+
+document.getElementById('btnGenCollection').addEventListener('click',()=>{
+  const el=document.getElementById('collectionSetup');
+  el.style.display=el.style.display==='none'?'block':'none';
+});
+document.getElementById('btnRunCollection').addEventListener('click',()=>{
+  const n=parseInt(document.getElementById('collCount').value)||10;
+  const grid=document.getElementById('collGrid');
+  grid.innerHTML='';
+  const variants=[];
+  for(let v=0;v<n;v++){
+    const cv=document.createElement('canvas');cv.width=96;cv.height=96;
+    const ctx=cv.getContext('2d');ctx.fillStyle='#0a0a14';ctx.fillRect(0,0,96,96);
+    const pick=a=>a[Math.floor(Math.random()*a.length)];
+    const presetList=PRESETS.filter(p=>p.category!=='Motion');
+    const preset=pick(presetList);
+    const palNames=Object.keys(PAL_DISPLAY);
+    const pal=Math.random()<0.3?null:pick(palNames);
+    const style=pick(Object.keys(meshes));
+    const settings={preset:preset.name,palette:pal,style:style,bloom:(Math.random()*2).toFixed(1),density:(0.3+Math.random()*0.7).toFixed(2),speed:(0.3+Math.random()*2.5).toFixed(1),sizeScale:(0.3+Math.random()*1.5).toFixed(1),fogDensity:(Math.random()*0.025).toFixed(3)};
+    try{
+      const fn=new Function('i','count','target','color','THREE','time','info','label','param',
+        'const fract=x=>x-Math.floor(x);const hash=n=>fract(Math.sin(n)*43758.5453);\n'+preset.code);
+      const sN=800;
+      const palColors=pal&&PALETTES[pal]?PALETTES[pal]:null;
+      for(let j=0;j<sN;j++){
+        const t={x:0,y:0,z:0},c={r:1,g:0.5,b:0.1};
+        try{fn(j,sN,t,c,THREE,0,()=>{},()=>{},()=>0);}catch(e){break;}
+        if(palColors){const ti=j/sN,idx=ti*(palColors.length-1),lo=Math.floor(idx),hi=Math.min(lo+1,palColors.length-1),f=idx-lo;const c1=hexToRgb(palColors[lo]),c2=hexToRgb(palColors[hi]);c.r=c1.r+(c2.r-c1.r)*f;c.g=c1.g+(c2.g-c1.g)*f;c.b=c1.b+(c2.b-c1.b)*f;}
+        const px=48+t.x*0.8,py=48-t.y*0.8;
+        if(px<0||px>95||py<0||py>95)continue;
+        ctx.fillStyle=`rgba(${Math.floor(c.r*255)},${Math.floor(c.g*255)},${Math.floor(c.b*255)},0.7)`;
+        ctx.fillRect(px,py,1.4,1.4);
+      }
+    }catch(e){}
+    const item=document.createElement('div');
+    item.style.cssText='cursor:pointer;border:2px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .15s';
+    item.innerHTML=`<img src="${cv.toDataURL()}" style="width:100%;display:block"><div style="font-size:9px;padding:3px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden">${preset.name}</div>`;
+    item.addEventListener('click',()=>{
+      const s=variants[v].settings;
+      const p=PRESETS.find(pr=>pr.name===s.preset);
+      if(p){cmEditor.setValue(p.code);if(compileCode(p.code)){startMorph();executeCode();}}
+      if(s.palette){state.activePalette=s.palette;applyPalette(s.palette);document.querySelectorAll('.pal-btn').forEach(b=>b.classList.toggle('active',b.dataset.palette===s.palette));}
+      if(s.style&&s.style!==state.activeStyle){meshes[state.activeStyle].visible=false;state.activeStyle=s.style;activeMesh=meshes[s.style];activeMesh.visible=true;document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===s.style));}
+      state.bloomStrength=parseFloat(s.bloom);bloomPass.strength=state.bloomStrength*0.2;document.getElementById('sldBloom').value=s.bloom;document.getElementById('valBloom').textContent=s.bloom;
+      state.density=parseFloat(s.density);activeMesh.count=Math.floor(COUNT*state.density);document.getElementById('sldDensity').value=s.density;document.getElementById('valDensity').textContent=s.density;
+      toggleModal('modalExport',false);
+    });
+    item.addEventListener('mouseenter',()=>item.style.borderColor='var(--accent)');
+    item.addEventListener('mouseleave',()=>item.style.borderColor='var(--border)');
+    grid.appendChild(item);
+    variants.push({settings,canvas:cv});
+  }
+  document.getElementById('collActions').style.display='flex';
 });
 
 // ============================================================
