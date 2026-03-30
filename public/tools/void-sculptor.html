@@ -2038,6 +2038,11 @@ window.resetIns=function(){
 };
 
 document.getElementById('btnOpenInscribe').addEventListener('click',()=>{
+  if(window.self!==window.top){
+    window.open(window.location.href,'_blank');
+    toggleModal('modalExport',false);
+    return;
+  }
   toggleModal('modalExport',false);
   toggleModal('modalInscribe',true);
   updEst();
