@@ -2007,9 +2007,9 @@ function showFunding(){
   document.getElementById('insAmount').textContent=s.req.toLocaleString()+' sats ('+( s.req/1e8).toFixed(8)+' BTC)';
   if(s.status==='funded'){
     document.getElementById('btnInsPay').style.display='none';
-    document.getElementById('btnInsReveal').style.display='block';
+    document.getElementById('btnInsReveal').style.display='none';
     document.getElementById('insPollStatus').style.display='none';
-    insMsg('Funded! Ready to reveal.','ok');
+    autoReveal(s);
   } else {
     document.getElementById('btnInsPay').style.display='block';
     document.getElementById('btnInsReveal').style.display='none';
@@ -2027,6 +2027,25 @@ function showResult(iid,rtxid){
     `<br><button class="ins-btn primary" style="margin-top:12px" onclick="resetIns()">New Inscription</button>`;
 }
 
+async function autoReveal(s){
+  try{
+    insMsg('Building reveal transaction...','info');
+    await ldCrypto();
+    let camt=s.camt;
+    if(!camt){const f=await chkFund(s.addr);camt=f.amt||s.req;}
+    const rawHex=buildReveal(s,s.ctxid,s.cvout,camt);
+    insMsg('Broadcasting reveal...','info');
+    const rtxid=await bcast(rawHex);
+    const iid=rtxid+'i0';
+    s.status='revealed';s.rtxid=rtxid;s.iid=iid;
+    saveIns(s);
+    insMsg('Inscription created!','ok');
+    showResult(iid,rtxid);
+  }catch(e){
+    insMsg('Auto-reveal failed: '+e.message+' – use manual button','err');
+    document.getElementById('btnInsReveal').style.display='block';
+  }
+}
 function startPoll(){
   if(insS.poll)return;
   insS.poll=true;
@@ -2037,12 +2056,12 @@ function startPoll(){
       stopPoll();
       insS.ses.status='funded';insS.ses.ctxid=r.txid;insS.ses.cvout=r.vout;insS.ses.camt=r.amt;
       saveIns(insS.ses);
-      insMsg('Commit funded! TXID: '+r.txid.substring(0,16)+'...','ok');
-      showFunding();
+      insMsg('Funded! Auto-revealing...','ok');
+      autoReveal(insS.ses);
     }
   };
   doPoll();
-  insS.pt=setInterval(doPoll,5000);
+  insS.pt=setInterval(doPoll,3000);
 }
 function stopPoll(){
   insS.poll=false;
