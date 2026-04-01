@@ -947,6 +947,25 @@ const RecursiveCollectionToolPage: React.FC = () => {
     return traits[traits.length - 1];
   }, []);
 
+  const buildDeck = useCallback((traits: TraitItem[], deckSize: number): TraitItem[] => {
+    if (traits.length === 0) return [];
+    const totalWeight = traits.reduce((sum, t) => sum + (t.rarity || 1), 0);
+    const deck: TraitItem[] = [];
+    const counts = new Map<TraitItem, number>();
+    for (const t of traits) {
+      const target = Math.max(1, Math.round(deckSize * (t.rarity || 1) / totalWeight));
+      counts.set(t, target);
+      for (let i = 0; i < target; i++) deck.push(t);
+    }
+    while (deck.length > deckSize) deck.pop();
+    while (deck.length < deckSize) deck.push(traits[Math.floor(Math.random() * traits.length)]);
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+  }, []);
+
   const handleGenerate = useCallback(() => {
     setError('');
 
@@ -1004,10 +1023,19 @@ const RecursiveCollectionToolPage: React.FC = () => {
     }
     const primaryTotalW = primaryWeights.reduce((s, w) => s + w.weight, 0);
 
+    const layerDecks: Map<string, TraitItem[]> = new Map();
+    const layerDeckIdx: Map<string, number> = new Map();
+    if (!hasPrimaries) {
+      validLayers.forEach(layer => {
+        const deck = buildDeck(layer.traits, totalCount);
+        layerDecks.set(layer.name, deck);
+        layerDeckIdx.set(layer.name, 0);
+      });
+    }
+
     while (items.length < totalCount && attempts < maxAttempts) {
       attempts++;
 
-      // Pick a random primary group
       let activePrimary: string | null = null;
       if (hasPrimaries) {
         let rand = Math.random() * primaryTotalW;
@@ -1040,8 +1068,17 @@ const RecursiveCollectionToolPage: React.FC = () => {
               return { layerName: layer.name, traitType: layer.traitType, trait: noneTrait };
             }
           }
+          const trait = weightedRandom(pool);
+          return { layerName: layer.name, traitType: layer.traitType, trait };
         }
 
+        const deck = layerDecks.get(layer.name);
+        let idx = layerDeckIdx.get(layer.name) || 0;
+        if (deck && idx < deck.length) {
+          const trait = deck[idx];
+          layerDeckIdx.set(layer.name, idx + 1);
+          return { layerName: layer.name, traitType: layer.traitType, trait };
+        }
         const trait = weightedRandom(pool);
         return { layerName: layer.name, traitType: layer.traitType, trait };
       });
@@ -1067,7 +1104,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
         attributes: item.layers.map(l => ({ trait_type: l.traitType, value: l.trait.name })),
       },
     })));
-  }, [layers, totalCount, collectionName, viewBox, pixelScale, weightedRandom]);
+  }, [layers, totalCount, collectionName, viewBox, pixelScale, weightedRandom, buildDeck]);
 
   // ============================================================
   // EDIT SINGLE GENERATED ITEM
@@ -2726,25 +2763,17 @@ svg{display:block;max-width:100vw;max-height:100vh;image-rendering:pixelated;ima
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-black rounded-lg border border-gray-800 overflow-hidden">
-                  <div className="w-full aspect-square overflow-auto bg-black">
-                    <div
-                      className="relative flex items-start justify-start"
-                      style={{
-                        width: `${Math.min(320, 100 * Math.max(1, pixelScale / 2))}%`,
-                        height: `${Math.min(320, 100 * Math.max(1, pixelScale / 2))}%`,
-                      }}
-                    >
-                      <canvas
-                        ref={previewCanvasRef}
-                        className="block max-w-none max-h-none"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      {previewRenderError && (
-                        <div className="absolute bottom-2 left-2 right-2 text-[11px] text-red-300 bg-red-950/70 border border-red-700 rounded px-2 py-1">
-                          {previewRenderError}
-                        </div>
-                      )}
-                    </div>
+                  <div className="w-full aspect-square bg-black flex items-center justify-center relative">
+                    <canvas
+                      ref={previewCanvasRef}
+                      className="block"
+                      style={{ imageRendering: 'pixelated', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    />
+                    {previewRenderError && (
+                      <div className="absolute bottom-2 left-2 right-2 text-[11px] text-red-300 bg-red-950/70 border border-red-700 rounded px-2 py-1">
+                        {previewRenderError}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
