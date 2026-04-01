@@ -1468,28 +1468,22 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
     try {
       setSaveStatus(`Erzeuge Inscription Code #${idx + 1}...`);
-      if (pixelScale > 1) {
-        const pngBlob = await renderGeneratedItemToPngBlob(item);
-        const dataUrl = await blobToDataUrl(pngBlob);
-        const vbParts = viewBox.split(/\s+/).map(Number);
-        const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
-        const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
-        const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
-        const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
-        const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW * px}" height="${vbH * px}" shape-rendering="crispEdges"><image href="${dataUrl}" x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" preserveAspectRatio="none" style="image-rendering:pixelated;image-rendering:crisp-edges;"/></svg>`;
-        const blob = new Blob([svg], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const blob = new Blob([item.svg], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
-        URL.revokeObjectURL(url);
-      }
+      const pngBlob = await renderGeneratedItemToPngBlob(item);
+      const dataUrl = await blobToDataUrl(pngBlob);
+      const vbParts = viewBox.split(/\s+/).map(Number);
+      const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
+      const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
+      const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
+      const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
+      const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+      const outW = vbW * px;
+      const outH = vbH * px;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${outW}" height="${outH}" shape-rendering="crispEdges"><style>image{image-rendering:pixelated;image-rendering:crisp-edges}</style><image href="${dataUrl}" x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" preserveAspectRatio="none"/></svg>`;
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+      URL.revokeObjectURL(url);
       setSaveStatus('✅ Inscription Code exportiert');
       window.setTimeout(() => setSaveStatus(''), 1800);
     } catch (err: any) {
