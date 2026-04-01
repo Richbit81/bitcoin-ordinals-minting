@@ -95,22 +95,23 @@ function buildSvgForViewBox(
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const BLEED_PX = 2;
+  const isPixelArt = safePixelScale > 1;
+  const BLEED_PX = isPixelArt ? 0 : 2;
   let visibleLayerIndex = 0;
   const svgImages = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
       const isFirstVisibleLayer = visibleLayerIndex++ === 0;
-      const layerBleed = isFirstVisibleLayer ? 16 : BLEED_PX;
+      const layerBleed = isPixelArt ? 0 : (isFirstVisibleLayer ? 16 : BLEED_PX);
       const ox = l.offsetX || 0;
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
       if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
-      const w = vbW * sc;
-      const h = vbH * sc;
-      const x = (vbW - w) / 2 + ox - layerBleed;
-      const y = (vbH - h) / 2 + oy - layerBleed;
+      const w = Math.round(vbW * sc);
+      const h = Math.round(vbH * sc);
+      const x = Math.round((vbW - w) / 2 + ox) - layerBleed;
+      const y = Math.round((vbH - h) / 2 + oy) - layerBleed;
       return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + layerBleed * 2}" height="${h + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
     })
     .join('\n');
@@ -1364,8 +1365,8 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${collectionName} #${idx + 1} - Test Preview</title>
 <style>
-html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}
-svg{display:block;width:100vw;height:100vh;overflow:hidden}
+html,body{margin:0;padding:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}
+svg{display:block;max-width:100vw;max-height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
 </style>
 </head><body>${previewSvg}</body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
