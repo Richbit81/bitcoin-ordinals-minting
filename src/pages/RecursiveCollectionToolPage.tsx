@@ -1373,6 +1373,85 @@ const RecursiveCollectionToolPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, []);
 
+  const loadImageFromUrl = useCallback((url: string) => {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${url}`));
+      img.src = url;
+    });
+  }, []);
+
+  const renderGeneratedItemToPngBlob = useCallback(async (item: GeneratedItem): Promise<Blob> => {
+    const vbParts = viewBox.split(/\s+/).map(Number);
+    const vbW = Math.max(1, vbParts[2] || 1000);
+    const vbH = Math.max(1, vbParts[3] || 1000);
+    const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(vbW * px);
+    canvas.height = Math.round(vbH * px);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas Kontext konnte nicht erstellt werden');
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(px, 0, 0, px, 0, 0);
+    ctx.clearRect(0, 0, vbW, vbH);
+
+    const toHardPixelCanvas = (img: HTMLImageElement): CanvasImageSource => {
+      if (!hardPixelMode) return img;
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = img.naturalWidth || img.width || 1;
+      srcCanvas.height = img.naturalHeight || img.height || 1;
+      const srcCtx = srcCanvas.getContext('2d');
+      if (!srcCtx) return img;
+      srcCtx.imageSmoothingEnabled = false;
+      srcCtx.drawImage(img, 0, 0);
+      const data = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+      const p = data.data;
+      for (let i = 0; i < p.length; i += 4) {
+        if (p[i + 3] < 140) {
+          p[i + 3] = 0;
+          continue;
+        }
+        p[i + 3] = 255;
+        p[i] = Math.round(p[i] / 16) * 16;
+        p[i + 1] = Math.round(p[i + 1] / 16) * 16;
+        p[i + 2] = Math.round(p[i + 2] / 16) * 16;
+      }
+      srcCtx.putImageData(data, 0, 0);
+      return srcCanvas;
+    };
+
+    for (const layer of item.layers.filter((l) => !isNoneTrait(l.trait))) {
+      const inscriptionId = layer.trait?.inscriptionId || '';
+      if (!inscriptionId) continue;
+      const src = `https://ordinals.com/content/${inscriptionId}`;
+      const img = await loadImageFromUrl(src);
+      const source = toHardPixelCanvas(img);
+      const ox = layer.offsetX || 0;
+      const oy = layer.offsetY || 0;
+      const sc = layer.scale || 1;
+      const w = vbW * sc;
+      const h = vbH * sc;
+      const x = (vbW - w) / 2 + ox;
+      const y = (vbH - h) / 2 + oy;
+      const snapped = snapRectToPixelGrid(x, y, w, h);
+      ctx.drawImage(source, snapped.x, snapped.y, snapped.w, snapped.h);
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('PNG konnte nicht erzeugt werden');
+    return blob;
+  }, [viewBox, pixelScale, hardPixelMode, loadImageFromUrl]);
+
+  const blobToDataUrl = useCallback((blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  }), []);
+
   const downloadSVG = useCallback((idx: number) => {
     const item = generated[idx];
     if (!item) return;
@@ -1449,78 +1528,6 @@ img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-h
       setError(err?.message || 'Test Preview fehlgeschlagen');
     }
   }, [generated, collectionName, viewBox, pixelScale, renderGeneratedItemToPngBlob, blobToDataUrl]);
-
-  const loadImageFromUrl = useCallback((url: string) => {
-    return new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.decoding = 'async';
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${url}`));
-      img.src = url;
-    });
-  }, []);
-
-  const renderGeneratedItemToPngBlob = useCallback(async (item: GeneratedItem): Promise<Blob> => {
-    const vbParts = viewBox.split(/\s+/).map(Number);
-    const vbW = Math.max(1, vbParts[2] || 1000);
-    const vbH = Math.max(1, vbParts[3] || 1000);
-    const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(vbW * px);
-    canvas.height = Math.round(vbH * px);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas Kontext konnte nicht erstellt werden');
-    ctx.imageSmoothingEnabled = false;
-    ctx.setTransform(px, 0, 0, px, 0, 0);
-    ctx.clearRect(0, 0, vbW, vbH);
-
-    const toHardPixelCanvas = (img: HTMLImageElement): CanvasImageSource => {
-      if (!hardPixelMode) return img;
-      const srcCanvas = document.createElement('canvas');
-      srcCanvas.width = img.naturalWidth || img.width || 1;
-      srcCanvas.height = img.naturalHeight || img.height || 1;
-      const srcCtx = srcCanvas.getContext('2d');
-      if (!srcCtx) return img;
-      srcCtx.imageSmoothingEnabled = false;
-      srcCtx.drawImage(img, 0, 0);
-      const data = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
-      const p = data.data;
-      for (let i = 0; i < p.length; i += 4) {
-        if (p[i + 3] < 140) {
-          p[i + 3] = 0;
-          continue;
-        }
-        p[i + 3] = 255;
-        p[i] = Math.round(p[i] / 16) * 16;
-        p[i + 1] = Math.round(p[i + 1] / 16) * 16;
-        p[i + 2] = Math.round(p[i + 2] / 16) * 16;
-      }
-      srcCtx.putImageData(data, 0, 0);
-      return srcCanvas;
-    };
-
-    for (const layer of item.layers.filter((l) => !isNoneTrait(l.trait))) {
-      const inscriptionId = layer.trait?.inscriptionId || '';
-      if (!inscriptionId) continue;
-      const src = `https://ordinals.com/content/${inscriptionId}`;
-      const img = await loadImageFromUrl(src);
-      const source = toHardPixelCanvas(img);
-      const ox = layer.offsetX || 0;
-      const oy = layer.offsetY || 0;
-      const sc = layer.scale || 1;
-      const w = vbW * sc;
-      const h = vbH * sc;
-      const x = (vbW - w) / 2 + ox;
-      const y = (vbH - h) / 2 + oy;
-      const snapped = snapRectToPixelGrid(x, y, w, h);
-      ctx.drawImage(source, snapped.x, snapped.y, snapped.w, snapped.h);
-    }
-
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('PNG konnte nicht erzeugt werden');
-    return blob;
-  }, [viewBox, pixelScale, hardPixelMode, loadImageFromUrl]);
 
   const renderLayersToCanvas = useCallback(async (
     layersToRender: GeneratedItem['layers'],
@@ -1640,13 +1647,6 @@ img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-h
       setError(err?.message || 'PNG Batch-Export fehlgeschlagen');
     }
   }, [generated, collectionName, renderGeneratedItemToPngBlob]);
-
-  const blobToDataUrl = useCallback((blob: Blob) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result || ''));
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  }), []);
 
   const downloadPixelSVG = useCallback(async (idx: number) => {
     const item = generated[idx];
