@@ -1378,6 +1378,7 @@ svg{display:block;width:100vw;height:100vh;overflow:hidden}
   const loadImageFromUrl = useCallback((url: string) => {
     return new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.decoding = 'async';
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${url}`));
