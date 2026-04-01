@@ -1383,35 +1383,72 @@ const RecursiveCollectionToolPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
-  const downloadInscriptionCode = useCallback((idx: number) => {
+  const downloadInscriptionCode = useCallback(async (idx: number) => {
     const item = generated[idx];
     if (!item) return;
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
-    const blob = new Blob([item.svg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
-    URL.revokeObjectURL(url);
-  }, [generated, collectionName]);
+    try {
+      setSaveStatus(`Erzeuge Inscription Code #${idx + 1}...`);
+      if (pixelScale > 1) {
+        const pngBlob = await renderGeneratedItemToPngBlob(item);
+        const dataUrl = await blobToDataUrl(pngBlob);
+        const vbParts = viewBox.split(/\s+/).map(Number);
+        const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
+        const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
+        const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
+        const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
+        const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW * px}" height="${vbH * px}" shape-rendering="crispEdges"><image href="${dataUrl}" x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" preserveAspectRatio="none" style="image-rendering:pixelated;image-rendering:crisp-edges;"/></svg>`;
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const blob = new Blob([item.svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+        URL.revokeObjectURL(url);
+      }
+      setSaveStatus('✅ Inscription Code exportiert');
+      window.setTimeout(() => setSaveStatus(''), 1800);
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || 'Inscription Code Export fehlgeschlagen');
+    }
+  }, [generated, collectionName, pixelScale, viewBox, renderGeneratedItemToPngBlob, blobToDataUrl]);
 
-  const downloadTestPreview = useCallback((idx: number) => {
+  const downloadTestPreview = useCallback(async (idx: number) => {
     const item = generated[idx];
     if (!item) return;
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
-    const previewSvg = item.svg.replace(/href="\/content\//g, 'href="https://ordinals.com/content/');
-    const html = `<!DOCTYPE html>
+    try {
+      setSaveStatus('Erzeuge Test Preview...');
+      const pngBlob = await renderGeneratedItemToPngBlob(item);
+      const dataUrl = await blobToDataUrl(pngBlob);
+      const vbParts = viewBox.split(/\s+/).map(Number);
+      const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
+      const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
+      const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+      const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${collectionName} #${idx + 1} - Test Preview</title>
 <style>
 html,body{margin:0;padding:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}
-svg{display:block;max-width:100vw;max-height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
+img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-height:100vh;image-rendering:pixelated;image-rendering:crisp-edges;object-fit:contain}
 </style>
-</head><body>${previewSvg}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${slug}_${idx + 1}_test.html`; a.click();
-    URL.revokeObjectURL(url);
-  }, [generated, collectionName]);
+</head><body><img src="${dataUrl}" alt="${collectionName} #${idx + 1}"/></body></html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${slug}_${idx + 1}_test.html`; a.click();
+      URL.revokeObjectURL(url);
+      setSaveStatus('');
+    } catch (err: any) {
+      setSaveStatus('');
+      setError(err?.message || 'Test Preview fehlgeschlagen');
+    }
+  }, [generated, collectionName, viewBox, pixelScale, renderGeneratedItemToPngBlob, blobToDataUrl]);
 
   const loadImageFromUrl = useCallback((url: string) => {
     return new Promise<HTMLImageElement>((resolve, reject) => {
