@@ -95,24 +95,19 @@ function buildSvgForViewBox(
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const isPixelArt = safePixelScale > 1;
-  const BLEED_PX = isPixelArt ? 0 : 2;
-  let visibleLayerIndex = 0;
   const svgImages = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
-      const isFirstVisibleLayer = visibleLayerIndex++ === 0;
-      const layerBleed = isPixelArt ? 0 : (isFirstVisibleLayer ? 16 : BLEED_PX);
       const ox = l.offsetX || 0;
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="${-layerBleed}" y="${-layerBleed}" width="${vbW + layerBleed * 2}" height="${vbH + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
+      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="${vbW}" height="${vbH}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
       const w = Math.round(vbW * sc);
       const h = Math.round(vbH * sc);
-      const x = Math.round((vbW - w) / 2 + ox) - layerBleed;
-      const y = Math.round((vbH - h) / 2 + oy) - layerBleed;
-      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w + layerBleed * 2}" height="${h + layerBleed * 2}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
+      const x = Math.round((vbW - w) / 2 + ox);
+      const y = Math.round((vbH - h) / 2 + oy);
+      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
     })
     .join('\n');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${vbW * safePixelScale}" height="${vbH * safePixelScale}" overflow="hidden" preserveAspectRatio="none" shape-rendering="crispEdges">
@@ -1462,35 +1457,16 @@ const RecursiveCollectionToolPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
-  const downloadInscriptionCode = useCallback(async (idx: number) => {
+  const downloadInscriptionCode = useCallback((idx: number) => {
     const item = generated[idx];
     if (!item) return;
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
-    try {
-      setSaveStatus(`Erzeuge Inscription Code #${idx + 1}...`);
-      const pngBlob = await renderGeneratedItemToPngBlob(item);
-      const dataUrl = await blobToDataUrl(pngBlob);
-      const vbParts = viewBox.split(/\s+/).map(Number);
-      const vbX = Number.isFinite(vbParts[0]) ? vbParts[0] : 0;
-      const vbY = Number.isFinite(vbParts[1]) ? vbParts[1] : 0;
-      const vbW = Math.max(1, Number.isFinite(vbParts[2]) ? vbParts[2] : 1000);
-      const vbH = Math.max(1, Number.isFinite(vbParts[3]) ? vbParts[3] : 1000);
-      const px = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-      const outW = vbW * px;
-      const outH = vbH * px;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${outW}" height="${outH}" shape-rendering="crispEdges"><style>image{image-rendering:pixelated;image-rendering:crisp-edges}</style><image href="${dataUrl}" x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" preserveAspectRatio="none"/></svg>`;
-      const blob = new Blob([svg], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
-      URL.revokeObjectURL(url);
-      setSaveStatus('✅ Inscription Code exportiert');
-      window.setTimeout(() => setSaveStatus(''), 1800);
-    } catch (err: any) {
-      setSaveStatus('');
-      setError(err?.message || 'Inscription Code Export fehlgeschlagen');
-    }
-  }, [generated, collectionName, pixelScale, viewBox, renderGeneratedItemToPngBlob, blobToDataUrl]);
+    const blob = new Blob([item.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+    URL.revokeObjectURL(url);
+  }, [generated, collectionName]);
 
   const downloadTestPreview = useCallback(async (idx: number) => {
     const item = generated[idx];
