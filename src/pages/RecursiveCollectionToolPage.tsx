@@ -2244,8 +2244,35 @@ img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-h
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">SVG viewBox</label>
-              <input type="text" value={viewBox} onChange={e => setViewBox(e.target.value)}
-                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
+              <div className="flex gap-2">
+                <input type="text" value={viewBox} onChange={e => setViewBox(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm font-mono" />
+                <button
+                  onClick={async () => {
+                    const firstTrait = layers.flatMap(l => l.traits).find(t => t.inscriptionId && !isNoneTrait(t));
+                    if (!firstTrait) { setError('Kein Trait mit Inscription ID gefunden'); return; }
+                    try {
+                      const img = new Image();
+                      img.crossOrigin = 'anonymous';
+                      await new Promise<void>((resolve, reject) => {
+                        img.onload = () => resolve();
+                        img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+                        img.src = `https://ordinals.com/content/${firstTrait.inscriptionId}`;
+                      });
+                      const w = img.naturalWidth;
+                      const h = img.naturalHeight;
+                      if (w > 0 && h > 0) {
+                        setViewBox(`0 0 ${w} ${h}`);
+                        setError('');
+                      } else {
+                        setError('Bildgrösse konnte nicht ermittelt werden');
+                      }
+                    } catch (err: any) { setError(err?.message || 'Auto-Detect fehlgeschlagen'); }
+                  }}
+                  className="px-3 py-2 bg-purple-700 border border-purple-500 rounded-lg text-white text-xs hover:bg-purple-600 whitespace-nowrap"
+                  title="Erkennt die Pixel-Grösse des ersten Trait-Bildes und setzt ViewBox automatisch"
+                >Auto-Detect</button>
+              </div>
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Pixel-Multiplikator (1px → NxN)</label>
