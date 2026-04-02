@@ -97,13 +97,31 @@ function buildSvgForViewBox(
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
   _viewBox?: string,
-  _pixelScale?: number
+  pixelScale = 1
 ): string {
-  const imgs = layers
+  const S = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+  const urls = layers
     .filter(l => !isNoneTrait(l.trait))
-    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
-    .join('\n');
-  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
+    .map(l => '/content/' + l.trait.inscriptionId);
+  const urlsJson = JSON.stringify(urls);
+  return `<html>
+<head>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+body{display:flex;align-items:center;justify-content:center}
+canvas{width:100vmin;height:100vmin;image-rendering:pixelated;image-rendering:crisp-edges}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+var S=${S},urls=${urlsJson},cv=document.getElementById('c'),ctx=cv.getContext('2d'),imgs=[],n=0;
+urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){n++;if(n===urls.length)render()};img.src=u});
+function render(){var w=imgs[0].naturalWidth,h=imgs[0].naturalHeight;cv.width=w*S;cv.height=h*S;ctx.imageSmoothingEnabled=false;for(var i=0;i<imgs.length;i++)ctx.drawImage(imgs[i],0,0,w*S,h*S)}
+</script>
+</body>
+</html>`;
 }
 
 function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
@@ -126,7 +144,7 @@ function loadProjects(): SavedProject[] {
       const viewBox = project.viewBox || '0 0 1000 1000';
       const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
       const generated = (project.generated || []).map((item) => {
-        return { ...item, svg: buildHtmlForInscription(item.layers || []) };
+        return { ...item, svg: buildHtmlForInscription(item.layers || [], viewBox, pixelScale) };
       });
       return { ...project, generated };
     });
@@ -140,7 +158,7 @@ function loadProjects(): SavedProject[] {
         const viewBox = project.viewBox || '0 0 1000 1000';
         const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
         const generated = (project.generated || []).map((item) => {
-          return { ...item, svg: buildHtmlForInscription(item.layers || []) };
+          return { ...item, svg: buildHtmlForInscription(item.layers || [], viewBox, pixelScale) };
         });
         return { ...project, generated };
       });
@@ -358,7 +376,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setWalletInscriptions(project.walletInscriptions || []);
     setGenerated((project.generated || []).map(item => ({
       ...item,
-      svg: buildHtmlForInscription(item.layers || [])
+      svg: buildHtmlForInscription(item.layers || [], project.viewBox || '0 0 1000 1000', Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))))
     })));
     setHashlist(project.hashlist || []);
     setPreviewIndex(0);
