@@ -103,6 +103,7 @@ function buildHtmlForInscription(
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+  const base = vbW * safePixelScale;
   const imgs = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
@@ -120,7 +121,7 @@ function buildHtmlForInscription(
       return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:${topPct}%;left:${leftPct}%;width:${wPct}%;height:${hPct}%;image-rendering:pixelated">`;
     })
     .join('\n');
-  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
+  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin;image-rendering:pixelated}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n<script>var b=${base},c=document.querySelector('.c'),s=Math.max(1,Math.floor(Math.min(innerWidth,innerHeight)/b));c.style.width=c.style.height=b*s+'px';</script>\n</body>\n</html>`;
 }
 
 function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
@@ -144,8 +145,7 @@ function loadProjects(): SavedProject[] {
       const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
       const generated = (project.generated || []).map((item) => {
         const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-        const needsRebuild = !hasSvg || item.svg.startsWith('<svg');
-        const svg = needsRebuild
+        const svg = (!hasSvg || !item.svg.includes('<script>'))
           ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
           : item.svg;
         return { ...item, svg };
@@ -163,8 +163,7 @@ function loadProjects(): SavedProject[] {
         const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
         const generated = (project.generated || []).map((item) => {
           const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-          const needsRebuild = !hasSvg || item.svg.startsWith('<svg');
-          const svg = needsRebuild
+          const svg = (!hasSvg || !item.svg.includes('<script>'))
             ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
             : item.svg;
           return { ...item, svg };
@@ -385,9 +384,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setWalletInscriptions(project.walletInscriptions || []);
     setGenerated((project.generated || []).map(item => ({
       ...item,
-      svg: item.svg.startsWith('<svg')
-        ? buildHtmlForInscription(item.layers || [], project.viewBox || '0 0 1000 1000', Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))))
-        : item.svg
+      svg: buildHtmlForInscription(item.layers || [], project.viewBox || '0 0 1000 1000', Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))))
     })));
     setHashlist(project.hashlist || []);
     setPreviewIndex(0);
