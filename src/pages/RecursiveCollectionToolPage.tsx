@@ -97,30 +97,50 @@ function buildSvgForViewBox(
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
   _viewBox?: string,
-  pixelScale = 1
+  _pixelScale?: number
 ): string {
-  const S = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const urls = layers
+  const imgs = layers
     .filter(l => !isNoneTrait(l.trait))
-    .map(l => '/content/' + l.trait.inscriptionId);
-  const urlsJson = JSON.stringify(urls);
+    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
+    .join('\n');
   return `<html>
+
 <head>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#000}
-body{display:flex;align-items:center;justify-content:center}
-canvas{width:100vmin;height:100vmin;image-rendering:pixelated;image-rendering:crisp-edges}
-</style>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .c {
+      position: relative;
+      width: 100vmin;
+      height: 100vmin
+    }
+  </style>
 </head>
+
 <body>
-<canvas id="c"></canvas>
-<script>
-var S=${S},urls=${urlsJson},cv=document.getElementById('c'),ctx=cv.getContext('2d'),imgs=[],n=0;
-urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){n++;if(n===urls.length)render()};img.src=u});
-function render(){var w=imgs[0].naturalWidth,h=imgs[0].naturalHeight;cv.width=w*S;cv.height=h*S;ctx.imageSmoothingEnabled=false;for(var i=0;i<imgs.length;i++)ctx.drawImage(imgs[i],0,0,w*S,h*S)}
-</script>
+  <div class="c">
+${imgs}
+  </div>
 </body>
+
 </html>`;
 }
 
