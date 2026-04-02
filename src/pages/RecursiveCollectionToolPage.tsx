@@ -150,9 +150,29 @@ ${imgTags}
     <canvas id="cv" style="display:none;position:absolute;top:0;left:0"></canvas>
   </div>
   <script>
-    var S=${S},urls=${JSON.stringify(urls)},cv=document.getElementById('cv'),ctx=cv.getContext('2d'),imgs=[],n=0;
-    urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){n++;if(n===urls.length)render()};img.src=u});
-    function render(){var w=imgs[0].naturalWidth,h=imgs[0].naturalHeight;cv.width=w*S;cv.height=h*S;ctx.imageSmoothingEnabled=false;for(var i=0;i<imgs.length;i++)ctx.drawImage(imgs[i],0,0,w*S,h*S);cv.style.display='block';var f=document.querySelectorAll('.c img');for(var j=0;j<f.length;j++)f[j].style.display='none'}
+    var S=${S},urls=${JSON.stringify(urls)},root=document.querySelector('.c'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+    var base=document.createElement('canvas'),bctx=base.getContext('2d'),imgs=[],done=0,ok=0;
+    urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){ok++;done++;if(done===urls.length)render()};img.onerror=function(){done++;if(done===urls.length)render()};img.src=u});
+    function render(){
+      if(!ok||!imgs.length)return;
+      var first=imgs.find(function(im){return im&&im.naturalWidth&&im.naturalHeight});
+      if(!first)return;
+      var w=first.naturalWidth,h=first.naturalHeight;
+      base.width=w*S;base.height=h*S;
+      bctx.imageSmoothingEnabled=false;
+      bctx.clearRect(0,0,base.width,base.height);
+      for(var i=0;i<imgs.length;i++){if(imgs[i]&&imgs[i].complete)bctx.drawImage(imgs[i],0,0,base.width,base.height)}
+      var fit=Math.max(1,Math.floor(Math.min(root.clientWidth,root.clientHeight)/Math.max(base.width,base.height)));
+      cv.width=base.width*fit;cv.height=base.height*fit;
+      cv.style.width=cv.width+'px';cv.style.height=cv.height+'px';
+      ctx.imageSmoothingEnabled=false;
+      ctx.clearRect(0,0,cv.width,cv.height);
+      ctx.drawImage(base,0,0,cv.width,cv.height);
+      cv.style.display='block';
+      var f=document.querySelectorAll('.c img');
+      for(var j=0;j<f.length;j++)f[j].style.display='none';
+    }
+    window.addEventListener('resize',render);
   </script>
 </body>
 
