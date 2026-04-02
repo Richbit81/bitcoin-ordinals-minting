@@ -97,10 +97,12 @@ function buildSvgForViewBox(
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
   _viewBox?: string,
-  _pixelScale?: number
+  pixelScale = 1
 ): string {
-  const imgs = layers
-    .filter(l => !isNoneTrait(l.trait))
+  const S = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
+  const filtered = layers.filter(l => !isNoneTrait(l.trait));
+  const urls = filtered.map(l => '/content/' + l.trait.inscriptionId);
+  const imgTags = filtered
     .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
     .join('\n');
   return `<html>
@@ -132,13 +134,26 @@ function buildHtmlForInscription(
       width: 100vmin;
       height: 100vmin
     }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges
+    }
   </style>
 </head>
 
 <body>
   <div class="c">
-${imgs}
+${imgTags}
+    <canvas id="cv" style="display:none;position:absolute;top:0;left:0"></canvas>
   </div>
+  <script>
+    var S=${S},urls=${JSON.stringify(urls)},cv=document.getElementById('cv'),ctx=cv.getContext('2d'),imgs=[],n=0;
+    urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){n++;if(n===urls.length)render()};img.src=u});
+    function render(){var w=imgs[0].naturalWidth,h=imgs[0].naturalHeight;cv.width=w*S;cv.height=h*S;ctx.imageSmoothingEnabled=false;for(var i=0;i<imgs.length;i++)ctx.drawImage(imgs[i],0,0,w*S,h*S);cv.style.display='block';var f=document.querySelectorAll('.c img');for(var j=0;j<f.length;j++)f[j].style.display='none'}
+  </script>
 </body>
 
 </html>`;
