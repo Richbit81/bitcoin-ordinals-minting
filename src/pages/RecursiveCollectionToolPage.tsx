@@ -91,34 +91,38 @@ function buildSvgForViewBox(
   viewBox: string,
   pixelScale = 1
 ): string {
+  return buildHtmlForInscription(layers, viewBox, pixelScale);
+}
+
+function buildHtmlForInscription(
+  layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
+  viewBox: string,
+  pixelScale = 1
+): string {
   const vb = viewBox.trim().split(/\s+/).map(Number);
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const svgImages = layers
+  const totalW = vbW * safePixelScale;
+  const totalH = vbH * safePixelScale;
+  const imgs = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
       const ox = l.offsetX || 0;
       const oy = l.offsetY || 0;
       const sc = l.scale || 1;
       const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) return `  <image href="/content/${l.trait.inscriptionId}" x="0" y="0" width="${vbW}" height="${vbH}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
-      const w = Math.round(vbW * sc);
-      const h = Math.round(vbH * sc);
-      const x = Math.round((vbW - w) / 2 + ox);
-      const y = Math.round((vbH - h) / 2 + oy);
-      return `  <image href="/content/${l.trait.inscriptionId}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" image-rendering="pixelated" style="image-rendering:pixelated;image-rendering:crisp-edges" />`;
+      if (!hasTransform) {
+        return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`;
+      }
+      const wPct = (sc * 100).toFixed(2);
+      const hPct = (sc * 100).toFixed(2);
+      const leftPct = (((1 - sc) / 2 + ox / vbW) * 100).toFixed(2);
+      const topPct = (((1 - sc) / 2 + oy / vbH) * 100).toFixed(2);
+      return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:${topPct}%;left:${leftPct}%;width:${wPct}%;height:${hPct}%;image-rendering:pixelated">`;
     })
     .join('\n');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${vbW * safePixelScale}" height="${vbH * safePixelScale}" overflow="hidden" preserveAspectRatio="none" shape-rendering="crispEdges">
-<style>
-image{
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
-</style>
-${svgImages}
-</svg>`;
+  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:${totalW}px;height:${totalH}px;max-width:100vmin;max-height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
 }
 
 function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
@@ -142,11 +146,10 @@ function loadProjects(): SavedProject[] {
       const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
       const generated = (project.generated || []).map((item) => {
         const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-        const svg = hasSvg
-          ? (item.svg.includes('overflow="hidden"')
-            ? item.svg
-            : item.svg.replace('<svg ', '<svg overflow="hidden" '))
-          : buildSvgForViewBox(item.layers || [], viewBox, pixelScale);
+        const needsRebuild = !hasSvg || item.svg.startsWith('<svg');
+        const svg = needsRebuild
+          ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
+          : item.svg;
         return { ...item, svg };
       });
       return { ...project, generated };
@@ -162,11 +165,10 @@ function loadProjects(): SavedProject[] {
         const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
         const generated = (project.generated || []).map((item) => {
           const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-          const svg = hasSvg
-            ? (item.svg.includes('overflow="hidden"')
-              ? item.svg
-              : item.svg.replace('<svg ', '<svg overflow="hidden" '))
-            : buildSvgForViewBox(item.layers || [], viewBox, pixelScale);
+          const needsRebuild = !hasSvg || item.svg.startsWith('<svg');
+          const svg = needsRebuild
+            ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
+            : item.svg;
           return { ...item, svg };
         });
         return { ...project, generated };
@@ -385,9 +387,9 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setWalletInscriptions(project.walletInscriptions || []);
     setGenerated((project.generated || []).map(item => ({
       ...item,
-      svg: item.svg.includes('overflow="hidden"')
-        ? item.svg
-        : item.svg.replace('<svg ', '<svg overflow="hidden" ')
+      svg: item.svg.startsWith('<svg')
+        ? buildHtmlForInscription(item.layers || [], project.viewBox || '0 0 1000 1000', Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))))
+        : item.svg
     })));
     setHashlist(project.hashlist || []);
     setPreviewIndex(0);
@@ -1461,10 +1463,10 @@ const RecursiveCollectionToolPage: React.FC = () => {
     const item = generated[idx];
     if (!item) return;
     const slug = collectionName.replace(/\s+/g, '_').toLowerCase();
-    const blob = new Blob([item.svg], { type: 'image/svg+xml' });
+    const blob = new Blob([item.svg], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${slug}_${idx + 1}_inscription.svg`; a.click();
+    a.href = url; a.download = `${slug}_${idx + 1}_inscription.html`; a.click();
     URL.revokeObjectURL(url);
   }, [generated, collectionName]);
 
@@ -2788,7 +2790,7 @@ img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-h
                   </button>
                   <button onClick={() => downloadInscriptionCode(previewIndex)}
                     className="px-3 py-1.5 bg-orange-900 border border-orange-600 rounded text-sm text-orange-300 hover:bg-orange-800"
-                    title="SVG-Code wie er auf die Blockchain geschrieben wird">⬇️ Inscription Code</button>
+                    title="HTML-Code wie er auf die Blockchain geschrieben wird">⬇️ Inscription Code</button>
                   <button onClick={() => downloadTestPreview(previewIndex)}
                     className="px-3 py-1.5 bg-green-900 border border-green-600 rounded text-sm text-green-300 hover:bg-green-800"
                     title="HTML-Datei zum Testen im Browser (lädt Bilder von ordinals.com)">⬇️ Test Preview</button>
