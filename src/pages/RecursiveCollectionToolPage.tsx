@@ -103,8 +103,6 @@ function buildHtmlForInscription(
   const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
   const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const totalW = vbW * safePixelScale;
-  const totalH = vbH * safePixelScale;
   const imgs = layers
     .filter(l => !isNoneTrait(l.trait))
     .map(l => {
@@ -122,7 +120,7 @@ function buildHtmlForInscription(
       return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:${topPct}%;left:${leftPct}%;width:${wPct}%;height:${hPct}%;image-rendering:pixelated">`;
     })
     .join('\n');
-  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:${totalW}px;height:${totalH}px;max-width:100vmin;max-height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
+  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
 }
 
 function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
