@@ -96,32 +96,14 @@ function buildSvgForViewBox(
 
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
-  viewBox: string,
-  pixelScale = 1
+  _viewBox?: string,
+  _pixelScale?: number
 ): string {
-  const vb = viewBox.trim().split(/\s+/).map(Number);
-  const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
-  const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
-  const safePixelScale = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
-  const base = vbW * safePixelScale;
   const imgs = layers
     .filter(l => !isNoneTrait(l.trait))
-    .map(l => {
-      const ox = l.offsetX || 0;
-      const oy = l.offsetY || 0;
-      const sc = l.scale || 1;
-      const hasTransform = ox || oy || sc !== 1;
-      if (!hasTransform) {
-        return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`;
-      }
-      const wPct = (sc * 100).toFixed(2);
-      const hPct = (sc * 100).toFixed(2);
-      const leftPct = (((1 - sc) / 2 + ox / vbW) * 100).toFixed(2);
-      const topPct = (((1 - sc) / 2 + oy / vbH) * 100).toFixed(2);
-      return `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:${topPct}%;left:${leftPct}%;width:${wPct}%;height:${hPct}%;image-rendering:pixelated">`;
-    })
+    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
     .join('\n');
-  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin;image-rendering:pixelated}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n<script>var b=${base},c=document.querySelector('.c'),s=Math.max(1,Math.floor(Math.min(innerWidth,innerHeight)/b));c.style.width=c.style.height=b*s+'px';</script>\n</body>\n</html>`;
+  return `<html>\n<head>\n<style>\n*{margin:0;padding:0;box-sizing:border-box}\nhtml,body{width:100%;height:100%;overflow:hidden;background:#000}\nbody{display:flex;align-items:center;justify-content:center}\n.c{position:relative;width:100vmin;height:100vmin}\n</style>\n</head>\n<body>\n  <div class="c">\n${imgs}\n  </div>\n</body>\n</html>`;
 }
 
 function snapRectToPixelGrid(x: number, y: number, w: number, h: number) {
@@ -144,11 +126,7 @@ function loadProjects(): SavedProject[] {
       const viewBox = project.viewBox || '0 0 1000 1000';
       const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
       const generated = (project.generated || []).map((item) => {
-        const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-        const svg = (!hasSvg || !item.svg.includes('<script>'))
-          ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
-          : item.svg;
-        return { ...item, svg };
+        return { ...item, svg: buildHtmlForInscription(item.layers || []) };
       });
       return { ...project, generated };
     });
@@ -162,11 +140,7 @@ function loadProjects(): SavedProject[] {
         const viewBox = project.viewBox || '0 0 1000 1000';
         const pixelScale = Number.isFinite(project.pixelScale) ? Number(project.pixelScale) : 1;
         const generated = (project.generated || []).map((item) => {
-          const hasSvg = typeof item.svg === 'string' && item.svg.length > 0;
-          const svg = (!hasSvg || !item.svg.includes('<script>'))
-            ? buildHtmlForInscription(item.layers || [], viewBox, pixelScale)
-            : item.svg;
-          return { ...item, svg };
+          return { ...item, svg: buildHtmlForInscription(item.layers || []) };
         });
         return { ...project, generated };
       });
@@ -384,7 +358,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
     setWalletInscriptions(project.walletInscriptions || []);
     setGenerated((project.generated || []).map(item => ({
       ...item,
-      svg: buildHtmlForInscription(item.layers || [], project.viewBox || '0 0 1000 1000', Math.max(1, Math.min(64, Math.round(Number(project.pixelScale) || 1))))
+      svg: buildHtmlForInscription(item.layers || [])
     })));
     setHashlist(project.hashlist || []);
     setPreviewIndex(0);
