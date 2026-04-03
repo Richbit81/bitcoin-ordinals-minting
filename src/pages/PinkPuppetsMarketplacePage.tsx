@@ -206,7 +206,7 @@ function initPuppets(count: number, w: number, h: number): Puppet[] {
       });
       tries++;
     } while (overlaps && tries < 80);
-    const speed = 0.15 + Math.random() * 0.25;
+    const speed = 0.04 + Math.random() * 0.08;
     const angle = Math.random() * Math.PI * 2;
     puppets.push({
       src: `/images/pinkpuppets/${shuffled[i % shuffled.length]}`,
@@ -241,7 +241,10 @@ function FloatingPuppetsLayer() {
       const bw = el.clientWidth;
       const bh = el.clientHeight;
 
+      const damping = Math.pow(0.999, dt);
       for (let i = 0; i < ps.length; i++) {
+        ps[i].vx *= damping;
+        ps[i].vy *= damping;
         ps[i].x += ps[i].vx * dt;
         ps[i].y += ps[i].vy * dt;
 
@@ -262,19 +265,15 @@ function FloatingPuppetsLayer() {
           if (dist < minDist && dist > 0.01) {
             const nx = dx / dist, ny = dy / dist;
             const overlap = (minDist - dist) / 2;
-            ps[i].x -= nx * overlap;
-            ps[i].y -= ny * overlap;
-            ps[j].x += nx * overlap;
-            ps[j].y += ny * overlap;
-            const dvx = ps[i].vx - ps[j].vx;
-            const dvy = ps[i].vy - ps[j].vy;
-            const dot = dvx * nx + dvy * ny;
-            if (dot > 0) {
-              ps[i].vx -= dot * nx;
-              ps[i].vy -= dot * ny;
-              ps[j].vx += dot * nx;
-              ps[j].vy += dot * ny;
-            }
+            ps[i].x -= nx * overlap * 0.3;
+            ps[i].y -= ny * overlap * 0.3;
+            ps[j].x += nx * overlap * 0.3;
+            ps[j].y += ny * overlap * 0.3;
+            const push = 0.02;
+            ps[i].vx -= nx * push;
+            ps[i].vy -= ny * push;
+            ps[j].vx += nx * push;
+            ps[j].vy += ny * push;
           }
         }
       }
