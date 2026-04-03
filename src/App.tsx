@@ -41,6 +41,7 @@ const AvifConverterPage = lazy(() => import('./pages/AvifConverterPage').then((m
 const AudioSplitterPage = lazy(() => import('./pages/AudioSplitterPage').then((m) => ({ default: m.AudioSplitterPage })));
 const VideoSplitterPage = lazy(() => import('./pages/VideoSplitterPage').then((m) => ({ default: m.VideoSplitterPage })));
 const MarketplaceAdminToolPage = lazy(() => import('./pages/MarketplaceAdminToolPage'));
+const DimensionBreakPage = lazy(() => import('./pages/DimensionBreakPage').then((m) => ({ default: m.DimensionBreakPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -78,6 +79,7 @@ function AppContent() {
           <Route path="/smile-a-bit" element={<SmilePage />} />
           <Route path="/slums" element={<SlumsPage />} />
           <Route path="/badcats" element={<BadCatsPage />} />
+          <Route path="/dimension-break" element={<DimensionBreakPage />} />
           <Route path="/pinkpuppets" element={<PinkPuppetsPage />} />
           <Route path="/pinkpuppets/marketplace" element={<PinkPuppetsMarketplacePage />} />
           <Route path="/pinkpuppets/markerplace" element={<Navigate to="/pinkpuppets/marketplace" replace />} />

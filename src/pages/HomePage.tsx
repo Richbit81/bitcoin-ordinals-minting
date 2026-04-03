@@ -54,11 +54,18 @@ export const HomePage: React.FC = () => {
       order: 4,
     },
     {
+      id: 'dimension-break',
+      name: 'Dimension Break',
+      thumbnail: '/images/dimension-break-preview.gif',
+      description: '100 Recursive Pixel Ordinals · Free Mint',
+      order: 2,
+    },
+    {
       id: 'badcats',
       name: 'BAD CATS',
       thumbnail: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0',
       description: '500 Recursive Ordinals',
-      order: 2,
+      order: 3,
     },
     {
       id: 'black-wild',
@@ -321,8 +328,9 @@ export const HomePage: React.FC = () => {
               onClick={() => navigate(route)}
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'bitcoin-mixtape' ? 'order-1' :
-              project.id === 'badcats' ? 'order-2' :
-              project.id === 'smile-a-bit' ? 'order-3' :
+              project.id === 'dimension-break' ? 'order-2' :
+              project.id === 'badcats' ? 'order-3' :
+              project.id === 'smile-a-bit' ? 'order-4' :
               project.id === 'slums' ? 'order-4' :
               project.id === 'marketplace' ? 'order-5' :
               project.id === 'tech-games' ? 'order-6' :
