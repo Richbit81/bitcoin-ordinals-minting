@@ -11,6 +11,7 @@ export interface UnisatInscriptionRequest {
   feeRate: number;
   postage?: number; // Default: 330 sats
   delegateMetadata?: string; // JSON-String mit Metadaten für Delegate-Inscriptions
+  parentInscriptionId?: string; // Parent inscription ID for child inscriptions
 }
 
 export interface UnisatInscriptionResponse {
@@ -28,7 +29,7 @@ export interface UnisatInscriptionResponse {
 export const createUnisatInscription = async (
   request: UnisatInscriptionRequest
 ): Promise<UnisatInscriptionResponse> => {
-  const { file, address, feeRate, postage = 330, delegateMetadata } = request;
+  const { file, address, feeRate, postage = 330, delegateMetadata, parentInscriptionId } = request;
 
   if (!address.startsWith('bc1p')) {
     throw new Error(
@@ -40,14 +41,17 @@ export const createUnisatInscription = async (
   }
 
   const formData = new FormData();
-  formData.append('file', file); // Backend erwartet 'file' (Singular), nicht 'files'
+  formData.append('file', file);
   formData.append('address', address);
   formData.append('feeRate', feeRate.toString());
   formData.append('postage', postage.toString());
   
-  // Füge Metadaten hinzu, falls vorhanden (für Delegate-Inscriptions mit Bildern)
   if (delegateMetadata) {
     formData.append('delegateMetadata', delegateMetadata);
+  }
+
+  if (parentInscriptionId) {
+    formData.append('parentInscriptionId', parentInscriptionId);
   }
 
   try {

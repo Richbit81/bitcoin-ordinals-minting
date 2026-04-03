@@ -11,6 +11,7 @@ import { getApiUrl } from '../utils/apiUrl';
 
 const API_URL = getApiUrl();
 const ORDLIFY_SCRIPT_ID = '10548d936eb4116ac5b4d31cc49e68b6a664246dd97c0fceb61f63a9f4863995i0';
+const PARENT_INSCRIPTION_ID = '2d019e933b89a653e75fe20de8c3e1680a0daee1683f41e1a880d07aa08adb82i0';
 
 export interface DimensionBreakItem {
   index: number;
@@ -163,6 +164,7 @@ export async function mintDimensionBreak(
     address: buyerAddress,
     feeRate,
     postage: 330,
+    parentInscriptionId: PARENT_INSCRIPTION_ID,
   });
 
   console.log(`[DimensionBreak] Inscription created: ${result.inscriptionId}`);
