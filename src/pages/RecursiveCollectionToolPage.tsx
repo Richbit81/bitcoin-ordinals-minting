@@ -91,19 +91,16 @@ function buildSvgForViewBox(
   viewBox: string,
   pixelScale = 1
 ): string {
-  return buildHtmlForInscription(layers, viewBox, pixelScale);
+  return buildHtmlForInscription(layers, viewBox);
 }
 
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
-  _viewBox?: string,
-  pixelScale = 1
+  _viewBox?: string
 ): string {
-  const S = Math.max(1, Math.min(64, Math.round(pixelScale || 1)));
   const filtered = layers.filter(l => !isNoneTrait(l.trait));
-  const urls = filtered.map(l => '/content/' + l.trait.inscriptionId);
   const imgTags = filtered
-    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated">`)
+    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges">`)
     .join('\n');
   return `<html>
 
@@ -134,46 +131,13 @@ function buildHtmlForInscription(
       width: 100vmin;
       height: 100vmin
     }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges
-    }
   </style>
 </head>
 
 <body>
   <div class="c">
 ${imgTags}
-    <canvas id="cv" style="display:none;position:absolute;top:0;left:0"></canvas>
   </div>
-  <script>
-    var S=${S},urls=${JSON.stringify(urls)},root=document.querySelector('.c'),cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-    var base=document.createElement('canvas'),bctx=base.getContext('2d'),imgs=[],done=0,ok=0;
-    urls.forEach(function(u,i){var img=new Image();imgs[i]=img;img.onload=function(){ok++;done++;if(done===urls.length)render()};img.onerror=function(){done++;if(done===urls.length)render()};img.src=u});
-    function render(){
-      if(!ok||!imgs.length)return;
-      var first=imgs.find(function(im){return im&&im.naturalWidth&&im.naturalHeight});
-      if(!first)return;
-      var w=first.naturalWidth,h=first.naturalHeight;
-      base.width=w*S;base.height=h*S;
-      bctx.imageSmoothingEnabled=false;
-      bctx.clearRect(0,0,base.width,base.height);
-      for(var i=0;i<imgs.length;i++){if(imgs[i]&&imgs[i].complete)bctx.drawImage(imgs[i],0,0,base.width,base.height)}
-      var fit=Math.max(1,Math.floor(Math.min(root.clientWidth,root.clientHeight)/Math.max(base.width,base.height)));
-      cv.width=base.width*fit;cv.height=base.height*fit;
-      cv.style.width=cv.width+'px';cv.style.height=cv.height+'px';
-      ctx.imageSmoothingEnabled=false;
-      ctx.clearRect(0,0,cv.width,cv.height);
-      ctx.drawImage(base,0,0,cv.width,cv.height);
-      cv.style.display='block';
-      var f=document.querySelectorAll('.c img');
-      for(var j=0;j<f.length;j++)f[j].style.display='none';
-    }
-    window.addEventListener('resize',render);
-  </script>
 </body>
 
 </html>`;
@@ -2318,47 +2282,6 @@ img{display:block;width:${vbW * px}px;height:${vbH * px}px;max-width:100vw;max-h
                 >Auto-Detect</button>
               </div>
             </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Pixel-Multiplikator (1px → NxN)</label>
-              <input
-                type="number"
-                value={pixelScale}
-                onChange={e => setPixelScale(Math.max(1, Math.min(64, parseInt(e.target.value, 10) || 1)))}
-                min={1}
-                max={64}
-                className="w-full px-3 py-2 bg-black border border-gray-600 rounded-lg text-white text-sm"
-              />
-              <div className="mt-2 flex flex-wrap gap-1">
-                {[1, 2, 4, 8, 10, 16].map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => setPixelScale(preset)}
-                    className={`px-2 py-1 rounded text-xs border ${
-                      pixelScale === preset
-                        ? 'bg-purple-700 border-purple-500 text-white'
-                        : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    {preset}x
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Pixel-Art Modus: Bei `10` wird 1 Quellpixel als 10x10 dargestellt (scharf, ohne Weichzeichnen).
-          </p>
-          <div className="mt-2">
-            <button
-              onClick={() => setHardPixelMode((v) => !v)}
-              className={`px-3 py-1.5 rounded text-xs font-bold border ${
-                hardPixelMode
-                  ? 'bg-emerald-700/40 border-emerald-500 text-emerald-200'
-                  : 'bg-gray-800 border-gray-600 text-gray-300'
-              }`}
-            >
-              Hard Pixel Modus: {hardPixelMode ? 'AN' : 'AUS'}
-            </button>
           </div>
           <div className="flex gap-2 mt-3">
             <button onClick={exportConfig} className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-gray-300 hover:bg-gray-700">💾 Config exportieren</button>

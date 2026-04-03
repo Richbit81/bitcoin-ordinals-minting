@@ -181,13 +181,14 @@ function loadInscriptionImage(id: string): Promise<HTMLImageElement> {
 }
 
 function compositeOnCanvas(images: HTMLImageElement[], layers: { x: number; y: number; w: number; h: number }[], cW: number, cH: number, pixelArt = false): string {
+  const scale = pixelArt ? Math.max(1, Math.ceil(512 / Math.max(cW, cH))) : 1;
   const c = document.createElement('canvas');
-  c.width = cW; c.height = cH;
+  c.width = cW * scale; c.height = cH * scale;
   const ctx = c.getContext('2d')!;
   if (pixelArt) ctx.imageSmoothingEnabled = false;
   for (let i = 0; i < images.length; i++) {
     const l = layers[i];
-    ctx.drawImage(images[i], l.x, l.y, l.w, l.h);
+    ctx.drawImage(images[i], l.x * scale, l.y * scale, l.w * scale, l.h * scale);
   }
   return c.toDataURL('image/png');
 }
@@ -243,8 +244,9 @@ async function resolveInscription(inscriptionId: string): Promise<PreviewCacheEn
     const cW = Math.round(parseFloat(vb?.[3] || '1000'));
     const cH = Math.round(parseFloat(vb?.[4] || '1000'));
     for (const l of svgLayers) { if (!l.w) l.w = cW; if (!l.h) l.h = cH; }
+    const isPixel = /image-rendering:\s*pixelated/.test(body) || /crisp-edges/.test(body);
     const images = await Promise.all(svgLayers.map((l) => loadInscriptionImage(l.id)));
-    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, svgLayers, cW, cH) };
+    return { mode: 'composited', src: url, dataUrl: compositeOnCanvas(images, svgLayers, cW, cH, isPixel), pixelArt: isPixel };
   }
 
   // 4. data-l delegate: <div data-l='["/content/{id}"]'>
