@@ -187,21 +187,127 @@ const FLOATING_PUPPETS = [
   'jelly.png','holographic.png','ether.png','dog2.png','dog.png','genesis.png',
 ];
 
-function useFloatingPuppets(count = 30) {
-  const [puppets] = React.useState(() => {
-    const shuffled = [...FLOATING_PUPPETS].sort(() => Math.random() - 0.5);
-    return Array.from({ length: count }, (_, i) => ({
+type Puppet = { src: string; x: number; y: number; size: number; vx: number; vy: number };
+
+function initPuppets(count: number, w: number, h: number): Puppet[] {
+  const shuffled = [...FLOATING_PUPPETS].sort(() => Math.random() - 0.5);
+  const puppets: Puppet[] = [];
+  for (let i = 0; i < count; i++) {
+    const size = 100 + Math.random() * 130;
+    let x: number, y: number, tries = 0, overlaps: boolean;
+    do {
+      x = Math.random() * (w - size);
+      y = Math.random() * (h - size);
+      overlaps = puppets.some(p => {
+        const dx = (x + size / 2) - (p.x + p.size / 2);
+        const dy = (y + size / 2) - (p.y + p.size / 2);
+        const minDist = (size + p.size) / 2;
+        return dx * dx + dy * dy < minDist * minDist;
+      });
+      tries++;
+    } while (overlaps && tries < 80);
+    const speed = 0.15 + Math.random() * 0.25;
+    const angle = Math.random() * Math.PI * 2;
+    puppets.push({
       src: `/images/pinkpuppets/${shuffled[i % shuffled.length]}`,
-      left: -2 + Math.random() * 95,
-      top: 2 + Math.random() * 90,
-      size: 100 + Math.random() * 130,
-      delay: Math.random() * 10,
-      duration: 14 + Math.random() * 10,
-      floatDuration: 6 + Math.random() * 6,
-      floatDistance: 8 + Math.random() * 12,
-    }));
-  });
+      x, y, size,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+    });
+  }
   return puppets;
+}
+
+function FloatingPuppetsLayer() {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const puppetsRef = React.useRef<Puppet[]>([]);
+  const [positions, setPositions] = React.useState<Puppet[]>([]);
+  const rafRef = React.useRef<number>(0);
+
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    if (w < 100 || h < 100) return;
+    puppetsRef.current = initPuppets(30, w, h);
+    setPositions([...puppetsRef.current]);
+
+    let lastTime = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(now - lastTime, 50);
+      lastTime = now;
+      const ps = puppetsRef.current;
+      const bw = el.clientWidth;
+      const bh = el.clientHeight;
+
+      for (let i = 0; i < ps.length; i++) {
+        ps[i].x += ps[i].vx * dt;
+        ps[i].y += ps[i].vy * dt;
+
+        const r = ps[i].size / 2;
+        if (ps[i].x < -r * 0.3) { ps[i].x = -r * 0.3; ps[i].vx = Math.abs(ps[i].vx); }
+        if (ps[i].x + ps[i].size > bw + r * 0.3) { ps[i].x = bw + r * 0.3 - ps[i].size; ps[i].vx = -Math.abs(ps[i].vx); }
+        if (ps[i].y < -r * 0.3) { ps[i].y = -r * 0.3; ps[i].vy = Math.abs(ps[i].vy); }
+        if (ps[i].y + ps[i].size > bh + r * 0.3) { ps[i].y = bh + r * 0.3 - ps[i].size; ps[i].vy = -Math.abs(ps[i].vy); }
+      }
+
+      for (let i = 0; i < ps.length; i++) {
+        for (let j = i + 1; j < ps.length; j++) {
+          const ax = ps[i].x + ps[i].size / 2, ay = ps[i].y + ps[i].size / 2;
+          const bx = ps[j].x + ps[j].size / 2, by = ps[j].y + ps[j].size / 2;
+          const dx = bx - ax, dy = by - ay;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = (ps[i].size + ps[j].size) / 2;
+          if (dist < minDist && dist > 0.01) {
+            const nx = dx / dist, ny = dy / dist;
+            const overlap = (minDist - dist) / 2;
+            ps[i].x -= nx * overlap;
+            ps[i].y -= ny * overlap;
+            ps[j].x += nx * overlap;
+            ps[j].y += ny * overlap;
+            const dvx = ps[i].vx - ps[j].vx;
+            const dvy = ps[i].vy - ps[j].vy;
+            const dot = dvx * nx + dvy * ny;
+            if (dot > 0) {
+              ps[i].vx -= dot * nx;
+              ps[i].vy -= dot * ny;
+              ps[j].vx += dot * nx;
+              ps[j].vy += dot * ny;
+            }
+          }
+        }
+      }
+
+      setPositions(ps.map(p => ({ ...p })));
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
+      {positions.map((p, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{ left: p.x, top: p.y, width: p.size, opacity: 0.55, willChange: 'transform' }}
+        >
+          <img
+            src={p.src}
+            alt=""
+            className="w-full h-auto"
+            style={{
+              maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+            }}
+            loading="lazy"
+          />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export const PinkPuppetsMarketplacePage: React.FC = () => {
@@ -593,51 +699,12 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     })();
   };
 
-  const floatingPuppets = useFloatingPuppets(14);
-
   return (
     <div
       className="min-h-screen text-white relative overflow-hidden bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/images/pinkpuppets-clouds-bg.avif')" }}
     >
-      <style>{`
-        @keyframes pp-float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(calc(var(--float-dist) * -1px)); }
-        }
-        @keyframes pp-fadein {
-          0% { opacity: 0; transform: scale(0.7); }
-          100% { opacity: var(--pp-max-opacity, 0.55); transform: scale(1); }
-        }
-      `}</style>
-      {/* Floating Puppet Characters */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
-        {floatingPuppets.map((p, i) => (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              left: `${p.left}%`,
-              top: `${p.top}%`,
-              width: `${p.size}px`,
-              '--float-dist': p.floatDistance,
-              '--pp-max-opacity': 0.55,
-              animation: `pp-fadein ${2 + Math.random()}s ease-out ${p.delay}s both, pp-float ${p.floatDuration}s ease-in-out ${p.delay + 2}s infinite`,
-            } as React.CSSProperties}
-          >
-            <img
-              src={p.src}
-              alt=""
-              className="w-full h-auto"
-              style={{
-                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
-              }}
-              loading="lazy"
-            />
-          </div>
-        ))}
-      </div>
+      <FloatingPuppetsLayer />
       <div className="absolute inset-0 bg-[#130015]/40" />
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-8">
         <div className="mb-3 flex items-center">
