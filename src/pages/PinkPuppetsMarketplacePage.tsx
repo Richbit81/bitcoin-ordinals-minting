@@ -187,7 +187,7 @@ const FLOATING_PUPPETS = [
   'jelly.png','holographic.png','ether.png','dog2.png','dog.png','genesis.png',
 ];
 
-type Puppet = { src: string; x: number; y: number; size: number; vx: number; vy: number };
+type Puppet = { src: string; x: number; y: number; size: number; vx: number; vy: number; rot: number; vr: number };
 
 function initPuppets(count: number, w: number, h: number): Puppet[] {
   const shuffled = [...FLOATING_PUPPETS].sort(() => Math.random() - 0.5);
@@ -206,13 +206,15 @@ function initPuppets(count: number, w: number, h: number): Puppet[] {
       });
       tries++;
     } while (overlaps && tries < 80);
-    const speed = 0.04 + Math.random() * 0.08;
+    const speed = 0.08 + Math.random() * 0.12;
     const angle = Math.random() * Math.PI * 2;
     puppets.push({
       src: `/images/pinkpuppets/${shuffled[i % shuffled.length]}`,
       x, y, size,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
+      rot: (Math.random() - 0.5) * 20,
+      vr: (Math.random() - 0.5) * 0.003,
     });
   }
   return puppets;
@@ -241,12 +243,12 @@ function FloatingPuppetsLayer() {
       const bw = el.clientWidth;
       const bh = el.clientHeight;
 
-      const damping = Math.pow(0.999, dt);
       for (let i = 0; i < ps.length; i++) {
-        ps[i].vx *= damping;
-        ps[i].vy *= damping;
         ps[i].x += ps[i].vx * dt;
         ps[i].y += ps[i].vy * dt;
+        ps[i].rot += ps[i].vr * dt;
+        if (ps[i].rot > 15) { ps[i].rot = 15; ps[i].vr = -Math.abs(ps[i].vr); }
+        if (ps[i].rot < -15) { ps[i].rot = -15; ps[i].vr = Math.abs(ps[i].vr); }
 
         const r = ps[i].size / 2;
         if (ps[i].x < -r * 0.3) { ps[i].x = -r * 0.3; ps[i].vx = Math.abs(ps[i].vx); }
@@ -291,7 +293,7 @@ function FloatingPuppetsLayer() {
         <div
           key={i}
           className="absolute"
-          style={{ left: p.x, top: p.y, width: p.size, opacity: 0.35, willChange: 'transform' }}
+          style={{ left: p.x, top: p.y, width: p.size, opacity: 0.35, transform: `rotate(${p.rot}deg)`, willChange: 'transform' }}
         >
           <img
             src={p.src}
