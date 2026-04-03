@@ -7257,8 +7257,8 @@
           "layerName": "eyes",
           "traitType": "eyes",
           "trait": {
-            "inscriptionId": "1ffb7987b265691a82727e6325b2b0814684a6fabb42cec9adbdfc6639411323i0",
-            "name": "46",
+            "inscriptionId": "39167ed218d407c0852393d01f333e9bc73cedbac232ed24dd2e13311b29bd20i0",
+            "name": "13",
             "rarity": 50,
             "contentType": "image/svg+xml"
           }
@@ -7294,7 +7294,7 @@
           }
         }
       ],
-      "svg": "<html>\n\n<head>\n  <script src=\"/content/10548d936eb4116ac5b4d31cc49e68b6a664246dd97c0fceb61f63a9f4863995i0\"></script>\n</head>\n\n<body style=\"margin: 0; aspect-ratio: 1 / 1\">\n  <recursive-images type=\"pixel\" inscriptions=\"e2201d7df3d22afb02507ecbb63e685a18947b68b3450f4f49224db6353b96f6i0, e0cca412c1a46f18fce89626d465434b0d896247ca1d54a7961643bc301215f9i0, 1ffb7987b265691a82727e6325b2b0814684a6fabb42cec9adbdfc6639411323i0, 36d638ce1fd5b1989699e1e52640efdab54bc58b8320c0b2b0b3f7fc668da7b7i0, 0102d4cf2cef3583c84d4ceef81c930f318f040ab933d6c667ae425d2732a2fdi0, e03e797a9001081bd4626136263a49cbe8662cc39bc8c34266cfbd4bd1d2fcd9i0\" width=\"75\" height=\"75\" />\n</body>\n\n</html>"
+      "svg": "<html>\n\n<head>\n  <script src=\"/content/10548d936eb4116ac5b4d31cc49e68b6a664246dd97c0fceb61f63a9f4863995i0\"></script>\n</head>\n\n<body style=\"margin: 0; aspect-ratio: 1 / 1\">\n  <recursive-images type=\"pixel\" inscriptions=\"e2201d7df3d22afb02507ecbb63e685a18947b68b3450f4f49224db6353b96f6i0, e0cca412c1a46f18fce89626d465434b0d896247ca1d54a7961643bc301215f9i0, 39167ed218d407c0852393d01f333e9bc73cedbac232ed24dd2e13311b29bd20i0, 36d638ce1fd5b1989699e1e52640efdab54bc58b8320c0b2b0b3f7fc668da7b7i0, 0102d4cf2cef3583c84d4ceef81c930f318f040ab933d6c667ae425d2732a2fdi0, e03e797a9001081bd4626136263a49cbe8662cc39bc8c34266cfbd4bd1d2fcd9i0\" width=\"75\" height=\"75\" />\n</body>\n\n</html>"
     },
     {
       "index": 97,
