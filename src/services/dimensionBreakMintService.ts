@@ -125,6 +125,23 @@ export async function updateDimensionBreakHashlist(payload: {
   }
 }
 
+export async function loadRecentMints(): Promise<Array<{
+  itemIndex: number | null;
+  itemName: string;
+  timestamp: string;
+  walletAddress: string | null;
+  inscriptionId: string | null;
+}>> {
+  try {
+    const res = await fetch(`${API_URL}/api/dimension-break/recent`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.recent || [];
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
 export async function mintDimensionBreak(
   buyerAddress: string,
   feeRate: number,

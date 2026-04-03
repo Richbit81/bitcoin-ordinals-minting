@@ -15,6 +15,8 @@ import {
   loadAddressMintCount as apiLoadAddressMintCount,
   logDimensionBreakMint,
   updateDimensionBreakHashlist,
+  loadRecentMints as apiLoadRecentMints,
+  DimensionBreakCollection,
 } from '../services/dimensionBreakMintService';
 import { getOrdinalAddress, getUnisatTaprootAddress } from '../utils/wallet';
 
@@ -32,17 +34,28 @@ export const DimensionBreakPage: React.FC = () => {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [addressMintCount, setAddressMintCount] = useState<number>(0);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
+  const [collectionData, setCollectionData] = useState<DimensionBreakCollection | null>(null);
+  const [recentMints, setRecentMints] = useState<Array<{
+    itemIndex: number | null;
+    itemName: string;
+    timestamp: string;
+    walletAddress: string | null;
+    inscriptionId: string | null;
+    imageUrl: string | null;
+  }>>([]);
 
   useEffect(() => {
     loadDimensionBreakCollection().then((col) => {
       if (col && col.generated.length > 0) {
         setCollectionReady(true);
+        setCollectionData(col);
       } else {
         setCollectionReady(false);
       }
     });
     refreshMintCount();
     refreshMintedIndices();
+    refreshRecentMints();
   }, []);
 
   useEffect(() => {
@@ -67,6 +80,67 @@ export const DimensionBreakPage: React.FC = () => {
     const count = await apiLoadAddressMintCount(address);
     setAddressMintCount(count);
   };
+
+  const refreshRecentMints = async () => {
+    try {
+      const recent = await apiLoadRecentMints();
+      setRecentMints(recent.map(m => ({ ...m, imageUrl: null })));
+    } catch { /* ignore */ }
+  };
+
+  const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
+    try {
+      const images = await Promise.all(
+        layerIds.map(id => new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to load ${id}`));
+          img.src = `https://ordinals.com/content/${id}`;
+        }))
+      );
+      const w = images[0]?.naturalWidth || 75;
+      const h = images[0]?.naturalHeight || 75;
+      const scale = Math.max(1, Math.ceil(256 / Math.max(w, h)));
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      for (const img of images) {
+        ctx.drawImage(img, 0, 0, w * scale, h * scale);
+      }
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!collectionData || recentMints.length === 0) return;
+    if (recentMints.some(m => m.imageUrl !== null)) return;
+
+    let cancelled = false;
+    const renderAll = async () => {
+      const updated = [...recentMints];
+      for (let i = 0; i < updated.length; i++) {
+        if (cancelled) return;
+        const item = collectionData.generated.find((g) => g.index === updated[i].itemIndex);
+        if (item && item.layers) {
+          const layerIds = item.layers.map(l => l.trait.inscriptionId);
+          const url = await renderItemImage(layerIds);
+          updated[i] = { ...updated[i], imageUrl: url || 'placeholder' };
+        } else if (updated[i].inscriptionId) {
+          updated[i] = { ...updated[i], imageUrl: `https://ordinals.com/content/${updated[i].inscriptionId}` };
+        } else {
+          updated[i] = { ...updated[i], imageUrl: 'placeholder' };
+        }
+      }
+      if (!cancelled) setRecentMints(updated);
+    };
+    renderAll();
+    return () => { cancelled = true; };
+  }, [collectionData, recentMints.length, renderItemImage]);
 
   const handleMint = useCallback(async () => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -190,6 +264,7 @@ export const DimensionBreakPage: React.FC = () => {
       setMintCount(prev => prev + 1);
       setAddressMintCount(prev => prev + 1);
       setMintedIndices(prev => [...prev, result.item.index]);
+      refreshRecentMints();
     } catch (error: any) {
       console.error('[DimensionBreak] Mint error:', error);
       setMintingStatus({
@@ -345,6 +420,42 @@ export const DimensionBreakPage: React.FC = () => {
                   onClose={() => setMintingStatus(null)}
                 />
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Mints Banner */}
+        {recentMints.length > 0 && (
+          <div className="w-full mt-10 mb-6 max-w-2xl mx-auto">
+            <h3 className="text-center text-xl font-bold mb-4" style={{
+              background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              RECENT MINTS
+            </h3>
+            <div className="flex flex-wrap justify-center gap-3">
+              {recentMints.map((mint, i) => (
+                <div key={i} className="flex flex-col items-center group">
+                  <div className="w-16 h-16 bg-black/60 border border-purple-500/30 rounded-lg overflow-hidden transition-transform group-hover:scale-110"
+                    style={{ boxShadow: '0 0 12px rgba(168,85,247,0.15)' }}>
+                    {mint.imageUrl === 'placeholder' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                        <span className="text-purple-400 font-bold text-xs">#{mint.itemIndex}</span>
+                      </div>
+                    ) : mint.imageUrl ? (
+                      <img src={mint.imageUrl} alt={mint.itemName}
+                        className="w-full h-full object-cover"
+                        style={{ imageRendering: 'pixelated' }} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-gray-500 mt-1 text-center">#{mint.itemIndex}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
