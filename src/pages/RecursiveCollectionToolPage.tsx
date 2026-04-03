@@ -569,16 +569,18 @@ const RecursiveCollectionToolPage: React.FC = () => {
     };
   }, [layers, collectionName, totalCount, viewBox, pixelScale, scanAddress, walletInscriptions, generated, hashlist, activeProjectId, saveCurrentProject]);
 
-  // Rebuild already generated SVGs when pixel multiplier changes.
+  // Rebuild generated outputs when viewBox changes or when migrating from old SVG to HTML format.
   useEffect(() => {
     if (generated.length === 0) return;
+    const needsMigration = generated.some((item) => typeof item.svg === 'string' && item.svg.trimStart().startsWith('<svg'));
+    if (!needsMigration) return;
     setGenerated((prev) =>
       prev.map((item) => ({
         ...item,
         svg: buildSvgForViewBox(item.layers, viewBox, pixelScale),
       }))
     );
-  }, [pixelScale, viewBox]);
+  }, [generated.length, viewBox]);
 
   // ============================================================
   // WALLET SCANNER (UniSat Open API)
