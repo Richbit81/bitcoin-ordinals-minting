@@ -209,10 +209,13 @@ export const DimensionBreakPage: React.FC = () => {
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden" style={{ background: '#050510' }}>
-      {/* Animated fracture lines background */}
-      <div className="absolute inset-0 opacity-[0.06]" style={{
-        backgroundImage: `repeating-linear-gradient(120deg, transparent, transparent 40px, #a855f7 40px, #a855f7 41px),
-                          repeating-linear-gradient(60deg, transparent, transparent 60px, #6366f1 60px, #6366f1 61px)`,
+      {/* Blurred background image */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: 'url(/images/dimension-break-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        filter: 'blur(18px) brightness(0.35)',
+        transform: 'scale(1.1)',
       }} />
 
       <div className="relative z-10 container mx-auto px-4 py-6 min-h-screen flex flex-col">
