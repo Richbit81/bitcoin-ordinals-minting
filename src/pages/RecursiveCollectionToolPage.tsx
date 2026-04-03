@@ -96,48 +96,21 @@ function buildSvgForViewBox(
 
 function buildHtmlForInscription(
   layers: { layerName: string; traitType: string; trait: TraitItem; offsetX?: number; offsetY?: number; scale?: number }[],
-  _viewBox?: string
+  viewBox?: string
 ): string {
+  const vb = (viewBox || '0 0 1000 1000').trim().split(/\s+/).map(Number);
+  const vbW = Number.isFinite(vb[2]) ? vb[2] : 1000;
+  const vbH = Number.isFinite(vb[3]) ? vb[3] : 1000;
   const filtered = layers.filter(l => !isNoneTrait(l.trait));
-  const imgTags = filtered
-    .map(l => `    <img src="/content/${l.trait.inscriptionId}" style="position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges">`)
-    .join('\n');
+  const inscriptionIds = filtered.map(l => l.trait.inscriptionId).join(', ');
   return `<html>
 
 <head>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000
-    }
-
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center
-    }
-
-    .c {
-      position: relative;
-      width: 100vmin;
-      height: 100vmin
-    }
-  </style>
+  <script src="/content/10548d936eb4116ac5b4d31cc49e68b6a664246dd97c0fceb61f63a9f4863995i0"></script>
 </head>
 
-<body>
-  <div class="c">
-${imgTags}
-  </div>
+<body style="margin: 0; aspect-ratio: 1 / 1">
+  <recursive-images type="pixel" inscriptions="${inscriptionIds}" width="${vbW}" height="${vbH}" />
 </body>
 
 </html>`;
@@ -572,7 +545,7 @@ const RecursiveCollectionToolPage: React.FC = () => {
   // Rebuild generated outputs when viewBox changes or when migrating from old SVG to HTML format.
   useEffect(() => {
     if (generated.length === 0) return;
-    const needsMigration = generated.some((item) => typeof item.svg === 'string' && item.svg.trimStart().startsWith('<svg'));
+    const needsMigration = generated.some((item) => typeof item.svg === 'string' && !item.svg.includes('recursive-images'));
     if (!needsMigration) return;
     setGenerated((prev) =>
       prev.map((item) => ({
