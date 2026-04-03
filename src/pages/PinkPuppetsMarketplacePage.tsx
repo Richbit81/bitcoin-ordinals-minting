@@ -187,15 +187,15 @@ const FLOATING_PUPPETS = [
   'jelly.png','holographic.png','ether.png','dog2.png','dog.png','genesis.png',
 ];
 
-function useFloatingPuppets(count = 14) {
+function useFloatingPuppets(count = 30) {
   const [puppets] = React.useState(() => {
     const shuffled = [...FLOATING_PUPPETS].sort(() => Math.random() - 0.5);
     return Array.from({ length: count }, (_, i) => ({
       src: `/images/pinkpuppets/${shuffled[i % shuffled.length]}`,
-      left: 3 + Math.random() * 88,
-      top: 5 + Math.random() * 80,
-      size: 70 + Math.random() * 90,
-      delay: Math.random() * 12,
+      left: -2 + Math.random() * 95,
+      top: 2 + Math.random() * 90,
+      size: 100 + Math.random() * 130,
+      delay: Math.random() * 10,
       duration: 14 + Math.random() * 10,
       floatDuration: 6 + Math.random() * 6,
       floatDistance: 8 + Math.random() * 12,
@@ -629,8 +629,8 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
               alt=""
               className="w-full h-auto"
               style={{
-                maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+                maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
               }}
               loading="lazy"
             />
