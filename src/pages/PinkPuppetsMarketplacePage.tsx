@@ -291,7 +291,7 @@ function FloatingPuppetsLayer() {
         <div
           key={i}
           className="absolute"
-          style={{ left: p.x, top: p.y, width: p.size, opacity: 0.55, willChange: 'transform' }}
+          style={{ left: p.x, top: p.y, width: p.size, opacity: 0.35, willChange: 'transform' }}
         >
           <img
             src={p.src}
