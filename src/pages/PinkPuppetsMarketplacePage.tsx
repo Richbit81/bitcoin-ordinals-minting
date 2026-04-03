@@ -226,6 +226,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   const [selectedDetailLoading, setSelectedDetailLoading] = React.useState(false);
   const [selectedDetailError, setSelectedDetailError] = React.useState<string | null>(null);
   const [ordApiData, setOrdApiData] = React.useState<Record<string, any> | null>(null);
+  const [fullscreenImage, setFullscreenImage] = React.useState<{ url: string; name: string } | null>(null);
   const resolvingOwnerIdsRef = React.useRef<Set<string>>(new Set());
   const scoreModel = React.useMemo(() => buildPinkPuppetScoreModel(), []);
   const itemIndexById = React.useMemo(() => {
@@ -755,7 +756,13 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-3">
-                  <div className="aspect-square overflow-hidden rounded-lg border border-pink-300/60 bg-[#140014]">
+                  <div
+                    className="aspect-square overflow-hidden rounded-lg border border-pink-300/60 bg-[#140014] cursor-pointer transition-transform hover:scale-[1.02]"
+                    onClick={() => setFullscreenImage({
+                      url: `https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`,
+                      name: selected.name,
+                    })}
+                  >
                     <img
                       src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}
                       title={selected.name}
@@ -911,6 +918,36 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Image Lightbox */}
+        {fullscreenImage && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+            onClick={() => setFullscreenImage(null)}
+          >
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <img
+                src={fullscreenImage.url}
+                alt={fullscreenImage.name}
+                className="rounded-xl border-2 border-pink-400/50 block"
+                style={{
+                  imageRendering: 'pixelated',
+                  width: 'min(85vmin, 700px)',
+                  height: 'min(85vmin, 700px)',
+                  objectFit: 'contain',
+                  background: '#140014',
+                }}
+              />
+              <p className="text-center text-pink-200 font-bold mt-3 text-lg">{fullscreenImage.name}</p>
+              <button
+                onClick={() => setFullscreenImage(null)}
+                className="absolute -top-3 -right-3 w-8 h-8 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+              >
+                ✕
+              </button>
             </div>
           </div>
         )}
