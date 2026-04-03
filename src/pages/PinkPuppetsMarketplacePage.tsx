@@ -213,8 +213,8 @@ function initPuppets(count: number, w: number, h: number): Puppet[] {
       x, y, size,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      rot: (Math.random() - 0.5) * 20,
-      vr: (Math.random() - 0.5) * 0.003,
+      rot: 0,
+      vr: (0.01 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1),
     });
   }
   return puppets;
