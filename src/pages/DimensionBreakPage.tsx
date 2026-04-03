@@ -35,6 +35,7 @@ export const DimensionBreakPage: React.FC = () => {
   const [addressMintCount, setAddressMintCount] = useState<number>(0);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [collectionData, setCollectionData] = useState<DimensionBreakCollection | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number | null;
     itemName: string;
@@ -88,7 +89,7 @@ export const DimensionBreakPage: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const renderItemImage = useCallback(async (layerIds: string[]): Promise<string | null> => {
+  const renderItemImage = useCallback(async (layerIds: string[], targetSize = 256): Promise<string | null> => {
     try {
       const images = await Promise.all(
         layerIds.map(id => new Promise<HTMLImageElement>((resolve, reject) => {
@@ -101,7 +102,7 @@ export const DimensionBreakPage: React.FC = () => {
       );
       const w = images[0]?.naturalWidth || 75;
       const h = images[0]?.naturalHeight || 75;
-      const scale = Math.max(1, Math.ceil(256 / Math.max(w, h)));
+      const scale = Math.max(1, Math.ceil(targetSize / Math.max(w, h)));
       const canvas = document.createElement('canvas');
       canvas.width = w * scale;
       canvas.height = h * scale;
@@ -437,8 +438,22 @@ export const DimensionBreakPage: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-3">
               {recentMints.map((mint, i) => (
                 <div key={i} className="flex flex-col items-center group">
-                  <div className="w-16 h-16 bg-black/60 border border-purple-500/30 rounded-lg overflow-hidden transition-transform group-hover:scale-110"
-                    style={{ boxShadow: '0 0 12px rgba(168,85,247,0.15)' }}>
+                  <div
+                    className={`w-16 h-16 bg-black/60 border border-purple-500/30 rounded-lg overflow-hidden transition-transform group-hover:scale-110 ${
+                      mint.imageUrl && mint.imageUrl !== 'placeholder' ? 'cursor-pointer' : ''
+                    }`}
+                    style={{ boxShadow: '0 0 12px rgba(168,85,247,0.15)' }}
+                    onClick={async () => {
+                      if (!mint.imageUrl || mint.imageUrl === 'placeholder') return;
+                      setLightbox({ url: mint.imageUrl, name: mint.itemName });
+                      if (!collectionData) return;
+                      const item = collectionData.generated.find(g => g.index === mint.itemIndex);
+                      if (item?.layers) {
+                        const hiRes = await renderItemImage(item.layers.map(l => l.trait.inscriptionId), 600);
+                        if (hiRes) setLightbox(prev => prev ? { ...prev, url: hiRes } : null);
+                      }
+                    }}
+                  >
                     {mint.imageUrl === 'placeholder' ? (
                       <div className="w-full h-full flex items-center justify-center bg-gray-900">
                         <span className="text-purple-400 font-bold text-xs">#{mint.itemIndex}</span>
@@ -464,6 +479,30 @@ export const DimensionBreakPage: React.FC = () => {
       {/* Wallet Connect Modal */}
       {showWalletConnect && (
         <WalletConnect onClose={() => setShowWalletConnect(false)} />
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="relative max-w-[90vmin] max-h-[90vmin]" onClick={e => e.stopPropagation()}>
+            <img
+              src={lightbox.url}
+              alt={lightbox.name}
+              className="w-full h-full object-contain rounded-xl border-2 border-purple-500/40"
+              style={{ imageRendering: 'pixelated', maxWidth: '90vmin', maxHeight: '90vmin' }}
+            />
+            <p className="text-center text-purple-300 font-bold mt-3 text-lg">{lightbox.name}</p>
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
