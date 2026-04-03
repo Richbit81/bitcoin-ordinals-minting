@@ -180,6 +180,30 @@ const buildPinkPuppetScoreModel = () => {
   return { techScoreById, percentileById, breakdownById };
 };
 
+const FLOATING_PUPPETS = [
+  'dj.png','pimp.png','pinkranger.png','boxlogo.png','billionaire.png',
+  'checkmate.png','tigerstyle.png','runwaypup.png','pinkjourney.png',
+  'puppetsindustries.png','mecha.png','kapital.png','kawsbunny.png',
+  'jelly.png','holographic.png','ether.png','dog2.png','dog.png','genesis.png',
+];
+
+function useFloatingPuppets(count = 14) {
+  const [puppets] = React.useState(() => {
+    const shuffled = [...FLOATING_PUPPETS].sort(() => Math.random() - 0.5);
+    return Array.from({ length: count }, (_, i) => ({
+      src: `/images/pinkpuppets/${shuffled[i % shuffled.length]}`,
+      left: 3 + Math.random() * 88,
+      top: 5 + Math.random() * 80,
+      size: 70 + Math.random() * 90,
+      delay: Math.random() * 12,
+      duration: 14 + Math.random() * 10,
+      floatDuration: 6 + Math.random() * 6,
+      floatDistance: 8 + Math.random() * 12,
+    }));
+  });
+  return puppets;
+}
+
 export const PinkPuppetsMarketplacePage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
@@ -568,11 +592,51 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     })();
   };
 
+  const floatingPuppets = useFloatingPuppets(14);
+
   return (
     <div
       className="min-h-screen text-white relative overflow-hidden bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/images/pinkpuppets-clouds-bg.avif')" }}
     >
+      <style>{`
+        @keyframes pp-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(calc(var(--float-dist) * -1px)); }
+        }
+        @keyframes pp-fadein {
+          0% { opacity: 0; transform: scale(0.7); }
+          100% { opacity: var(--pp-max-opacity, 0.55); transform: scale(1); }
+        }
+      `}</style>
+      {/* Floating Puppet Characters */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
+        {floatingPuppets.map((p, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              left: `${p.left}%`,
+              top: `${p.top}%`,
+              width: `${p.size}px`,
+              '--float-dist': p.floatDistance,
+              '--pp-max-opacity': 0.55,
+              animation: `pp-fadein ${2 + Math.random()}s ease-out ${p.delay}s both, pp-float ${p.floatDuration}s ease-in-out ${p.delay + 2}s infinite`,
+            } as React.CSSProperties}
+          >
+            <img
+              src={p.src}
+              alt=""
+              className="w-full h-auto"
+              style={{
+                maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+              }}
+              loading="lazy"
+            />
+          </div>
+        ))}
+      </div>
       <div className="absolute inset-0 bg-[#130015]/40" />
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-8">
         <div className="mb-3 flex items-center">
