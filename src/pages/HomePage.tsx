@@ -356,6 +356,11 @@ export const HomePage: React.FC = () => {
                   NEW
                 </div>
               )}
+              {project.id === 'dimension-break' && (
+                <div className="pointer-events-none absolute right-[-30px] top-[12px] z-20 rotate-45 bg-green-500 px-8 py-1 text-[10px] font-extrabold tracking-[0.2em] text-white shadow-lg shadow-green-900/50">
+                  FREE MINT
+                </div>
+              )}
               {/* Bild ohne Rahmen - klickbar, maximale Größe */}
               {project.id === 'slums' ? (
                 <div className="overflow-hidden rounded-xl relative aspect-square bg-transparent flex items-center justify-center">
