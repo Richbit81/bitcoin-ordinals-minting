@@ -352,12 +352,12 @@ export const HomePage: React.FC = () => {
             {/* Einheitliche Media-Box fuer konsistente Groesse/Position */}
             <div className="w-full mx-auto max-w-48 md:max-w-52 relative z-10">
               {project.id === 'marketplace' && (
-                <div className="pointer-events-none absolute right-[-30px] top-[12px] z-20 rotate-45 bg-red-600 px-8 py-1 text-[10px] font-extrabold tracking-[0.2em] text-white shadow-lg shadow-red-900/50">
+                <div className="pointer-events-none absolute right-2 top-2 z-20 bg-red-600 px-3 py-1 text-[10px] font-extrabold tracking-wider text-white rounded-full shadow-lg">
                   NEW
                 </div>
               )}
               {project.id === 'dimension-break' && (
-                <div className="pointer-events-none absolute right-[-30px] top-[12px] z-20 rotate-45 bg-green-500 px-8 py-1 text-[10px] font-extrabold tracking-[0.2em] text-white shadow-lg shadow-green-900/50">
+                <div className="pointer-events-none absolute right-2 top-2 z-20 bg-green-500 px-3 py-1 text-[10px] font-extrabold tracking-wider text-white rounded-full shadow-lg">
                   FREE MINT
                 </div>
               )}
