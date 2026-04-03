@@ -449,7 +449,7 @@ export const DimensionBreakPage: React.FC = () => {
                       if (!collectionData) return;
                       const item = collectionData.generated.find(g => g.index === mint.itemIndex);
                       if (item?.layers) {
-                        const hiRes = await renderItemImage(item.layers.map(l => l.trait.inscriptionId), 600);
+                        const hiRes = await renderItemImage(item.layers.map(l => l.trait.inscriptionId), 1200);
                         if (hiRes) setLightbox(prev => prev ? { ...prev, url: hiRes } : null);
                       }
                     }}
@@ -491,8 +491,13 @@ export const DimensionBreakPage: React.FC = () => {
             <img
               src={lightbox.url}
               alt={lightbox.name}
-              className="w-full h-full object-contain rounded-xl border-2 border-purple-500/40"
-              style={{ imageRendering: 'pixelated', maxWidth: '90vmin', maxHeight: '90vmin' }}
+              className="rounded-xl border-2 border-purple-500/40"
+              style={{
+                imageRendering: 'pixelated',
+                width: 'min(80vmin, 600px)',
+                height: 'min(80vmin, 600px)',
+                objectFit: 'contain',
+              }}
             />
             <p className="text-center text-purple-300 font-bold mt-3 text-lg">{lightbox.name}</p>
             <button
