@@ -309,10 +309,11 @@ export const RareSatSplitterPage: React.FC = () => {
           <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
             <h2 className="mb-3 text-sm font-bold text-gray-300">Scan for Rare Sats</h2>
             <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
-              Bei sehr vielen Transaktionen liefert mempool.space kein UTXO-Listing (400). Der Scanner nutzt dann die{' '}
-              <strong className="text-gray-400">UniSat Open API</strong> (wie beim Recursive Generator). Optional:{' '}
-              <code className="rounded bg-gray-800 px-1">VITE_UNISAT_OPEN_API_KEY</code> in den Env-Variablen setzen.
-              Alternativ: konkretes UTXO als <code className="rounded bg-gray-800 px-1">txid:vout</code> unten eintragen.
+              Bei sehr vielen Transaktionen liefert mempool.space kein UTXO-Listing (400). Der Scanner holt UTXOs dann über den{' '}
+              <strong className="text-gray-400">Backend-Proxy</strong> (<code className="rounded bg-gray-800 px-1">/api/unisat/open-address-utxos</code>
+              → UniSat). Dafür im Backend{' '}
+              <code className="rounded bg-gray-800 px-1">UNISAT_OPEN_API_KEY</code> setzen (Vercel → bitcoin-ordinals-backend).
+              Alternativ: <code className="rounded bg-gray-800 px-1">txid:vout</code> manuell eintragen.
             </p>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               <div className="flex-1">

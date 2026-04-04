@@ -1,10 +1,11 @@
 import * as btc from '@scure/btc-signer';
 import { hex as hexCodec } from '@scure/base';
+import { getApiUrl } from '../utils/apiUrl';
 
 const MEMPOOL_API = 'https://mempool.space/api';
-const UNISAT_OPEN_API = 'https://open-api.unisat.io';
 
-function getUniSatOpenApiKey(): string {
+/** Optional: only for error hints if backend key missing */
+function getUniSatOpenApiKeyHint(): string {
   return String(
     import.meta.env.VITE_UNISAT_OPEN_API_KEY ||
       import.meta.env.VITE_UNISAT_API_KEY ||
@@ -377,14 +378,14 @@ function extractUtxoArrayFromUniSatPayload(data: unknown): any[] {
 }
 
 /**
- * UniSat Open API indexer — works for large addresses where Esplora (mempool.space) returns 400.
- * Same host as RecursiveCollectionTool (inscription-data). Optional Bearer for higher limits.
- * @see https://docs.unisat.io/developer-support/open-api-documentation
+ * UniSat indexer UTXOs via **backend proxy** — open-api.unisat.io blocks browser CORS.
+ * Backend: GET /api/unisat/open-address-utxos (uses UNISAT_OPEN_API_KEY on server).
  */
 export async function fetchUtxosFromUniSatOpenApi(address: string): Promise<Utxo[]> {
-  const apiKey = getUniSatOpenApiKey();
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const base = getApiUrl().replace(/\/+$/, '');
+  if (!base) {
+    throw new Error('VITE_INSCRIPTION_API_URL not set (backend proxy required for UniSat UTXOs)');
+  }
 
   const all: Utxo[] = [];
   let cursor = 0;
@@ -395,17 +396,17 @@ export async function fetchUtxosFromUniSatOpenApi(address: string): Promise<Utxo
 
   while (cursor < total && pages < maxPages) {
     pages += 1;
-    const url = `${UNISAT_OPEN_API}/v1/indexer/address/${encodeURIComponent(address)}/all-utxo-data?cursor=${cursor}&size=${pageSize}`;
-    const res = await fetch(url, { headers });
+    const url = `${base}/api/unisat/open-address-utxos?address=${encodeURIComponent(address)}&cursor=${cursor}&size=${pageSize}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new Error(`UniSat Open API ${res.status}${t ? `: ${t.slice(0, 120)}` : ''}`);
+      const msg = (json as any)?.error || (json as any)?.msg || res.statusText;
+      throw new Error(`UniSat proxy ${res.status}: ${msg}`);
     }
-    const json = await res.json();
-    if (json.code !== 0 && json.code !== undefined) {
-      throw new Error(json.msg || json.message || `UniSat API code ${json.code}`);
+    if ((json as any).code !== 0 && (json as any).code !== undefined) {
+      throw new Error((json as any).msg || (json as any).message || `UniSat API code ${(json as any).code}`);
     }
-    const data = json.data;
+    const data = (json as any).data;
     if (typeof data?.total === 'number') total = data.total;
     const rawList = extractUtxoArrayFromUniSatPayload(data);
     for (const item of rawList) {
@@ -476,9 +477,9 @@ export async function fetchUtxos(
     }
   }
 
-  const keyHint = getUniSatOpenApiKey()
+  const keyHint = getUniSatOpenApiKeyHint()
     ? ''
-    : ' Set VITE_UNISAT_OPEN_API_KEY in Vercel env (UniSat Open API) for large wallets, or use UniSat wallet / manual txid:vout.';
+    : ' Set UNISAT_OPEN_API_KEY on the backend (Vercel env for bitcoin-ordinals-backend), or use UniSat wallet / manual txid:vout.';
 
   throw new Error(
     `Could not fetch UTXOs.${keyHint} ` +
