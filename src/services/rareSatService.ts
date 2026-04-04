@@ -384,7 +384,9 @@ function extractUtxoArrayFromUniSatPayload(data: unknown): any[] {
 export async function fetchUtxosFromUniSatOpenApi(address: string): Promise<Utxo[]> {
   const base = getApiUrl().replace(/\/+$/, '');
   if (!base) {
-    throw new Error('VITE_INSCRIPTION_API_URL not set (backend proxy required for UniSat UTXOs)');
+    throw new Error(
+      'Backend-URL fehlt (VITE_INSCRIPTION_API_URL oder richart.app-Seite im Browser). UniSat-UTXOs gehen nur über den Proxy.'
+    );
   }
 
   const all: Utxo[] = [];
