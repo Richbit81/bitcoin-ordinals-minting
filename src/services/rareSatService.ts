@@ -332,9 +332,10 @@ async function fetchUtxosFromMempool(address: string): Promise<Utxo[]> {
   return res.json();
 }
 
-async function fetchUtxosFromWallet(walletType: string): Promise<Utxo[]> {
-  if (walletType === 'unisat' && (window as any).unisat?.getBitcoinUtxos) {
-    const raw = await (window as any).unisat.getBitcoinUtxos();
+async function fetchUtxosFromWallet(): Promise<Utxo[]> {
+  const unisat = (window as any).unisat;
+  if (unisat?.getBitcoinUtxos) {
+    const raw = await unisat.getBitcoinUtxos();
     if (Array.isArray(raw)) {
       return raw.map((u: any) => ({
         txid: u.txid || u.txId,
@@ -344,27 +345,7 @@ async function fetchUtxosFromWallet(walletType: string): Promise<Utxo[]> {
       }));
     }
   }
-  if (walletType === 'xverse') {
-    try {
-      const mod = await import('sats-connect');
-      const response: any = await new Promise((resolve, reject) => {
-        const req: any = { purposes: ['ordinals', 'payment'] };
-        if (mod.getAddress) {
-          mod.getAddress({ payload: req, onFinish: resolve, onCancel: () => reject(new Error('cancelled')) });
-        } else {
-          reject(new Error('no getAddress'));
-        }
-      });
-      if (response?.addresses) {
-        const addr = response.addresses.find((a: any) => a.purpose === 'ordinals')?.address;
-        if (addr) {
-          const res = await fetch(`${MEMPOOL_API}/address/${addr}/utxo`);
-          if (res.ok) return res.json();
-        }
-      }
-    } catch { /* fall through */ }
-  }
-  throw new Error('Wallet UTXO fetch not available');
+  throw new Error('UniSat wallet not available (connect with UniSat for wallet-based UTXO scan)');
 }
 
 async function fetchUtxosFromOrd(address: string, ordServerUrl: string): Promise<Utxo[]> {
@@ -390,13 +371,11 @@ export async function fetchUtxos(
 ): Promise<Utxo[]> {
   const errors: string[] = [];
 
-  // 1) Try wallet extension first (most reliable for large wallets)
-  if (options?.walletType) {
-    try {
-      return await fetchUtxosFromWallet(options.walletType);
-    } catch (e: any) {
-      errors.push(`Wallet: ${e.message}`);
-    }
+  // 1) Try UniSat wallet extension (has getBitcoinUtxos)
+  try {
+    return await fetchUtxosFromWallet();
+  } catch (e: any) {
+    errors.push(`Wallet: ${e.message}`);
   }
 
   // 2) Try mempool.space API
