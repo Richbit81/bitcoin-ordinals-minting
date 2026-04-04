@@ -292,6 +292,18 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
                         <span className="font-semibold">Video Splitter</span>
                       </button>
                     )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          navigate('/admin/rare-sat-splitter');
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-900 text-white flex items-center gap-2 border-b border-gray-800"
+                      >
+                        <span className="w-5 h-5 flex items-center justify-center text-yellow-400">◈</span>
+                        <span className="font-semibold">Rare Sat Splitter</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleDisconnect}
                       className="w-full text-left px-4 py-2 hover:bg-gray-900 text-red-600 flex items-center gap-2"
