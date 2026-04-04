@@ -399,13 +399,21 @@ export async function fetchUtxosFromUniSatOpenApi(address: string): Promise<Utxo
   while (cursor < total && pages < maxPages) {
     pages += 1;
     const url = `${base}/api/unisat/open-address-utxos?address=${encodeURIComponent(address)}&cursor=${cursor}&size=${pageSize}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { Accept: 'application/json' } });
+    } catch (fetchErr: any) {
+      if (all.length > 0) { console.warn('[UniSat] fetch error after', all.length, 'UTXOs, returning partial:', fetchErr.message); break; }
+      throw fetchErr;
+    }
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (all.length > 0) { console.warn('[UniSat] API returned', res.status, 'after', all.length, 'UTXOs — returning partial results'); break; }
       const msg = (json as any)?.error || (json as any)?.msg || res.statusText;
       throw new Error(`UniSat proxy ${res.status}: ${msg}`);
     }
     if ((json as any).code !== 0 && (json as any).code !== undefined) {
+      if (all.length > 0) { console.warn('[UniSat] API error code after', all.length, 'UTXOs — returning partial results'); break; }
       throw new Error((json as any).msg || (json as any).message || `UniSat API code ${(json as any).code}`);
     }
     const data = (json as any).data;
