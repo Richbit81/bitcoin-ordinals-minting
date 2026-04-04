@@ -80,7 +80,7 @@ export function FloatingPuppetsLayer() {
     window.addEventListener('mouseleave', onLeave);
 
     const w = el.clientWidth;
-    const h = el.clientHeight;
+    const h = Math.min(el.clientHeight, window.innerHeight);
     if (w < 100 || h < 100) return;
     const area = w * h;
     const count = Math.max(5, Math.min(40, Math.round(area / 80000)));
