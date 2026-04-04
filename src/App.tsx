@@ -41,7 +41,7 @@ const AvifConverterPage = lazy(() => import('./pages/AvifConverterPage').then((m
 const AudioSplitterPage = lazy(() => import('./pages/AudioSplitterPage').then((m) => ({ default: m.AudioSplitterPage })));
 const VideoSplitterPage = lazy(() => import('./pages/VideoSplitterPage').then((m) => ({ default: m.VideoSplitterPage })));
 const MarketplaceAdminToolPage = lazy(() => import('./pages/MarketplaceAdminToolPage'));
-const DimensionBreakPage = lazy(() => import('./pages/DimensionBreakPage').then((m) => ({ default: m.DimensionBreakPage })));
+const RareSatSplitterPage = lazy(() => import('./pages/RareSatSplitterPage'));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -79,7 +79,6 @@ function AppContent() {
           <Route path="/smile-a-bit" element={<SmilePage />} />
           <Route path="/slums" element={<SlumsPage />} />
           <Route path="/badcats" element={<BadCatsPage />} />
-          <Route path="/dimension-break" element={<DimensionBreakPage />} />
           <Route path="/pinkpuppets" element={<PinkPuppetsPage />} />
           <Route path="/pinkpuppets/marketplace" element={<PinkPuppetsMarketplacePage />} />
           <Route path="/pinkpuppets/markerplace" element={<Navigate to="/pinkpuppets/marketplace" replace />} />
@@ -94,6 +93,7 @@ function AppContent() {
           <Route path="/admin/audio-splitter" element={<AudioSplitterPage />} />
           <Route path="/admin/video-splitter" element={<VideoSplitterPage />} />
           <Route path="/admin/marketplace-tool" element={<AdminRoute><MarketplaceAdminToolPage /></AdminRoute>} />
+          <Route path="/admin/rare-sat-splitter" element={<AdminRoute><RareSatSplitterPage /></AdminRoute>} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/marketplace/profile" element={<MarketplaceProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
