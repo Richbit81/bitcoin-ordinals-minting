@@ -2,6 +2,15 @@ import * as btc from '@scure/btc-signer';
 import { hex as hexCodec } from '@scure/base';
 
 const MEMPOOL_API = 'https://mempool.space/api';
+const UNISAT_OPEN_API = 'https://open-api.unisat.io';
+
+function getUniSatOpenApiKey(): string {
+  return String(
+    import.meta.env.VITE_UNISAT_OPEN_API_KEY ||
+      import.meta.env.VITE_UNISAT_API_KEY ||
+      ''
+  ).trim();
+}
 const SATS_PER_BTC = 100_000_000;
 const EPOCH_BLOCKS = 210_000;
 const INITIAL_REWARD = 5_000_000_000;
@@ -348,6 +357,72 @@ async function fetchUtxosFromWallet(): Promise<Utxo[]> {
   throw new Error('UniSat wallet not available (connect with UniSat for wallet-based UTXO scan)');
 }
 
+function mapUniSatUtxoItem(u: any): Utxo | null {
+  const txid = u.txid || u.txId;
+  const vout = u.vout ?? u.outputIndex ?? u.index;
+  const value = Number(u.satoshi ?? u.satoshis ?? u.value ?? u.amount ?? 0);
+  if (!txid || vout === undefined || vout === null) return null;
+  return { txid, vout: Number(vout), value, status: { confirmed: true } };
+}
+
+function extractUtxoArrayFromUniSatPayload(data: unknown): any[] {
+  if (!data || typeof data !== 'object') return [];
+  const d = data as Record<string, unknown>;
+  if (Array.isArray(d)) return d as any[];
+  if (Array.isArray(d.utxo)) return d.utxo as any[];
+  if (Array.isArray(d.list)) return d.list as any[];
+  if (Array.isArray(d.utxos)) return d.utxos as any[];
+  if (Array.isArray(d.data)) return d.data as any[];
+  return [];
+}
+
+/**
+ * UniSat Open API indexer — works for large addresses where Esplora (mempool.space) returns 400.
+ * Same host as RecursiveCollectionTool (inscription-data). Optional Bearer for higher limits.
+ * @see https://docs.unisat.io/developer-support/open-api-documentation
+ */
+export async function fetchUtxosFromUniSatOpenApi(address: string): Promise<Utxo[]> {
+  const apiKey = getUniSatOpenApiKey();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  const all: Utxo[] = [];
+  let cursor = 0;
+  const pageSize = 100;
+  let total = Infinity;
+  let pages = 0;
+  const maxPages = 500;
+
+  while (cursor < total && pages < maxPages) {
+    pages += 1;
+    const url = `${UNISAT_OPEN_API}/v1/indexer/address/${encodeURIComponent(address)}/all-utxo-data?cursor=${cursor}&size=${pageSize}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`UniSat Open API ${res.status}${t ? `: ${t.slice(0, 120)}` : ''}`);
+    }
+    const json = await res.json();
+    if (json.code !== 0 && json.code !== undefined) {
+      throw new Error(json.msg || json.message || `UniSat API code ${json.code}`);
+    }
+    const data = json.data;
+    if (typeof data?.total === 'number') total = data.total;
+    const rawList = extractUtxoArrayFromUniSatPayload(data);
+    for (const item of rawList) {
+      const mapped = mapUniSatUtxoItem(item);
+      if (mapped) all.push(mapped);
+    }
+    if (rawList.length === 0) break;
+    if (rawList.length > pageSize) break;
+    if (rawList.length < pageSize) break;
+    if (all.length >= total) break;
+    cursor += pageSize;
+  }
+
+  if (all.length === 0) throw new Error('UniSat returned no UTXOs');
+  return all;
+}
+
 async function fetchUtxosFromOrd(address: string, ordServerUrl: string): Promise<Utxo[]> {
   if (!ordServerUrl) throw new Error('No ord server');
   const res = await fetch(`${ordServerUrl}/address/${address}`, { headers: { Accept: 'application/json' } });
@@ -371,21 +446,28 @@ export async function fetchUtxos(
 ): Promise<Utxo[]> {
   const errors: string[] = [];
 
-  // 1) Try UniSat wallet extension (has getBitcoinUtxos)
+  // 1) UniSat extension (getBitcoinUtxos) — works even when Esplora 400s
   try {
     return await fetchUtxosFromWallet();
   } catch (e: any) {
-    errors.push(`Wallet: ${e.message}`);
+    errors.push(`UniSat extension: ${e.message}`);
   }
 
-  // 2) Try mempool.space API
+  // 2) UniSat Open API indexer (same as Recursive Tool; handles large wallets; optional VITE_UNISAT_OPEN_API_KEY)
+  try {
+    return await fetchUtxosFromUniSatOpenApi(address);
+  } catch (e: any) {
+    errors.push(`UniSat Open API: ${e.message}`);
+  }
+
+  // 3) Esplora (mempool.space) — fails with 400 on very heavy addresses
   try {
     return await fetchUtxosFromMempool(address);
   } catch (e: any) {
     errors.push(`mempool.space: ${e.message}`);
   }
 
-  // 3) Try ord server
+  // 4) Ord server (if configured)
   if (options?.ordServerUrl) {
     try {
       return await fetchUtxosFromOrd(address, options.ordServerUrl);
@@ -394,9 +476,13 @@ export async function fetchUtxos(
     }
   }
 
+  const keyHint = getUniSatOpenApiKey()
+    ? ''
+    : ' Set VITE_UNISAT_OPEN_API_KEY in Vercel env (UniSat Open API) for large wallets, or use UniSat wallet / manual txid:vout.';
+
   throw new Error(
-    `Could not fetch UTXOs (address has too many transactions for public APIs). ` +
-    `Try entering a specific UTXO manually. Details: ${errors.join('; ')}`
+    `Could not fetch UTXOs.${keyHint} ` +
+    `You can also enter a specific UTXO as txid:vout below. Details: ${errors.join('; ')}`
   );
 }
 
