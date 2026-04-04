@@ -11,7 +11,16 @@ import {
   type Utxo, type AnalyzedUtxo, type SplitOutput, type FeeRates, type SatType,
 } from '../services/rareSatService';
 
-const ORD_SERVER_URL = String(import.meta.env.VITE_ORD_SERVER_URL || '').replace(/\/+$/, '');
+const ORD_SERVER_URL = (() => {
+  const raw = String(import.meta.env.VITE_ORD_SERVER_URL || '').replace(/\/+$/, '');
+  if (raw) return raw;
+  if (typeof window !== 'undefined') {
+    const h = window.location.hostname;
+    if (h === 'www.richart.app' || h === 'richart.app' || h.endsWith('.richart.app'))
+      return 'https://api.richart.app';
+  }
+  return '';
+})();
 
 type Step = 'scan' | 'analyze' | 'split' | 'signing' | 'done';
 
