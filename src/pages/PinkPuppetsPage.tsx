@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PublicChatPanel } from '../components/chat/PublicChatPanel';
 import { LevelSpacePanel } from '../components/chat/LevelSpacePanel';
+import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
 
 export const PinkPuppetsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -118,6 +119,7 @@ export const PinkPuppetsPage: React.FC = () => {
       style={{ backgroundImage: "url('/images/pinkpuppets-clouds-bg.avif')" }}
     >
       <div className="absolute inset-0 bg-[#130015]/40" />
+      <FloatingPuppetsLayer />
       <div className="relative z-10 w-full px-3 py-10 xl:px-6">
         <div className="mx-auto w-full max-w-[1200px]">
           <button
