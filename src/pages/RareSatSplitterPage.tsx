@@ -122,7 +122,8 @@ export const RareSatSplitterPage: React.FC = () => {
     abortRef.current = false;
 
     try {
-      const rawUtxos = await fetchUtxos(addr);
+      const walletType = walletState.walletType as string | undefined;
+      const rawUtxos = await fetchUtxos(addr, { walletType, ordServerUrl: ORD_SERVER_URL });
       setUtxos(rawUtxos);
       setLoadingMsg(`Analyzing ${rawUtxos.length} UTXOs...`);
       setScanProgress({ current: 0, total: rawUtxos.length });

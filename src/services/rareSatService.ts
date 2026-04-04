@@ -324,12 +324,101 @@ export function findRareSatsInRanges(satRanges: SatRange[]): RareSatGroup[] {
 }
 
 // ============================================================
-// API: FETCH UTXOs
+// API: FETCH UTXOs (multi-source with wallet fallback)
 // ============================================================
-export async function fetchUtxos(address: string): Promise<Utxo[]> {
+async function fetchUtxosFromMempool(address: string): Promise<Utxo[]> {
   const res = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
-  if (!res.ok) throw new Error(`Failed to fetch UTXOs: ${res.status}`);
+  if (!res.ok) throw new Error(`mempool.space returned ${res.status}`);
   return res.json();
+}
+
+async function fetchUtxosFromWallet(walletType: string): Promise<Utxo[]> {
+  if (walletType === 'unisat' && (window as any).unisat?.getBitcoinUtxos) {
+    const raw = await (window as any).unisat.getBitcoinUtxos();
+    if (Array.isArray(raw)) {
+      return raw.map((u: any) => ({
+        txid: u.txid || u.txId,
+        vout: u.vout ?? u.outputIndex ?? 0,
+        value: u.satoshis ?? u.value ?? u.amount ?? 0,
+        status: { confirmed: true },
+      }));
+    }
+  }
+  if (walletType === 'xverse') {
+    try {
+      const mod = await import('sats-connect');
+      const response: any = await new Promise((resolve, reject) => {
+        const req: any = { purposes: ['ordinals', 'payment'] };
+        if (mod.getAddress) {
+          mod.getAddress({ payload: req, onFinish: resolve, onCancel: () => reject(new Error('cancelled')) });
+        } else {
+          reject(new Error('no getAddress'));
+        }
+      });
+      if (response?.addresses) {
+        const addr = response.addresses.find((a: any) => a.purpose === 'ordinals')?.address;
+        if (addr) {
+          const res = await fetch(`${MEMPOOL_API}/address/${addr}/utxo`);
+          if (res.ok) return res.json();
+        }
+      }
+    } catch { /* fall through */ }
+  }
+  throw new Error('Wallet UTXO fetch not available');
+}
+
+async function fetchUtxosFromOrd(address: string, ordServerUrl: string): Promise<Utxo[]> {
+  if (!ordServerUrl) throw new Error('No ord server');
+  const res = await fetch(`${ordServerUrl}/address/${address}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`ord server returned ${res.status}`);
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('json')) {
+    const data = await res.json();
+    if (Array.isArray(data.outputs)) {
+      return data.outputs.map((o: any) => {
+        const [txid, voutStr] = (o.outpoint || o).split(':');
+        return { txid, vout: parseInt(voutStr) || 0, value: o.value || 0, status: { confirmed: true } };
+      });
+    }
+  }
+  throw new Error('Unsupported ord response');
+}
+
+export async function fetchUtxos(
+  address: string,
+  options?: { walletType?: string; ordServerUrl?: string }
+): Promise<Utxo[]> {
+  const errors: string[] = [];
+
+  // 1) Try wallet extension first (most reliable for large wallets)
+  if (options?.walletType) {
+    try {
+      return await fetchUtxosFromWallet(options.walletType);
+    } catch (e: any) {
+      errors.push(`Wallet: ${e.message}`);
+    }
+  }
+
+  // 2) Try mempool.space API
+  try {
+    return await fetchUtxosFromMempool(address);
+  } catch (e: any) {
+    errors.push(`mempool.space: ${e.message}`);
+  }
+
+  // 3) Try ord server
+  if (options?.ordServerUrl) {
+    try {
+      return await fetchUtxosFromOrd(address, options.ordServerUrl);
+    } catch (e: any) {
+      errors.push(`ord server: ${e.message}`);
+    }
+  }
+
+  throw new Error(
+    `Could not fetch UTXOs (address has too many transactions for public APIs). ` +
+    `Try entering a specific UTXO manually. Details: ${errors.join('; ')}`
+  );
 }
 
 // ============================================================
