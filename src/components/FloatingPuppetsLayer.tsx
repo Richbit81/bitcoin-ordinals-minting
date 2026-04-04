@@ -83,7 +83,7 @@ export function FloatingPuppetsLayer() {
     const h = el.clientHeight;
     if (w < 100 || h < 100) return;
     const area = w * h;
-    const count = Math.max(5, Math.min(40, Math.round(area / 40000)));
+    const count = Math.max(5, Math.min(40, Math.round(area / 80000)));
     puppetsRef.current = initPuppets(count, w, h);
     setPositions([...puppetsRef.current]);
 
