@@ -49,6 +49,10 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 
 #tog{display:none;position:absolute;top:8px;left:8px;z-index:20;background:rgba(11,11,21,.92);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font-size:14px;color:var(--cy);cursor:pointer;line-height:1}
 
+.vm-btns{display:flex;gap:3px;margin-bottom:6px;flex-wrap:wrap}
+.vm-btn{padding:4px 8px;border-radius:4px;background:#0c0c18;border:1px solid var(--bd);cursor:pointer;font:inherit;color:var(--dm);font-size:8px;transition:.12s;white-space:nowrap}
+.vm-btn:hover{border-color:var(--cy);color:var(--cy)}.vm-btn.on{border-color:var(--li);color:var(--li);background:rgba(57,255,20,.08)}
+
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
 @media(max-width:900px){
@@ -81,7 +85,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   </div>
 
   <div class="section">
-    <div class="section-title">Ziffern = Instrumente</div>
+    <div class="section-title">Instrument-Layout</div>
+    <div class="vm-btns" id="voiceMapBtns"></div>
+    <div class="section-title" style="margin-top:6px">Ziffern = Instrumente</div>
     <div class="digit-legend" id="digitLegend"></div>
   </div>
 
@@ -127,24 +133,38 @@ let playing = false, muted = false, bpm = 110, swing = 0;
 let sweepAngle = -Math.PI / 2, lastFrame = 0, gTime = 0;
 let modules = [], particles = [], ripples = [], shockwaves = [];
 let dragging = null, dragOff = { x: 0, y: 0 }, hovered = null;
-let killedZones = new Set(), filling = false;
+let killedZones = new Set(), filling = false, absoluteBeat = 0;
 
 const STEPS = 16;
 const ZI = 0.33, ZM = 0.66, ZO = 1.0;
 const ZC = { outer: '#ff7733', mid: '#b266ff', inner: '#00e5ff' };
 
-const DIGIT_DEFS = [
-  { digit: 0, type: 'kick',  label: 'Kick',  sym: 'K',  color: '#ff6a00', zone: 'outer' },
-  { digit: 1, type: 'snare', label: 'Snare', sym: 'S',  color: '#ff4da6', zone: 'outer' },
-  { digit: 2, type: 'hihat', label: 'HiHat', sym: 'H',  color: '#ffe600', zone: 'outer' },
-  { digit: 3, type: 'bass',  label: 'Bass',  sym: 'Ba', color: '#00e5ff', zone: 'inner' },
-  { digit: 4, type: 'lead',  label: 'Lead',  sym: 'L',  color: '#b266ff', zone: 'mid' },
-  { digit: 5, type: 'pad',   label: 'Pad',   sym: 'Pd', color: '#00cc88', zone: 'inner' },
-  { digit: 6, type: 'arp',   label: 'Arp',   sym: 'A',  color: '#dd44ff', zone: 'mid' },
-  { digit: 7, type: 'bell',  label: 'Bell',  sym: 'B',  color: '#8888ff', zone: 'mid' },
-  { digit: 8, type: 'acid',  label: 'Acid',  sym: 'Ac', color: '#ff44aa', zone: 'mid' },
-  { digit: 9, type: 'clap',  label: 'Clap',  sym: 'C',  color: '#ff8866', zone: 'outer' },
+const INSTRUMENTS = {
+  kick:  { label: 'Kick',  sym: 'K',  color: '#ff6a00', zone: 'outer' },
+  snare: { label: 'Snare', sym: 'S',  color: '#ff4da6', zone: 'outer' },
+  hihat: { label: 'HiHat', sym: 'H',  color: '#ffe600', zone: 'outer' },
+  clap:  { label: 'Clap',  sym: 'C',  color: '#ff8866', zone: 'outer' },
+  bass:  { label: 'Bass',  sym: 'Ba', color: '#00e5ff', zone: 'inner' },
+  pad:   { label: 'Pad',   sym: 'Pd', color: '#00cc88', zone: 'inner' },
+  lead:  { label: 'Lead',  sym: 'L',  color: '#b266ff', zone: 'mid' },
+  arp:   { label: 'Arp',   sym: 'A',  color: '#dd44ff', zone: 'mid' },
+  bell:  { label: 'Bell',  sym: 'B',  color: '#8888ff', zone: 'mid' },
+  acid:  { label: 'Acid',  sym: 'Ac', color: '#ff44aa', zone: 'mid' },
+};
+const VOICE_MAPS = [
+  { name: 'Standard',  keys: ['kick','snare','hihat','bass','lead','pad','arp','bell','acid','clap'] },
+  { name: 'Melodisch', keys: ['bass','lead','arp','pad','bell','acid','kick','snare','hihat','clap'] },
+  { name: 'Ambient',   keys: ['pad','bell','bass','lead','arp','bell','pad','hihat','kick','snare'] },
+  { name: 'Techno',    keys: ['kick','hihat','clap','acid','bass','kick','snare','arp','lead','hihat'] },
 ];
+let curVoiceMap = 0;
+function buildDigitDefs() {
+  return VOICE_MAPS[curVoiceMap].keys.map(function(k, i) {
+    var inst = INSTRUMENTS[k];
+    return { digit: i, type: k, label: inst.label, sym: inst.sym, color: inst.color, zone: inst.zone };
+  });
+}
+let DIGIT_DEFS = buildDigitDefs();
 
 const KEY_DATA = {
   'C min': { base: 130.81, p: [1, 1.189, 1.335, 1.498, 1.782] },
@@ -187,7 +207,7 @@ function initAudio() {
   masterGain.connect(globalDist); globalDist.connect(comp); comp.connect(analyser); analyser.connect(ac.destination);
 
   // Stereo Chorus (two delay lines, L/R panned)
-  chorusSend = ac.createGain(); chorusSend.gain.value = 0.3;
+  chorusSend = ac.createGain(); chorusSend.gain.value = 0.5;
   chorusDelayL = ac.createDelay(0.05); chorusDelayL.delayTime.value = 0.012;
   chorusDelayR = ac.createDelay(0.05); chorusDelayR.delayTime.value = 0.016;
   chorusLFO = ac.createOscillator(); chorusLFO.type = 'sine'; chorusLFO.frequency.value = 1.2;
@@ -198,21 +218,21 @@ function initAudio() {
   chorusLFO.start();
   chorusPanL = ac.createStereoPanner(); chorusPanL.pan.value = -0.7;
   chorusPanR = ac.createStereoPanner(); chorusPanR.pan.value = 0.7;
-  chorusWet = ac.createGain(); chorusWet.gain.value = 0.3;
+  chorusWet = ac.createGain(); chorusWet.gain.value = 0.45;
   chorusSend.connect(chorusDelayL); chorusDelayL.connect(chorusPanL); chorusPanL.connect(chorusWet);
   chorusSend.connect(chorusDelayR); chorusDelayR.connect(chorusPanR); chorusPanR.connect(chorusWet);
   chorusWet.connect(masterGain);
 
   // Delay (tempo-synced dotted eighth)
-  delaySend = ac.createGain(); delaySend.gain.value = 0.22;
+  delaySend = ac.createGain(); delaySend.gain.value = 0.35;
   delayNode = ac.createDelay(2); delayNode.delayTime.value = 60 / bpm * 0.75;
   delayFb = ac.createGain(); delayFb.gain.value = 0.32;
-  delayWet = ac.createGain(); delayWet.gain.value = 0.3;
+  delayWet = ac.createGain(); delayWet.gain.value = 0.4;
   delaySend.connect(delayNode); delayNode.connect(delayFb); delayFb.connect(delayNode);
   delayNode.connect(delayWet); delayWet.connect(masterGain);
 
   // Reverb (stereo IR, 3s, high-frequency damping for warmth)
-  reverbSend = ac.createGain(); reverbSend.gain.value = 0.28;
+  reverbSend = ac.createGain(); reverbSend.gain.value = 0.4;
   const rLen = ac.sampleRate * 3, rBuf = ac.createBuffer(2, rLen, ac.sampleRate);
   for (let c = 0; c < 2; c++) {
     const d = rBuf.getChannelData(c);
@@ -225,12 +245,12 @@ function initAudio() {
     }
   }
   reverbConv = ac.createConvolver(); reverbConv.buffer = rBuf;
-  reverbWet = ac.createGain(); reverbWet.gain.value = 0.35;
+  reverbWet = ac.createGain(); reverbWet.gain.value = 0.45;
   reverbSend.connect(reverbConv); reverbConv.connect(reverbWet); reverbWet.connect(masterGain);
 
   // Phaser (6 allpass filters + LFO)
-  phaserSend = ac.createGain(); phaserSend.gain.value = 0.2;
-  phaserWet = ac.createGain(); phaserWet.gain.value = 0.3;
+  phaserSend = ac.createGain(); phaserSend.gain.value = 0.5;
+  phaserWet = ac.createGain(); phaserWet.gain.value = 0.5;
   phaserLFO = ac.createOscillator(); phaserLFO.type = 'sine'; phaserLFO.frequency.value = 0.4;
   phaserAllpasses = []; phaserLFOGains = [];
   let phaserPrev = phaserSend;
@@ -245,7 +265,7 @@ function initAudio() {
   phaserPrev.connect(phaserWet); phaserWet.connect(masterGain); phaserLFO.start();
 
   // Tape Saturation (short delay + wow/flutter + tanh)
-  tapeSend = ac.createGain(); tapeSend.gain.value = 0.15;
+  tapeSend = ac.createGain(); tapeSend.gain.value = 0.4;
   tapeDelay = ac.createDelay(0.1); tapeDelay.delayTime.value = 0.004;
   tapeLFO = ac.createOscillator(); tapeLFO.type = 'sine'; tapeLFO.frequency.value = 3.5;
   tapeLFOGain = ac.createGain(); tapeLFOGain.gain.value = 0.0008;
@@ -254,7 +274,7 @@ function initAudio() {
   const tapeSamples = 4096, tapeCurve = new Float32Array(tapeSamples);
   for (let i = 0; i < tapeSamples; i++) { const x = (i * 2) / tapeSamples - 1; tapeCurve[i] = Math.tanh(x * 2.0); }
   tapeShaper.curve = tapeCurve; tapeShaper.oversample = '2x';
-  tapeWet = ac.createGain(); tapeWet.gain.value = 0.25;
+  tapeWet = ac.createGain(); tapeWet.gain.value = 0.45;
   tapeSend.connect(tapeDelay); tapeDelay.connect(tapeShaper); tapeShaper.connect(tapeWet); tapeWet.connect(masterGain);
 }
 
@@ -322,7 +342,7 @@ class Mod {
       n.fmMod.connect(n.fmG); n.fmG.connect(n.osc.frequency);
       n.flt.type = 'lowpass'; n.flt.frequency.value = 2500; n.flt.Q.value = 3; n.g.gain.value = 0;
       n.osc.connect(n.flt); n.flt.connect(n.g);
-      n.g.connect(masterGain); n.g.connect(delaySend); n.g.connect(phaserSend);
+      n.g.connect(masterGain); n.g.connect(delaySend); n.g.connect(phaserSend); n.g.connect(chorusSend);
       n.osc.start(); n.fmMod.start();
     } else if (t === 'arp') {
       n.osc = ac.createOscillator(); n.flt = ac.createBiquadFilter(); n.g = ac.createGain();
@@ -342,7 +362,7 @@ class Mod {
       n.vibG.gain.value = 3;
       n.vib.connect(n.vibG); n.vibG.connect(n.car.frequency);
       n.mod.connect(n.mG); n.mG.connect(n.car.frequency);
-      n.car.connect(n.g); n.g.connect(masterGain); n.g.connect(reverbSend); n.g.connect(delaySend);
+      n.car.connect(n.g); n.g.connect(masterGain); n.g.connect(reverbSend); n.g.connect(delaySend); n.g.connect(phaserSend);
       n.car.start(); n.mod.start(); n.vib.start();
     } else if (t === 'acid') {
       n.osc = ac.createOscillator(); n.flt = ac.createBiquadFilter(); n.g = ac.createGain();
@@ -362,14 +382,14 @@ class Mod {
     });
     this.nodes = null;
   }
-  trigger(bn, when) {
-    if (this.lastBeat === bn) return; this.lastBeat = bn; this.pulse = 1;
+  trigger(absBeat, stepBeat, when) {
+    if (this.lastBeat === absBeat) return; this.lastBeat = absBeat; this.pulse = 1;
     if (killedZones.has(this.zone)) { this.pulse = 0.2; return; }
     const zp = this.zp;
     const t0 = (when && ac) ? when : (ac ? ac.currentTime : 0);
-    if (this.zone === 'outer') this.tDrum(zp, bn, t0);
-    else if (this.zone === 'mid') this.tMel(bn, zp, t0);
-    else if (this.zone === 'inner') this.tBass(bn, zp, t0);
+    if (this.zone === 'outer') this.tDrum(zp, stepBeat, t0);
+    else if (this.zone === 'mid') this.tMel(stepBeat, zp, t0);
+    else if (this.zone === 'inner') this.tBass(stepBeat, zp, t0);
     ripples.push({ x: this.x, y: this.y, r: this.r, mr: this.r + 50 + zp * 40, c: this.color, t: 0 });
   }
   tDrum(zp, bn, t0) {
@@ -396,7 +416,7 @@ class Mod {
       for (let i = 0; i < bz; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bz, 1.2);
       const s = ac.createBufferSource(), ng = ac.createGain(); s.buffer = bf;
       ng.gain.setValueAtTime(0.38, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08 + pm * 0.04);
-      s.connect(ng); ng.connect(masterGain); ng.connect(reverbSend); s.start(t);
+      s.connect(ng); ng.connect(masterGain); ng.connect(reverbSend); ng.connect(delaySend); s.start(t);
       // Ghost note
       if (Math.random() < 0.45 + pm * 0.2) {
         const gt = t + 60 / bpm / 8;
@@ -417,7 +437,7 @@ class Mod {
       const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
       s.buffer = bf; fl.type = 'highpass'; fl.frequency.value = 5000 + (1 - pm) * 5000;
       g.gain.setValueAtTime(0.26, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      s.connect(fl); fl.connect(g); g.connect(masterGain); s.start(t);
+      s.connect(fl); fl.connect(g); g.connect(masterGain); g.connect(chorusSend); s.start(t);
       // Ghost note
       if (Math.random() < 0.5 + pm * 0.15) {
         const gt = t + 60 / bpm / 8;
@@ -438,7 +458,7 @@ class Mod {
         const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = bf;
         g.gain.setValueAtTime((0.3 - c * 0.07) * (0.5 + zp * 0.4 + pm * 0.2), t + off);
         g.gain.exponentialRampToValueAtTime(0.001, t + off + 0.05 + zp * 0.08 + pm * 0.06);
-        s.connect(g); g.connect(masterGain); g.connect(reverbSend); s.start(t + off);
+        s.connect(g); g.connect(masterGain); g.connect(reverbSend); g.connect(tapeSend); s.start(t + off);
       }
     }
     this.pW(this.type === 'kick' ? 0.9 : 0.5);
@@ -647,10 +667,29 @@ function buildPresetUI() {
 }
 function buildDigitLegend() {
   const c = document.getElementById('digitLegend');
+  c.innerHTML = '';
   DIGIT_DEFS.forEach(d => {
     const el = document.createElement('div'); el.className = 'dl-item';
     el.innerHTML = '<div class="dl-dot" style="background:' + d.color + '"></div><span>' + d.digit + ' = ' + d.label + '</span>';
     c.appendChild(el);
+  });
+}
+function buildVoiceMapUI() {
+  const c = document.getElementById('voiceMapBtns');
+  c.innerHTML = '';
+  VOICE_MAPS.forEach(function(vm, i) {
+    const b = document.createElement('button'); b.className = 'vm-btn' + (i === curVoiceMap ? ' on' : '');
+    b.textContent = vm.name;
+    b.addEventListener('click', function() { switchVoiceMap(i); });
+    c.appendChild(b);
+  });
+}
+function switchVoiceMap(idx) {
+  curVoiceMap = idx;
+  DIGIT_DEFS = buildDigitDefs();
+  buildDigitLegend();
+  document.querySelectorAll('.vm-btn').forEach(function(b, i) {
+    b.classList.toggle('on', i === idx);
   });
 }
 
@@ -901,6 +940,7 @@ function loop(ts) {
   var beat = Math.floor(((rawBeat % STEPS) + STEPS) % STEPS);
   if (beat !== currentBeat) {
     currentBeat = beat;
+    absoluteBeat++;
     var isOdd = beat % 2 === 1;
     var swingDelaySec = isOdd ? (60 / bpm / 4) * swing : 0;
     var beatAngle = (beat / STEPS) * Math.PI * 2 - Math.PI / 2;
@@ -911,12 +951,12 @@ function loop(ts) {
       while (diff < -Math.PI) diff += Math.PI * 2;
       if (Math.abs(diff) < triggerThreshold) {
         var trigTime = ac ? ac.currentTime + swingDelaySec : 0;
-        m.trigger(beat, trigTime);
+        m.trigger(absoluteBeat, beat, trigTime);
       }
     });
     if (filling) {
       var drums = modules.filter(function(m) { return m.zone === 'outer'; });
-      if (drums.length > 0) drums[Math.floor(Math.random() * drums.length)].trigger(beat);
+      if (drums.length > 0) drums[Math.floor(Math.random() * drums.length)].trigger(absoluteBeat, beat);
     }
   }
   G.clearRect(0, 0, W, H);
@@ -926,7 +966,7 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
-resize(); buildDigitLegend(); buildPresetUI();
+resize(); buildVoiceMapUI(); buildDigitLegend(); buildPresetUI();
 document.getElementById('palindromeInput').addEventListener('input', function(e) {
   var val = e.target.value.replace(/\D/g, ''); e.target.value = val;
   var hint = document.getElementById('palHint');
