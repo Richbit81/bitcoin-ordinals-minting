@@ -4,8 +4,8 @@ import { WalletConnect } from '../components/WalletConnect';
 import {
   getMarketplaceCollections,
   getMarketplaceCollectionInscriptions,
-  getMarketplaceWalletInscriptionsViaUnisat,
 } from '../services/marketplaceService';
+import { getWalletInscriptionIds } from '../utils/wallet';
 
 const CATTACK_URL = '/catwar-game/index.html?ws=wss://catwar-server-production.up.railway.app';
 const BAD_CATS_SLUG_FALLBACKS = ['bad-cats', 'badcats'];
@@ -99,14 +99,7 @@ export const CatWarPage: React.FC = () => {
         const preferred = accountAddresses.filter((addr) => addr.startsWith('bc1p'));
         const addresses = preferred.length > 0 ? preferred : accountAddresses;
 
-        const walletIds = new Set<string>();
-        for (const addr of addresses) {
-          const rows = await getMarketplaceWalletInscriptionsViaUnisat(addr);
-          for (const row of rows) {
-            const id = String(row?.inscription_id || '').trim();
-            if (id) walletIds.add(id);
-          }
-        }
+        const walletIds = await getWalletInscriptionIds(walletState.walletType);
         if (cancelled) return;
         setWalletCount(walletIds.size);
         let allowed = false;

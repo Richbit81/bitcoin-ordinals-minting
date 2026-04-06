@@ -8,11 +8,10 @@ import {
   finalizeMarketplaceListingPsbt,
   getMarketplaceInscriptionDetail,
   getMarketplaceListings,
-  getMarketplaceWalletInscriptionsViaUnisat,
   prepareMarketplaceListingPsbt,
   prepareMarketplacePurchaseAdvanced,
 } from '../services/marketplaceService';
-import { getOrdinalAddress, getPaymentAddress, signPSBT } from '../utils/wallet';
+import { getOrdinalAddress, getPaymentAddress, getWalletInscriptionIds, signPSBT } from '../utils/wallet';
 
 type ItemListing = {
   id: string;
@@ -381,13 +380,7 @@ export const EitoBittoMarketplacePage: React.FC = () => {
       }
       setLoadingOwned(true); setOwnershipError(null);
       try {
-        const addresses = walletState.accounts.map((acc) => String(acc?.address || '').trim()).filter(Boolean);
-        const uniqAddresses = Array.from(new Set(addresses));
-        const allWalletIds = new Set<string>();
-        for (const address of uniqAddresses) {
-          const rows = await getMarketplaceWalletInscriptionsViaUnisat(address).catch(() => []);
-          for (const row of rows) { const id = String(row?.inscription_id || '').trim(); if (id) allWalletIds.add(id); }
-        }
+        const allWalletIds = await getWalletInscriptionIds(walletState.walletType);
         const hashlistIdSet = new Set(EITO_BITTO_HASHLIST.map((item) => item.inscriptionId));
         const nextOwned = new Set<string>();
         for (const id of allWalletIds) { if (hashlistIdSet.has(id)) nextOwned.add(id); }
@@ -400,7 +393,7 @@ export const EitoBittoMarketplacePage: React.FC = () => {
     };
     void run();
     return () => { cancelled = true; };
-  }, [walletState.connected, walletState.accounts]);
+  }, [walletState.connected, walletState.accounts, walletState.walletType]);
 
   React.useEffect(() => {
     if (!selectedId) { setOrdApiData(null); return; }

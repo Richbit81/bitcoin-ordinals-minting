@@ -520,22 +520,28 @@ export async function getMarketplaceWalletInscriptionsViaUnisat(
 
   while (cursor < total && guard < 300) {
     try {
-      const res = await fetch(
-        `${API_URL}/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
-        { headers: { Accept: 'application/json' } }
-      );
-      let effectiveRes = res;
-      if (res.status === 502 || res.status === 503 || res.status === 504) {
-        effectiveRes = await fetchWithFallback(
-          `/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
-          { headers: { Accept: 'application/json' } }
-        );
+      const urlPath = `/v1/indexer/address/${encodeURIComponent(normalizedAddress)}/inscription-data?cursor=${cursor}&size=${pageSize}`;
+      const fetchInit: RequestInit = { headers: { Accept: 'application/json' } };
+
+      let text: string | null = null;
+
+      const tryFetch = async (baseUrl: string): Promise<string | null> => {
+        const r = await fetch(`${baseUrl}${urlPath}`, fetchInit);
+        if (!r.ok) return null;
+        const t = await r.text();
+        if (!t || t.trimStart().startsWith('<')) return null;
+        return t;
+      };
+
+      if (API_URL) {
+        try { text = await tryFetch(API_URL); } catch { /* fall through */ }
       }
-      if (!effectiveRes.ok) {
-        // Keep already collected rows if UniSat rate-limits/CORS-blocks later pages.
-        break;
+      if (text === null) {
+        try { text = await tryFetch(API_FALLBACK_URL); } catch { /* ignore */ }
       }
-      const json = await effectiveRes.json();
+      if (text === null) break;
+
+      const json = JSON.parse(text);
       if (Number(json?.code) !== 0) {
         break;
       }

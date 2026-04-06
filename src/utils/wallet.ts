@@ -7,10 +7,14 @@ declare global {
       getAccounts: () => Promise<string[]>;
       switchNetwork: (network: 'livenet' | 'testnet') => Promise<void>;
       getNetwork: () => Promise<'livenet' | 'testnet'>;
+      getInscriptions: (cursor: number, size: number) => Promise<{
+        total: number;
+        list: Array<{ inscriptionId: string; inscriptionNumber: number; address: string; outputValue: number; content: string; contentLength: number; contentType: string; timestamp: number; genesisTransaction: string; location: string; offset: number }>;
+      }>;
       sendBitcoin: (to: string, amount: number) => Promise<string>;
       inscribeTransfer: (ticker: string, amount: string) => Promise<string>;
       signPsbt: (psbtHex: string, options?: { autoFinalized?: boolean }) => Promise<string>;
-      signPsbts: (psbtHexs: string[], options?: { autoFinalized?: boolean }) => Promise<string[]>; // NEU
+      signPsbts: (psbtHexs: string[], options?: { autoFinalized?: boolean }) => Promise<string[]>;
       pushPsbt: (psbtHex: string) => Promise<string>;
       on: (event: string, callback: (...args: any[]) => void) => void;
       removeListener: (event: string, callback: (...args: any[]) => void) => void;
@@ -1692,3 +1696,45 @@ export const pushPsbt = async (
   }
 };
 
+/**
+ * Fetches all inscription IDs held by the currently connected wallet
+ * using the wallet extension API directly (UniSat / OKX).
+ * Returns an empty set if the wallet doesn't support getInscriptions.
+ */
+export async function getWalletInscriptionIds(walletType?: WalletType | null): Promise<Set<string>> {
+  const ids = new Set<string>();
+
+  if (walletType === 'unisat' && window.unisat?.getInscriptions) {
+    const pageSize = 100;
+    let cursor = 0;
+    let total = Infinity;
+    let guard = 0;
+    while (cursor < total && guard < 200) {
+      const page = await window.unisat.getInscriptions(cursor, pageSize);
+      total = page.total ?? 0;
+      if (!Array.isArray(page.list) || page.list.length === 0) break;
+      for (const item of page.list) {
+        const id = String(item.inscriptionId || '').trim();
+        if (id) ids.add(id);
+      }
+      cursor += page.list.length;
+      guard++;
+    }
+    return ids;
+  }
+
+  if (walletType === 'okx' && window.okxwallet?.bitcoin) {
+    try {
+      const res = await (window.okxwallet.bitcoin as any).getInscriptions?.(0, 100);
+      if (Array.isArray(res?.list)) {
+        for (const item of res.list) {
+          const id = String(item?.inscriptionId || '').trim();
+          if (id) ids.add(id);
+        }
+      }
+    } catch { /* OKX may not support this */ }
+    return ids;
+  }
+
+  return ids;
+}

@@ -8,11 +8,10 @@ import {
   finalizeMarketplaceListingPsbt,
   getMarketplaceInscriptionDetail,
   getMarketplaceListings,
-  getMarketplaceWalletInscriptionsViaUnisat,
   prepareMarketplaceListingPsbt,
   prepareMarketplacePurchaseAdvanced,
 } from '../services/marketplaceService';
-import { getOrdinalAddress, getPaymentAddress, signPSBT } from '../utils/wallet';
+import { getOrdinalAddress, getPaymentAddress, getWalletInscriptionIds, signPSBT } from '../utils/wallet';
 
 type PuppetListing = {
   id: string;
@@ -467,18 +466,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
       setLoadingOwned(true);
       setOwnershipError(null);
       try {
-        const addresses = walletState.accounts
-          .map((acc) => String(acc?.address || '').trim())
-          .filter(Boolean);
-        const uniqAddresses = Array.from(new Set(addresses));
-        const allWalletIds = new Set<string>();
-        for (const address of uniqAddresses) {
-          const rows = await getMarketplaceWalletInscriptionsViaUnisat(address).catch(() => []);
-          for (const row of rows) {
-            const inscriptionId = String(row?.inscription_id || '').trim();
-            if (inscriptionId) allWalletIds.add(inscriptionId);
-          }
-        }
+        const allWalletIds = await getWalletInscriptionIds(walletState.walletType);
         const hashlistIdSet = new Set(PINK_PUPPETS_HASHLIST.map((item) => item.inscriptionId));
         const nextOwned = new Set<string>();
         for (const id of allWalletIds) {
@@ -495,7 +483,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [walletState.connected, walletState.accounts]);
+  }, [walletState.connected, walletState.accounts, walletState.walletType]);
 
   const ordApiCacheRef = React.useRef<Record<string, Record<string, any>>>({});
   React.useEffect(() => {
