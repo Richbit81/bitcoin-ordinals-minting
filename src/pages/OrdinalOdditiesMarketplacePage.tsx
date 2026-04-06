@@ -65,96 +65,247 @@ const formatDateTime = (value?: number) => {
 };
 const normalizeAddress = (addr: string) => String(addr || '').trim().toLowerCase();
 
-const OO_CSS = `
-@keyframes ooGlow {
-  0%, 100% { text-shadow: 0 0 10px #d4a, 0 0 20px #d4a5, 0 0 40px #d4a2; }
-  50% { text-shadow: 0 0 16px #d4a, 0 0 32px #d4a7, 0 0 56px #d4a3, 0 0 80px #fa01; }
+const HORROR_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
+@keyframes hFlicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: 0.4; }
 }
-@keyframes ooTitleGlow {
-  0% { text-shadow: 0 0 8px #f90, 0 0 20px #f906, 0 0 40px #f903, 0 0 80px #d4a5; filter: brightness(1); }
-  33% { text-shadow: 0 0 14px #f90, 0 0 30px #f90a, 0 0 60px #f905, 0 0 100px #d4a3; filter: brightness(1.15); }
-  66% { text-shadow: 0 0 10px #fa0, 0 0 24px #f908, 0 0 50px #f904, 0 0 90px #d4a2; filter: brightness(1.05); }
-  100% { text-shadow: 0 0 8px #f90, 0 0 20px #f906, 0 0 40px #f903, 0 0 80px #d4a5; filter: brightness(1); }
+@keyframes hBloodGlow {
+  0%, 100% { text-shadow: 0 0 10px #f008, 0 0 20px #a005, 0 0 40px #8002; }
+  50% { text-shadow: 0 0 20px #f00a, 0 0 40px #a008, 0 0 80px #8004, 0 2px 10px #f003; }
 }
-@keyframes ooBlink {
+@keyframes hTitlePulse {
+  0%, 100% { text-shadow: 0 0 20px #f00, 0 0 40px #a008, 0 0 80px #60004; filter: brightness(1); transform: scale(1); }
+  25% { text-shadow: 0 0 30px #f00, 0 0 60px #a00a, 0 0 120px #60006; filter: brightness(1.2); transform: scale(1.01); }
+  50% { text-shadow: 0 0 15px #f008, 0 0 30px #a006, 0 0 60px #60003; filter: brightness(0.9); transform: scale(0.99); }
+  75% { text-shadow: 0 0 25px #f00c, 0 0 50px #a009, 0 0 100px #60005; filter: brightness(1.1); transform: scale(1.005); }
+}
+@keyframes hBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-@keyframes ooPriceGlow {
-  0%, 100% { text-shadow: 0 0 6px #f90, 0 0 14px #f905; }
-  50% { text-shadow: 0 0 12px #f90, 0 0 24px #f907; }
+@keyframes hPriceGlow {
+  0%, 100% { text-shadow: 0 0 6px #f44, 0 0 14px #f445; }
+  50% { text-shadow: 0 0 12px #f44, 0 0 24px #f447, 0 0 40px #a002; }
 }
-@keyframes ooOwnedGlow {
-  0%, 100% { box-shadow: 0 0 12px #f903, 0 0 24px #f902; border-color: #f90a0; }
-  50% { box-shadow: 0 0 24px #f906, 0 0 48px #f903, 0 0 64px #f901; border-color: #f90; }
+@keyframes hOwnedGlow {
+  0%, 100% { box-shadow: 0 0 12px #a003, 0 0 24px #a002; border-color: #a00a; }
+  50% { box-shadow: 0 0 24px #a006, 0 0 48px #a003; border-color: #f00; }
 }
-@keyframes ooFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-8px) rotate(1deg); }
-  75% { transform: translateY(4px) rotate(-0.5deg); }
+@keyframes hBorderPulse {
+  0%, 100% { border-color: #80000080; box-shadow: 0 0 8px #80000040, inset 0 0 8px #80000020; }
+  50% { border-color: #cc0000cc; box-shadow: 0 0 20px #cc000060, inset 0 0 20px #cc000030, 0 0 40px #ff000020; }
 }
-@keyframes ooBorderPulse {
-  0%, 100% { border-color: #d4a4; box-shadow: 0 0 8px #d4a1, inset 0 0 8px #d4a05; }
-  50% { border-color: #d4a8; box-shadow: 0 0 16px #d4a2, inset 0 0 16px #d4a0a, 0 0 32px #f9008; }
+@keyframes hStatFlash {
+  0%, 100% { background: #80000015; }
+  50% { background: #80000030; }
 }
-@keyframes ooStatFlash {
-  0%, 100% { background: #d4a08; }
-  50% { background: #d4a15; }
+@keyframes hDrip {
+  0% { transform: translateY(-10px); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(40px); opacity: 0; }
 }
-@keyframes ooOrb {
-  0% { transform: translate(0, 0) scale(1); opacity: 0.4; }
-  50% { transform: translate(30px, -20px) scale(1.3); opacity: 0.6; }
-  100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+@keyframes hGlitch {
+  0%, 92%, 100% { transform: translate(0); filter: none; }
+  93% { transform: translate(-2px, 1px); filter: hue-rotate(90deg) saturate(3); }
+  95% { transform: translate(3px, -1px); filter: hue-rotate(-60deg) saturate(2); }
+  97% { transform: translate(-1px, -2px); filter: hue-rotate(180deg); }
 }
-.oo-card {
+.h-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   position: relative;
   overflow: hidden;
 }
-.oo-card::before {
+.h-card::before {
   content: '';
   position: absolute; inset: 0;
-  background: linear-gradient(135deg, transparent 0%, #f9005 50%, transparent 100%);
-  transform: translateX(-100%) translateY(-100%);
-  transition: transform 0.6s ease;
+  background: radial-gradient(circle at 50% 0%, #f0001a 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
   pointer-events: none;
   z-index: 1;
 }
-.oo-card:hover::before { transform: translateX(100%) translateY(100%); }
-.oo-card:hover {
-  transform: translateY(-6px) scale(1.03);
-  box-shadow: 0 0 30px #d4a4, 0 0 60px #f9015, 0 12px 40px #0008;
-  border-color: #f90 !important;
+.h-card:hover::before { opacity: 1; }
+.h-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 0 30px #80000060, 0 0 60px #ff000020, 0 8px 30px #000a;
+  border-color: #cc0000 !important;
   z-index: 5;
 }
+.h-card:hover img { filter: saturate(1.3) contrast(1.1); }
+.h-font { font-family: 'Creepster', 'Georgia', cursive; }
+.h-mono { font-family: 'Courier New', Courier, monospace; }
 `;
 
-function MysticOrbs() {
-  const orbs = React.useMemo(() => {
-    const o: Array<{ x: number; y: number; size: number; delay: number; color: string; dur: number }> = [];
-    const colors = ['#d4a', '#f90', '#a6f', '#f60', '#fc0', '#c4f'];
-    for (let i = 0; i < 40; i++) {
-      o.push({ x: Math.random() * 100, y: Math.random() * 100, size: 2 + Math.floor(Math.random() * 6), delay: Math.random() * 10, color: colors[Math.floor(Math.random() * colors.length)], dur: 4 + Math.random() * 8 });
+function HorrorCanvas() {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const mouseRef = React.useRef({ x: -1, y: -1 });
+  const rafRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const PARTICLE_COUNT = 120;
+    const RADIUS = 350;
+    let smoothMx = -1, smoothMy = -1;
+
+    type Particle = { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; type: 'ember' | 'fog' | 'eye'; blinkPhase: number };
+    const particles: Particle[] = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const type = i < 8 ? 'eye' : i < 40 ? 'fog' : 'ember';
+      particles.push({
+        x: Math.random() * 2000, y: Math.random() * 2000,
+        vx: (Math.random() - 0.5) * (type === 'fog' ? 0.3 : 0.8),
+        vy: type === 'ember' ? -Math.random() * 0.6 - 0.2 : (Math.random() - 0.5) * 0.3,
+        size: type === 'eye' ? 6 + Math.random() * 4 : type === 'fog' ? 30 + Math.random() * 60 : 1 + Math.random() * 3,
+        life: Math.random() * 300, maxLife: 200 + Math.random() * 400, type, blinkPhase: Math.random() * Math.PI * 2,
+      });
     }
-    return o;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { mouseRef.current = { x: -1, y: -1 }; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseleave', onLeave);
+
+    const draw = (ts: number) => {
+      const t = ts * 0.001;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const hasMouse = mx >= 0 && my >= 0;
+
+      if (hasMouse) {
+        smoothMx = smoothMx < 0 ? mx : smoothMx + (mx - smoothMx) * 0.06;
+        smoothMy = smoothMy < 0 ? my : smoothMy + (my - smoothMy) * 0.06;
+      } else { smoothMx = -1; smoothMy = -1; }
+
+      ctx.clearRect(0, 0, w, h);
+
+      for (const p of particles) {
+        p.life++;
+        if (p.life > p.maxLife) {
+          p.x = Math.random() * w; p.y = p.type === 'ember' ? h + 10 : Math.random() * h;
+          p.life = 0; p.maxLife = 200 + Math.random() * 400;
+        }
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -50) p.x = w + 50; if (p.x > w + 50) p.x = -50;
+        if (p.y < -50) p.y = h + 50; if (p.y > h + 50) p.y = -50;
+
+        let proximity = 0;
+        if (smoothMx >= 0) {
+          const dx = p.x - smoothMx, dy = p.y - smoothMy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          proximity = Math.max(0, 1 - dist / RADIUS);
+        }
+
+        const fadeIn = Math.min(1, p.life / 30);
+        const fadeOut = Math.min(1, (p.maxLife - p.life) / 30);
+        const alpha = fadeIn * fadeOut;
+
+        if (p.type === 'fog') {
+          const fogAlpha = alpha * (0.03 + proximity * 0.06);
+          const fogSize = p.size + proximity * 40;
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, fogSize);
+          grad.addColorStop(0, `rgba(${80 + proximity * 80}, 0, 0, ${fogAlpha})`);
+          grad.addColorStop(0.5, `rgba(40, 0, 0, ${fogAlpha * 0.5})`);
+          grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad;
+          ctx.fillRect(p.x - fogSize, p.y - fogSize, fogSize * 2, fogSize * 2);
+        } else if (p.type === 'eye') {
+          const eyeAlpha = alpha * (0.15 + proximity * 0.7);
+          const blink = Math.sin(t * 0.8 + p.blinkPhase);
+          if (blink > -0.3) {
+            const s = p.size * (1 + proximity * 0.5);
+            let angle = 0;
+            if (smoothMx >= 0) {
+              angle = Math.atan2(smoothMy - p.y, smoothMx - p.x);
+            }
+            const pupilDist = s * 0.2 * (smoothMx >= 0 ? Math.min(1, proximity * 3 + 0.3) : 0);
+            ctx.save();
+            ctx.globalAlpha = eyeAlpha;
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, s, s * (0.4 + blink * 0.15), 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${160 + proximity * 95}, ${20 + proximity * 20}, 0, 1)`;
+            ctx.fill();
+            ctx.beginPath();
+            const px = p.x + Math.cos(angle) * pupilDist;
+            const py = p.y + Math.sin(angle) * pupilDist;
+            ctx.arc(px, py, s * 0.35, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(px - s * 0.1, py - s * 0.1, s * 0.1, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, ${100 + proximity * 100}, ${proximity * 80}, 0.8)`;
+            ctx.fill();
+            ctx.restore();
+          }
+        } else {
+          const emberAlpha = alpha * (0.3 + proximity * 0.7);
+          const sz = p.size * (1 + proximity * 2);
+          ctx.fillStyle = `rgba(${200 + Math.random() * 55}, ${Math.random() * 40}, 0, ${emberAlpha})`;
+          ctx.shadowColor = `rgba(255, 0, 0, ${emberAlpha * 0.5})`;
+          ctx.shadowBlur = 4 + proximity * 12;
+          ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+          ctx.shadowBlur = 0;
+        }
+
+        if (proximity > 0.3 && p.type === 'ember') {
+          const push = (proximity - 0.3) * 2;
+          const dx = p.x - smoothMx, dy = p.y - smoothMy;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          p.vx += (dx / dist) * push * 0.3;
+          p.vy += (dy / dist) * push * 0.3;
+          p.vx *= 0.96; p.vy *= 0.96;
+        }
+      }
+
+      if (hasMouse) {
+        const grad = ctx.createRadialGradient(smoothMx, smoothMy, 0, smoothMx, smoothMy, RADIUS);
+        grad.addColorStop(0, 'rgba(120, 0, 0, 0.08)');
+        grad.addColorStop(0.4, 'rgba(60, 0, 0, 0.04)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(smoothMx - RADIUS, smoothMy - RADIUS, RADIUS * 2, RADIUS * 2);
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseleave', onLeave);
+    };
   }, []);
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 1 }}>
-      {orbs.map((o, i) => (
-        <div key={i} className="absolute rounded-full" style={{ left: `${o.x}%`, top: `${o.y}%`, width: o.size, height: o.size, backgroundColor: o.color, opacity: 0.15 + Math.random() * 0.25, animation: `ooOrb ${o.dur}s ${o.delay}s ease-in-out infinite`, boxShadow: `0 0 ${o.size * 3}px ${o.color}40`, filter: 'blur(1px)' }} />
-      ))}
-    </div>
-  );
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }} />;
 }
 
-function OrnateCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
+function BloodCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
   const isTop = position.startsWith('t');
   const isLeft = position.endsWith('l');
   return (
-    <div className="absolute pointer-events-none" style={{ [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 50, height: 50 }}>
-      <div style={{ position: 'absolute', [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 50, height: 2, background: 'linear-gradient(90deg, #f90, #d4a)', boxShadow: '0 0 8px #f906' }} />
-      <div style={{ position: 'absolute', [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 2, height: 50, background: 'linear-gradient(180deg, #f90, #d4a)', boxShadow: '0 0 8px #f906' }} />
-      <div style={{ position: 'absolute', [isTop ? 'top' : 'bottom']: 5, [isLeft ? 'left' : 'right']: 5, width: 5, height: 5, borderRadius: '50%', background: '#f90', boxShadow: '0 0 8px #f908' }} />
+    <div className="absolute pointer-events-none" style={{ [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 40, height: 40 }}>
+      <div style={{ position: 'absolute', [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 40, height: 2, background: 'linear-gradient(90deg, #a00, #600)', boxShadow: '0 0 8px #a006' }} />
+      <div style={{ position: 'absolute', [isTop ? 'top' : 'bottom']: 0, [isLeft ? 'left' : 'right']: 0, width: 2, height: 40, background: 'linear-gradient(180deg, #a00, #600)', boxShadow: '0 0 8px #a006' }} />
+      {isTop && <div style={{ position: 'absolute', top: 2, [isLeft ? 'left' : 'right']: 8, width: 2, height: 12, background: '#a00', borderRadius: '0 0 2px 2px', animation: 'hDrip 3s ease-in infinite', animationDelay: isLeft ? '0s' : '1.5s', boxShadow: '0 0 4px #a008' }} />}
     </div>
   );
 }
@@ -369,67 +520,65 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
     })();
   };
 
-  const ooBorder = (color: string) => `2px solid ${color}`;
-  const ooShadow = (color: string) => `4px 4px 0px ${color}`;
+  const hBorder = (color: string) => `2px solid ${color}`;
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at 50% 0%, #1a0a2e 0%, #0d0518 40%, #08020f 100%)', fontFamily: "'Georgia', 'Times New Roman', serif" }}>
-      <style>{OO_CSS}</style>
+    <div className="min-h-screen text-white relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at 50% 0%, #1a0508 0%, #0a0204 40%, #050102 100%)' }}>
+      <style>{HORROR_CSS}</style>
 
-      <MysticOrbs />
+      <HorrorCanvas />
 
-      <div className="absolute pointer-events-none" style={{ top: '10%', left: '5%', width: 400, height: 400, background: 'radial-gradient(circle, #d4a08 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
-      <div className="absolute pointer-events-none" style={{ top: '50%', right: '5%', width: 350, height: 350, background: 'radial-gradient(circle, #f9006 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
-      <div className="absolute pointer-events-none" style={{ bottom: '10%', left: '30%', width: 300, height: 300, background: 'radial-gradient(circle, #a6f06 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ top: '5%', left: '3%', width: 500, height: 500, background: 'radial-gradient(circle, #40000015 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ top: '60%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, #60000010 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
 
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-3 py-6">
 
         {/* HEADER */}
         <div className="mb-2 flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all hover:bg-[#f902]" style={{ border: ooBorder('#f90'), color: '#f90', background: '#f9008', boxShadow: `${ooShadow('#4204')}, 0 0 12px #f901`, fontFamily: "'Courier New', monospace" }}>
+          <button onClick={() => navigate('/')} className="h-mono px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all hover:bg-[#a002]" style={{ border: hBorder('#80000080'), color: '#c44', background: '#80000015', boxShadow: '0 0 12px #80000020' }}>
             {'<'} BACK
           </button>
         </div>
 
         {/* TITLE */}
-        <div className="mb-3 relative">
-          <div className="relative py-6 px-6">
-            <div className="text-center">
-              <div style={{ animation: 'ooFloat 6s ease-in-out infinite' }} className="flex flex-col items-center">
-                <h1 className="text-4xl md:text-6xl font-black uppercase tracking-[0.15em]" style={{ color: '#f90', animation: 'ooTitleGlow 4s ease-in-out infinite', fontFamily: "'Georgia', serif" }}>ORDINAL ODDITIES</h1>
-              </div>
-              <div className="mt-3 flex items-center justify-center gap-3">
-                <span className="h-px flex-1 max-w-[100px]" style={{ background: 'linear-gradient(90deg, transparent, #d4a, transparent)' }} />
-                <p className="text-xs md:text-sm uppercase tracking-[0.4em] font-bold" style={{ color: '#d4a', textShadow: '0 0 10px #d4a4', fontFamily: "'Courier New', monospace" }}>19 UNIQUE ODDITIES COLLECTION</p>
-                <span className="h-px flex-1 max-w-[100px]" style={{ background: 'linear-gradient(90deg, transparent, #d4a, transparent)' }} />
-              </div>
+        <div className="mb-6 relative py-8">
+          <div className="text-center" style={{ animation: 'hGlitch 12s ease-in-out infinite' }}>
+            <h1 className="h-font text-5xl md:text-8xl uppercase tracking-[0.08em]" style={{ color: '#cc0000', animation: 'hTitlePulse 4s ease-in-out infinite', letterSpacing: '0.1em' }}>
+              Ordinal Oddities
+            </h1>
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <span className="h-px flex-1 max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #80000080, transparent)' }} />
+              <p className="h-mono text-[11px] md:text-xs uppercase tracking-[0.5em] font-bold" style={{ color: '#800000', textShadow: '0 0 10px #80000060', animation: 'hFlicker 4s ease-in-out infinite' }}>
+                19 SPECIMENS · HANDLE WITH FEAR
+              </p>
+              <span className="h-px flex-1 max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #80000080, transparent)' }} />
             </div>
           </div>
         </div>
 
         {/* STATS BAR */}
-        <div className="mb-6 flex flex-wrap justify-center gap-3 text-[11px] font-bold uppercase tracking-wider" style={{ fontFamily: "'Courier New', monospace" }}>
+        <div className="mb-6 flex flex-wrap justify-center gap-3 text-[11px] font-bold uppercase tracking-wider h-mono">
           {[
-            { label: 'ITEMS', value: String(rows.length), color: '#f90', icon: '◈' },
-            { label: 'LISTED', value: String(activeListingsCount), color: '#d4a', icon: '◆' },
-            { label: 'FLOOR', value: floor > 0 ? `${formatSats(floor)} SAT` : '---', color: '#fc0', icon: '₿' },
+            { label: 'SPECIMENS', value: String(rows.length), color: '#c44', icon: '☠' },
+            { label: 'LISTED', value: String(activeListingsCount), color: '#a33', icon: '⚰' },
+            { label: 'FLOOR', value: floor > 0 ? `${formatSats(floor)} SAT` : '---', color: '#f44', icon: '₿' },
           ].map((s) => (
-            <div key={s.label} className="px-4 py-2.5 relative rounded-sm" style={{ border: ooBorder(s.color + '80'), background: `linear-gradient(180deg, ${s.color}10 0%, ${s.color}05 100%)`, color: s.color, boxShadow: `inset 0 0 20px ${s.color}10, 0 0 10px ${s.color}15, ${ooShadow('#0002')}`, animation: 'ooStatFlash 4s ease-in-out infinite', minWidth: 120, textAlign: 'center' }}>
+            <div key={s.label} className="px-4 py-2.5 relative" style={{ border: hBorder('#80000060'), background: `linear-gradient(180deg, #80000018 0%, #80000008 100%)`, color: s.color, boxShadow: `inset 0 0 20px #80000010, 0 0 10px #80000015`, animation: 'hStatFlash 5s ease-in-out infinite', minWidth: 120, textAlign: 'center' }}>
               <span style={{ fontSize: 14, marginRight: 6 }}>{s.icon}</span>{s.label}: <span style={{ fontSize: 13 }}>{s.value}</span>
             </div>
           ))}
-          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all rounded-sm" style={{ border: ooBorder(myOnly ? '#f90' : ownedIds.size > 0 ? '#f90a0' : '#f904'), background: myOnly ? 'linear-gradient(180deg, #f901a 0%, #f900a 100%)' : ownedIds.size > 0 ? 'linear-gradient(180deg, #f9010 0%, #f9008 100%)' : 'transparent', color: myOnly ? '#f90' : ownedIds.size > 0 ? '#f90' : '#f906', textShadow: myOnly ? '0 0 8px #f906' : ownedIds.size > 0 ? '0 0 6px #f904' : 'none', animation: ownedIds.size > 0 && !myOnly ? 'ooOwnedGlow 2s ease-in-out infinite' : 'none', boxShadow: myOnly ? `0 0 20px #f904, ${ooShadow('#f902')}` : 'none', fontFamily: "'Courier New', monospace" }}>
-            ◈ MY ITEMS {walletState.connected ? `[${ownedIds.size}]` : ''}
+          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all" style={{ border: hBorder(myOnly ? '#a00' : ownedIds.size > 0 ? '#a00080' : '#80000040'), background: myOnly ? '#a0001a' : ownedIds.size > 0 ? '#a00010' : 'transparent', color: myOnly ? '#f44' : ownedIds.size > 0 ? '#c44' : '#80000080', textShadow: myOnly ? '0 0 8px #a006' : 'none', animation: ownedIds.size > 0 && !myOnly ? 'hOwnedGlow 2.5s ease-in-out infinite' : 'none', boxShadow: myOnly ? '0 0 20px #a00040' : 'none' }}>
+            ☠ MY ITEMS {walletState.connected ? `[${ownedIds.size}]` : ''}
           </button>
           {myOnly && (
-            <button onClick={() => setMyOnly(false)} className="px-4 py-2.5 font-bold uppercase transition-all hover:bg-[#f902] rounded-sm" style={{ border: ooBorder('#f90'), color: '#f90', background: 'linear-gradient(180deg, #f9015 0%, #f9008 100%)', boxShadow: `0 0 16px #f903, ${ooShadow('#0002')}`, textShadow: '0 0 6px #f904', fontFamily: "'Courier New', monospace" }}>
-              ◈ ALL ITEMS
+            <button onClick={() => setMyOnly(false)} className="px-4 py-2.5 font-bold uppercase transition-all hover:bg-[#a002]" style={{ border: hBorder('#a00060'), color: '#c44', background: '#a00015' }}>
+              ☠ ALL ITEMS
             </button>
           )}
         </div>
 
         {/* FILTERS */}
-        <div className="mb-5 p-3 grid gap-2 md:grid-cols-3 rounded-sm" style={{ border: ooBorder('#ffffff08'), background: '#ffffff04' }}>
+        <div className="mb-5 p-3 grid gap-2 md:grid-cols-3" style={{ border: hBorder('#80000025'), background: '#80000008' }}>
           {[
             <select key="sort" value={sortMode} onChange={(e) => setSortMode(e.target.value as typeof sortMode)}>
               <option value="number-asc">▲ NUM ASC</option><option value="number-desc">▼ NUM DESC</option>
@@ -437,15 +586,15 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
               <option value="listed-newest">★ NEWEST</option>
             </select>,
             <select key="filter" value={itemFilter} onChange={(e) => setItemFilter(e.target.value as typeof itemFilter)}>
-              <option value="all">◈ ALL ITEMS</option><option value="listed">◆ LISTED</option>
-              <option value="not-listed">○ NOT LISTED</option><option value="owned">◈ MY OWNED</option>
+              <option value="all">☠ ALL ITEMS</option><option value="listed">⚰ LISTED</option>
+              <option value="not-listed">○ NOT LISTED</option><option value="owned">☠ MY OWNED</option>
             </select>,
-            <input key="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="▶ SEARCH..." />,
+            <input key="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="SEARCH THE DARKNESS..." />,
           ].map((el, i) => (
             <div key={i}>
               {React.cloneElement(el as React.ReactElement, {
-                className: 'w-full px-3 py-2.5 text-xs font-bold uppercase tracking-wider outline-none transition-all focus:border-[#f90] focus:shadow-[0_0_12px_#f903] rounded-sm',
-                style: { ...(el as React.ReactElement).props.style, border: ooBorder('#f903'), background: '#10081880', color: '#f90', fontFamily: "'Courier New', monospace" },
+                className: 'h-mono w-full px-3 py-2.5 text-xs font-bold uppercase tracking-wider outline-none transition-all focus:border-[#a00] focus:shadow-[0_0_12px_#a003]',
+                style: { ...(el as React.ReactElement).props.style, border: hBorder('#80000040'), background: '#0a020480', color: '#c44', fontFamily: "'Courier New', monospace" },
               })}
             </div>
           ))}
@@ -453,16 +602,16 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
 
         {/* STATUS */}
         {walletState.connected && loadingOwned && (
-          <p className="mb-2 text-[10px] uppercase tracking-wider" style={{ color: '#f908', fontFamily: "'Courier New', monospace" }}><span style={{ animation: 'ooBlink 0.5s steps(1) infinite', marginRight: 4 }}>▶</span>SCANNING WALLET...</p>
+          <p className="h-mono mb-2 text-[10px] uppercase tracking-wider" style={{ color: '#a008' }}><span style={{ animation: 'hBlink 0.5s steps(1) infinite', marginRight: 4 }}>▶</span>SCANNING THE ABYSS...</p>
         )}
         {walletState.connected && ownershipError && (
-          <p className="mb-2 text-[10px] uppercase" style={{ color: '#f44', fontFamily: "'Courier New', monospace" }}>✖ ERR: {ownershipError}</p>
+          <p className="h-mono mb-2 text-[10px] uppercase" style={{ color: '#f44' }}>✖ {ownershipError}</p>
         )}
         {actionMessage && (
-          <div className="mb-3 px-4 py-2 text-[11px] font-bold uppercase tracking-wider rounded-sm" style={{ border: ooBorder('#fc06'), color: '#fc0', background: '#fc008', animation: 'ooPriceGlow 1.5s ease-in-out infinite', fontFamily: "'Courier New', monospace" }}>✔ {actionMessage}</div>
+          <div className="h-mono mb-3 px-4 py-2 text-[11px] font-bold uppercase tracking-wider" style={{ border: hBorder('#a0006'), color: '#f44', background: '#a00010', animation: 'hPriceGlow 1.5s ease-in-out infinite' }}>✔ {actionMessage}</div>
         )}
         {actionError && (
-          <div className="mb-3 px-4 py-2 text-[11px] font-bold uppercase rounded-sm" style={{ border: ooBorder('#f446'), color: '#f44', background: '#f4408', fontFamily: "'Courier New', monospace" }}>✖ {actionError}</div>
+          <div className="h-mono mb-3 px-4 py-2 text-[11px] font-bold uppercase" style={{ border: hBorder('#f446'), color: '#f44', background: '#f4408' }}>✖ {actionError}</div>
         )}
 
         {/* GRID */}
@@ -471,33 +620,32 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
             const contentUrl = `https://ordinals.com/content/${encodeURIComponent(row.inscriptionId)}`;
             const ownerAddr = ownerByInscription[row.inscriptionId] || (row.isOwnedByConnectedWallet && currentAddress ? currentAddress : row.listing?.seller || '');
             const isListed = !!row.listing;
-            const borderColor = isListed ? '#fc0' : row.isOwnedByConnectedWallet ? '#f90' : '#d4a2';
-            const glowColor = isListed ? '#fc0' : row.isOwnedByConnectedWallet ? '#f90' : '#d4a';
+            const borderColor = isListed ? '#a00060' : row.isOwnedByConnectedWallet ? '#80000080' : '#80000030';
 
             return (
-              <article key={row.inscriptionId} className="oo-card rounded-lg" style={{ border: ooBorder(borderColor), background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0518 100%)', boxShadow: `0 0 12px ${glowColor}08, ${ooShadow('#0002')}` }}>
+              <article key={row.inscriptionId} className="h-card" style={{ border: hBorder(borderColor), background: 'linear-gradient(180deg, #120408 0%, #080204 100%)', boxShadow: `0 0 12px #80000015` }}>
                 {isListed && (
-                  <div className="absolute top-0 right-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase rounded-bl-md" style={{ background: 'linear-gradient(135deg, #fc0, #f90)', color: '#000', boxShadow: '0 0 8px #fc04', fontFamily: "'Courier New', monospace" }}>FOR SALE</div>
+                  <div className="h-mono absolute top-0 right-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase" style={{ background: '#a00', color: '#fff', boxShadow: '0 0 8px #a004', animation: 'hFlicker 3s ease-in-out infinite' }}>FOR SALE</div>
                 )}
                 {row.isOwnedByConnectedWallet && !isListed && (
-                  <div className="absolute top-0 left-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase rounded-br-md" style={{ background: 'linear-gradient(135deg, #f90, #d4a)', color: '#000', boxShadow: '0 0 8px #f904', fontFamily: "'Courier New', monospace" }}>OWNED</div>
+                  <div className="h-mono absolute top-0 left-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase" style={{ background: '#600', color: '#faa', boxShadow: '0 0 8px #60004' }}>OWNED</div>
                 )}
-                <button onClick={() => setSelectedId(row.inscriptionId)} className="aspect-square w-full overflow-hidden text-left relative rounded-t-lg" style={{ background: '#08020f' }}>
-                  <img src={contentUrl} title={row.name} alt={row.name} className="h-full w-full object-contain relative z-[2]" loading="lazy" />
-                  <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 30px #00000080' }} />
+                <button onClick={() => setSelectedId(row.inscriptionId)} className="aspect-square w-full overflow-hidden text-left relative" style={{ background: '#050102' }}>
+                  <img src={contentUrl} title={row.name} alt={row.name} className="h-full w-full object-contain relative z-[2] transition-all duration-300" loading="lazy" />
+                  <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 40px #000000cc, inset 0 0 80px #80000020' }} />
                 </button>
-                <div className="p-2" style={{ borderTop: ooBorder(borderColor) }}>
-                  <h3 className="text-[10px] font-black uppercase tracking-wider truncate" style={{ color: '#f90', textShadow: '0 0 4px #f903', fontFamily: "'Courier New', monospace" }}>{row.name}</h3>
+                <div className="p-2" style={{ borderTop: hBorder(borderColor) }}>
+                  <h3 className="h-mono text-[10px] font-black uppercase tracking-wider truncate" style={{ color: '#c44', textShadow: '0 0 4px #a003' }}>{row.name}</h3>
                   <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-[9px] font-bold" style={{ color: '#d4a8', fontFamily: "'Courier New', monospace" }}>#{row.inscriptionNumber}</span>
-                    <span className="text-[7px]" style={{ color: '#fff3', fontFamily: "'Courier New', monospace" }}>{ownerAddr ? shortAddress(ownerAddr) : '---'}</span>
+                    <span className="h-mono text-[9px] font-bold" style={{ color: '#800000' }}>#{row.inscriptionNumber}</span>
+                    <span className="h-mono text-[7px]" style={{ color: '#fff2' }}>{ownerAddr ? shortAddress(ownerAddr) : '---'}</span>
                   </div>
                   {isListed ? (
-                    <div className="mt-2 px-2 py-1.5 text-center rounded-sm" style={{ border: ooBorder('#fc06'), background: 'linear-gradient(180deg, #fc00f 0%, #fc008 100%)' }}>
-                      <span className="text-[10px] font-black" style={{ color: '#fc0', animation: 'ooPriceGlow 2s ease-in-out infinite', fontFamily: "'Courier New', monospace" }}>₿ {formatSats(row.listing!.priceSats)} SAT</span>
+                    <div className="mt-2 px-2 py-1.5 text-center" style={{ border: hBorder('#a00040'), background: '#a00010' }}>
+                      <span className="h-mono text-[10px] font-black" style={{ color: '#f44', animation: 'hPriceGlow 2s ease-in-out infinite' }}>₿ {formatSats(row.listing!.priceSats)} SAT</span>
                     </div>
                   ) : (
-                    <div className="mt-2 px-2 py-1.5 text-center text-[9px] font-bold uppercase rounded-sm" style={{ border: ooBorder('#fff08'), color: '#fff15', fontFamily: "'Courier New', monospace" }}>○ NOT LISTED</div>
+                    <div className="h-mono mt-2 px-2 py-1.5 text-center text-[9px] font-bold uppercase" style={{ border: hBorder('#ffffff08'), color: '#fff15' }}>○ NOT LISTED</div>
                   )}
                 </div>
               </article>
@@ -507,58 +655,58 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
 
         {/* DETAIL MODAL */}
         {selected && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'radial-gradient(circle at 50% 50%, #1a0a2e88 0%, #000d 100%)' }} onClick={() => setSelectedId(null)}>
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative rounded-lg" style={{ border: ooBorder('#f90'), background: 'linear-gradient(180deg, #1a0a2e 0%, #12081f 50%, #0d0518 100%)', boxShadow: '0 0 60px #f9015, 0 0 120px #d4a0a, 0 20px 60px #0008', animation: 'ooBorderPulse 4s ease-in-out infinite' }} onClick={(e) => e.stopPropagation()}>
-              <OrnateCorner position="tl" /><OrnateCorner position="tr" /><OrnateCorner position="bl" /><OrnateCorner position="br" />
-              <div className="flex items-start justify-between gap-3 p-4" style={{ borderBottom: ooBorder('#f903'), background: 'linear-gradient(180deg, #f9008 0%, transparent 100%)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'radial-gradient(circle at 50% 50%, #1a050888 0%, #000e 100%)' }} onClick={() => setSelectedId(null)}>
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative" style={{ border: hBorder('#80000080'), background: 'linear-gradient(180deg, #120408 0%, #0a0204 50%, #080103 100%)', boxShadow: '0 0 60px #80000030, 0 0 120px #ff000010, 0 20px 60px #000a', animation: 'hBorderPulse 4s ease-in-out infinite' }} onClick={(e) => e.stopPropagation()}>
+              <BloodCorner position="tl" /><BloodCorner position="tr" /><BloodCorner position="bl" /><BloodCorner position="br" />
+              <div className="flex items-start justify-between gap-3 p-4" style={{ borderBottom: hBorder('#80000040'), background: 'linear-gradient(180deg, #80000015 0%, transparent 100%)' }}>
                 <div>
-                  <h2 className="text-xl font-black uppercase tracking-wider" style={{ color: '#f90', textShadow: '0 0 12px #f904' }}>{selected.name}</h2>
-                  <p className="text-[10px] font-bold mt-0.5" style={{ color: '#d4a', textShadow: '0 0 6px #d4a3', fontFamily: "'Courier New', monospace" }}>INSCRIPTION #{selected.inscriptionNumber}</p>
-                  <p className="text-[9px] mt-0.5" style={{ color: '#fff3', fontFamily: "'Courier New', monospace" }}>{selected.inscriptionId}</p>
+                  <h2 className="h-font text-2xl uppercase tracking-wider" style={{ color: '#cc0000', textShadow: '0 0 12px #a004' }}>{selected.name}</h2>
+                  <p className="h-mono text-[10px] font-bold mt-0.5" style={{ color: '#a00', textShadow: '0 0 6px #a003' }}>INSCRIPTION #{selected.inscriptionNumber}</p>
+                  <p className="h-mono text-[9px] mt-0.5" style={{ color: '#fff2' }}>{selected.inscriptionId}</p>
                 </div>
-                <button onClick={() => setSelectedId(null)} className="px-3 py-1.5 text-[10px] font-black uppercase transition-all hover:bg-[#f442] rounded-sm" style={{ border: ooBorder('#f44'), color: '#f44', boxShadow: '0 0 8px #f4420', fontFamily: "'Courier New', monospace" }}>[X] CLOSE</button>
+                <button onClick={() => setSelectedId(null)} className="h-mono px-3 py-1.5 text-[10px] font-black uppercase transition-all hover:bg-[#a002]" style={{ border: hBorder('#a00060'), color: '#f44', boxShadow: '0 0 8px #a0002' }}>[X] CLOSE</button>
               </div>
 
               <div className="grid gap-0 md:grid-cols-2">
                 <div className="p-4">
-                  <div className="aspect-square overflow-hidden cursor-pointer transition-all hover:shadow-[0_0_30px_#f903] relative rounded-lg" style={{ border: ooBorder('#f904'), background: '#08020f' }} onClick={() => setFullscreenImage({ url: `https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`, name: selected.name })}>
+                  <div className="aspect-square overflow-hidden cursor-pointer transition-all hover:shadow-[0_0_30px_#a003] relative" style={{ border: hBorder('#80000050'), background: '#050102' }} onClick={() => setFullscreenImage({ url: `https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`, name: selected.name })}>
                     <img src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`} alt={selected.name} className="h-full w-full object-contain relative z-[2]" />
-                    <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 30px #00000060' }} />
+                    <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 40px #00000080, inset 0 0 80px #80000020' }} />
                   </div>
-                  <p className="mt-2 text-center text-[9px] uppercase tracking-wider" style={{ color: '#fff3', fontFamily: "'Courier New', monospace" }}><span style={{ animation: 'ooBlink 2s steps(1) infinite' }}>▶</span> CLICK TO ENLARGE</p>
+                  <p className="h-mono mt-2 text-center text-[9px] uppercase tracking-wider" style={{ color: '#fff2' }}><span style={{ animation: 'hBlink 2s steps(1) infinite' }}>▶</span> CLICK TO ENLARGE</p>
                 </div>
 
                 <div className="p-4 space-y-3">
-                  <div className="rounded-sm" style={{ border: ooBorder('#f903'), background: '#f9005' }}>
-                    <div className="px-3 py-2 rounded-t-sm" style={{ background: 'linear-gradient(90deg, #f9015 0%, #f9008 100%)', borderBottom: ooBorder('#f903') }}>
-                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#f90', textShadow: '0 0 6px #f904', fontFamily: "'Courier New', monospace" }}>◈ DETAILS</p>
+                  <div style={{ border: hBorder('#80000040'), background: '#80000008' }}>
+                    <div className="px-3 py-2" style={{ background: 'linear-gradient(90deg, #80000020 0%, #80000008 100%)', borderBottom: hBorder('#80000040') }}>
+                      <p className="h-mono text-[10px] font-black uppercase tracking-widest" style={{ color: '#c44', textShadow: '0 0 6px #a004' }}>☠ DETAILS</p>
                     </div>
-                    <div className="px-3 py-2 space-y-1.5 text-[10px]" style={{ fontFamily: "'Courier New', monospace" }}>
+                    <div className="h-mono px-3 py-2 space-y-1.5 text-[10px]">
                       {([
                         ['COLLECTION', 'ORDINAL ODDITIES'],
                         ['ITEM', `#${selected.displayIndex} OF 19`],
                         ['INSCRIPTION', `#${selected.inscriptionNumber}`],
-                        ['STATUS', selected.listing ? '◆ LISTED' : '○ NOT LISTED'],
+                        ['STATUS', selected.listing ? '⚰ LISTED' : '○ NOT LISTED'],
                         ['OWNER', selectedOwnerAddress ? shortAddress(selectedOwnerAddress) : '---'],
                         ['SELLER', selected.listing?.seller ? shortAddress(selected.listing.seller) : '---'],
                         ['PRICE', selected.listing ? `₿ ${formatSats(selected.listing.priceSats)} SAT` : '---'],
                         ['LISTED', selected.listing ? formatDateTime(selected.listing.listedAt) : '---'],
                       ] as [string, string][]).map(([label, value]) => (
-                        <div key={label} className="flex justify-between font-bold py-0.5" style={{ borderBottom: '1px solid #ffffff08' }}>
-                          <span style={{ color: '#fff4' }}>{label}</span>
-                          <span style={{ color: label === 'PRICE' && selected.listing ? '#fc0' : label === 'STATUS' && selected.listing ? '#fc0' : '#fffc', textShadow: label === 'PRICE' && selected.listing ? '0 0 6px #fc04' : 'none' }}>{value}</span>
+                        <div key={label} className="flex justify-between font-bold py-0.5" style={{ borderBottom: '1px solid #80000015' }}>
+                          <span style={{ color: '#fff3' }}>{label}</span>
+                          <span style={{ color: label === 'PRICE' && selected.listing ? '#f44' : label === 'STATUS' && selected.listing ? '#f44' : '#fffc', textShadow: label === 'PRICE' && selected.listing ? '0 0 6px #a004' : 'none' }}>{value}</span>
                         </div>
                       ))}
                     </div>
-                    {selectedDetailLoading && <p className="px-3 pb-2 text-[9px]" style={{ color: '#f906', fontFamily: "'Courier New', monospace" }}><span style={{ animation: 'ooBlink 0.5s steps(1) infinite' }}>▶</span> LOADING...</p>}
-                    {selectedDetailError && <p className="px-3 pb-2 text-[9px]" style={{ color: '#f44', fontFamily: "'Courier New', monospace" }}>✖ {selectedDetailError}</p>}
+                    {selectedDetailLoading && <p className="h-mono px-3 pb-2 text-[9px]" style={{ color: '#a006' }}><span style={{ animation: 'hBlink 0.5s steps(1) infinite' }}>▶</span> LOADING...</p>}
+                    {selectedDetailError && <p className="h-mono px-3 pb-2 text-[9px]" style={{ color: '#f44' }}>✖ {selectedDetailError}</p>}
                   </div>
 
-                  <div className="rounded-sm" style={{ border: ooBorder('#d4a3'), background: '#d4a05' }}>
-                    <div className="px-3 py-2 rounded-t-sm" style={{ background: 'linear-gradient(90deg, #d4a15 0%, #d4a08 100%)', borderBottom: ooBorder('#d4a3') }}>
-                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#d4a', textShadow: '0 0 6px #d4a4', fontFamily: "'Courier New', monospace" }}>◈ CHAIN DATA</p>
+                  <div style={{ border: hBorder('#80000040'), background: '#80000008' }}>
+                    <div className="px-3 py-2" style={{ background: 'linear-gradient(90deg, #80000020 0%, #80000008 100%)', borderBottom: hBorder('#80000040') }}>
+                      <p className="h-mono text-[10px] font-black uppercase tracking-widest" style={{ color: '#a66', textShadow: '0 0 6px #80000060' }}>⛓ CHAIN DATA</p>
                     </div>
-                    <div className="px-3 py-2 space-y-1 text-[10px]" style={{ fontFamily: "'Courier New', monospace" }}>
+                    <div className="h-mono px-3 py-2 space-y-1 text-[10px]">
                       {(() => {
                         const ord = ordApiData || {} as any;
                         const satNum = ord?.sat != null ? Number(ord.sat) : NaN;
@@ -566,36 +714,36 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
                         const rareSatTokens = rareSats !== '-' ? rareSats.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
                         const gtx = selected.inscriptionId.replace(/i\d+$/, '');
                         const chainRows: [string, React.ReactNode][] = [
-                          ['ID', <span key="id">{truncId(selected.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(selected.inscriptionId)} className="transition-colors hover:text-[#f90]" style={{ color: '#f906' }}>COPY</button></span>],
-                          ['CONTENT', <a key="c" className="hover:underline" style={{ color: '#f90', textShadow: '0 0 4px #f903' }} target="_blank" rel="noreferrer" href={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}>VIEW ↗</a>],
+                          ['ID', <span key="id">{truncId(selected.inscriptionId)} <button onClick={() => navigator.clipboard.writeText(selected.inscriptionId)} className="transition-colors hover:text-[#f44]" style={{ color: '#a006' }}>COPY</button></span>],
+                          ['CONTENT', <a key="c" className="hover:underline" style={{ color: '#c44', textShadow: '0 0 4px #a003' }} target="_blank" rel="noreferrer" href={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}>VIEW ↗</a>],
                           ['TOKEN', 'ORD'],
                           ['INSC #', ord?.number != null ? String(ord.number) : '---'],
                           ['SAT #', Number.isFinite(satNum) ? String(Math.trunc(satNum)) : '---'],
                           ['TYPE', ord?.content_type || '---'],
-                          ['GENESIS', gtx ? <a key="g" className="hover:underline" style={{ color: '#f90', textShadow: '0 0 4px #f903' }} target="_blank" rel="noreferrer" href={`https://mempool.space/tx/${gtx}`}>{truncId(gtx)} ↗</a> : '---'],
+                          ['GENESIS', gtx ? <a key="g" className="hover:underline" style={{ color: '#c44', textShadow: '0 0 4px #a003' }} target="_blank" rel="noreferrer" href={`https://mempool.space/tx/${gtx}`}>{truncId(gtx)} ↗</a> : '---'],
                         ];
                         if (ord?.value != null) chainRows.push(['VALUE', `${ord.value} SAT`]);
-                        if (ord?.height != null) chainRows.push(['BLOCK', <a key="b" className="hover:underline" style={{ color: '#f90', textShadow: '0 0 4px #f903' }} target="_blank" rel="noreferrer" href={`https://mempool.space/block/${ord.height}`}>{String(ord.height)} ↗</a>]);
+                        if (ord?.height != null) chainRows.push(['BLOCK', <a key="b" className="hover:underline" style={{ color: '#c44' }} target="_blank" rel="noreferrer" href={`https://mempool.space/block/${ord.height}`}>{String(ord.height)} ↗</a>]);
                         if (ord?.fee != null) chainRows.push(['FEE', `${ord.fee.toLocaleString()} SAT`]);
                         if (ord?.timestamp != null) chainRows.push(['TIME', new Date(ord.timestamp * 1000).toLocaleString()]);
                         return (
                           <>
                             {chainRows.map(([label, value]) => (
-                              <div key={label as string} className="flex justify-between font-bold py-0.5" style={{ borderBottom: '1px solid #ffffff08' }}>
-                                <span style={{ color: '#fff3' }}>{label}</span>
+                              <div key={label as string} className="flex justify-between font-bold py-0.5" style={{ borderBottom: '1px solid #80000015' }}>
+                                <span style={{ color: '#fff2' }}>{label}</span>
                                 <span className="text-right ml-4 truncate max-w-[60%]" style={{ color: '#fffa' }}>{value}</span>
                               </div>
                             ))}
                             {rareSatTokens.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {rareSatTokens.map((t: string, i: number) => (
-                                  <span key={`${t}-${i}`} className="px-2 py-0.5 text-[9px] font-black uppercase rounded-sm" style={{ border: ooBorder('#f908'), color: '#f90', background: '#f900a', boxShadow: '0 0 6px #f9002' }}>
+                                  <span key={`${t}-${i}`} className="px-2 py-0.5 text-[9px] font-black uppercase" style={{ border: hBorder('#a00060'), color: '#f44', background: '#a00010', boxShadow: '0 0 6px #a00020' }}>
                                     {RARE_SAT_SYMBOLS[t] || '◌'} {t}
                                   </span>
                                 ))}
                               </div>
                             )}
-                            {!ordApiData && <p className="text-[9px] mt-1" style={{ color: '#fff2' }}><span style={{ animation: 'ooBlink 0.5s steps(1) infinite' }}>▶</span> LOADING CHAIN DATA...</p>}
+                            {!ordApiData && <p className="text-[9px] mt-1" style={{ color: '#fff2' }}><span style={{ animation: 'hBlink 0.5s steps(1) infinite' }}>▶</span> LOADING...</p>}
                           </>
                         );
                       })()}
@@ -603,32 +751,32 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
                   </div>
 
                   {!walletState.connected && (
-                    <div className="p-4 text-[11px] font-bold uppercase text-center rounded-sm" style={{ border: ooBorder('#f904'), color: '#f90', background: 'linear-gradient(180deg, #f9008 0%, #f9004 100%)', boxShadow: '0 0 16px #f9008', fontFamily: "'Courier New', monospace" }}>⚡ CONNECT WALLET TO TRADE</div>
+                    <div className="h-mono p-4 text-[11px] font-bold uppercase text-center" style={{ border: hBorder('#a00040'), color: '#f44', background: '#a00010', boxShadow: '0 0 16px #a00020' }}>⚡ CONNECT WALLET TO TRADE</div>
                   )}
                   {walletState.connected && (
-                    <div className="rounded-sm" style={{ border: ooBorder('#fc04'), background: '#fc005' }}>
-                      <div className="px-3 py-2 rounded-t-sm" style={{ background: 'linear-gradient(90deg, #fc015 0%, #fc008 100%)', borderBottom: ooBorder('#fc04') }}>
-                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#fc0', textShadow: '0 0 6px #fc04', fontFamily: "'Courier New', monospace" }}>₿ TRADE</p>
+                    <div style={{ border: hBorder('#80000040'), background: '#80000008' }}>
+                      <div className="px-3 py-2" style={{ background: 'linear-gradient(90deg, #80000020 0%, #80000008 100%)', borderBottom: hBorder('#80000040') }}>
+                        <p className="h-mono text-[10px] font-black uppercase tracking-widest" style={{ color: '#f44', textShadow: '0 0 6px #a004' }}>₿ TRADE</p>
                       </div>
                       <div className="p-3 space-y-2">
                         {selected.listing ? (
                           <>
-                            <p className="text-sm font-black" style={{ color: '#fc0', animation: 'ooPriceGlow 2s ease-in-out infinite', fontFamily: "'Courier New', monospace" }}>₿ {formatSats(selected.listing.priceSats)} SAT</p>
-                            <p className="text-[9px]" style={{ color: '#fff4', fontFamily: "'Courier New', monospace" }}>SELLER: {shortAddress(selected.listing.seller)}</p>
+                            <p className="h-mono text-sm font-black" style={{ color: '#f44', animation: 'hPriceGlow 2s ease-in-out infinite' }}>₿ {formatSats(selected.listing.priceSats)} SAT</p>
+                            <p className="h-mono text-[9px]" style={{ color: '#fff3' }}>SELLER: {shortAddress(selected.listing.seller)}</p>
                             {normalizeAddress(selected.listing.seller) === walletAddrNorm ? (
-                              <button disabled={busyListingId === selected.listing.id} onClick={handleDelist} className="w-full py-2.5 text-[11px] font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:bg-[#f442] rounded-sm" style={{ border: ooBorder('#f44'), color: '#f44', background: '#f4410', boxShadow: `0 0 12px #f4408, ${ooShadow('#f442')}`, fontFamily: "'Courier New', monospace" }}>✖ DELIST ITEM</button>
+                              <button disabled={busyListingId === selected.listing.id} onClick={handleDelist} className="h-mono w-full py-2.5 text-[11px] font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:bg-[#a002]" style={{ border: hBorder('#a00060'), color: '#f44', background: '#a00015' }}>✖ DELIST ITEM</button>
                             ) : (
-                              <button disabled={busyListingId === selected.listing.id} onClick={handleBuy} className="w-full py-3 text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:shadow-[0_0_30px_#fc06] rounded-sm" style={{ border: ooBorder('#fc0'), color: '#000', background: 'linear-gradient(180deg, #fc0 0%, #f90 100%)', boxShadow: `0 0 24px #fc04, ${ooShadow('#0002')}`, fontFamily: "'Courier New', monospace" }}>⚡ BUY NOW</button>
+                              <button disabled={busyListingId === selected.listing.id} onClick={handleBuy} className="h-mono w-full py-3 text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:shadow-[0_0_30px_#a006]" style={{ border: hBorder('#a00'), color: '#fff', background: 'linear-gradient(180deg, #a00 0%, #700 100%)', boxShadow: '0 0 24px #a00040' }}>⚡ BUY NOW</button>
                             )}
                           </>
                         ) : selected.isOwnedByConnectedWallet ? (
                           <>
-                            <label className="text-[10px] font-bold uppercase" style={{ color: '#fff6', fontFamily: "'Courier New', monospace" }}>LIST PRICE (SATS)</label>
-                            <input value={listPrice} onChange={(e) => setListPrice(e.target.value)} className="w-full px-3 py-2 text-xs font-bold outline-none transition-all focus:border-[#f90] focus:shadow-[0_0_10px_#f903] rounded-sm" style={{ border: ooBorder('#f904'), background: '#00000040', color: '#f90', fontFamily: "'Courier New', monospace" }} />
-                            <button disabled={busyListingId === selected.inscriptionId} onClick={handleList} className="w-full py-3 text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:shadow-[0_0_30px_#d4a6] rounded-sm" style={{ border: ooBorder('#d4a'), color: '#000', background: 'linear-gradient(180deg, #d4a 0%, #a38 100%)', boxShadow: `0 0 24px #d4a4, ${ooShadow('#0002')}`, fontFamily: "'Courier New', monospace" }}>◆ LIST ITEM</button>
+                            <label className="h-mono text-[10px] font-bold uppercase" style={{ color: '#fff4' }}>LIST PRICE (SATS)</label>
+                            <input value={listPrice} onChange={(e) => setListPrice(e.target.value)} className="h-mono w-full px-3 py-2 text-xs font-bold outline-none transition-all focus:border-[#a00] focus:shadow-[0_0_10px_#a003]" style={{ border: hBorder('#80000050'), background: '#00000040', color: '#f44' }} />
+                            <button disabled={busyListingId === selected.inscriptionId} onClick={handleList} className="h-mono w-full py-3 text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:shadow-[0_0_30px_#80000060]" style={{ border: hBorder('#800000'), color: '#fff', background: 'linear-gradient(180deg, #800000 0%, #500000 100%)', boxShadow: '0 0 24px #80000040' }}>⚰ LIST ITEM</button>
                           </>
                         ) : (
-                          <p className="text-[10px] font-bold uppercase text-center py-3" style={{ color: '#f906', fontFamily: "'Courier New', monospace" }}>NOT OWNED BY YOUR WALLET</p>
+                          <p className="h-mono text-[10px] font-bold uppercase text-center py-3" style={{ color: '#80000080' }}>NOT OWNED BY YOUR WALLET</p>
                         )}
                       </div>
                     </div>
@@ -641,29 +789,29 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
 
         {/* FULLSCREEN */}
         {fullscreenImage && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'radial-gradient(circle, #1a0a2ecc 0%, #000f 100%)' }} onClick={() => setFullscreenImage(null)}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'radial-gradient(circle, #1a0508cc 0%, #000f 100%)' }} onClick={() => setFullscreenImage(null)}>
             <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <div className="relative rounded-lg" style={{ animation: 'ooBorderPulse 4s ease-in-out infinite' }}>
-                <img src={fullscreenImage.url} alt={fullscreenImage.name} className="block rounded-lg" style={{ border: ooBorder('#f90'), width: 'min(85vmin, 700px)', height: 'min(85vmin, 700px)', objectFit: 'contain', background: '#08020f', boxShadow: '0 0 80px #f9015, 0 0 160px #d4a08' }} />
-                <OrnateCorner position="tl" /><OrnateCorner position="tr" /><OrnateCorner position="bl" /><OrnateCorner position="br" />
+              <div className="relative" style={{ animation: 'hBorderPulse 4s ease-in-out infinite' }}>
+                <img src={fullscreenImage.url} alt={fullscreenImage.name} className="block" style={{ border: hBorder('#80000080'), width: 'min(85vmin, 700px)', height: 'min(85vmin, 700px)', objectFit: 'contain', background: '#050102', boxShadow: '0 0 80px #80000030, 0 0 160px #ff000010' }} />
+                <BloodCorner position="tl" /><BloodCorner position="tr" /><BloodCorner position="bl" /><BloodCorner position="br" />
               </div>
-              <p className="text-center text-lg font-black uppercase tracking-[0.2em] mt-4" style={{ color: '#f90', animation: 'ooGlow 3s ease-in-out infinite' }}>{fullscreenImage.name}</p>
-              <button onClick={() => setFullscreenImage(null)} className="absolute -top-4 -right-4 w-10 h-10 flex items-center justify-center text-[11px] font-black transition-all hover:bg-[#f442] rounded-full" style={{ border: ooBorder('#f44'), background: '#0d0518', color: '#f44', boxShadow: '0 0 10px #f4420', fontFamily: "'Courier New', monospace" }}>X</button>
+              <p className="h-font text-center text-xl uppercase tracking-[0.15em] mt-4" style={{ color: '#cc0000', animation: 'hBloodGlow 3s ease-in-out infinite' }}>{fullscreenImage.name}</p>
+              <button onClick={() => setFullscreenImage(null)} className="h-mono absolute -top-4 -right-4 w-10 h-10 flex items-center justify-center text-[11px] font-black transition-all hover:bg-[#a002]" style={{ border: hBorder('#a00060'), background: '#0a0204', color: '#f44', boxShadow: '0 0 10px #a0002' }}>X</button>
             </div>
           </div>
         )}
 
         {/* FOOTER */}
         <div className="mt-16 mb-6 text-center relative">
-          <div className="h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #f903, #d4a3, #fc03, #d4a3, #f903, transparent)' }} />
+          <div className="h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #80000040, #a0000040, #80000040, transparent)' }} />
           <div className="mt-4 flex items-center justify-center gap-3">
-            <span className="w-2 h-2 rounded-full" style={{ background: '#f90', boxShadow: '0 0 6px #f90', animation: 'ooBlink 3s steps(1) infinite' }} />
-            <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#fff2', fontFamily: "'Courier New', monospace" }}>ORDINAL ODDITIES MARKETPLACE</p>
-            <span className="text-[10px]" style={{ color: '#fff15' }}>·</span>
-            <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#f9015', fontFamily: "'Courier New', monospace" }}>POWERED BY RICHART.APP</p>
-            <span className="w-2 h-2 rounded-full" style={{ background: '#d4a', boxShadow: '0 0 6px #d4a', animation: 'ooBlink 3s 1.5s steps(1) infinite' }} />
+            <span className="w-2 h-2" style={{ background: '#a00', boxShadow: '0 0 6px #a00', animation: 'hBlink 3s steps(1) infinite' }} />
+            <p className="h-mono text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#80000060' }}>ORDINAL ODDITIES MARKETPLACE</p>
+            <span className="text-[10px]" style={{ color: '#fff10' }}>·</span>
+            <p className="h-mono text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#a0003a' }}>POWERED BY RICHART.APP</p>
+            <span className="w-2 h-2" style={{ background: '#600', boxShadow: '0 0 6px #600', animation: 'hBlink 3s 1.5s steps(1) infinite' }} />
           </div>
-          <div className="mt-3 h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #f903, #d4a3, #fc03, #d4a3, #f903, transparent)' }} />
+          <div className="mt-3 h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #80000040, #a0000040, #80000040, transparent)' }} />
         </div>
       </div>
     </div>
