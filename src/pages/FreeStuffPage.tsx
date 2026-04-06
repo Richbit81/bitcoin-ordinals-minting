@@ -168,15 +168,15 @@ export const FreeStuffPage: React.FC = () => {
         {/* Items Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
           {FREE_ITEMS.map((item) => (
-            <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-4 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group">
+            <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-4 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group flex flex-col">
               {/* Preview */}
-              <div className="relative mb-4 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900">
+              <div className="relative mb-4 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
                 {(item as any).isHtml ? (
                   <iframe
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
                     title={item.name}
-                    className="w-full rounded-lg pointer-events-none"
-                    style={{ height: 280, border: 'none', background: '#000' }}
+                    className="w-full h-full rounded-lg pointer-events-none"
+                    style={{ border: 'none', background: '#000' }}
                     sandbox="allow-scripts allow-same-origin"
                     loading="lazy"
                   />
@@ -184,7 +184,7 @@ export const FreeStuffPage: React.FC = () => {
                   <img
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
                     alt={item.name}
-                    className="w-full h-auto rounded-lg"
+                    className="w-full h-full object-cover rounded-lg"
                     loading="lazy"
                   />
                 )}
@@ -217,7 +217,7 @@ export const FreeStuffPage: React.FC = () => {
               )}
 
               {/* Fee Rate Selector */}
-              <div className="mb-3">
+              <div className="mt-auto mb-3">
                 <FeeRateSelector
                   selectedFeeRate={inscriptionFeeRate}
                   onFeeRateChange={setInscriptionFeeRate}
