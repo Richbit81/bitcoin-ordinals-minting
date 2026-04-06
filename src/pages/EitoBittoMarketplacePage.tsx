@@ -587,9 +587,14 @@ export const EitoBittoMarketplacePage: React.FC = () => {
               <span style={{ fontSize: 14, marginRight: 6 }}>{s.icon}</span>{s.label}: <span style={{ fontSize: 13 }}>{s.value}</span>
             </div>
           ))}
-          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all" style={{ border: pxBorder(myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0a0' : '#ff04'), background: myOnly ? 'linear-gradient(180deg, #ff01a 0%, #ff00a 100%)' : ownedIds.size > 0 ? 'linear-gradient(180deg, #ff010 0%, #ff008 100%)' : 'transparent', color: myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0' : '#ff06', textShadow: myOnly ? '0 0 8px #ff06' : ownedIds.size > 0 ? '0 0 6px #ff04' : 'none', animation: ownedIds.size > 0 ? 'pxOwnedGlow 2s ease-in-out infinite' : 'none', boxShadow: myOnly ? `0 0 20px #ff04, ${pxShadow('#ff02')}` : 'none' }}>
+          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all" style={{ border: pxBorder(myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0a0' : '#ff04'), background: myOnly ? 'linear-gradient(180deg, #ff01a 0%, #ff00a 100%)' : ownedIds.size > 0 ? 'linear-gradient(180deg, #ff010 0%, #ff008 100%)' : 'transparent', color: myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0' : '#ff06', textShadow: myOnly ? '0 0 8px #ff06' : ownedIds.size > 0 ? '0 0 6px #ff04' : 'none', animation: ownedIds.size > 0 && !myOnly ? 'pxOwnedGlow 2s ease-in-out infinite' : 'none', boxShadow: myOnly ? `0 0 20px #ff04, ${pxShadow('#ff02')}` : 'none' }}>
             ◈ MY ITEMS {walletState.connected ? `[${ownedIds.size}]` : ''}
           </button>
+          {myOnly && (
+            <button onClick={() => setMyOnly(false)} className="px-4 py-2.5 font-bold uppercase transition-all hover:bg-[#0ff2]" style={{ border: pxBorder('#0ff'), color: '#0ff', background: 'linear-gradient(180deg, #0ff15 0%, #0ff08 100%)', boxShadow: `0 0 16px #0ff3, ${pxShadow('#0002')}`, textShadow: '0 0 6px #0ff4' }}>
+              ▣ ALL ITEMS
+            </button>
+          )}
         </div>
 
         {/* ── FILTERS ── */}
