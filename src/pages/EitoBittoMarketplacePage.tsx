@@ -84,6 +84,10 @@ const PIXEL_CSS = `
   0%, 100% { text-shadow: 0 0 6px #0f0, 0 0 14px #0f05; }
   50% { text-shadow: 0 0 12px #0f0, 0 0 24px #0f07; }
 }
+@keyframes pxOwnedGlow {
+  0%, 100% { box-shadow: 0 0 12px #ff03, 0 0 24px #ff02; border-color: #ff0a0; }
+  50% { box-shadow: 0 0 24px #ff06, 0 0 48px #ff03, 0 0 64px #ff01; border-color: #ff0; }
+}
 @keyframes pxGlitch {
   0%, 90%, 100% { transform: translate(0); filter: none; }
   92% { transform: translate(-3px, 1px); filter: hue-rotate(90deg); }
@@ -583,7 +587,7 @@ export const EitoBittoMarketplacePage: React.FC = () => {
               <span style={{ fontSize: 14, marginRight: 6 }}>{s.icon}</span>{s.label}: <span style={{ fontSize: 13 }}>{s.value}</span>
             </div>
           ))}
-          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all" style={{ border: pxBorder(myOnly ? '#ff0' : '#ff04'), background: myOnly ? 'linear-gradient(180deg, #ff01a 0%, #ff00a 100%)' : 'transparent', color: myOnly ? '#ff0' : '#ff06', boxShadow: myOnly ? `0 0 20px #ff04, ${pxShadow('#ff02')}` : 'none', textShadow: myOnly ? '0 0 8px #ff06' : 'none' }}>
+          <button onClick={() => setMyOnly((v) => !v)} className="px-4 py-2.5 font-bold uppercase transition-all" style={{ border: pxBorder(myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0a0' : '#ff04'), background: myOnly ? 'linear-gradient(180deg, #ff01a 0%, #ff00a 100%)' : ownedIds.size > 0 ? 'linear-gradient(180deg, #ff010 0%, #ff008 100%)' : 'transparent', color: myOnly ? '#ff0' : ownedIds.size > 0 ? '#ff0' : '#ff06', textShadow: myOnly ? '0 0 8px #ff06' : ownedIds.size > 0 ? '0 0 6px #ff04' : 'none', animation: ownedIds.size > 0 ? 'pxOwnedGlow 2s ease-in-out infinite' : 'none', boxShadow: myOnly ? `0 0 20px #ff04, ${pxShadow('#ff02')}` : 'none' }}>
             ◈ MY ITEMS {walletState.connected ? `[${ownedIds.size}]` : ''}
           </button>
         </div>
