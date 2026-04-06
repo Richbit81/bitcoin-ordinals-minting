@@ -40,10 +40,20 @@
       ]
     }
   ],
+  "functions": {
+    "api/twitter-feed.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
       "source": "/ord-proxy/(.*)",
       "destination": "https://ordinals.com/$1"
+    },
+    {
+      "source": "/api/twitter-feed",
+      "destination": "/api/twitter-feed"
     },
     {
       "source": "/api/(.*)",

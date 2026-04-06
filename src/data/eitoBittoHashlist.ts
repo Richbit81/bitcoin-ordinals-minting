@@ -1,0 +1,62 @@
+export interface EitoBittoEntry {
+  inscriptionId: string;
+  name: string;
+  inscriptionNumber: number;
+}
+
+export const EITO_BITTO_HASHLIST: EitoBittoEntry[] = [
+  { inscriptionId: '28333a4d6b9f687f8b99f02d63e75bfc50567c2d5c70d77d80cf001f89279ad4i0', name: 'Eito Bitto #1', inscriptionNumber: 87575 },
+  { inscriptionId: '7cfef9b9022e544e5a9148057604cacea773d8bbd6915e7361a369787ed81badi0', name: 'Eito Bitto #2', inscriptionNumber: 87574 },
+  { inscriptionId: 'c4bd2e81161159315676aefa3c15520e8de0aa0d2adf112f2098bf9e6a72e0a1i0', name: 'Eito Bitto #3', inscriptionNumber: 87475 },
+  { inscriptionId: '67817c73c8b0e553ea802241bcea02bc5563fe76f9518274aaff745d4ea1f947i0', name: 'Eito Bitto #4', inscriptionNumber: 87474 },
+  { inscriptionId: 'b24acf047542f9b530b503eff35822975374ae70e3361a762cee65fba2318c76i0', name: 'Eito Bitto #5', inscriptionNumber: 87408 },
+  { inscriptionId: '1f08fdd9483e93dabcc0ec5bc6da0c94b62565e6d445df7626faf9cbe53df158i0', name: 'Eito Bitto #6', inscriptionNumber: 87407 },
+  { inscriptionId: '9a1fdc334ce42d4d346859fde44f8f25724d1e095ccf0f367a0bbfbbb7f9ce21i0', name: 'Eito Bitto #7', inscriptionNumber: 87406 },
+  { inscriptionId: '0fb3c2e04de00c6b8eb9e821d8fbfd79dcc862d9ef9b8aa1cd6acd3a878448f7i0', name: 'Eito Bitto #8', inscriptionNumber: 87395 },
+  { inscriptionId: '57dd14893168b0209d1d2f5d328709f6b97276c607e141e39039d735aae173bai0', name: 'Eito Bitto #9', inscriptionNumber: 87392 },
+  { inscriptionId: 'c5965874f7c8121ed13243327b2f888ac04ff08e0af44406d19734270de63fadi0', name: 'Eito Bitto #10', inscriptionNumber: 87391 },
+  { inscriptionId: '7210be6479f607522e5222a4634763b314ba660e47304a0b62cf19c69aff4496i0', name: 'Eito Bitto #11', inscriptionNumber: 87390 },
+  { inscriptionId: '2cce8947e7cd4c99b8c44d654b8e8b02fe4575387e9f19d63cde34edfce8ea8fi0', name: 'Eito Bitto #12', inscriptionNumber: 87389 },
+  { inscriptionId: 'e2bebe7ab88ad073883bdf304dd18938972d8e135b88386f3395f0744b1ef177i0', name: 'Eito Bitto #13', inscriptionNumber: 87388 },
+  { inscriptionId: '347b7a57a784f517e3012849ff21744d59a85b7b6a9fa267eba21e56156db461i0', name: 'Eito Bitto #14', inscriptionNumber: 87387 },
+  { inscriptionId: '1d121cc30f84c82a48c96aa9f37664b7e009d806358b6a60e830727d231b573ci0', name: 'Eito Bitto #15', inscriptionNumber: 87386 },
+  { inscriptionId: 'ec184c216d0b179e50202e24c1f9975681681deb8ea0650618da67f862f27a3bi0', name: 'Eito Bitto #16', inscriptionNumber: 87385 },
+  { inscriptionId: '267f4f3f81b2ce39acd3eeb045be466eba10b618cadac9c7ba94d73bd5cd4737i0', name: 'Eito Bitto #17', inscriptionNumber: 87383 },
+  { inscriptionId: '5cf04129ab47d110d98341e806d27042ad13bc7739619e157e608e1369288cf5i0', name: 'Eito Bitto #18', inscriptionNumber: 87222 },
+  { inscriptionId: 'ee38d706b47243f6daffe77e101c6df2ce865af1749924e7f7b6a7083ce97ab8i0', name: 'Eito Bitto #19', inscriptionNumber: 87221 },
+  { inscriptionId: '83abd90d109290e1df41aa5df820c196dbdef0c6f935052972bffb73a768d7a4i0', name: 'Eito Bitto #20', inscriptionNumber: 87220 },
+  { inscriptionId: '394e82a770abd61162d62a32a24774d38ee8a440d487eca253af0750f58b859ci0', name: 'Eito Bitto #21', inscriptionNumber: 87219 },
+  { inscriptionId: 'ebcd614ef1131dc2fac6648b066bd8c9907b651062869328104026e6ee0c3863i0', name: 'Eito Bitto #22', inscriptionNumber: 87218 },
+  { inscriptionId: '6b422384e25bdc6035b8a878c3d6d5c02fe56fb6c8a83a8081c7cd5fa802655ci0', name: 'Eito Bitto #23', inscriptionNumber: 87217 },
+  { inscriptionId: '0d0ef31448473994d679aea41f83fd0fb7839f56c3c97e621fbc924613bed149i0', name: 'Eito Bitto #24', inscriptionNumber: 87216 },
+  { inscriptionId: '8ec6be87d978e4802e4e1894d53c33c9eac73aa2e730e551867813ebfba4b116i0', name: 'Eito Bitto #25', inscriptionNumber: 87215 },
+  { inscriptionId: '0cab473edd39c3425ccbf7a002865bdd5b2ebd8e1b9a195c1e35777a3a23deedi0', name: 'Eito Bitto #26', inscriptionNumber: 87052 },
+  { inscriptionId: 'f9f4779b004e4b13b114a5acca01dec1ec8070425fff6be3edcce71c0b9886d3i0', name: 'Eito Bitto #27', inscriptionNumber: 87051 },
+  { inscriptionId: 'cdaaa7e226b19b92145150f369d7f8f5045b89d93cb6721d708c63ac059988bei0', name: 'Eito Bitto #28', inscriptionNumber: 87050 },
+  { inscriptionId: '2b034c5521be3d6fc48dcf40d1fe4200fba1f2863a39fed965c54f86170b75b1i0', name: 'Eito Bitto #29', inscriptionNumber: 87049 },
+  { inscriptionId: '32bd88379b8472d44306e192c1ef4bf52556a665fb3ea4eff14b0f930280227fi0', name: 'Eito Bitto #30', inscriptionNumber: 87048 },
+  { inscriptionId: 'b57c556c957e005d6da0a2d36fdee008e2d544857d6d8ff08b53b9fca813f867i0', name: 'Eito Bitto #31', inscriptionNumber: 87047 },
+  { inscriptionId: '622db5b0cc90898de59059bb3119e06444c59168f7ea3f6dff40d7baeb1de35ei0', name: 'Eito Bitto #32', inscriptionNumber: 87046 },
+  { inscriptionId: '2eb5b87da77de80c840465c2f3c406927d44d44fc0b062b8cc05c83f2e15ea51i0', name: 'Eito Bitto #33', inscriptionNumber: 87045 },
+  { inscriptionId: 'a616220b320b1dc2ec8622c0bfd5148c095b316ffda287199bcffd9e9ac9ba0fi0', name: 'Eito Bitto #34', inscriptionNumber: 87044 },
+  { inscriptionId: '39a64f5bdc8c0ea448c1f0a69f54cf9c51eae30406f4483e2839f72e3167150ai0', name: 'Eito Bitto #35', inscriptionNumber: 87043 },
+  { inscriptionId: '9024556d5f1396b5715f5c291dafd99bf0caa97465e58d14e3c8db9d9d4f88fai0', name: 'Eito Bitto #36', inscriptionNumber: 87037 },
+  { inscriptionId: '36895cc3096b6bcbfbc0292e901d208d443da4e6f63db9b2bf2303be32399adei0', name: 'Eito Bitto #37', inscriptionNumber: 87036 },
+  { inscriptionId: '4871512a3c50dc717e867ba6bc6d65f6b3db8dd26e02f09580e5cc87589486d4i0', name: 'Eito Bitto #38', inscriptionNumber: 87035 },
+  { inscriptionId: '948cfc54e81c9fe07a0abfed03350d7c1e66df5e4b38c42598708318f49a32b9i0', name: 'Eito Bitto #39', inscriptionNumber: 87034 },
+  { inscriptionId: 'ae4db6d1cdd20d5bdf055e653e1b6e32e66178854fdee3b2d62b129484fec1b4i0', name: 'Eito Bitto #40', inscriptionNumber: 87033 },
+  { inscriptionId: 'e4074854e9668f7774966fbe34e8ee253a0a9855b92ef617ef5f698a308d02afi0', name: 'Eito Bitto #41', inscriptionNumber: 87032 },
+  { inscriptionId: '56f4073bffe89137e056106a0db51d208f4ecbe31f95296f99c51457c8efe08ei0', name: 'Eito Bitto #42', inscriptionNumber: 87031 },
+  { inscriptionId: '07b52ea8a4f9b5cdfdcaa5929ed4d44de6d7cc70a70091d08099d559259e848ai0', name: 'Eito Bitto #43', inscriptionNumber: 87030 },
+  { inscriptionId: '034ecda6d65d076f69851a187aa282a2f3077645f6f6ddcf31f3e75440254588i0', name: 'Eito Bitto #44', inscriptionNumber: 87029 },
+  { inscriptionId: '3121357755342ab229c6c1cbe14ee9db750e2ecbdbf0a3ea691e7f11fb791b76i0', name: 'Eito Bitto #45', inscriptionNumber: 87028 },
+  { inscriptionId: '995be3ea06c48a30ad1cecb17729a71f9accf5c6e61d4eecf9fdfab61c17fc75i0', name: 'Eito Bitto #46', inscriptionNumber: 87027 },
+  { inscriptionId: 'ef161aa33f7a8e20bebdd7788e59741a9b5f8d81e3739c2f1e5ad869fee14e74i0', name: 'Eito Bitto #47', inscriptionNumber: 87026 },
+  { inscriptionId: '95d4cce782f3a7893748c9cf5dc6e1fb65c5a0b45e5d4960a4e6809e0cb57c5bi0', name: 'Eito Bitto #48', inscriptionNumber: 87024 },
+  { inscriptionId: 'c780d0c0cd8689cb4d9a6f164ba415c4d31c2979aa3b68d14d96a0e3fc829c25i0', name: 'Eito Bitto #49', inscriptionNumber: 87023 },
+  { inscriptionId: 'a4b85d2ce4f45bc5152d6a2712fef64168ea9d6053139b500a565572c26cd705i0', name: 'Eito Bitto #50', inscriptionNumber: 87022 },
+  { inscriptionId: 'ba472cbc58931a1b55ea42611b8069b754575612a6a8c6fad5f3ecf3b0995b04i0', name: 'Eito Bitto #51', inscriptionNumber: 87021 },
+];
+
+export const EITO_BITTO_PARENT_ID = 'ea8c952c4cc83d88ea09a1788d862d053548f3840c536f98ebed32f9a6da686ei0';
+export const EITO_BITTO_ID_SET = new Set(EITO_BITTO_HASHLIST.map((entry) => entry.inscriptionId));

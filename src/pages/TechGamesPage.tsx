@@ -63,6 +63,15 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     ],
   },
   {
+    inscriptionId: '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0',
+    name: 'RICHRACER',
+    description:
+      'A fully on-chain 3D racing game built with Three.js as a single Bitcoin Ordinals inscription. Race against AI on a real track with realistic physics (grip, downforce, drift). Modes: Time Attack, Race, Free Roam. Day/night cycles, rain weather, Ultra graphics with reflections, 8-angle replay system, visual damage, ghost car, rearview mirror, cinematic flyover, and dynamic audio. All assets loaded from on-chain inscriptions.',
+    price: 5000,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: '94c91f823f145daf0200394433c1116781a7a669ba0b24a0d232f46838b37351i0',
     name: 'TACTICAL',
     description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.',
@@ -135,12 +144,12 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     category: 'game',
   },
   {
-    inscriptionId: '26f1282b9473c0aa38c7fad53cf3d147cec3c85769540009956b3924f002a9d7i0',
+    inscriptionId: 'bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0',
     name: 'RichArt Synthesizer',
-    description: 'Beta version of the RichArt Synthesizer',
-    price: 0,
+    description: 'RichArt Synthesizer',
+    price: 10000,
     category: 'music',
-    mintable: false, // Nur Test, nicht mintbar
+    isNew: true,
   },
   {
     inscriptionId: '74db17534294de1deba771a9aab334c5b1112f09a304d5c4039d29299aec3e17i0',
@@ -201,7 +210,8 @@ export const TechGamesPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<TechGameItem | null>(null);
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // inscriptionId of expanded item
-  const isImmersiveTryMode = selectedItem?.inscriptionId === '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0';
+  const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0']);
+  const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
@@ -698,8 +708,10 @@ export const TechGamesPage: React.FC = () => {
 
       {/* Item Detail Modal - Fullscreen */}
       {selectedItem && (
+        <>
+        {isImmersiveTryMode && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
         <div
-          className="fixed inset-0 bg-black z-50 flex flex-col"
+          className={`fixed z-50 flex flex-col ${isImmersiveTryMode ? 'inset-0 m-auto w-[50vw] h-[50vh] rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden' : 'inset-0'} bg-black`}
           onClick={() => setSelectedItem(null)}
         >
           {/* Header with Close Button */}
@@ -849,6 +861,7 @@ export const TechGamesPage: React.FC = () => {
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );

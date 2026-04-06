@@ -1,15 +1,15 @@
 /**
  * Effect Resolver
- * Resolves all card effects deterministically.
- * Consolidated damage pipeline: TARGET (2x) → damage_modifier (Turtle/Sheep) → SHIELD (prevent)
+ * Löst alle Effekte deterministisch auf
  */
 
-import { GameState, BoardAnimal, PlayerState, addEffectLog } from './gameEngine';
-import { EffectDefinition, GameCard, getGameCardById, getGameCardByName, STATUS_CATEGORIES } from './gameCards';
+import { GameState, BoardAnimal, PlayerState } from './gameEngine';
+import { EffectDefinition, getGameCardById, getGameCardByName, STATUS_CATEGORIES } from './gameCards';
 
 const canAnimalAttackNow = (animal: BoardAnimal): boolean => {
   if (animal.attacksThisTurn >= animal.maxAttacks) return false;
 
+  // STUCK blockt, sofern keine Immunitaet vorhanden.
   const hasStuck = animal.statuses.some((sid) => getGameCardById(sid)?.name === 'STUCK');
   if (hasStuck) {
     const hasImmunity = animal.card.effects.some((e) =>
@@ -19,6 +19,7 @@ const canAnimalAttackNow = (animal: BoardAnimal): boolean => {
     if (!hasImmunity) return false;
   }
 
+  // Karten-eigene "cannot attack" Regeln (z.B. Chicken)
   if (animal.card.effects.some((e) => e.action === 'prevent_attack' && e.target === 'self')) {
     return false;
   }
@@ -32,72 +33,8 @@ const randomFrom = <T>(arr: T[]): T | undefined => {
 };
 
 /**
- * Consolidated damage pipeline for animals.
- * Order: TARGET (double) → damage_modifier (Turtle self, Sheep friendly) → SHIELD (prevent)
+ * Löst einen Effekt aus
  */
-const applyDamageToAnimal = (
-  state: GameState,
-  animal: BoardAnimal,
-  baseDamage: number,
-): number => {
-  let damage = baseDamage;
-
-  // TARGET status: double damage
-  const hasTarget = animal.statuses.some(sid => getGameCardById(sid)?.name === 'TARGET');
-  if (hasTarget) {
-    damage *= 2;
-  }
-
-  // damage_modifier from own card (Turtle: -1 to self)
-  const selfMod = animal.card.effects
-    .filter(e => e.action === 'damage_modifier' && e.target === 'self')
-    .reduce((sum, e) => sum + (e.value || 0), 0);
-  damage += selfMod;
-
-  // damage_modifier from friendly animals (Sheep: -1 to friendly_animals_except_self)
-  const ownerBoard = state.players[animal.owner].board;
-  for (const other of ownerBoard) {
-    if (other.id === animal.id) continue;
-    const friendlyMod = other.card.effects
-      .filter(e => e.action === 'damage_modifier' && e.target === 'friendly_animals_except_self')
-      .reduce((sum, e) => sum + (e.value || 0), 0);
-    damage += friendlyMod;
-  }
-
-  damage = Math.max(0, damage);
-
-  // SHIELD: prevent next damage, then discard
-  if (damage > 0) {
-    const shieldIndex = animal.statuses.findIndex(sid => getGameCardById(sid)?.name === 'SHIELD');
-    if (shieldIndex !== -1) {
-      const shieldId = animal.statuses[shieldIndex];
-      animal.statuses.splice(shieldIndex, 1);
-      const shieldCard = getGameCardById(shieldId);
-      if (shieldCard) {
-        state.players[animal.owner].discard.push(shieldCard);
-      }
-      state = addEffectLog(state, `SHIELD schützt ${animal.card.name}!`, 'effect');
-      damage = 0;
-    }
-  }
-
-  animal.currentHp -= damage;
-  return damage;
-};
-
-/**
- * Checks if an animal has target_immunity against the source card type.
- */
-const hasTargetImmunity = (animal: BoardAnimal, sourceCardId: string): boolean => {
-  const sourceCard = getGameCardById(sourceCardId);
-  if (!sourceCard) return false;
-
-  return animal.card.effects.some(e =>
-    e.action === 'target_immunity' &&
-    e.filter?.cardType === sourceCard.type
-  );
-};
-
 export const resolveEffect = (
   state: GameState,
   effect: EffectDefinition,
@@ -109,122 +46,118 @@ export const resolveEffect = (
   const player = newState.players[playerIndex];
   const opponent = newState.players[1 - playerIndex];
 
-  // Check target_immunity (e.g. Koala immune to action cards)
-  if (targetId) {
-    const targetAnimal = player.board.find(a => a.id === targetId) ||
-                         opponent.board.find(a => a.id === targetId);
-    if (targetAnimal && hasTargetImmunity(targetAnimal, source)) {
-      newState.effectLog.push({
-        id: `log-${Date.now()}-${Math.random()}`,
-        message: `${targetAnimal.card.name} ist immun gegen diesen Effekt!`,
-        timestamp: Date.now(),
-        type: 'effect',
-      });
-      return newState;
-    }
-  }
-
   switch (effect.action) {
-    case 'deal_damage': {
-      if (!effect.value) break;
-      const dmgVal = effect.value;
-
-      if (effect.target === 'any' && targetId) {
-        const targetAnimal = player.board.find(a => a.id === targetId) ||
-                            opponent.board.find(a => a.id === targetId);
-        if (targetAnimal) {
-          const dealt = applyDamageToAnimal(newState, targetAnimal, dmgVal);
-          if (dealt > 0) {
-            newState.effectLog.push({
-              id: `log-${Date.now()}-${Math.random()}`,
-              message: `${targetAnimal.card.name} nimmt ${dealt} Schaden`,
-              timestamp: Date.now(),
-              type: 'damage',
-            });
-          }
-        } else if (targetId === `player-${playerIndex}` || targetId === 'self') {
-          player.life -= dmgVal;
-        } else if (targetId === `player-${1 - playerIndex}` || targetId === 'opponent') {
-          opponent.life -= dmgVal;
-        }
-      } else if (effect.target === 'self') {
-        // 'self' with targetId pointing to animal → damage the animal (e.g. BLEEDING, Bird self-damage)
-        if (targetId) {
-          const selfAnimal = player.board.find(a => a.id === targetId) ||
-                            opponent.board.find(a => a.id === targetId);
-          if (selfAnimal) {
-            const dealt = applyDamageToAnimal(newState, selfAnimal, dmgVal);
-            if (dealt > 0) {
-              newState.effectLog.push({
-                id: `log-${Date.now()}-${Math.random()}`,
-                message: `${selfAnimal.card.name} nimmt ${dealt} Schaden`,
-                timestamp: Date.now(),
-                type: 'damage',
-              });
+    case 'deal_damage':
+      if (effect.value && effect.target) {
+        if (effect.target === 'any' && targetId) {
+          // Finde Ziel
+          const targetAnimal = player.board.find(a => a.id === targetId) ||
+                              opponent.board.find(a => a.id === targetId);
+          if (targetAnimal) {
+            let damage = effect.value || 0;
+            
+            // TARGET Status: Doppelter Schaden
+            if (targetAnimal.statuses.some(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'TARGET';
+            })) {
+              damage *= 2;
             }
-          } else {
-            player.life -= dmgVal;
-          }
-        } else {
-          player.life -= dmgVal;
-        }
-      } else if (effect.target === 'opponent') {
-        opponent.life -= dmgVal;
-      } else if (effect.target === 'player') {
-        player.life -= dmgVal;
-        opponent.life -= dmgVal;
-      } else if (effect.target === 'all_animals') {
-        [...player.board, ...opponent.board].forEach(animal => {
-          const dealt = applyDamageToAnimal(newState, animal, dmgVal);
-          if (dealt > 0) {
-            newState.effectLog.push({
-              id: `log-${Date.now()}-${Math.random()}`,
-              message: `${animal.card.name} nimmt ${dealt} Schaden`,
-              timestamp: Date.now(),
-              type: 'damage',
+            
+            // SHIELD Status: Verhindert nächsten Schaden
+            const shieldIndex = targetAnimal.statuses.findIndex(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'SHIELD';
             });
+            if (shieldIndex !== -1) {
+              // Entferne SHIELD
+              const shieldId = targetAnimal.statuses[shieldIndex];
+              targetAnimal.statuses.splice(shieldIndex, 1);
+              const shieldCard = getGameCardById(shieldId);
+              if (shieldCard) {
+                const owner = targetAnimal.owner === playerIndex ? player : opponent;
+                owner.discard.push(shieldCard);
+              }
+              damage = 0; // Schaden verhindert
+            }
+            
+            // Turtle: -1 Schaden von allen Quellen
+            if (targetAnimal.card.name === 'Turtle') {
+              damage = Math.max(0, damage - 1);
+            }
+            
+            targetAnimal.currentHp -= damage;
+          } else if (targetId === `player-${playerIndex}` || targetId === 'self') {
+            player.life -= effect.value || 0;
+          } else if (targetId === `player-${1 - playerIndex}` || targetId === 'opponent') {
+            opponent.life -= effect.value || 0;
           }
-        });
+        } else if (effect.target === 'opponent') {
+          opponent.life -= effect.value || 0;
+        } else if (effect.target === 'self') {
+          player.life -= effect.value || 0;
+        } else if (effect.target === 'player') {
+          // Both players
+          player.life -= effect.value || 0;
+          opponent.life -= effect.value || 0;
+        } else if (effect.target === 'all_animals') {
+          [...player.board, ...opponent.board].forEach(animal => {
+            let damage = effect.value || 0;
+            
+            // TARGET Status: Doppelter Schaden
+            if (animal.statuses.some(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'TARGET';
+            })) {
+              damage *= 2;
+            }
+            
+            // SHIELD Status
+            const shieldIndex = animal.statuses.findIndex(sid => {
+              const statusCard = getGameCardById(sid);
+              return statusCard?.name === 'SHIELD';
+            });
+            if (shieldIndex !== -1) {
+              const shieldId = animal.statuses[shieldIndex];
+              animal.statuses.splice(shieldIndex, 1);
+              const shieldCard = getGameCardById(shieldId);
+              if (shieldCard) {
+                const owner = animal.owner === playerIndex ? player : opponent;
+                owner.discard.push(shieldCard);
+              }
+              damage = 0;
+            }
+            
+            // Turtle: -1 Schaden
+            if (animal.card.name === 'Turtle') {
+              damage = Math.max(0, damage - 1);
+            }
+            
+            animal.currentHp -= damage;
+          });
+        }
       }
       break;
-    }
 
-    case 'draw_card': {
-      if (!effect.value) break;
-      if (effect.target === 'player') {
-        // Both players draw
+    case 'draw_card':
+      if (effect.value && player.canDraw) {
         for (let i = 0; i < effect.value; i++) {
-          if (player.canDraw && player.deck.length > 0) {
-            player.hand.push(player.deck.shift()!);
-          } else if (player.canDraw) {
+          if (player.deck.length > 0) {
+            const card = player.deck.shift()!;
+            player.hand.push(card);
+          } else {
             player.life -= 1;
           }
-          if (opponent.canDraw && opponent.deck.length > 0) {
-            opponent.hand.push(opponent.deck.shift()!);
-          } else if (opponent.canDraw) {
-            opponent.life -= 1;
-          }
-        }
-      } else {
-        if (player.canDraw) {
-          for (let i = 0; i < effect.value; i++) {
-            if (player.deck.length > 0) {
-              player.hand.push(player.deck.shift()!);
-            } else {
-              player.life -= 1;
-            }
-          }
         }
       }
       break;
-    }
 
-    case 'destroy_target': {
+    case 'destroy_target':
       if (effect.target === 'random_animal' || effect.target === 'random_enemy_animal') {
-        const targetAnimals = effect.target === 'random_enemy_animal'
-          ? opponent.board
+        const targetAnimals = effect.target === 'random_enemy_animal' 
+          ? opponent.board 
           : [...player.board, ...opponent.board];
-
+        
         if (targetAnimals.length > 0) {
           const randomAnimal = targetAnimals[Math.floor(Math.random() * targetAnimals.length)];
           destroyAnimal(newState, randomAnimal, randomAnimal.owner);
@@ -233,6 +166,7 @@ export const resolveEffect = (
         const targetAnimal = player.board.find(a => a.id === targetId) ||
                             opponent.board.find(a => a.id === targetId);
         if (targetAnimal) {
+          // Prüfe Filter (z.B. ATK <= 2)
           if (effect.filter?.atkMax !== undefined) {
             if (targetAnimal.currentAtk <= effect.filter.atkMax) {
               destroyAnimal(newState, targetAnimal, targetAnimal.owner);
@@ -243,9 +177,8 @@ export const resolveEffect = (
         }
       }
       break;
-    }
 
-    case 'modify_attack': {
+    case 'modify_attack':
       if (targetId && effect.value) {
         const targetAnimal = player.board.find(a => a.id === targetId) ||
                             opponent.board.find(a => a.id === targetId);
@@ -254,44 +187,24 @@ export const resolveEffect = (
           if (targetAnimal.currentAtk < 0) targetAnimal.currentAtk = 0;
         }
       } else if (effect.target === 'self' && effect.value) {
+        // Finde alle Tiere des Spielers
         player.board.forEach(animal => {
           animal.currentAtk += effect.value || 0;
           if (animal.currentAtk < 0) animal.currentAtk = 0;
         });
       }
       break;
-    }
 
-    case 'modify_hp': {
-      if (targetId && effect.value) {
-        const targetAnimal = player.board.find(a => a.id === targetId) ||
-                            opponent.board.find(a => a.id === targetId);
-        if (targetAnimal) {
-          targetAnimal.currentHp += effect.value;
-          targetAnimal.maxHp += effect.value;
-          if (targetAnimal.currentHp < 0) targetAnimal.currentHp = 0;
-          if (targetAnimal.maxHp < 1) targetAnimal.maxHp = 1;
-        }
-      }
-      break;
-    }
-
-    case 'gain_life': {
+    case 'gain_life':
       if (effect.value) {
         player.life += effect.value;
-        newState.effectLog.push({
-          id: `log-${Date.now()}-${Math.random()}`,
-          message: `Spieler ${playerIndex + 1} heilt ${effect.value} Life`,
-          timestamp: Date.now(),
-          type: 'effect',
-        });
       }
       break;
-    }
 
-    case 'lose_life': {
+    case 'lose_life':
       if (effect.value) {
         if (effect.target === 'player') {
+          // Both players
           player.life -= effect.value;
           opponent.life -= effect.value;
         } else {
@@ -299,19 +212,19 @@ export const resolveEffect = (
         }
       }
       break;
-    }
 
-    case 'attach_status': {
+    case 'attach_status':
       if (targetId && effect.filter?.statusName) {
         const targetAnimal = player.board.find(a => a.id === targetId) ||
                             opponent.board.find(a => a.id === targetId);
         if (targetAnimal) {
-          const hasImmunity = targetAnimal.card.effects.some(e =>
-            e.action === 'status_immunity' &&
-            (e.filter?.statusName === effect.filter!.statusName ||
-             (e.filter?.statusTag && STATUS_CATEGORIES[e.filter.statusTag as keyof typeof STATUS_CATEGORIES]?.includes(effect.filter!.statusName!)))
+          // Prüfe Immunität
+          const hasImmunity = targetAnimal.card.effects.some(e => 
+            e.action === 'status_immunity' && 
+            (e.filter?.statusName === effect.filter.statusName ||
+             (e.filter?.statusTag && STATUS_CATEGORIES[e.filter.statusTag as keyof typeof STATUS_CATEGORIES]?.includes(effect.filter.statusName!)))
           );
-
+          
           if (!hasImmunity) {
             const statusCard = getGameCardByName(effect.filter.statusName);
             if (statusCard) {
@@ -319,36 +232,11 @@ export const resolveEffect = (
             }
           }
         }
-      } else if (effect.target === 'enemy_animal' && effect.filter?.statusName) {
-        // Auto-target: random enemy animal (for onPlay effects without explicit targetId)
-        if (opponent.board.length > 0) {
-          const target = randomFrom(opponent.board);
-          if (target) {
-            const hasImmunity = target.card.effects.some(e =>
-              e.action === 'status_immunity' &&
-              (e.filter?.statusName === effect.filter!.statusName ||
-               (e.filter?.statusTag && STATUS_CATEGORIES[e.filter.statusTag as keyof typeof STATUS_CATEGORIES]?.includes(effect.filter!.statusName!)))
-            );
-            if (!hasImmunity) {
-              const statusCard = getGameCardByName(effect.filter.statusName);
-              if (statusCard) {
-                target.statuses.push(statusCard.id);
-                newState.effectLog.push({
-                  id: `log-${Date.now()}-${Math.random()}`,
-                  message: `${effect.filter.statusName} an ${target.card.name} angehängt`,
-                  timestamp: Date.now(),
-                  type: 'status',
-                });
-              }
-            }
-          }
-        }
       }
       break;
-    }
 
     case 'prevent_attack':
-      // Handled in canAnimalAttack checks
+      // Wird in canAnimalAttack geprüft
       break;
 
     case 'prevent_draw':
@@ -356,25 +244,28 @@ export const resolveEffect = (
       break;
 
     case 'play_additional_animal':
+      // Erlaubt zusätzliches Tier in diesem Turn
       player.animalsPlayedThisTurn = Math.max(0, player.animalsPlayedThisTurn - 1);
       break;
 
-    case 'discard_hand': {
+    case 'discard_hand':
+      // Beide Spieler werfen Hand ab
       player.discard.push(...player.hand);
       player.hand = [];
       opponent.discard.push(...opponent.hand);
       opponent.hand = [];
       break;
-    }
 
     case 'look_hand':
+      // Setze Flag für GamePage, um Modal zu öffnen
       newState.pendingAction = {
         type: 'look_hand',
-        playerIndex: 1 - playerIndex,
+        playerIndex: 1 - playerIndex, // Gegner-Hand
       };
       break;
 
-    case 'discard_card': {
+    case 'discard_card':
+      // Wird durch pendingAction aufgerufen
       if (targetId) {
         const targetPlayer = effect.target === 'opponent_hand' ? opponent : player;
         const cardIndex = targetPlayer.hand.findIndex(c => c.id === targetId);
@@ -384,9 +275,10 @@ export const resolveEffect = (
         }
       }
       break;
-    }
 
     case 'cancel_action': {
+      // Praktische, robuste Umsetzung:
+      // NOPE entfernt eine Action-Karte aus der gegnerischen Hand.
       const opponentActionCards = opponent.hand.filter((c) => c.type === 'action');
       const actionToDiscard = randomFrom(opponentActionCards);
       if (actionToDiscard) {
@@ -465,6 +357,7 @@ export const resolveEffect = (
         ? player.board.find(a => a.id === targetId) || opponent.board.find(a => a.id === targetId)
         : undefined;
 
+      // Fallback: falls kein direktes Ziel übergeben wurde, nimm ein zufälliges Gegner-Tier.
       if (!targetAnimal && opponent.board.length > 0) {
         targetAnimal = opponent.board[Math.floor(Math.random() * opponent.board.length)];
       }
@@ -473,12 +366,6 @@ export const resolveEffect = (
         const stuckCard = getGameCardByName('STUCK');
         if (stuckCard && !targetAnimal.statuses.includes(stuckCard.id)) {
           targetAnimal.statuses.push(stuckCard.id);
-          newState.effectLog.push({
-            id: `log-${Date.now()}-${Math.random()}`,
-            message: `${targetAnimal.card.name} wird eingefroren (STUCK)`,
-            timestamp: Date.now(),
-            type: 'status',
-          });
         }
       }
       break;
@@ -502,72 +389,17 @@ export const resolveEffect = (
         targetAnimal.statuses.splice(randomIdx, 1);
         const statusCard = getGameCardById(statusId);
         if (statusCard) {
-          const owner = newState.players[targetAnimal.owner];
+          const owner = targetAnimal.owner === playerIndex ? player : opponent;
           owner.discard.push(statusCard);
-          newState.effectLog.push({
-            id: `log-${Date.now()}-${Math.random()}`,
-            message: `${statusCard.name} wird von ${targetAnimal.card.name} entfernt`,
-            timestamp: Date.now(),
-            type: 'status',
-          });
         }
       }
       break;
     }
 
-    case 'copy_effect': {
-      // Fox: copy an action card effect from any discard pile
-      newState.pendingAction = {
-        type: 'copy_effect',
-        playerIndex: playerIndex,
-      };
-      break;
-    }
-
-    case 'destroy_self': {
-      // Find the animal owned by playerIndex that has this effect
-      const selfAnimal = targetId
-        ? player.board.find(a => a.id === targetId)
-        : undefined;
-      if (selfAnimal) {
-        destroyAnimal(newState, selfAnimal, playerIndex);
-      }
-      break;
-    }
-
-    case 'remove_status': {
-      if (targetId) {
-        const targetAnimal = player.board.find(a => a.id === targetId) ||
-                            opponent.board.find(a => a.id === targetId);
-        if (targetAnimal && targetAnimal.statuses.length > 0) {
-          if (effect.filter?.statusName) {
-            const statusCard = getGameCardByName(effect.filter.statusName);
-            if (statusCard) {
-              const idx = targetAnimal.statuses.indexOf(statusCard.id);
-              if (idx !== -1) {
-                targetAnimal.statuses.splice(idx, 1);
-                newState.players[targetAnimal.owner].discard.push(statusCard);
-              }
-            }
-          } else {
-            const removedId = targetAnimal.statuses.pop()!;
-            const sc = getGameCardById(removedId);
-            if (sc) newState.players[targetAnimal.owner].discard.push(sc);
-          }
-        }
-      }
-      break;
-    }
-
-    // Static effects handled elsewhere (damage_modifier, double_damage, status_immunity, target_immunity)
-    case 'damage_modifier':
-    case 'double_damage':
-    case 'status_immunity':
-    case 'target_immunity':
-      break;
+    // Weitere Effekte...
   }
 
-  // Check win/lose conditions
+  // Prüfe ob Spieler verloren hat
   if (player.life <= 0) {
     newState.gameOver = true;
     newState.winner = 1 - playerIndex;
@@ -579,9 +411,13 @@ export const resolveEffect = (
   return newState;
 };
 
+/**
+ * Zerstört ein Tier
+ */
 const destroyAnimal = (state: GameState, animal: BoardAnimal, ownerIndex: number): void => {
   const owner = state.players[ownerIndex];
-
+  
+  // Trigger "onDeath" Effekte
   const onDeathEffects = animal.card.effects.filter(e => e.trigger === 'onDeath');
   for (const effect of onDeathEffects) {
     state.pendingEffects.push({
@@ -592,18 +428,22 @@ const destroyAnimal = (state: GameState, animal: BoardAnimal, ownerIndex: number
     });
   }
 
+  // Entferne Status-Karten
   animal.statuses.forEach(statusId => {
     const statusCard = getGameCardById(statusId);
-    if (statusCard) owner.discard.push(statusCard);
+    if (statusCard) {
+      owner.discard.push(statusCard);
+    }
   });
 
+  // Entferne Tier vom Board
   const index = owner.board.indexOf(animal);
   if (index !== -1) {
     owner.board.splice(index, 1);
     owner.discard.push(animal.card);
   }
 
-  // Trigger onAnimalDeath for all remaining board animals
+  // Trigger "onAnimalDeath" Effekte für andere Tiere
   [...state.players[0].board, ...state.players[1].board].forEach(otherAnimal => {
     const onAnimalDeathEffects = otherAnimal.card.effects.filter(e => e.trigger === 'onAnimalDeath');
     for (const effect of onAnimalDeathEffects) {
@@ -615,19 +455,14 @@ const destroyAnimal = (state: GameState, animal: BoardAnimal, ownerIndex: number
       });
     }
   });
-
-  state.effectLog.push({
-    id: `log-${Date.now()}-${Math.random()}`,
-    message: `${animal.card.name} wird zerstört`,
-    timestamp: Date.now(),
-    type: 'destroy',
-    cardId: animal.card.id,
-  });
 };
 
+/**
+ * Löst alle pending Effects auf
+ */
 export const resolvePendingEffects = (state: GameState): GameState => {
   let currentState = { ...state };
-
+  
   while (currentState.pendingEffects.length > 0) {
     const effectData = currentState.pendingEffects.shift()!;
     currentState = resolveEffect(
@@ -637,10 +472,13 @@ export const resolvePendingEffects = (state: GameState): GameState => {
       effectData.target,
       effectData.player
     );
-
-    if (currentState.gameOver) break;
-    if (currentState.pendingAction) break;
+    
+    if (currentState.gameOver) {
+      break;
+    }
   }
-
+  
   return currentState;
 };
+
+

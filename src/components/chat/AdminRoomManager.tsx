@@ -24,17 +24,17 @@ export const AdminRoomManager: React.FC<Props> = ({ token, onRoomCreated }) => {
       setDescription('');
       setError('');
     } catch (err: any) {
-      setError(err?.message || 'Raum konnte nicht erstellt werden.');
+      setError(err?.message || 'Failed to create room.');
     }
   };
 
   return (
     <div className="rounded-xl border border-pink-300/50 bg-black/35 p-3">
-      <h4 className="text-xs font-bold text-pink-100">Admin: Räume erstellen</h4>
+      <h4 className="text-xs font-bold text-pink-100">Admin: Create Room</h4>
       <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Room name" className="rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
         <input value={slug} onChange={(e) => setSlug(e.target.value.replace(/\s+/g, '-').toLowerCase())} placeholder="room-slug" className="rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Beschreibung" className="rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100 md:col-span-2" />
+        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100 md:col-span-2" />
         <select value={visibility} onChange={(e) => setVisibility(e.target.value as any)} className="rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100">
           <option value="public">public</option>
           <option value="level1">level1</option>
@@ -42,7 +42,7 @@ export const AdminRoomManager: React.FC<Props> = ({ token, onRoomCreated }) => {
           <option value="admin">admin</option>
         </select>
         <button onClick={() => void create()} className="rounded border border-black bg-[#ff4fcf] px-2 py-1.5 text-xs font-bold text-black">
-          Raum erstellen
+          Create Room
         </button>
       </div>
       {error && <p className="mt-2 text-[11px] text-red-300">{error}</p>}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { GameState, BoardAnimal } from '../game/gameEngine';
-import { GameCard, getGameCardById } from '../game/gameCards';
+import { GameCard } from '../game/gameCards';
 
 interface TargetSelectionModalProps {
   card: GameCard;
@@ -8,16 +8,6 @@ interface TargetSelectionModalProps {
   onSelectTarget: (target: string | null) => void;
   onCancel: () => void;
 }
-
-/**
- * Checks if an animal has target_immunity against the given source card type.
- */
-const isImmuneToCard = (animal: BoardAnimal, sourceCard: GameCard): boolean => {
-  return animal.card.effects.some(e =>
-    e.action === 'target_immunity' &&
-    e.filter?.cardType === sourceCard.type
-  );
-};
 
 export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
   card,
@@ -28,9 +18,11 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
   const currentPlayer = gameState.players[0];
   const opponent = gameState.players[1];
 
+  // Bestimme gültige Ziele basierend auf Karten-Effekten
   const getValidTargets = (): Array<{ id: string; label: string; type: 'animal' | 'player' }> => {
     const targets: Array<{ id: string; label: string; type: 'animal' | 'player' }> = [];
-
+    
+    // Prüfe alle Effekte der Karte
     for (const effect of card.effects) {
       if (!effect.target || effect.target === 'self') continue;
 
@@ -47,8 +39,9 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
 
       switch (effect.target) {
         case 'any':
+          // Fuer einige Effekte bedeutet "any" nur Tiere.
           [...currentPlayer.board, ...opponent.board].forEach((animal) => {
-            if (!targets.find(t => t.id === animal.id) && !isImmuneToCard(animal, card)) {
+            if (!targets.find(t => t.id === animal.id)) {
               targets.push({
                 id: animal.id,
                 label: `${animal.card.name} (${animal.currentAtk}/${animal.currentHp})`,
@@ -58,17 +51,18 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
           });
 
           if (!requiresAnimalTargetForAny) {
+            // "any" fuer Damage-Effekte darf auch Spieler sein.
             if (!targets.find(t => t.id === 'player-0')) {
               targets.push({
                 id: 'player-0',
-                label: `Du (Life: ${currentPlayer.life})`,
+                label: `You (Life: ${currentPlayer.life})`,
                 type: 'player',
               });
             }
             if (!targets.find(t => t.id === 'player-1')) {
               targets.push({
                 id: 'player-1',
-                label: `Gegner (Life: ${opponent.life})`,
+                label: `Opponent (Life: ${opponent.life})`,
                 type: 'player',
               });
             }
@@ -76,8 +70,9 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
           break;
 
         case 'enemy_animal':
+          // Gegner-Tiere
           opponent.board.forEach(animal => {
-            if (!targets.find(t => t.id === animal.id) && !isImmuneToCard(animal, card)) {
+            if (!targets.find(t => t.id === animal.id)) {
               targets.push({
                 id: animal.id,
                 label: `${animal.card.name} (${animal.currentAtk}/${animal.currentHp})`,
@@ -86,9 +81,10 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
             }
           });
           break;
-
+        
         case 'friendly_animal':
         case 'friendly_animals_except_self':
+          // Eigene Tiere
           currentPlayer.board.forEach(animal => {
             if (!targets.find(t => t.id === animal.id)) {
               targets.push({
@@ -99,8 +95,9 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
             }
           });
           break;
-
+        
         case 'all_animals':
+          // Alle Tiere
           [...currentPlayer.board, ...opponent.board].forEach(animal => {
             if (!targets.find(t => t.id === animal.id)) {
               targets.push({
@@ -111,13 +108,14 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
             }
           });
           break;
-
+        
         case 'opponent':
         case 'player':
+          // Gegner-Spieler
           if (!targets.find(t => t.id === 'player-1')) {
             targets.push({
               id: 'player-1',
-              label: `Gegner (Life: ${opponent.life})`,
+              label: `Opponent (Life: ${opponent.life})`,
               type: 'player',
             });
           }
@@ -125,7 +123,9 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
       }
     }
 
+    // Spezielle Fälle für bestimmte Karten
     if (card.name === 'SWITCH') {
+      // SWITCH: Zwei Tiere auswählen
       [...currentPlayer.board, ...opponent.board].forEach(animal => {
         if (!targets.find(t => t.id === animal.id)) {
           targets.push({
@@ -142,15 +142,19 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
 
   const validTargets = getValidTargets();
 
+  // Wenn keine Ziele benötigt werden oder keine gültigen Ziele vorhanden
   const needsTarget = card.effects.some(e => e.target && e.target !== 'self');
   const hasNoValidTargets = needsTarget && validTargets.length === 0;
 
   return (
-    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border-2 border-red-600 rounded-xl max-w-md w-full p-6 shadow-2xl shadow-red-600/20">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border-2 border-red-600 rounded-lg max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-white">Ziel wählen</h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-white transition-colors">
+          <h2 className="text-xl font-bold text-white">Select Target</h2>
+          <button
+            onClick={onCancel}
+            className="text-gray-400 hover:text-white"
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -158,7 +162,7 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
         </div>
 
         <div className="mb-4">
-          <div className="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+          <div className="bg-gray-800 rounded p-3 mb-3">
             <div className="text-sm font-semibold text-white mb-1">{card.name}</div>
             <div className="text-xs text-gray-300">{card.effectText}</div>
           </div>
@@ -166,47 +170,48 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
 
         {hasNoValidTargets ? (
           <div className="text-center py-8">
-            <p className="text-yellow-400 mb-4">Keine gültigen Ziele verfügbar</p>
+            <p className="text-yellow-400 mb-4">⚠️ No valid targets available</p>
             <p className="text-sm text-gray-400 mb-4">
-              Diese Karte kann trotzdem gespielt werden, hat aber keine Wirkung.
+              This card can still be played, but will have no effect.
             </p>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => onSelectTarget(null)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Trotzdem spielen
+                Play Anyway
               </button>
               <button
                 onClick={onCancel}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-colors"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </div>
         ) : validTargets.length === 0 ? (
+          // Karte benötigt kein Ziel
           <div className="text-center py-8">
-            <p className="text-gray-300 mb-4">Diese Karte benötigt kein Ziel.</p>
+            <p className="text-gray-300 mb-4">This card does not require a target.</p>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => onSelectTarget(null)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold"
               >
-                Karte spielen
+                Play Card
               </button>
               <button
                 onClick={onCancel}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </div>
         ) : (
           <>
             <div className="mb-4">
-              <p className="text-sm text-gray-300 mb-2">Wähle ein Ziel:</p>
+              <p className="text-sm text-gray-300 mb-2">Select a target:</p>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {validTargets.map(target => (
                   <button
@@ -227,9 +232,9 @@ export const TargetSelectionModal: React.FC<TargetSelectionModalProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={onCancel}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
               >
-                Abbrechen
+                Cancel
               </button>
             </div>
           </>

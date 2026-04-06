@@ -12,6 +12,7 @@ export interface PinkChatUser {
   level2Active?: boolean;
   lastVerifiedAt?: string | null;
   createdAt?: string;
+  puppetCount?: number;
 }
 
 export interface PinkChatSession {
@@ -23,7 +24,7 @@ export interface PinkChatRoom {
   id: string;
   slug: string;
   name: string;
-  visibility: 'public' | 'level1' | 'level2' | 'admin';
+  visibility: 'open' | 'public' | 'level1' | 'level2' | 'admin';
   description?: string;
   archived?: boolean;
   createdAt?: string;

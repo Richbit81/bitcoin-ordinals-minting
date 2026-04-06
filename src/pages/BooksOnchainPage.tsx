@@ -45,6 +45,15 @@ const BOOK_ITEMS = [
     description:
       'The story is set in a totalitarian society called the "One State," where people are known by numbers and live under strict mathematical rules. Individuality, emotions, and freedom are suppressed.\n\nThe protagonist, D-503, is an engineer who records his thoughts in a journal while working on a spaceship. When he meets the mysterious I-330, his worldview begins to change, and he starts questioning the system.\n\nMain themes:\n\nSurveillance and control\nLoss of individuality\nReason vs. emotion\nFreedom vs. security',
   },
+  {
+    id: 'my-inventions',
+    name: 'My Inventions',
+    inscriptionId: 'b62ac66fbdefc3869d017ba9b89032d34724b7ce2091f62f7c3a4d27c77f8a78i0',
+    author: 'Nikola Tesla',
+    priceInSats: 5000,
+    description:
+      'My Inventions is an autobiographical series of essays in which Nikola Tesla recounts his life, ideas, and scientific achievements. He describes his childhood, his remarkable memory and imagination, and the development of his inventions, especially in electricity and wireless energy. The book gives insight into his creative process, his vision for the future, and his struggles as an inventor. It is both a personal story and a reflection on innovation, genius, and perseverance.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';

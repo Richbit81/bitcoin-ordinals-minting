@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { pinkChatApi } from '../services/pinkChatService';
 import { PinkChatSession, PinkChatUser } from '../types/pinkChat';
 
-const STORAGE_KEY = 'pinkchat_session_v1';
+const STORAGE_KEY = 'pinkchat_session';
+const LEGACY_SESSION_KEYS = ['pinkchat_session_v1', 'pinkchat_session_v2', 'pinkchat_session_v3', 'pinkchat_session_v4'];
 
 type PinkChatAuthContextType = {
   user: PinkChatUser | null;
@@ -28,7 +29,19 @@ const saveSession = (session: PinkChatSession | null) => {
 
 const loadSession = (): PinkChatSession | null => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      for (const key of LEGACY_SESSION_KEYS) {
+        const legacy = localStorage.getItem(key);
+        if (legacy) {
+          raw = legacy;
+          localStorage.setItem(STORAGE_KEY, legacy);
+          localStorage.removeItem(key);
+          console.log(`[PinkChat] Migrated session from ${key}`);
+          break;
+        }
+      }
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.token || !parsed?.user) return null;

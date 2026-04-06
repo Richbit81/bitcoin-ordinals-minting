@@ -40,11 +40,12 @@ export const createUnisatInscription = async (
   }
 
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', file); // Backend erwartet 'file' (Singular), nicht 'files'
   formData.append('address', address);
   formData.append('feeRate', feeRate.toString());
   formData.append('postage', postage.toString());
   
+  // Füge Metadaten hinzu, falls vorhanden (für Delegate-Inscriptions mit Bildern)
   if (delegateMetadata) {
     formData.append('delegateMetadata', delegateMetadata);
   }

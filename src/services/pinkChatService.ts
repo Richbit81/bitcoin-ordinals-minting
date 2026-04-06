@@ -6,14 +6,20 @@ import {
 } from '../types/pinkChat';
 import { getApiUrl } from '../utils/apiUrl';
 import { PINK_PUPPETS_HASHLIST } from '../data/pinkPuppetsHashlist';
-import { getMarketplaceWalletInscriptionsViaUnisat } from './marketplaceService';
 
 const API_URL = String(getApiUrl()).replace(/\/+$/, '');
 
-const MOCK_KEY = 'pinkchat_mock_state_v1';
-const API_STATUS_KEY = 'pinkchat_api_status_v1';
+const MOCK_KEY = 'pinkchat_data';
+const MOCK_BACKUP_KEY = 'pinkchat_data_backup';
+const LEGACY_KEYS = ['pinkchat_mock_state_v1', 'pinkchat_mock_state_v2', 'pinkchat_mock_state_v3', 'pinkchat_mock_state_v4'];
+
+const ADMIN_WALLETS = new Set([
+  'bc1p9j4g6r27yqhmp4c403vn33mz7uug439sthqngkkrylu7d7uq7d6qvz39jj',
+]);
 
 type MockState = {
+  _version: number;
+  _lastWritten: string;
   users: Array<{
     id: string;
     email: string;
@@ -24,8 +30,9 @@ type MockState = {
     walletAddress?: string;
     level2Active?: boolean;
     lastVerifiedAt?: string | null;
+    puppetCount?: number;
   }>;
-  sessions: Array<{ token: string; userId: string }>;
+  sessions: Array<{ token: string; userId: string; createdAt: string }>;
   rooms: PinkChatRoom[];
   messages: PinkChatMessage[];
 };
@@ -33,49 +40,106 @@ type MockState = {
 const nowIso = () => new Date().toISOString();
 const uid = (p: string) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const DEFAULT_ROOMS: PinkChatRoom[] = [
+  { id: 'room-public', slug: 'public', name: 'Public', visibility: 'open', description: 'Open chat – no login required', createdAt: '2025-01-01T00:00:00.000Z' },
+  { id: 'room-lobby', slug: 'lobby', name: 'Lobby', visibility: 'level1', description: 'Chat for registered users – Level 1+', createdAt: '2025-01-01T00:00:00.000Z' },
+  { id: 'room-news', slug: 'news', name: 'News', visibility: 'level1', description: 'News and updates – Level 1+', createdAt: '2025-01-01T00:00:00.000Z' },
+  { id: 'room-cloud', slug: 'cloud', name: 'Cloud', visibility: 'level2', description: 'Exclusive room for PinkPuppet holders', createdAt: '2025-01-01T00:00:00.000Z' },
+];
+
 const defaultState = (): MockState => ({
+  _version: 1,
+  _lastWritten: nowIso(),
   users: [],
   sessions: [],
-  rooms: [
-    { id: 'room-public-main', slug: 'public-main', name: 'Public Main', visibility: 'public', createdAt: nowIso() },
-    { id: 'room-level1-main', slug: 'level1-main', name: 'Level 1 Lounge', visibility: 'level1', createdAt: nowIso() },
-    { id: 'room-level2-main', slug: 'level2-main', name: 'Level 2 Holders', visibility: 'level2', createdAt: nowIso() },
-  ],
+  rooms: [...DEFAULT_ROOMS],
   messages: [],
 });
 
-const readMock = (): MockState => {
+const parseState = (raw: string | null): MockState | null => {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(MOCK_KEY);
-    if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.users) && !Array.isArray(parsed.rooms)) return null;
     return {
-      users: Array.isArray(parsed?.users) ? parsed.users : [],
-      sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
-      rooms: Array.isArray(parsed?.rooms) ? parsed.rooms : defaultState().rooms,
-      messages: Array.isArray(parsed?.messages) ? parsed.messages : [],
+      _version: parsed._version || 1,
+      _lastWritten: parsed._lastWritten || nowIso(),
+      users: Array.isArray(parsed.users) ? parsed.users : [],
+      sessions: Array.isArray(parsed.sessions) ? parsed.sessions.map((s: any) => ({ ...s, createdAt: s.createdAt || nowIso() })) : [],
+      rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
+      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
     };
   } catch {
-    return defaultState();
+    return null;
   }
 };
 
-const writeMock = (state: MockState) => localStorage.setItem(MOCK_KEY, JSON.stringify(state));
+const mergeDefaultRooms = (state: MockState): MockState => {
+  const existingIds = new Set(state.rooms.map((r) => r.id));
+  for (const dr of DEFAULT_ROOMS) {
+    if (!existingIds.has(dr.id)) state.rooms.push({ ...dr });
+  }
+  return state;
+};
+
+const pickBestState = (...candidates: (MockState | null)[]): MockState => {
+  let best: MockState | null = null;
+  for (const c of candidates) {
+    if (!c) continue;
+    if (!best) { best = c; continue; }
+    const cScore = c.users.length + c.messages.length + c.sessions.length;
+    const bScore = best.users.length + best.messages.length + best.sessions.length;
+    if (cScore > bScore) best = c;
+  }
+  return best || defaultState();
+};
+
+const readMock = (): MockState => {
+  const primary = parseState(localStorage.getItem(MOCK_KEY));
+  const backup = parseState(localStorage.getItem(MOCK_BACKUP_KEY));
+
+  let legacy: MockState | null = null;
+  for (const key of LEGACY_KEYS) {
+    const parsed = parseState(localStorage.getItem(key));
+    if (parsed) {
+      legacy = pickBestState(legacy, parsed);
+      localStorage.removeItem(key);
+    }
+  }
+
+  const state = mergeDefaultRooms(pickBestState(primary, backup, legacy));
+
+  if (!primary && (backup || legacy)) {
+    console.log('[PinkChat] Recovered data from backup/legacy storage');
+    writeMock(state);
+  }
+
+  return state;
+};
+
+const writeMock = (state: MockState) => {
+  state._lastWritten = nowIso();
+  state._version = 1;
+  const json = JSON.stringify(state);
+  try {
+    localStorage.setItem(MOCK_KEY, json);
+    localStorage.setItem(MOCK_BACKUP_KEY, json);
+  } catch (err) {
+    console.error('[PinkChat] CRITICAL: Failed to write data to localStorage', err);
+  }
+};
 
 type ApiStatus = 'unknown' | 'online' | 'missing';
 
-const getApiStatus = (): ApiStatus => {
-  const raw = localStorage.getItem(API_STATUS_KEY);
-  if (raw === 'online' || raw === 'missing') return raw;
-  return 'unknown';
-};
+const getApiStatus = (): ApiStatus => 'missing';
 
-const setApiStatus = (status: ApiStatus) => {
-  localStorage.setItem(API_STATUS_KEY, status);
+const setApiStatus = (_status: ApiStatus) => {
+  /* noop – we always use local mock */
 };
 
 const pinkPuppetIdSet = new Set(PINK_PUPPETS_HASHLIST.map((x) => String(x.inscriptionId || '').trim()));
-const ownershipCache = new Map<string, { value: boolean; ts: number }>();
+const ownershipCache = new Map<string, { value: { owns: boolean; count: number }; ts: number }>();
 const OWNERSHIP_CACHE_MS = 2 * 60 * 1000;
 
 const resolveMockUserByToken = (state: MockState, token: string) => {
@@ -84,20 +148,40 @@ const resolveMockUserByToken = (state: MockState, token: string) => {
   return state.users.find((u) => u.id === session.userId) || null;
 };
 
-const checkPinkPuppetOwnership = async (walletAddress: string): Promise<boolean> => {
+const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
   const normalized = String(walletAddress || '').trim();
-  if (!normalized) return false;
+  if (!normalized) return { owns: false, count: 0 };
   const cached = ownershipCache.get(normalized);
   if (cached && Date.now() - cached.ts < OWNERSHIP_CACHE_MS) return cached.value;
   try {
-    const rows = await getMarketplaceWalletInscriptionsViaUnisat(normalized);
-    const owns = rows.some((row) => pinkPuppetIdSet.has(String(row?.inscription_id || '').trim()));
-    ownershipCache.set(normalized, { value: owns, ts: Date.now() });
-    return owns;
-  } catch {
-    const fallback = normalized.toLowerCase().startsWith('bc1p');
-    ownershipCache.set(normalized, { value: fallback, ts: Date.now() });
-    return fallback;
+    const allIds: string[] = [];
+    let cursor = 0;
+    const pageSize = 100;
+    let guard = 0;
+    while (guard < 20) {
+      const res = await fetch(
+        `${API_URL}/v1/indexer/address/${encodeURIComponent(normalized)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      const items: any[] = data?.data?.inscription || [];
+      if (items.length === 0) break;
+      allIds.push(...items.map((item: any) => String(item.inscriptionId || '').trim()));
+      cursor += items.length;
+      if (items.length < pageSize) break;
+      guard++;
+    }
+    const count = allIds.filter((id) => pinkPuppetIdSet.has(id)).length;
+    const result = { owns: count > 0, count };
+    ownershipCache.set(normalized, { value: result, ts: Date.now() });
+    console.log(`[PinkChat] Checked ${allIds.length} inscriptions, found ${count} PinkPuppet(s)`);
+    return result;
+  } catch (err) {
+    console.warn('[PinkChat] Ownership check failed:', err);
+    const result = { owns: false, count: 0 };
+    ownershipCache.set(normalized, { value: result, ts: Date.now() });
+    return result;
   }
 };
 
@@ -108,7 +192,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    if (res.status === 404 && path.startsWith('/api/pinkchat')) {
+    if (path.startsWith('/api/pinkchat')) {
       setApiStatus('missing');
     }
     const text = await res.text();
@@ -128,7 +212,7 @@ export const pinkChatApi = {
     } catch {
       const state = readMock();
       const normalizedEmail = email.trim().toLowerCase();
-      if (state.users.some((u) => u.email.toLowerCase() === normalizedEmail)) throw new Error('E-Mail bereits registriert.');
+      if (state.users.some((u) => u.email.toLowerCase() === normalizedEmail)) throw new Error('Email already registered.');
       const token = uid('tok');
       const user = {
         id: uid('usr'),
@@ -136,13 +220,14 @@ export const pinkChatApi = {
         password,
         displayName: displayName.trim() || normalizedEmail.split('@')[0],
         level: 'level1' as const,
-        role: state.users.length === 0 ? 'admin' as const : 'member' as const,
+        role: 'member' as const,
         level2Active: false,
         lastVerifiedAt: null,
       };
       state.users.unshift(user);
-      state.sessions.unshift({ token, userId: user.id });
+      state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
       writeMock(state);
+      console.log(`[PinkChat] REGISTER user="${user.displayName}" id=${user.id} total_users=${state.users.length}`);
       return { token, user };
     }
   },
@@ -156,10 +241,11 @@ export const pinkChatApi = {
     } catch {
       const state = readMock();
       const user = state.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password);
-      if (!user) throw new Error('Ungültige Login-Daten.');
+      if (!user) throw new Error('Invalid login credentials.');
       const token = uid('tok');
-      state.sessions.unshift({ token, userId: user.id });
+      state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
       writeMock(state);
+      console.log(`[PinkChat] LOGIN user="${user.displayName}" id=${user.id}`);
       return { token, user };
     }
   },
@@ -185,8 +271,11 @@ export const pinkChatApi = {
       });
     } catch {
       const state = readMock();
+      const session = state.sessions.find((s) => s.token === token);
+      const userId = session?.userId;
       state.sessions = state.sessions.filter((s) => s.token !== token);
       writeMock(state);
+      console.log(`[PinkChat] LOGOUT userId=${userId || 'unknown'} remaining_sessions=${state.sessions.length}`);
     }
   },
 
@@ -198,6 +287,7 @@ export const pinkChatApi = {
         body: JSON.stringify({ walletAddress }),
       });
     } catch {
+      console.log(`[PinkChat] WALLET_LINK_START wallet=${walletAddress}`);
       return { nonce: uid('nonce'), message: `Link Pink Puppets wallet ${walletAddress}` };
     }
   },
@@ -211,14 +301,18 @@ export const pinkChatApi = {
       });
     } catch {
       const state = readMock();
-      const ownsPuppet = await checkPinkPuppetOwnership(walletAddress);
+      const { owns: ownsPuppet, count: puppetCount } = await checkPinkPuppetOwnership(walletAddress);
+      const isAdmin = ADMIN_WALLETS.has(walletAddress);
       const user = resolveMockUserByToken(state, token);
-      if (!user) throw new Error('Bitte zuerst einloggen.');
+      if (!user) throw new Error('Please log in first.');
       user.walletAddress = walletAddress;
-      user.level2Active = ownsPuppet;
-      user.level = ownsPuppet ? 'level2' : 'level1';
+      user.level2Active = ownsPuppet || isAdmin;
+      user.level = (ownsPuppet || isAdmin) ? 'level2' : 'level1';
+      if (isAdmin) user.role = 'admin';
       user.lastVerifiedAt = nowIso();
+      (user as any).puppetCount = puppetCount;
       writeMock(state);
+      console.log(`[PinkChat] WALLET_VERIFY user="${user.displayName}" wallet=${walletAddress} puppets=${puppetCount} isAdmin=${isAdmin} level=${user.level}`);
       return user;
     }
   },
@@ -232,12 +326,16 @@ export const pinkChatApi = {
     } catch {
       const state = readMock();
       const user = resolveMockUserByToken(state, token);
-      if (!user) throw new Error('Nicht eingeloggt.');
-      const ownsPuppet = user.walletAddress ? await checkPinkPuppetOwnership(user.walletAddress) : false;
-      user.level2Active = ownsPuppet;
-      user.level = ownsPuppet ? 'level2' : 'level1';
+      if (!user) throw new Error('Not logged in.');
+      const { owns: ownsPuppet, count: puppetCount } = user.walletAddress ? await checkPinkPuppetOwnership(user.walletAddress) : { owns: false, count: 0 };
+      const isAdmin = user.walletAddress ? ADMIN_WALLETS.has(user.walletAddress) : false;
+      user.level2Active = ownsPuppet || isAdmin;
+      user.level = (ownsPuppet || isAdmin) ? 'level2' : 'level1';
+      if (isAdmin) user.role = 'admin';
       user.lastVerifiedAt = nowIso();
+      (user as any).puppetCount = puppetCount;
       writeMock(state);
+      console.log(`[PinkChat] WALLET_REVALIDATE user="${user.displayName}" wallet=${user.walletAddress} puppets=${puppetCount} level=${user.level}`);
       return user;
     }
   },
@@ -264,6 +362,7 @@ export const pinkChatApi = {
       const room: PinkChatRoom = { id: uid('room'), ...payload, archived: false, createdAt: nowIso() };
       state.rooms.push(room);
       writeMock(state);
+      console.log(`[PinkChat] CREATE_ROOM name="${room.name}" visibility=${room.visibility} total_rooms=${state.rooms.length}`);
       return room;
     }
   },
@@ -278,8 +377,9 @@ export const pinkChatApi = {
     }
   },
 
-  async postMessage(roomId: string, content: string, token: string, displayName: string, userId: string): Promise<PinkChatMessage> {
+  async postMessage(roomId: string, content: string, token: string | null, displayName: string, userId: string): Promise<PinkChatMessage> {
     try {
+      if (!token) throw new Error('guest');
       return await apiRequest<PinkChatMessage>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -290,6 +390,7 @@ export const pinkChatApi = {
       const message: PinkChatMessage = { id: uid('msg'), roomId, content: content.trim(), createdAt: nowIso(), displayName, userId };
       state.messages.push(message);
       writeMock(state);
+      console.log(`[PinkChat] POST_MESSAGE room=${roomId} user="${displayName}" userId=${userId} total_msgs=${state.messages.length}`);
       return message;
     }
   },

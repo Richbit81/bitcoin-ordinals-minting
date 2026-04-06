@@ -21,7 +21,7 @@ export const AuthGateCard: React.FC = () => {
       else await login(email, password);
       setPassword('');
     } catch (err: any) {
-      setError(err?.message || 'Login fehlgeschlagen.');
+      setError(err?.message || 'Login failed.');
     } finally {
       setBusy(false);
     }
@@ -30,7 +30,7 @@ export const AuthGateCard: React.FC = () => {
   const linkWallet = async () => {
     const address = getOrdinalAddress(walletState.accounts);
     if (!address) {
-      setError('Bitte zuerst Wallet verbinden (Ordinals-Adresse erforderlich).');
+      setError('Please connect your wallet first (Ordinals address required).');
       return;
     }
     setBusy(true);
@@ -38,14 +38,19 @@ export const AuthGateCard: React.FC = () => {
     try {
       await verifyWallet(address);
     } catch (err: any) {
-      setError(err?.message || 'Wallet-Verknüpfung fehlgeschlagen.');
+      setError(err?.message || 'Wallet verification failed.');
     } finally {
       setBusy(false);
     }
   };
 
+  const truncateAddr = (addr: string) => {
+    if (addr.length <= 20) return addr;
+    return `${addr.slice(0, 10)}...${addr.slice(-8)}`;
+  };
+
   return (
-    <div className="rounded-2xl border border-pink-300/70 bg-black/45 p-3">
+    <div className="rounded-2xl border border-pink-300/70 bg-black/45 p-3 min-w-0">
       <h3 className="text-sm font-bold text-pink-100">Level Access</h3>
       {!user ? (
         <>
@@ -63,29 +68,34 @@ export const AuthGateCard: React.FC = () => {
             {mode === 'register' && (
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
             )}
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-Mail" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Passwort" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
             <button type="submit" disabled={busy || !email || !password} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
-              {mode === 'register' ? 'Account erstellen (Level 1)' : 'Einloggen (Level 1)'}
+              {mode === 'register' ? 'Create Account (Level 1)' : 'Login (Level 1)'}
             </button>
           </form>
         </>
       ) : (
-        <div className="mt-2 space-y-2 text-xs text-pink-100">
-          <p><span className="font-semibold">User:</span> {user.displayName} ({user.email})</p>
-          <p><span className="font-semibold">Level:</span> {String(user.level || 'level1').toUpperCase()}</p>
-          {user.walletAddress && <p><span className="font-semibold">Wallet:</span> {user.walletAddress}</p>}
-          <div className="flex flex-wrap gap-2">
-            <button onClick={linkWallet} disabled={busy} className="rounded border border-pink-300/50 bg-black/30 px-2 py-1 hover:bg-pink-500/10">
-              Wallet verknüpfen / Level 2 prüfen
+        <div className="mt-2 space-y-1.5 text-xs text-pink-100 min-w-0">
+          <p className="truncate"><span className="font-semibold">User:</span> {user.displayName}</p>
+          <p><span className="font-semibold">Level:</span> {String(user.level || 'level1').toUpperCase()}{user.role === 'admin' ? ' · Admin' : ''}</p>
+          {user.walletAddress && (
+            <p className="truncate" title={user.walletAddress}><span className="font-semibold">Wallet:</span> {truncateAddr(user.walletAddress)}</p>
+          )}
+          {user.puppetCount !== undefined && user.puppetCount !== 0 && (
+            <p><span className="font-semibold">PinkPuppets:</span> {user.puppetCount === -1 ? 'Lookup failed' : `Found ${user.puppetCount}`}</p>
+          )}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <button onClick={linkWallet} disabled={busy} className="rounded border border-pink-300/50 bg-black/30 px-2 py-1 text-[11px] hover:bg-pink-500/10 disabled:opacity-50">
+              Wallet / Level 2 verify
             </button>
-            <button onClick={() => void revalidateWallet()} disabled={busy} className="rounded border border-pink-300/50 bg-black/30 px-2 py-1 hover:bg-pink-500/10">
-              Level 2 erneuern
-            </button>
-            <button onClick={() => void logout()} className="rounded border border-red-300/50 bg-red-900/20 px-2 py-1 hover:bg-red-900/40">
-              Logout
+            <button onClick={() => void revalidateWallet()} disabled={busy} className="rounded border border-pink-300/50 bg-black/30 px-2 py-1 text-[11px] hover:bg-pink-500/10 disabled:opacity-50">
+              Level 2 refresh
             </button>
           </div>
+          <button onClick={() => void logout()} className="rounded border border-red-300/50 bg-red-900/20 px-2 py-1 text-[11px] hover:bg-red-900/40">
+            Logout
+          </button>
         </div>
       )}
       {error && <p className="mt-2 text-[11px] text-red-300">{error}</p>}

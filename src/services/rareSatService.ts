@@ -504,17 +504,33 @@ export async function fetchSatRanges(
   txid: string, vout: number, ordServerUrl: string
 ): Promise<{ satRanges: SatRange[]; inscriptions: string[] }> {
   const url = `${ordServerUrl}/output/${txid}:${vout}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Ord server returned ${res.status}`);
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (res.status === 429) {
+      const wait = Math.min(2000 * (attempt + 1), 6000);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    break;
+  }
+  if (!res || !res.ok) throw new Error(`Ord server returned ${res?.status ?? 'no response'}`);
 
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('json')) {
     const text = await res.text();
-    const rangeMatches = [...text.matchAll(/(\d+)[–-](\d+)/g)];
+    // Ord HTML: <a href=/sat/START ...>START</a>-<a href=/sat/END ...>END</a>
+    const htmlRangeRe = />(\d{10,})<\/a>\s*-\s*<a[^>]*>(\d{10,})</g;
+    let rangeMatches = [...text.matchAll(htmlRangeRe)];
+    if (rangeMatches.length === 0) {
+      rangeMatches = [...text.matchAll(/(\d{10,})[–\-](\d{10,})/g)];
+    }
     const satRanges: SatRange[] = rangeMatches.map(m => ({
       start: Number(m[1]), end: Number(m[2]),
     }));
-    return { satRanges, inscriptions: [] };
+    const inscMatches = [...text.matchAll(/\/inscription\/([a-f0-9]{64}i\d+)/g)];
+    const inscriptions = inscMatches.map(m => m[1]);
+    return { satRanges, inscriptions };
   }
 
   const data = await res.json();
@@ -703,11 +719,12 @@ export function buildSplitPsbt(params: {
   const tx = new btc.Transaction({ allowUnknownOutputs: true, allowUnknownInputs: true });
   const script = hexCodec.decode(params.utxo.scriptPubKey);
 
+  const isTaproot = script[0] === 0x51 && script.length === 34;
   tx.addInput({
     txid: params.utxo.txid,
     index: params.utxo.vout,
     witnessUtxo: { script, amount: BigInt(params.utxo.value) },
-    ...(script[0] === 0x51 ? { tapInternalKey: script.slice(2, 34) } : {}),
+    ...(isTaproot ? { tapInternalKey: script.slice(2, 34) } : {}),
   });
 
   let totalOutputs = 0;

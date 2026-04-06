@@ -1,20 +1,40 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PublicChatPanel } from '../components/chat/PublicChatPanel';
-import { LevelSpacePanel } from '../components/chat/LevelSpacePanel';
+import { Tweet } from 'react-tweet';
+import { UnifiedChatPanel } from '../components/chat/UnifiedChatPanel';
+import { AuthGateCard } from '../components/chat/AuthGateCard';
+import { AdminRoomManager } from '../components/chat/AdminRoomManager';
+import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
+
+const FALLBACK_TWEETS = [
+  '2039902984558043314',
+  '2039676195684700171',
+  '2039519039580676112',
+  '2038477591343243423',
+];
 
 export const PinkPuppetsPage: React.FC = () => {
   const navigate = useNavigate();
-  const twitterEmbedRef = React.useRef<HTMLDivElement | null>(null);
-  const [twitterEmbedFailed, setTwitterEmbedFailed] = React.useState(false);
-  const [twitterLoading, setTwitterLoading] = React.useState(true);
+  const { user, token } = usePinkChatAuth();
   const [promoIndex, setPromoIndex] = React.useState(0);
+  const [tweetIds, setTweetIds] = React.useState<string[]>(FALLBACK_TWEETS);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch('/api/twitter-feed?user=PinkPuppets_&limit=5')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.ids?.length) setTweetIds(data.ids);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const promoBanners = React.useMemo(
     () => [
       {
-        href: 'https://op.xyz/communities/pink-puppets',
+        href: 'https://openpage.fun/badges/9161ff5e-79a1-4376-b6b4-f7036b9903d6',
         image: '/images/pinkpuppets-openpage.avif',
         title: 'PinkPuppets on Openpage!',
         subtitle: 'Open the PinkPuppets community on op.xyz',
@@ -28,83 +48,6 @@ export const PinkPuppetsPage: React.FC = () => {
     ],
     []
   );
-
-  const loadTwitterTimeline = React.useCallback(async () => {
-    const container = twitterEmbedRef.current;
-    const twttr = (window as any).twttr;
-    if (!container || !twttr?.widgets?.createTimeline) return false;
-    try {
-      setTwitterLoading(true);
-      setTwitterEmbedFailed(false);
-      container.innerHTML = '';
-      await twttr.widgets.createTimeline(
-        { sourceType: 'profile', screenName: 'PinkPuppets_' },
-        container,
-        {
-          theme: 'dark',
-          tweetLimit: 1,
-          width: 320,
-          height: 180,
-          chrome: 'noheader nofooter noborders transparent',
-        }
-      );
-      const hasIframe = !!container.querySelector('iframe');
-      if (!hasIframe) {
-        setTwitterEmbedFailed(true);
-        setTwitterLoading(false);
-        return false;
-      }
-      setTwitterLoading(false);
-      return true;
-    } catch {
-      setTwitterEmbedFailed(true);
-      setTwitterLoading(false);
-      return false;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | null = null;
-    const tryInit = async () => {
-      if (cancelled) return;
-      const ok = await loadTwitterTimeline();
-      if (ok && intervalId) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-    };
-    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://platform.twitter.com/widgets.js"]');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.src = 'https://platform.twitter.com/widgets.js';
-      script.async = true;
-      script.charset = 'utf-8';
-      script.onload = () => void tryInit();
-      document.body.appendChild(script);
-    } else {
-      void tryInit();
-    }
-    intervalId = window.setInterval(() => {
-      void tryInit();
-    }, 1200);
-    const timeout = window.setTimeout(() => {
-      const hasIframe = !!twitterEmbedRef.current?.querySelector('iframe');
-      if (!hasIframe) {
-        setTwitterEmbedFailed(true);
-        setTwitterLoading(false);
-      }
-      if (intervalId) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-    }, 4500);
-    return () => {
-      cancelled = true;
-      if (intervalId) window.clearInterval(intervalId);
-      window.clearTimeout(timeout);
-    };
-  }, [loadTwitterTimeline]);
 
   React.useEffect(() => {
     const id = window.setInterval(() => {
@@ -120,105 +63,84 @@ export const PinkPuppetsPage: React.FC = () => {
     >
       <div className="absolute inset-0 bg-[#130015]/40" />
       <FloatingPuppetsLayer />
-      <div className="relative z-10 w-full px-3 py-10 xl:px-6">
-        <div className="mx-auto w-full max-w-[1200px]">
-          <button
-            onClick={() => navigate('/')}
-            className="mb-6 rounded-lg border border-pink-400/60 bg-black/30 px-3 py-2 text-sm text-pink-200 hover:bg-pink-900/30"
-          >
-            ← Back to Home
-          </button>
+      <div className="relative z-10 w-full px-3 py-4 sm:px-4 md:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[1440px]">
 
-          <section className="mx-auto w-full rounded-2xl border-2 border-pink-400/80 bg-gradient-to-br from-[#ff4fcf]/20 to-[#ff8de2]/15 p-4 shadow-[0_0_40px_rgba(255,79,207,0.20)] md:p-7">
-            <div className="mx-auto mb-5 w-full max-w-[920px] overflow-hidden rounded-xl border border-pink-300/60 bg-black/35 p-2 md:p-3">
-              <img
-                src="/images/pinkpuppets-banner.png"
-                alt="PinkPuppets Banner"
-                className="mx-auto max-h-[170px] w-full rounded-lg object-contain md:max-h-[210px]"
-              />
-            </div>
-            <div className="mx-auto mt-1 w-full max-w-[920px]">
+          {/* Banner */}
+          <div className="mb-3 rounded-2xl border-2 border-pink-400/80 bg-gradient-to-r from-[#ff4fcf]/20 to-[#ff8de2]/10 p-2 shadow-[0_0_30px_rgba(255,79,207,0.15)] sm:p-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <button
+                onClick={() => navigate('/')}
+                className="shrink-0 rounded-lg border border-pink-400/60 bg-black/30 px-2.5 py-1 text-[11px] text-pink-200 hover:bg-pink-900/30"
+              >
+                ← Home
+              </button>
               <button
                 onClick={() => navigate('/pinkpuppets/marketplace')}
-                className="rounded-xl border-2 border-black bg-[#ff4fcf] px-5 py-3 text-sm font-bold text-black shadow-[3px_3px_0_#000] transition hover:translate-y-[-1px] hover:bg-[#ff61d6]"
+                className="shrink-0 rounded-lg border-2 border-black bg-[#ff4fcf] px-4 py-1.5 text-xs font-bold text-black shadow-[2px_2px_0_#000] transition hover:translate-y-[-1px] hover:bg-[#ff61d6]"
               >
-                Open PuppetMarket
+                PuppetMarket
               </button>
             </div>
-          </section>
-        </div>
+            <img
+              src="/images/pinkpuppets-banner.png"
+              alt="PinkPuppets Banner"
+              className="mx-auto max-h-[90px] w-full rounded-lg object-contain sm:max-h-[110px]"
+            />
+          </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_380px] 2xl:grid-cols-[360px_minmax(0,1fr)_420px]">
-          <aside className="order-2 xl:order-1 xl:sticky xl:top-20 h-fit">
-            <PublicChatPanel />
-          </aside>
+          {/* Main layout: content left + sidebar right */}
+          <div className="grid gap-3 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
 
-          <main className="order-1 xl:order-2 mx-auto w-full max-w-[1200px]">
-            <div className="mx-auto grid w-full items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <section className="w-full lg:h-[250px]">
-            <a
-              href={promoBanners[promoIndex].href}
-              target="_blank"
-              rel="noreferrer"
-              className="group flex h-full w-full items-center overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200 md:p-4"
-            >
-              <div className="flex w-full flex-col items-center gap-3 md:flex-row md:gap-5">
+            {/* Left: Promo + Twitter (main focus) */}
+            <main className="min-w-0 order-1 grid gap-3 grid-cols-1 sm:grid-cols-2">
+              <a
+                href={promoBanners[promoIndex].href}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200"
+              >
                 <img
                   src={promoBanners[promoIndex].image}
                   alt={promoBanners[promoIndex].title}
-                  className="h-auto w-full max-w-[320px] rounded-lg object-contain"
+                  className="w-full flex-1 rounded-lg object-contain"
                   loading="lazy"
                 />
-                <div className="text-center md:text-left">
-                  <h3 className="text-xl font-bold text-pink-100 group-hover:text-pink-50">{promoBanners[promoIndex].title}</h3>
-                  <p className="mt-1 text-sm text-pink-200/85">{promoBanners[promoIndex].subtitle}</p>
+                <div className="mt-2 text-center">
+                  <p className="text-sm font-bold text-pink-100 group-hover:text-white">{promoBanners[promoIndex].title}</p>
+                  <p className="text-[11px] text-pink-200/75 mt-0.5">{promoBanners[promoIndex].subtitle}</p>
+                </div>
+                <div className="mt-2 flex justify-center gap-1.5">
+                  {promoBanners.map((_, idx) => (
+                    <span key={idx} className={`block h-1 rounded-full transition-all ${promoIndex === idx ? 'w-5 bg-pink-300' : 'w-1.5 bg-pink-400/40'}`} />
+                  ))}
+                </div>
+              </a>
+
+              <div className="rounded-2xl border border-pink-300/70 bg-black/35 p-3 flex flex-col">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-pink-100">Latest Posts</h2>
+                  <a href="https://x.com/PinkPuppets_" target="_blank" rel="noreferrer" className="text-[11px] text-pink-200/90 hover:text-pink-100 shrink-0">View on X</a>
+                </div>
+                <div className="flex-1 max-h-[500px] overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
+                  {tweetIds.map((id) => (
+                    <div key={id} className="mb-2 last:mb-0 [&_>div]:!my-0">
+                      <Tweet id={id} />
+                    </div>
+                  ))}
                 </div>
               </div>
-            </a>
-            <div className="mt-2 flex justify-center gap-2">
-              {promoBanners.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setPromoIndex(idx)}
-                  className={`h-1.5 rounded-full transition-all ${promoIndex === idx ? 'w-6 bg-pink-200' : 'w-2 bg-pink-300/50 hover:bg-pink-200/80'}`}
-                  aria-label={`Show promo ${idx + 1}`}
-                />
-              ))}
-            </div>
-              </section>
+            </main>
 
-              <section className="w-full rounded-2xl border border-pink-300/70 bg-black/35 p-3 lg:h-[250px]">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-pink-100">Latest Post</h2>
-              <a
-                href="https://x.com/PinkPuppets_"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-pink-200/90 hover:text-pink-100"
-              >
-                View on X
-              </a>
-            </div>
-            <div ref={twitterEmbedRef} className="h-[180px] overflow-hidden rounded-lg border border-pink-300/40 bg-black/40 p-1.5" />
-            {twitterEmbedFailed && (
-              <div className="mt-2 rounded-lg border border-yellow-300/50 bg-yellow-900/20 px-2 py-1.5 text-[11px] text-yellow-100">
-                X embed blocked. Open{' '}
-                <a className="underline" href="https://x.com/PinkPuppets_" target="_blank" rel="noreferrer">
-                  @PinkPuppets_
-                </a>
-                .
-              </div>
-            )}
-            {!twitterEmbedFailed && twitterLoading && (
-              <p className="mt-2 text-[11px] text-pink-200/70">Loading latest post...</p>
-            )}
-              </section>
-            </div>
-          </main>
-
-          <aside className="order-3 xl:sticky xl:top-20 h-fit">
-            <LevelSpacePanel />
-          </aside>
+            {/* Right sidebar: Auth + Admin + Chat */}
+            <aside className="min-w-0 order-2 flex flex-col gap-3">
+              <AuthGateCard />
+              {user?.role === 'admin' && token && (
+                <AdminRoomManager token={token} onRoomCreated={() => {}} />
+              )}
+              <UnifiedChatPanel />
+            </aside>
+          </div>
         </div>
       </div>
     </div>

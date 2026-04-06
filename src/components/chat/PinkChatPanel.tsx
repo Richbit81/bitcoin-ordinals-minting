@@ -96,7 +96,7 @@ export const PinkChatPanel: React.FC<Props> = ({
         ))}
       </div>
 
-      <div className="h-60 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
+      <div className="h-72 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
         {messages.length === 0 ? (
           <p className="text-xs text-pink-100/70">{emptyHint}</p>
         ) : (

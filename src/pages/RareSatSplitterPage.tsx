@@ -158,6 +158,7 @@ export const RareSatSplitterPage: React.FC = () => {
             inscriptions: [], scriptPubKey: '', address: addr, satRangesAvailable: false,
           });
         }
+        if (i < rawUtxos.length - 1) await new Promise(r => setTimeout(r, 250));
       }
 
       analyzed.sort((a, b) => b.totalRareSats - a.totalRareSats);
@@ -237,18 +238,29 @@ export const RareSatSplitterPage: React.FC = () => {
       setLoadingMsg('Please sign the transaction in your wallet...');
 
       const walletType = walletState.walletType as 'unisat' | 'xverse' | 'okx';
-      const signedPsbt = await signPSBT(psbtBase64, walletType, true);
-
-      setLoadingMsg('Broadcasting transaction...');
-
       let resultTxid: string;
-      try {
+
+      if (walletType === 'xverse') {
+        const signedResult = await signPSBT(psbtBase64, 'xverse', false);
+        setLoadingMsg('Finalizing & broadcasting...');
+
+        const bin = atob(signedResult);
+        const raw = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) raw[i] = bin.charCodeAt(i);
+
+        let txHex: string;
+        try {
+          const tx = btc.Transaction.fromPSBT(raw);
+          tx.finalize();
+          txHex = Array.from(tx.extract()).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+          txHex = Array.from(raw).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        resultTxid = await broadcastTx(txHex);
+      } else {
+        const signedPsbt = await signPSBT(psbtBase64, walletType, true);
+        setLoadingMsg('Broadcasting transaction...');
         resultTxid = await pushPsbt(signedPsbt, walletType);
-      } catch {
-        const signedHex = Array.from(atob(signedPsbt), c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
-        const tx = btc.Transaction.fromPSBT(hexToBytes(signedHex));
-        tx.finalize();
-        resultTxid = await broadcastTx(Array.from(tx.extract()).map(b => b.toString(16).padStart(2, '0')).join(''));
       }
 
       setTxid(resultTxid);
@@ -527,7 +539,16 @@ export const RareSatSplitterPage: React.FC = () => {
                             onClick={() => setAssetsPerUtxo(Math.max(1, assetsPerUtxo - 1))}
                             className="rounded-lg border border-gray-600 bg-gray-800 px-2.5 py-1 text-xs text-gray-300"
                           >−</button>
-                          <span className="w-8 text-center text-sm font-bold">{assetsPerUtxo}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={assetsPerUtxo}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!isNaN(v) && v >= 1) setAssetsPerUtxo(v);
+                            }}
+                            className="w-16 rounded-lg border border-gray-600 bg-gray-800 px-2 py-1 text-center text-sm font-bold text-white outline-none focus:border-purple-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
                           <button
                             onClick={() => setAssetsPerUtxo(assetsPerUtxo + 1)}
                             className="rounded-lg border border-gray-600 bg-gray-800 px-2.5 py-1 text-xs text-gray-300"
