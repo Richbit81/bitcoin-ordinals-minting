@@ -79,6 +79,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .drift-label{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:7px;color:var(--dm);white-space:nowrap;pointer-events:none;margin-bottom:2px;opacity:0;transition:opacity .15s}
 .cb.drift:hover .drift-label{opacity:1}
 .drift-info{font-size:8px;color:var(--vi);text-align:center;margin-top:4px;min-height:12px;transition:.2s}
+.drift-tog{border-color:var(--vi)!important;color:var(--vi)!important;transition:.15s}
+.drift-tog.on{background:var(--vi)!important;color:#fff!important;box-shadow:0 0 10px rgba(178,102,255,.5)}
 
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
@@ -141,8 +143,15 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="ana-bar" id="analysisBar"></div>
   </div>
 
-  <div class="section" id="driftSection" style="display:none">
-    <div class="section-title" style="color:var(--vi)">Drift aktiv</div>
+  <div class="section" id="driftSection">
+    <div class="section-title" style="color:var(--vi)">Drift (Live-Variation)</div>
+    <div class="pal-btns" style="gap:3px">
+      <button class="pal-btn drift-tog" id="dPar2" onclick="toggleDrift('param')">Par</button>
+      <button class="pal-btn drift-tog" id="dFx2" onclick="toggleDrift('fx')">FX</button>
+      <button class="pal-btn drift-tog" id="dVar2" onclick="toggleDrift('var')">Var</button>
+      <button class="pal-btn drift-tog" id="dKey2" onclick="toggleDrift('key')">Key</button>
+    </div>
+    <div class="hint" style="margin-top:4px">Par=Filter/Decay &middot; FX=Effekte &middot; Var=Pattern &middot; Key=Tonart</div>
     <div class="drift-info" id="driftInfo"></div>
   </div>
 
@@ -1039,8 +1048,10 @@ var CIRCLE_OF_FIFTHS = ['C min', 'G min', 'D min', 'A min', 'E min', 'B min', 'F
 
 function toggleDrift(which) {
   drift[which] = !drift[which];
-  var ids = { param: 'dPar', fx: 'dFx', 'var': 'dVar', key: 'dKey' };
-  document.getElementById(ids[which]).classList.toggle('on', drift[which]);
+  var bar = { param: 'dPar', fx: 'dFx', 'var': 'dVar', key: 'dKey' };
+  var side = { param: 'dPar2', fx: 'dFx2', 'var': 'dVar2', key: 'dKey2' };
+  document.getElementById(bar[which]).classList.toggle('on', drift[which]);
+  document.getElementById(side[which]).classList.toggle('on', drift[which]);
   updateDriftUI();
 }
 
@@ -1050,11 +1061,9 @@ function updateDriftUI() {
   if (drift.fx) active.push('FX');
   if (drift['var']) active.push('Var');
   if (drift.key) active.push('Key');
-  var sec = document.getElementById('driftSection');
   var info = document.getElementById('driftInfo');
-  if (active.length === 0) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
-  info.textContent = active.join(' + ') + ' (Rot #' + rotationCount + ')';
+  if (active.length === 0) { info.textContent = ''; return; }
+  info.textContent = active.join(' + ') + ' aktiv (Rotation #' + rotationCount + ')';
 }
 
 function applyDrift() {
