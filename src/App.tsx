@@ -47,6 +47,9 @@ const RareSatSplitterPage = lazy(() => import('./pages/RareSatSplitterPage'));
 const EitoBittoMarketplacePage = lazy(() =>
   import('./pages/EitoBittoMarketplacePage').then((m) => ({ default: m.EitoBittoMarketplacePage }))
 );
+const OrdinalOdditiesMarketplacePage = lazy(() =>
+  import('./pages/OrdinalOdditiesMarketplacePage').then((m) => ({ default: m.OrdinalOdditiesMarketplacePage }))
+);
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -103,6 +106,7 @@ function AppContent() {
           <Route path="/admin/rare-sat-splitter" element={<AdminRoute><RareSatSplitterPage /></AdminRoute>} />
           <Route path="/EitoBitto" element={<EitoBittoMarketplacePage />} />
           <Route path="/eitobitto" element={<Navigate to="/EitoBitto" replace />} />
+          <Route path="/ordinaloddities" element={<OrdinalOdditiesMarketplacePage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/marketplace/profile" element={<MarketplaceProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
