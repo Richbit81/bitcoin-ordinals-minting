@@ -33,6 +33,7 @@ const PinkPuppetsMarketplacePage = lazy(() =>
   import('./pages/PinkPuppetsMarketplacePage').then((m) => ({ default: m.PinkPuppetsMarketplacePage }))
 );
 const PalindromSoundBoxPage = lazy(() => import('./pages/PalindromSoundBoxPage').then((m) => ({ default: m.PalindromSoundBoxPage })));
+const PalindromTablePage = lazy(() => import('./pages/PalindromTablePage').then((m) => ({ default: m.PalindromTablePage })));
 const VoidSculptorPage = lazy(() => import('./pages/VoidSculptorPage').then((m) => ({ default: m.VoidSculptorPage })));
 const GalleryInscriptionToolPage = lazy(() => import('./pages/GalleryInscriptionToolPage').then((m) => ({ default: m.GalleryInscriptionToolPage })));
 const RecursiveCollectionToolPage = lazy(() => import('./pages/RecursiveCollectionToolPage'));
@@ -90,6 +91,7 @@ function AppContent() {
           <Route path="/cattack" element={<ExternalGameRedirect />} />
           <Route path="/catwar" element={<ExternalGameRedirect />} />
           <Route path="/palindrom-sound-box" element={<PalindromSoundBoxPage />} />
+          <Route path="/palindrom-table" element={<PalindromTablePage />} />
           <Route path="/void-sculptor" element={<VoidSculptorPage />} />
           <Route path="/admin/gallery-tool" element={<GalleryInscriptionToolPage />} />
           <Route path="/admin/recursive-tool" element={<RecursiveCollectionToolPage />} />

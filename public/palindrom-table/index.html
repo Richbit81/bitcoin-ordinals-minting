@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PalindromTable</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06060c;--sf:#0b0b15;--bd:#151525;--cy:#00e5ff;--vi:#b266ff;--or:#ff7733;--li:#39ff14;--ma:#ff00c8;--pk:#ff4da6;--yl:#ffe600;--rd:#ff2244;--bl:#4488ff;--tl:#66ccaa;--wh:#dde;--dm:#44445a;--dm2:#2a2a3e}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Segoe UI',system-ui,sans-serif;color:var(--wh);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#app{display:flex;width:100%;height:100%}
+
+#side{width:220px;min-width:220px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;z-index:10;overflow-y:auto}
+#side h1{padding:14px 14px 2px;font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--cy);text-shadow:0 0 12px var(--cy);font-weight:700}
+.sub{padding:1px 14px 8px;font-size:9px;color:var(--dm)}
+.section{padding:8px 10px;border-top:1px solid var(--bd)}
+.section-title{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--cy);margin-bottom:6px}
+
+#palindromeInput{width:100%;padding:8px 10px;border-radius:6px;background:#0c0c18;border:1px solid var(--bd);color:var(--wh);font-family:monospace;font-size:14px;text-align:center;letter-spacing:3px;outline:none;transition:.15s}
+#palindromeInput:focus{border-color:var(--cy);box-shadow:0 0 8px rgba(0,229,255,.15)}
+#palindromeInput.invalid{border-color:var(--rd);box-shadow:0 0 8px rgba(255,34,68,.2)}
+.hint{font-size:8px;color:var(--dm);margin-top:4px;text-align:center}
+.pal-btns{display:flex;gap:4px;margin-top:6px}
+.pal-btn{flex:1;padding:6px;border-radius:5px;background:#0c0c18;border:1px solid var(--bd);cursor:pointer;font:inherit;color:var(--cy);font-size:9px;text-align:center;transition:.15s}
+.pal-btn:hover{border-color:var(--cy);box-shadow:0 0 6px rgba(0,229,255,.15)}
+
+.digit-legend{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px}
+.dl-item{display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:4px;background:#0a0a16;font-size:8px}
+.dl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+.preset-list{display:flex;flex-direction:column;gap:3px}
+.pre{display:block;width:100%;padding:6px 8px;border-radius:5px;background:#0c0c18;border:1px solid var(--bd);cursor:pointer;font:inherit;color:var(--wh);font-size:9px;text-align:left;transition:.15s}
+.pre:hover{border-color:var(--cy);color:var(--cy);box-shadow:0 0 5px rgba(0,229,255,.1)}
+.pre span{color:var(--dm);font-size:7px;margin-left:3px}
+
+#cw{flex:1;position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+
+#bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:5px;background:rgba(11,11,21,.94);border:1px solid var(--bd);border-radius:10px;padding:6px 12px;backdrop-filter:blur(10px);z-index:10;flex-wrap:wrap;justify-content:center;max-width:92%}
+.cb{background:none;border:1px solid var(--dm2);color:var(--wh);border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:3px;transition:.12s;white-space:nowrap;font-family:inherit}
+.cb:hover{border-color:var(--cy);color:var(--cy)}
+.cb.on{border-color:var(--li);color:var(--li);box-shadow:0 0 6px rgba(57,255,20,.15);background:rgba(57,255,20,.08)}
+.cb.kill{font-size:9px}.cb.kill.on{background:rgba(255,34,68,.12);border-color:var(--rd);color:var(--rd);text-decoration:line-through}
+.cb.live{border-color:var(--rd);color:var(--rd);font-weight:700}.cb.live:hover{border-color:#ff4466}
+.cb.live.on{background:rgba(255,34,68,.15);box-shadow:0 0 8px rgba(255,34,68,.3)}
+
+#help{position:absolute;top:10px;right:10px;z-index:10;background:rgba(11,11,21,.7);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:9px;color:var(--dm);line-height:1.5;backdrop-filter:blur(6px);max-width:170px}
+#help b{color:var(--cy);font-weight:600}
+
+#tog{display:none;position:absolute;top:8px;left:8px;z-index:20;background:rgba(11,11,21,.92);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font-size:14px;color:var(--cy);cursor:pointer;line-height:1}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
+
+@media(max-width:900px){
+  #side{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:30;transform:translateX(-100%);transition:transform .25s ease}
+  #side.open{transform:translateX(0)}
+  #side-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:25}
+  #side-bg.open{display:block}
+  #tog{display:block}
+  #help{display:none}
+  #bar{max-width:96%;padding:4px 6px;gap:3px;bottom:6px}
+  .cb{padding:4px 7px;font-size:9px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="side">
+  <h1>PalindromTable</h1>
+  <div class="sub">Interactive Music Disk</div>
+
+  <div class="section">
+    <div class="section-title">Palindrom eingeben</div>
+    <input id="palindromeInput" type="text" placeholder="z.B. 12321" maxlength="20" autocomplete="off" spellcheck="false">
+    <div class="hint" id="palHint">Zahlen-Palindrom eingeben</div>
+    <div class="pal-btns">
+      <button class="pal-btn" onclick="loadPalindrome()">&#9654; Laden</button>
+      <button class="pal-btn" onclick="randomPalindrome()">&#127922; Random</button>
+      <button class="pal-btn" onclick="clearAll()">&#10005; Clear</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ziffern = Instrumente</div>
+    <div class="digit-legend" id="digitLegend"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Presets</div>
+    <div class="preset-list" id="presetList"></div>
+  </div>
+</div>
+<div id="side-bg" onclick="toggleSidebar()"></div>
+
+<div id="cw">
+  <button id="tog" onclick="toggleSidebar()">&#9776;</button>
+  <canvas id="cv"></canvas>
+  <div id="bar">
+    <button class="cb" id="bp" onclick="togglePlay()">&#9654; Play</button>
+    <button class="cb" id="bb" onclick="cycleBPM()">&#9833; 110</button>
+    <button class="cb" id="bk" onclick="nextKey()">C min</button>
+    <button class="cb" id="bsw" onclick="nextSwing()">Sw 0%</button>
+    <button class="cb" id="bm" onclick="toggleMute()">&#128266;</button>
+    <button class="cb" onclick="clearAll()">&#10005;</button>
+    <button class="cb" onclick="randomPalindrome()">&#127922;</button>
+    <span style="width:1px;height:16px;background:var(--bd);margin:0 2px"></span>
+    <button class="cb kill" id="kd" onclick="toggleKill('outer')">Drums</button>
+    <button class="cb kill" id="km" onclick="toggleKill('mid')">Melody</button>
+    <button class="cb kill" id="kb" onclick="toggleKill('inner')">Bass</button>
+    <button class="cb live" id="bfill" onmousedown="startFill()" onmouseup="stopFill()" onmouseleave="stopFill()" ontouchstart="startFill()" ontouchend="stopFill()">Fill</button>
+    <button class="cb live" id="bdrop" onclick="doDrop()">Drop</button>
+  </div>
+  <div id="help">
+    <b>Palindrom</b> = Instrument Layout<br>
+    <b>Scroll</b> = Parameter<br>
+    <b>Shift+Scroll</b> = Variation<br>
+    <b>Right Click</b> = Remove<br>
+    <b>Space</b> = Play/Pause
+  </div>
+</div>
+</div>
+<script src="engine.js"></script>
+</body>
+</html>
