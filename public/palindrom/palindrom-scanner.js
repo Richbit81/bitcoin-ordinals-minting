@@ -261,34 +261,85 @@ class PalindromScanner {
         this.scanProgress.status = 'Address too large for UTXO API — rebuilding from transactions...';
         this._updateProgress();
 
-        const allTxs = [];
-        let lastTxid = null;
-        let page = 0;
+        const TX_APIS = [
+            { name: 'mempool.space', base: MEMPOOL_API },
+            { name: 'blockstream.info', base: 'https://blockstream.info/api' }
+        ];
 
-        while (true) {
-            const url = lastTxid
-                ? `${MEMPOOL_API}/address/${address}/txs/chain/${lastTxid}`
-                : `${MEMPOOL_API}/address/${address}/txs`;
-            try {
-                const res = await fetch(url);
-                if (!res.ok) break;
-                const txs = await res.json();
-                if (!txs || txs.length === 0) break;
-                allTxs.push(...txs);
-                lastTxid = txs[txs.length - 1].txid;
-                page++;
-                this.scanProgress.status = `Loading transactions... (${allTxs.length} txs, page ${page})`;
-                this._updateProgress();
-                if (txs.length < 25) break;
-                await new Promise(r => setTimeout(r, 150));
-            } catch (e) {
-                console.log('[Scanner] TX fetch error at page', page, e.message);
+        let allTxs = [];
+        let usedApi = null;
+
+        for (const api of TX_APIS) {
+            allTxs = [];
+            let lastTxid = null;
+            let page = 0;
+            let consecutiveErrors = 0;
+            usedApi = api.name;
+
+            while (true) {
+                const url = lastTxid
+                    ? `${api.base}/address/${address}/txs/chain/${lastTxid}`
+                    : `${api.base}/address/${address}/txs`;
+
+                let success = false;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const res = await fetch(url);
+                        if (res.status === 429) {
+                            console.log(`[Scanner] ${api.name} rate-limited, waiting...`);
+                            await new Promise(r => setTimeout(r, 2000 + attempt * 2000));
+                            continue;
+                        }
+                        if (!res.ok) { break; }
+                        const txs = await res.json();
+                        if (!txs || txs.length === 0) { success = true; break; }
+                        allTxs.push(...txs);
+                        lastTxid = txs[txs.length - 1].txid;
+                        page++;
+                        consecutiveErrors = 0;
+                        success = true;
+                        this.scanProgress.status = `Loading transactions via ${api.name}... (${allTxs.length} txs, page ${page})`;
+                        this._updateProgress();
+                        if (txs.length < 25) break;
+                        break;
+                    } catch (e) {
+                        console.log(`[Scanner] ${api.name} TX page ${page} attempt ${attempt + 1} failed:`, e.message);
+                        await new Promise(r => setTimeout(r, 1000 + attempt * 1500));
+                    }
+                }
+
+                if (!success) {
+                    consecutiveErrors++;
+                    if (consecutiveErrors >= 3) {
+                        console.log(`[Scanner] ${api.name} failed after ${consecutiveErrors} consecutive errors at page ${page}`);
+                        break;
+                    }
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+
+                const lastBatch = allTxs.length > 0 ? allTxs.length - (allTxs.length > 25 ? 25 : allTxs.length) : 0;
+                if (allTxs.length === lastBatch || (allTxs.length > lastBatch && allTxs.length - lastBatch < 25)) {
+                    break;
+                }
+
+                const delay = page % 10 === 0 ? 600 : 300;
+                await new Promise(r => setTimeout(r, delay));
+            }
+
+            if (allTxs.length > 100) {
+                console.log(`[Scanner] ${api.name}: loaded ${allTxs.length} transactions successfully`);
                 break;
+            } else {
+                console.log(`[Scanner] ${api.name}: only ${allTxs.length} txs, trying next API...`);
             }
         }
 
         if (allTxs.length === 0) return [];
-        console.log(`[Scanner] Loaded ${allTxs.length} transactions for UTXO reconstruction`);
+        console.log(`[Scanner] Loaded ${allTxs.length} transactions via ${usedApi} for UTXO reconstruction`);
+
+        this.scanProgress.status = `Reconstructing UTXOs from ${allTxs.length} transactions...`;
+        this._updateProgress();
 
         const spent = new Set();
         for (const tx of allTxs) {
@@ -319,8 +370,9 @@ class PalindromScanner {
             }
         }
 
-        this.scanProgress.status = `Rebuilt ${utxos.length} UTXOs from ${allTxs.length} transactions`;
+        this.scanProgress.status = `Rebuilt ${utxos.length} UTXOs from ${allTxs.length} txs (${usedApi})`;
         this._updateProgress();
+        console.log(`[Scanner] UTXO rebuild: ${utxos.length} unspent from ${allTxs.length} txs, ${spent.size} spent outputs tracked`);
         return utxos;
     }
 
