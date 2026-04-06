@@ -302,7 +302,7 @@ export const FreeStuffPage: React.FC = () => {
           <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" onClick={() => setPreviewItem(null)}>
             <div
               className="relative bg-black border-2 border-purple-600 rounded-xl overflow-hidden"
-              style={{ width: '50vw', height: '50vh', minWidth: 320, minHeight: 240 }}
+              style={{ width: '50vmin', height: '50vmin', minWidth: 320, minHeight: 320 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-4 py-2 border-b border-purple-600/50 bg-black/90">
