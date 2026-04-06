@@ -175,11 +175,11 @@ export const FreeStuffPage: React.FC = () => {
         </div>
 
         {/* Items Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto w-full">
           {FREE_ITEMS.map((item) => (
-            <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-4 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group flex flex-col">
+            <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-3 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group flex flex-col">
               {/* Preview */}
-              <div className="relative mb-4 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
+              <div className="relative mb-3 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
                 {(item as any).isHtml ? (
                   <iframe
                     src={`https://ordinals.com/content/${item.inscriptionId}`}
@@ -200,17 +200,17 @@ export const FreeStuffPage: React.FC = () => {
               </div>
 
               {/* Name & Price */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <div>
-                  <h2 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">{item.name}</h2>
-                  <span className="text-xs text-gray-500 italic">Delegate</span>
+                  <h2 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.name}</h2>
+                  <span className="text-[10px] text-gray-500 italic">Delegate</span>
                 </div>
-                <span className="text-emerald-400 font-bold text-sm">FREE</span>
+                <span className="text-emerald-400 font-bold text-xs">FREE</span>
               </div>
 
               {/* Description (if present) */}
               {(item as any).description && (
-                <p className="text-xs text-gray-400 mb-3 leading-relaxed">{(item as any).description}</p>
+                <p className="text-[10px] text-gray-400 mb-2 leading-relaxed line-clamp-3">{(item as any).description}</p>
               )}
 
               {/* Try First (HTML ordinals) */}
@@ -219,14 +219,14 @@ export const FreeStuffPage: React.FC = () => {
                   href={`https://ordinals.com/content/${item.inscriptionId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full py-2.5 mb-3 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/20"
+                  className="block w-full py-2 mb-2 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-bold text-xs transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/20"
                 >
                   🚀 Try First
                 </a>
               )}
 
               {/* Fee Rate Selector */}
-              <div className="mt-auto mb-3">
+              <div className="mt-auto mb-2">
                 <FeeRateSelector
                   selectedFeeRate={inscriptionFeeRate}
                   onFeeRateChange={setInscriptionFeeRate}
@@ -235,7 +235,7 @@ export const FreeStuffPage: React.FC = () => {
 
               {/* Minting Status (only for this item) */}
               {mintingStatus && mintingItemId === item.id && (
-                <div className="mb-3">
+                <div className="mb-2">
                   <MintingProgress status={mintingStatus} />
                 </div>
               )}
@@ -245,7 +245,7 @@ export const FreeStuffPage: React.FC = () => {
                 <button
                   onClick={() => handleMint(item)}
                   disabled={mintingItemId !== null}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/20"
+                  className="w-full py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xs transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-emerald-600/20"
                 >
                   {mintingItemId === item.id ? (
                     <span className="flex items-center justify-center gap-2">
