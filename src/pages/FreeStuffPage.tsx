@@ -24,6 +24,15 @@ const FREE_ITEMS = [
     priceInSats: 0,
     priceInBTC: 0,
   },
+  {
+    id: 'galaxy-sling',
+    name: 'Galaxy Sling',
+    inscriptionId: '6afbf8c41394eb03455914d984f986ea3237634fb78d4cc1b7429a8374d6fe46i0',
+    priceInSats: 0,
+    priceInBTC: 0,
+    description: 'A physics-based puzzle game where you sling a probe through space using gravitational fields. Aim for the target, but don\'t fly straight — curve your path around planets to score! Dodge red nebulae, collect pickups, use boosts for a burst of speed, and clear levels of increasing difficulty. Simple controls: drag to launch, click or tap mid-flight to boost. How far can you go?',
+    isHtml: true,
+  },
 ];
 
 const COLLECTION_NAME = 'Free Stuff';
@@ -160,14 +169,25 @@ export const FreeStuffPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
           {FREE_ITEMS.map((item) => (
             <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-4 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group">
-              {/* Preview Image */}
+              {/* Preview */}
               <div className="relative mb-4 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900">
-                <img
-                  src={`https://ordinals.com/content/${item.inscriptionId}`}
-                  alt={item.name}
-                  className="w-full h-auto rounded-lg"
-                  loading="lazy"
-                />
+                {(item as any).isHtml ? (
+                  <iframe
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    title={item.name}
+                    className="w-full rounded-lg pointer-events-none"
+                    style={{ height: 280, border: 'none', background: '#000' }}
+                    sandbox="allow-scripts allow-same-origin"
+                    loading="lazy"
+                  />
+                ) : (
+                  <img
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    alt={item.name}
+                    className="w-full h-auto rounded-lg"
+                    loading="lazy"
+                  />
+                )}
               </div>
 
               {/* Name & Price */}
@@ -178,6 +198,23 @@ export const FreeStuffPage: React.FC = () => {
                 </div>
                 <span className="text-emerald-400 font-bold text-sm">FREE</span>
               </div>
+
+              {/* Description (if present) */}
+              {(item as any).description && (
+                <p className="text-xs text-gray-400 mb-3 leading-relaxed">{(item as any).description}</p>
+              )}
+
+              {/* Try First (HTML ordinals) */}
+              {(item as any).isHtml && (
+                <a
+                  href={`https://ordinals.com/content/${item.inscriptionId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2.5 mb-3 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/20"
+                >
+                  🚀 Try First
+                </a>
+              )}
 
               {/* Fee Rate Selector */}
               <div className="mb-3">
