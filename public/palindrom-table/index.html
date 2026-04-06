@@ -103,6 +103,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <canvas id="cv"></canvas>
   <div id="bar">
     <button class="cb" id="bp" onclick="togglePlay()">&#9654; Play</button>
+    <button class="cb" id="bst" onclick="stopAll()">&#9632; Stop</button>
     <button class="cb" id="bb" onclick="cycleBPM()">&#9833; 110</button>
     <button class="cb" id="bk" onclick="nextKey()">C min</button>
     <button class="cb" id="bsw" onclick="nextSwing()">Sw 0%</button>
@@ -156,6 +157,9 @@ const VOICE_MAPS = [
   { name: 'Melodisch', keys: ['bass','lead','arp','pad','bell','acid','kick','snare','hihat','clap'] },
   { name: 'Ambient',   keys: ['pad','bell','bass','lead','arp','bell','pad','hihat','kick','snare'] },
   { name: 'Techno',    keys: ['kick','hihat','clap','acid','bass','kick','snare','arp','lead','hihat'] },
+  { name: 'Percussion',keys: ['kick','snare','hihat','clap','kick','snare','hihat','clap','kick','snare'] },
+  { name: 'Synthwave', keys: ['pad','lead','arp','bass','bell','pad','lead','arp','acid','kick'] },
+  { name: 'Dub',       keys: ['kick','snare','bass','pad','bass','pad','hihat','bell','acid','clap'] },
 ];
 let curVoiceMap = 0;
 function buildDigitDefs() {
@@ -691,6 +695,19 @@ function switchVoiceMap(idx) {
   document.querySelectorAll('.vm-btn').forEach(function(b, i) {
     b.classList.toggle('on', i === idx);
   });
+  var palStr = document.getElementById('palindromeInput').value.replace(/\D/g, '');
+  if (palStr && isPalindrome(palStr)) {
+    initAudio(); clearAll();
+    placePalindromeOnDisk(palStr);
+    if (!playing) togglePlay();
+  }
+}
+
+function stopAll() {
+  if (playing) { playing = false; document.getElementById('bp').innerHTML = '&#9654; Play'; }
+  clearAll();
+  sweepAngle = -Math.PI / 2; currentBeat = -1;
+  if (G) { G.clearRect(0, 0, W, H); drawDisk(); }
 }
 
 function togglePlay() {
