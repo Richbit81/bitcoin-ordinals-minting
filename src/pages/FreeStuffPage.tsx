@@ -33,6 +33,15 @@ const FREE_ITEMS = [
     description: 'A physics-based puzzle game where you sling a probe through space using gravitational fields. Aim for the target, but don\'t fly straight — curve your path around planets to score! Dodge red nebulae, collect pickups, use boosts for a burst of speed, and clear levels of increasing difficulty. Simple controls: drag to launch, click or tap mid-flight to boost. How far can you go?',
     isHtml: true,
   },
+  {
+    id: 'interference',
+    name: 'Interference',
+    inscriptionId: '22069842ee74a7983b2f0b13b7a2faabb3cd0bc2f07ab8ea922dbf1a7d1dac84i0',
+    priceInSats: 0,
+    priceInBTC: 0,
+    description: 'Interference whispers that reality shifts the moment you touch it—as if waves know when they are being seen. And when you look, the world decides again: not what is, but what is allowed to be.',
+    isHtml: true,
+  },
 ];
 
 const COLLECTION_NAME = 'Free Stuff';
