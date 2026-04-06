@@ -56,6 +56,8 @@ class AudioSystem {
         
         // Aktive Oszillatoren (für Cleanup)
         this.activeOscillators = [];
+        this._periodicWaves = {};
+        this.warmthNode = null;
         
         // Einstellungen (alle 0-100, sichere Bereiche)
         this.instrument = 'piano';
@@ -150,7 +152,13 @@ class AudioSystem {
             this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
             this.masterGain.connect(this.analyser);
             
-            // --- STUFE 5: EQ-Kette → masterGain ---
+            // --- Warmth: subtle always-on saturation for analog character ---
+            this.warmthNode = this.audioContext.createWaveShaper();
+            this.warmthNode.curve = this._makeWarmthCurve();
+            this.warmthNode.oversample = '2x';
+            this.warmthNode.connect(this.masterGain);
+            
+            // --- STUFE 5: EQ-Kette → warmthNode → masterGain ---
             this.eqLowFilter = this.audioContext.createBiquadFilter();
             this.eqLowFilter.type = 'lowshelf';
             this.eqLowFilter.frequency.value = 200;
@@ -169,7 +177,7 @@ class AudioSystem {
             
             this.eqLowFilter.connect(this.eqMidFilter);
             this.eqMidFilter.connect(this.eqHighFilter);
-            this.eqHighFilter.connect(this.masterGain);
+            this.eqHighFilter.connect(this.warmthNode);
             
             // --- STUFE 6: Main Bus (Sammelpunkt: Dry + alle Effekt-Returns) ---
             // Alles geht durch die EQ-Kette
@@ -290,11 +298,85 @@ class AudioSystem {
             this.beatGain.gain.value = this.beatVolume;
             this.beatGain.connect(this.masterGain);
             
-            console.log('Audio system initialized (with limiter + fixed signal chain)');
+            this._initPeriodicWaves();
+            console.log('Audio system initialized (with warmth + stereo + periodic waves)');
         } catch (error) {
             console.error('Error initializing audio system:', error);
             throw error;
         }
+    }
+
+    // ================================================================
+    // PERIODIC WAVES (richer timbres than standard oscillator types)
+    // ================================================================
+
+    _initPeriodicWaves() {
+        // Warm Sine: fundamental with subtle even harmonics for body
+        const wSineR = new Float32Array(12);
+        const wSineI = new Float32Array(12);
+        wSineI[1] = 1.0; wSineI[2] = 0.06; wSineI[3] = 0.025;
+        wSineI[4] = 0.015; wSineI[5] = 0.008; wSineI[6] = 0.004;
+        this._periodicWaves.warmSine = this.audioContext.createPeriodicWave(wSineR, wSineI);
+
+        // Rich Saw: sawtooth-like with natural rolloff and formant emphasis around harmonics 3-6
+        const rSawR = new Float32Array(40);
+        const rSawI = new Float32Array(40);
+        for (let k = 1; k < 40; k++) {
+            rSawI[k] = (k % 2 === 0 ? 1 : -1) * (1.0 / k) * Math.exp(-k * 0.035);
+            if (k >= 3 && k <= 6) rSawI[k] *= 1.25;
+        }
+        this._periodicWaves.richSaw = this.audioContext.createPeriodicWave(rSawR, rSawI);
+
+        // Soft Square: odd harmonics only with gentle high-end rolloff
+        const sSqR = new Float32Array(28);
+        const sSqI = new Float32Array(28);
+        for (let k = 1; k < 28; k += 2) {
+            sSqI[k] = (1.0 / k) * Math.exp(-k * 0.025);
+        }
+        this._periodicWaves.softSquare = this.audioContext.createPeriodicWave(sSqR, sSqI);
+
+        // Warm Triangle: triangle base with slight upper harmonic color
+        const wTriR = new Float32Array(20);
+        const wTriI = new Float32Array(20);
+        for (let k = 1; k < 20; k += 2) {
+            const sign = ((k - 1) / 2) % 2 === 0 ? 1 : -1;
+            wTriI[k] = sign * (1.0 / (k * k));
+            if (k <= 5) wTriI[k] *= 1.15;
+        }
+        wTriI[2] = 0.04; wTriI[4] = 0.02;
+        this._periodicWaves.warmTriangle = this.audioContext.createPeriodicWave(wTriR, wTriI);
+
+        // Organ: classic drawbar-style with specific harmonic emphasis
+        const orgR = new Float32Array(18);
+        const orgI = new Float32Array(18);
+        orgI[1] = 1.0; orgI[2] = 0.75; orgI[3] = 0.55; orgI[4] = 0.4;
+        orgI[5] = 0.3; orgI[6] = 0.22; orgI[8] = 0.18; orgI[10] = 0.08;
+        orgI[12] = 0.05; orgI[16] = 0.03;
+        this._periodicWaves.organWave = this.audioContext.createPeriodicWave(orgR, orgI);
+
+        // Bell: emphasis on odd partials with slow decay weighting
+        const bellR = new Float32Array(18);
+        const bellI = new Float32Array(18);
+        bellI[1] = 1.0; bellI[2] = 0.15; bellI[3] = 0.55;
+        bellI[5] = 0.35; bellI[7] = 0.2; bellI[9] = 0.12;
+        bellI[11] = 0.08; bellI[13] = 0.05; bellI[15] = 0.03;
+        this._periodicWaves.bellWave = this.audioContext.createPeriodicWave(bellR, bellI);
+    }
+
+    // ================================================================
+    // WARMTH CURVE (subtle analog saturation, always active)
+    // ================================================================
+
+    _makeWarmthCurve() {
+        const samples = 8192;
+        const curve = new Float32Array(samples);
+        const drive = 1.15;
+        const normFactor = Math.tanh(drive);
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            curve[i] = Math.tanh(x * drive) / normFactor;
+        }
+        return curve;
     }
 
     // ================================================================
@@ -303,40 +385,74 @@ class AudioSystem {
     
     _createReverbImpulse() {
         const sr = this.audioContext.sampleRate;
-        const length = sr * 2.5;
+        const length = sr * 3.0;
         const impulse = this.audioContext.createBuffer(2, length, sr);
         
         for (let channel = 0; channel < 2; channel++) {
             const data = impulse.getChannelData(channel);
             
-            // Early reflections (first 80ms) - gives space and depth
-            const earlyEnd = Math.floor(sr * 0.08);
+            // Pre-delay: 15ms silence for clarity
+            const preDelay = Math.floor(sr * 0.015);
+            
+            // Early reflections (15-100ms) modeled after medium concert hall
+            const earlyEnd = Math.floor(sr * 0.1);
             const reflections = [
-                { time: 0.012, gain: 0.6 }, { time: 0.019, gain: 0.45 },
-                { time: 0.028, gain: 0.35 }, { time: 0.037, gain: 0.28 },
-                { time: 0.048, gain: 0.2 },  { time: 0.062, gain: 0.15 },
-                { time: 0.074, gain: 0.1 }
+                { time: 0.008, gain: 0.72 }, { time: 0.013, gain: 0.58 },
+                { time: 0.017, gain: 0.52 }, { time: 0.022, gain: 0.45 },
+                { time: 0.028, gain: 0.40 }, { time: 0.033, gain: 0.35 },
+                { time: 0.039, gain: 0.30 }, { time: 0.044, gain: 0.26 },
+                { time: 0.050, gain: 0.22 }, { time: 0.057, gain: 0.19 },
+                { time: 0.063, gain: 0.16 }, { time: 0.069, gain: 0.13 },
+                { time: 0.076, gain: 0.11 }, { time: 0.083, gain: 0.09 },
+                { time: 0.091, gain: 0.07 },
             ];
             for (const ref of reflections) {
-                const idx = Math.floor(ref.time * sr);
-                const spread = 4;
+                // Stereo offset per channel for width
+                const chOffset = channel * Math.floor(Math.random() * 8 + 2);
+                const idx = Math.floor((ref.time + 0.015) * sr) + chOffset;
+                const spread = 6;
                 for (let j = -spread; j <= spread; j++) {
-                    const k = idx + j + (channel * 3);
-                    if (k >= 0 && k < earlyEnd) {
+                    const k = idx + j;
+                    if (k >= preDelay && k < earlyEnd) {
                         data[k] += ref.gain * (1 - Math.abs(j) / (spread + 1))
-                            * (0.8 + Math.random() * 0.4);
+                            * (0.85 + Math.random() * 0.3);
                     }
                 }
             }
             
-            // Late diffuse tail with frequency-dependent decay
-            for (let i = earlyEnd; i < length; i++) {
+            // Transition zone (100-200ms): crossfade from discrete to diffuse
+            const transEnd = Math.floor(sr * 0.2);
+            for (let i = earlyEnd; i < transEnd; i++) {
+                const t = (i - earlyEnd) / (transEnd - earlyEnd);
+                const density = 0.5 + t * 0.5;
+                const decay = Math.exp(-2.5 * t) * 0.25;
+                data[i] += (Math.random() * 2 - 1) * decay * density;
+            }
+            
+            // Late diffuse tail with 3-band frequency-dependent decay
+            for (let i = transEnd; i < length; i++) {
                 const t = i / length;
-                const decay = Math.exp(-3.5 * t) * (1 - t);
-                const hfDamping = Math.exp(-6 * t);
-                const lf = (Math.random() * 2 - 1) * decay;
-                const hf = (Math.random() * 2 - 1) * decay * hfDamping * 0.6;
-                data[i] = lf * 0.7 + hf * 0.3;
+                // Low: slow decay (~2.8s RT60)
+                const lfDecay = Math.exp(-2.2 * t);
+                // Mid: medium decay (~2.0s RT60)
+                const mfDecay = Math.exp(-3.2 * t);
+                // High: fast decay (~0.8s RT60) simulating air absorption
+                const hfDecay = Math.exp(-7.5 * t);
+                
+                const lf = (Math.random() * 2 - 1) * lfDecay * 0.45;
+                const mf = (Math.random() * 2 - 1) * mfDecay * 0.35;
+                const hf = (Math.random() * 2 - 1) * hfDecay * 0.2;
+                
+                // Density builds up over first 30% of tail
+                const densityEnv = 1 - Math.exp(-10 * t);
+                data[i] = (lf + mf + hf) * densityEnv * (1 - t * 0.25);
+            }
+            
+            // Diffusion passes: smooth the tail for less grainy texture
+            for (let pass = 0; pass < 3; pass++) {
+                for (let i = transEnd + 1; i < length - 1; i++) {
+                    data[i] = data[i - 1] * 0.25 + data[i] * 0.5 + data[i + 1] * 0.25;
+                }
             }
         }
         
@@ -429,90 +545,99 @@ class AudioSystem {
     }
 
     _createTone(frequency, duration, now, beatSync) {
+        const pw = this._periodicWaves;
         const configs = {
             piano: {
                 oscs: [
-                    { type: 'sine', gain: 0.13, detune: 0, cents: -4 },
-                    { type: 'sine', gain: 0.13, detune: 0, cents: 4 },
-                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
-                    { type: 'sine', gain: 0.02, freqRatio: 3.0 },
-                    { type: 'sine', gain: 0.01, freqRatio: 4.0 },
+                    { wave: 'warmSine', gain: 0.13, cents: -4, pan: -0.25 },
+                    { wave: 'warmSine', gain: 0.13, cents: 4, pan: 0.25 },
+                    { wave: 'warmSine', gain: 0.04, freqRatio: 2.0, pan: -0.12 },
+                    { wave: 'warmSine', gain: 0.02, freqRatio: 3.0, pan: 0.12 },
+                    { wave: 'warmSine', gain: 0.01, freqRatio: 4.0, pan: 0 },
                 ],
                 attack: 0.005, decay: 0.25, sustainLevel: 0.25, release: 0.3,
+                useExpAttack: false,
                 filterEnv: { start: 5000, end: 1200, time: 0.4 },
                 noise: { level: 0.06, duration: 0.015, filter: 4000 }
             },
             strings: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.07, cents: -12 },
-                    { type: 'sawtooth', gain: 0.07, cents: 12 },
-                    { type: 'sawtooth', gain: 0.05, cents: -7, detune: -12 },
-                    { type: 'sawtooth', gain: 0.05, cents: 7, detune: -12 },
-                    { type: 'sawtooth', gain: 0.03, cents: 3 },
+                    { wave: 'richSaw', gain: 0.07, cents: -12, pan: -0.35 },
+                    { wave: 'richSaw', gain: 0.07, cents: 12, pan: 0.35 },
+                    { wave: 'richSaw', gain: 0.05, cents: -7, detune: -12, pan: -0.15 },
+                    { wave: 'richSaw', gain: 0.05, cents: 7, detune: -12, pan: 0.15 },
+                    { wave: 'richSaw', gain: 0.03, cents: 3, pan: 0 },
                 ],
                 attack: 0.18, decay: 0.3, sustainLevel: 0.6, release: 0.4,
+                useExpAttack: true,
                 filterEnv: { start: 2500, end: 3500, time: 0.6 }
             },
             brass: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.11, cents: -6 },
-                    { type: 'sawtooth', gain: 0.11, cents: 6 },
-                    { type: 'square', gain: 0.04, cents: 0 }
+                    { wave: 'richSaw', gain: 0.11, cents: -6, pan: -0.2 },
+                    { wave: 'richSaw', gain: 0.11, cents: 6, pan: 0.2 },
+                    { wave: 'softSquare', gain: 0.04, cents: 0, pan: 0 }
                 ],
                 attack: 0.06, decay: 0.15, sustainLevel: 0.5, release: 0.12,
+                useExpAttack: false,
                 filterEnv: { start: 600, end: 3000, time: 0.12 },
                 noise: { level: 0.03, duration: 0.04, filter: 2000 }
             },
             flute: {
                 oscs: [
-                    { type: 'sine', gain: 0.16, cents: 0 },
-                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
-                    { type: 'triangle', gain: 0.03, cents: 3 }
+                    { wave: 'warmSine', gain: 0.16, cents: 0, pan: 0 },
+                    { wave: 'warmSine', gain: 0.04, freqRatio: 2.0, pan: -0.15 },
+                    { wave: 'warmTriangle', gain: 0.03, cents: 3, pan: 0.15 }
                 ],
                 attack: 0.12, decay: 0.1, sustainLevel: 0.6, release: 0.25,
+                useExpAttack: true,
                 filterEnv: { start: 3000, end: 2000, time: 0.3 },
                 noise: { level: 0.04, duration: 0.08, filter: 3000, sustained: true }
             },
             organ: {
                 oscs: [
-                    { type: 'sine', gain: 0.09, freqRatio: 0.5 },
-                    { type: 'sine', gain: 0.10, freqRatio: 1.0 },
-                    { type: 'sine', gain: 0.06, freqRatio: 2.0 },
-                    { type: 'sine', gain: 0.04, freqRatio: 3.0 },
-                    { type: 'sine', gain: 0.02, freqRatio: 4.0 },
-                    { type: 'sine', gain: 0.015, freqRatio: 6.0 }
+                    { wave: 'organWave', gain: 0.09, freqRatio: 0.5, pan: -0.2 },
+                    { wave: 'organWave', gain: 0.10, freqRatio: 1.0, pan: 0 },
+                    { wave: 'organWave', gain: 0.06, freqRatio: 2.0, pan: 0.15 },
+                    { wave: 'organWave', gain: 0.04, freqRatio: 3.0, pan: -0.1 },
+                    { wave: 'organWave', gain: 0.02, freqRatio: 4.0, pan: 0.1 },
+                    { wave: 'organWave', gain: 0.015, freqRatio: 6.0, pan: -0.05 }
                 ],
-                attack: 0.008, decay: 0.03, sustainLevel: 0.8, release: 0.06
+                attack: 0.008, decay: 0.03, sustainLevel: 0.8, release: 0.06,
+                useExpAttack: false
             },
             bell: {
                 oscs: [
-                    { type: 'sine', gain: 0.10, freqRatio: 1.0 },
-                    { type: 'sine', gain: 0.07, freqRatio: 2.76 },
-                    { type: 'sine', gain: 0.05, freqRatio: 5.04 },
-                    { type: 'sine', gain: 0.03, freqRatio: 7.28 },
-                    { type: 'sine', gain: 0.02, freqRatio: 10.56 }
+                    { wave: 'bellWave', gain: 0.10, freqRatio: 1.0, pan: 0 },
+                    { wave: 'warmSine', gain: 0.07, freqRatio: 2.76, pan: -0.3 },
+                    { wave: 'warmSine', gain: 0.05, freqRatio: 5.04, pan: 0.3 },
+                    { wave: 'warmSine', gain: 0.03, freqRatio: 7.28, pan: -0.2 },
+                    { wave: 'warmSine', gain: 0.02, freqRatio: 10.56, pan: 0.2 }
                 ],
                 attack: 0.001, decay: 0.6, sustainLevel: 0.05, release: 0.5,
+                useExpAttack: false,
                 filterEnv: { start: 8000, end: 1500, time: 0.8 }
             },
             synth: {
                 oscs: [
-                    { type: 'sawtooth', gain: 0.09, cents: -10 },
-                    { type: 'sawtooth', gain: 0.09, cents: 10 },
-                    { type: 'square', gain: 0.05, cents: -15, detune: -12 },
-                    { type: 'square', gain: 0.05, cents: 15 }
+                    { wave: 'richSaw', gain: 0.09, cents: -10, pan: -0.3 },
+                    { wave: 'richSaw', gain: 0.09, cents: 10, pan: 0.3 },
+                    { wave: 'softSquare', gain: 0.05, cents: -15, detune: -12, pan: -0.15 },
+                    { wave: 'softSquare', gain: 0.05, cents: 15, pan: 0.15 }
                 ],
                 attack: 0.01, decay: 0.15, sustainLevel: 0.45, release: 0.15,
+                useExpAttack: false,
                 filterEnv: { start: 6000, end: 1800, time: 0.25 }
             },
             guitar: {
                 oscs: [
-                    { type: 'triangle', gain: 0.12, cents: -3 },
-                    { type: 'triangle', gain: 0.12, cents: 3 },
-                    { type: 'sine', gain: 0.04, freqRatio: 2.0 },
-                    { type: 'sine', gain: 0.02, freqRatio: 3.0 }
+                    { wave: 'warmTriangle', gain: 0.12, cents: -3, pan: -0.2 },
+                    { wave: 'warmTriangle', gain: 0.12, cents: 3, pan: 0.2 },
+                    { wave: 'warmSine', gain: 0.04, freqRatio: 2.0, pan: -0.1 },
+                    { wave: 'warmSine', gain: 0.02, freqRatio: 3.0, pan: 0.1 }
                 ],
                 attack: 0.002, decay: 0.3, sustainLevel: 0.2, release: 0.25,
+                useExpAttack: false,
                 filterEnv: { start: 5000, end: 900, time: 0.35 },
                 noise: { level: 0.08, duration: 0.01, filter: 6000 }
             }
@@ -523,7 +648,9 @@ class AudioSystem {
         const sustainFactor = this.sustain / 100;
         const smoothFactor = this.smoothness / 100;
         
-        const attack = config.attack * (1 + smoothFactor * 1.5);
+        // Randomized micro-timing for natural feel (±1.5ms)
+        const microTiming = (Math.random() - 0.5) * 0.003;
+        const attack = config.attack * (1 + smoothFactor * 1.5) + Math.abs(microTiming);
         const decay = config.decay;
         const sustainLevel = config.sustainLevel * (0.3 + sustainFactor * 0.7);
         const release = config.release * (1 + smoothFactor * 2);
@@ -550,32 +677,47 @@ class AudioSystem {
             const safeAttack = Math.min(attack, totalDuration * 0.2);
             const holdEnd = now + duration - 0.005;
             envGain.gain.setValueAtTime(0.001, now);
-            envGain.gain.linearRampToValueAtTime(1.0, now + safeAttack);
-            envGain.gain.linearRampToValueAtTime(sustainLevel, now + safeAttack + decay);
+            if (config.useExpAttack) {
+                envGain.gain.exponentialRampToValueAtTime(1.0, now + safeAttack);
+            } else {
+                envGain.gain.linearRampToValueAtTime(1.0, now + safeAttack);
+            }
+            envGain.gain.exponentialRampToValueAtTime(
+                Math.max(sustainLevel, 0.003), now + safeAttack + decay
+            );
             if (duration > safeAttack + decay + 0.02) {
                 envGain.gain.setValueAtTime(sustainLevel, holdEnd);
             }
             envGain.gain.exponentialRampToValueAtTime(0.003, now + totalDuration);
         }
         
-        // Per-note filter envelope for natural timbral movement
+        // Per-note filter envelope with velocity-dependent brightness
         let noteFilter = null;
         if (config.filterEnv) {
             noteFilter = this.audioContext.createBiquadFilter();
             noteFilter.type = 'lowpass';
             noteFilter.Q.value = 1.2;
             const fe = config.filterEnv;
-            noteFilter.frequency.setValueAtTime(fe.start, now);
+            // Brighter at higher volume (velocity-dependent filter)
+            const velBrightness = 0.7 + this.volume * 0.6;
+            const envStart = Math.min(fe.start * velBrightness, 18000);
+            noteFilter.frequency.setValueAtTime(envStart, now);
             noteFilter.frequency.exponentialRampToValueAtTime(
                 Math.max(fe.end, 20), now + fe.time
             );
         }
         
-        // Build oscillators
+        // Build oscillators with stereo spread and periodic waves
         const oscillators = [];
         for (const oc of config.oscs) {
             const osc = this.audioContext.createOscillator();
-            osc.type = oc.type;
+            
+            // Use PeriodicWave for richer timbre, fall back to standard type
+            if (oc.wave && pw[oc.wave]) {
+                osc.setPeriodicWave(pw[oc.wave]);
+            } else {
+                osc.type = oc.type || 'sine';
+            }
             
             let freq = frequency;
             if (oc.freqRatio !== undefined) {
@@ -585,16 +727,23 @@ class AudioSystem {
             }
             osc.frequency.value = freq;
             
-            if (oc.cents) osc.detune.value = oc.cents;
+            // Micro-random detune (±2 cents) for natural imperfection
+            const microDetune = (Math.random() - 0.5) * 4;
+            osc.detune.value = (oc.cents || 0) + microDetune;
             
             const oscGain = this.audioContext.createGain();
             oscGain.gain.value = oc.gain;
             
+            // Stereo panning per oscillator
+            const panner = this.audioContext.createStereoPanner();
+            panner.pan.value = oc.pan || 0;
+            
             osc.connect(oscGain);
+            oscGain.connect(panner);
             if (noteFilter) {
-                oscGain.connect(noteFilter);
+                panner.connect(noteFilter);
             } else {
-                oscGain.connect(envGain);
+                panner.connect(envGain);
             }
             
             this.vibratoLFOGain.connect(osc.detune);
@@ -624,6 +773,8 @@ class AudioSystem {
             nf.type = 'bandpass';
             nf.frequency.value = config.noise.filter;
             nf.Q.value = 0.8;
+            const noisePan = this.audioContext.createStereoPanner();
+            noisePan.pan.value = (Math.random() - 0.5) * 0.3;
             const ng = this.audioContext.createGain();
             
             if (config.noise.sustained) {
@@ -638,7 +789,8 @@ class AudioSystem {
             
             noiseSrc.connect(nf);
             nf.connect(ng);
-            ng.connect(envGain);
+            ng.connect(noisePan);
+            noisePan.connect(envGain);
             noiseSrc.start(now);
             noiseSrc.stop(now + noiseDur + 0.01);
         }
@@ -659,69 +811,97 @@ class AudioSystem {
     // ================================================================
 
     playKick(time) {
-        // Sub body oscillator
+        // Sub body: deep sine sweep for weight
         const sub = this.audioContext.createOscillator();
         sub.type = 'sine';
-        sub.frequency.setValueAtTime(150, time);
-        sub.frequency.exponentialRampToValueAtTime(35, time + 0.08);
-        sub.frequency.exponentialRampToValueAtTime(28, time + 0.2);
+        sub.frequency.setValueAtTime(160, time);
+        sub.frequency.exponentialRampToValueAtTime(42, time + 0.06);
+        sub.frequency.exponentialRampToValueAtTime(30, time + 0.25);
         const subGain = this.audioContext.createGain();
-        subGain.gain.setValueAtTime(0.5, time);
-        subGain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+        subGain.gain.setValueAtTime(0.55, time);
+        subGain.gain.setValueAtTime(0.45, time + 0.04);
+        subGain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
         sub.connect(subGain);
         subGain.connect(this.beatGain);
         sub.start(time);
-        sub.stop(time + 0.35);
+        sub.stop(time + 0.45);
         
-        // Click transient
+        // Mid-punch: 80-120Hz body for presence
+        const punch = this.audioContext.createOscillator();
+        punch.type = 'sine';
+        punch.frequency.setValueAtTime(120, time);
+        punch.frequency.exponentialRampToValueAtTime(65, time + 0.04);
+        const punchGain = this.audioContext.createGain();
+        punchGain.gain.setValueAtTime(0.35, time);
+        punchGain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+        punch.connect(punchGain);
+        punchGain.connect(this.beatGain);
+        punch.start(time);
+        punch.stop(time + 0.15);
+        
+        // Click transient: sharper attack
         const click = this.audioContext.createOscillator();
         click.type = 'triangle';
-        click.frequency.setValueAtTime(800, time);
-        click.frequency.exponentialRampToValueAtTime(200, time + 0.02);
+        click.frequency.setValueAtTime(1200, time);
+        click.frequency.exponentialRampToValueAtTime(250, time + 0.015);
         const clickGain = this.audioContext.createGain();
-        clickGain.gain.setValueAtTime(0.25, time);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+        clickGain.gain.setValueAtTime(0.22, time);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
         click.connect(clickGain);
         clickGain.connect(this.beatGain);
         click.start(time);
-        click.stop(time + 0.05);
+        click.stop(time + 0.04);
         
-        // Punch noise burst
-        const punchBuf = this.audioContext.createBuffer(
-            1, Math.floor(this.audioContext.sampleRate * 0.02), this.audioContext.sampleRate);
-        const pd = punchBuf.getChannelData(0);
-        for (let i = 0; i < pd.length; i++) pd[i] = Math.random() * 2 - 1;
-        const punchSrc = this.audioContext.createBufferSource();
-        punchSrc.buffer = punchBuf;
-        const punchFilt = this.audioContext.createBiquadFilter();
-        punchFilt.type = 'lowpass';
-        punchFilt.frequency.value = 600;
-        const punchGain = this.audioContext.createGain();
-        punchGain.gain.setValueAtTime(0.12, time);
-        punchGain.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
-        punchSrc.connect(punchFilt);
-        punchFilt.connect(punchGain);
-        punchGain.connect(this.beatGain);
-        punchSrc.start(time);
-        punchSrc.stop(time + 0.03);
+        // Noise burst filtered low for thud
+        const nBuf = this.audioContext.createBuffer(
+            1, Math.floor(this.audioContext.sampleRate * 0.03), this.audioContext.sampleRate);
+        const nd = nBuf.getChannelData(0);
+        for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+        const nSrc = this.audioContext.createBufferSource();
+        nSrc.buffer = nBuf;
+        const nFilt = this.audioContext.createBiquadFilter();
+        nFilt.type = 'lowpass';
+        nFilt.frequency.setValueAtTime(800, time);
+        nFilt.frequency.exponentialRampToValueAtTime(200, time + 0.02);
+        const nGain = this.audioContext.createGain();
+        nGain.gain.setValueAtTime(0.15, time);
+        nGain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+        nSrc.connect(nFilt);
+        nFilt.connect(nGain);
+        nGain.connect(this.beatGain);
+        nSrc.start(time);
+        nSrc.stop(time + 0.04);
     }
 
     playSnare(time) {
-        // Tonal body
-        const body = this.audioContext.createOscillator();
-        body.type = 'triangle';
-        body.frequency.setValueAtTime(220, time);
-        body.frequency.exponentialRampToValueAtTime(120, time + 0.05);
-        const bodyGain = this.audioContext.createGain();
-        bodyGain.gain.setValueAtTime(0.28, time);
-        bodyGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-        body.connect(bodyGain);
-        bodyGain.connect(this.beatGain);
-        body.start(time);
-        body.stop(time + 0.12);
+        // Body oscillator 1: main tone
+        const body1 = this.audioContext.createOscillator();
+        body1.type = 'triangle';
+        body1.frequency.setValueAtTime(240, time);
+        body1.frequency.exponentialRampToValueAtTime(130, time + 0.04);
+        const body1Gain = this.audioContext.createGain();
+        body1Gain.gain.setValueAtTime(0.25, time);
+        body1Gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+        body1.connect(body1Gain);
+        body1Gain.connect(this.beatGain);
+        body1.start(time);
+        body1.stop(time + 0.12);
         
-        // Wire/snare noise
-        const bufSize = Math.floor(this.audioContext.sampleRate * 0.18);
+        // Body oscillator 2: resonance/overtone for fullness
+        const body2 = this.audioContext.createOscillator();
+        body2.type = 'sine';
+        body2.frequency.setValueAtTime(180, time);
+        body2.frequency.exponentialRampToValueAtTime(100, time + 0.05);
+        const body2Gain = this.audioContext.createGain();
+        body2Gain.gain.setValueAtTime(0.15, time);
+        body2Gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+        body2.connect(body2Gain);
+        body2Gain.connect(this.beatGain);
+        body2.start(time);
+        body2.stop(time + 0.1);
+        
+        // Snare wire noise: shaped with two filter stages
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.22);
         const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
         const d = buf.getChannelData(0);
         for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
@@ -729,42 +909,69 @@ class AudioSystem {
         noise.buffer = buf;
         const hp = this.audioContext.createBiquadFilter();
         hp.type = 'highpass';
-        hp.frequency.value = 2000;
+        hp.frequency.value = 1800;
         const bp = this.audioContext.createBiquadFilter();
         bp.type = 'peaking';
-        bp.frequency.value = 4500;
-        bp.gain.value = 6;
-        bp.Q.value = 1.5;
+        bp.frequency.value = 4200;
+        bp.gain.value = 5;
+        bp.Q.value = 1.2;
+        const shimmer = this.audioContext.createBiquadFilter();
+        shimmer.type = 'peaking';
+        shimmer.frequency.value = 7500;
+        shimmer.gain.value = 3;
+        shimmer.Q.value = 2;
         const noiseGain = this.audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.25, time);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.17);
+        noiseGain.gain.setValueAtTime(0.28, time);
+        noiseGain.gain.setValueAtTime(0.22, time + 0.02);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
         noise.connect(hp);
         hp.connect(bp);
-        bp.connect(noiseGain);
+        bp.connect(shimmer);
+        shimmer.connect(noiseGain);
         noiseGain.connect(this.beatGain);
         noise.start(time);
-        noise.stop(time + 0.18);
+        noise.stop(time + 0.22);
+        
+        // Bright transient click
+        const transient = this.audioContext.createOscillator();
+        transient.type = 'square';
+        transient.frequency.setValueAtTime(600, time);
+        const transGain = this.audioContext.createGain();
+        transGain.gain.setValueAtTime(0.08, time);
+        transGain.gain.exponentialRampToValueAtTime(0.001, time + 0.008);
+        transient.connect(transGain);
+        transGain.connect(this.beatGain);
+        transient.start(time);
+        transient.stop(time + 0.015);
     }
 
     playHiHat(time) {
-        // Metallic oscillators (square waves at inharmonic ratios)
-        const ratios = [1, 1.34, 1.61, 1.88];
-        const baseFreq = 6200;
+        // Metallic oscillators: more partials for richer metallic tone
+        const ratios = [1, 1.34, 1.61, 1.88, 2.14, 2.55];
+        const baseFreq = 5800;
+        const metalBus = this.audioContext.createGain();
+        metalBus.gain.value = 1.0;
+        const metalHP = this.audioContext.createBiquadFilter();
+        metalHP.type = 'highpass';
+        metalHP.frequency.value = 6000;
+        metalBus.connect(metalHP);
+        metalHP.connect(this.beatGain);
+        
         for (const ratio of ratios) {
             const osc = this.audioContext.createOscillator();
             osc.type = 'square';
             osc.frequency.value = baseFreq * ratio;
             const g = this.audioContext.createGain();
-            g.gain.setValueAtTime(0.03, time);
-            g.gain.exponentialRampToValueAtTime(0.001, time + 0.045);
+            g.gain.setValueAtTime(0.025, time);
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
             osc.connect(g);
-            g.connect(this.beatGain);
+            g.connect(metalBus);
             osc.start(time);
-            osc.stop(time + 0.06);
+            osc.stop(time + 0.065);
         }
         
-        // Noise layer
-        const bufSize = Math.floor(this.audioContext.sampleRate * 0.05);
+        // Shaped noise layer with band emphasis
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.06);
         const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
         const d = buf.getChannelData(0);
         for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
@@ -772,15 +979,21 @@ class AudioSystem {
         noise.buffer = buf;
         const hp = this.audioContext.createBiquadFilter();
         hp.type = 'highpass';
-        hp.frequency.value = 9000;
+        hp.frequency.value = 8500;
+        const peak = this.audioContext.createBiquadFilter();
+        peak.type = 'peaking';
+        peak.frequency.value = 10500;
+        peak.gain.value = 4;
+        peak.Q.value = 1.5;
         const ng = this.audioContext.createGain();
-        ng.gain.setValueAtTime(0.14, time);
-        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        ng.gain.setValueAtTime(0.16, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.045);
         noise.connect(hp);
-        hp.connect(ng);
+        hp.connect(peak);
+        peak.connect(ng);
         ng.connect(this.beatGain);
         noise.start(time);
-        noise.stop(time + 0.06);
+        noise.stop(time + 0.065);
     }
 
     startBeats() {
