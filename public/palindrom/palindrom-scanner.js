@@ -258,85 +258,77 @@ class PalindromScanner {
     }
 
     async _buildUtxosFromTransactions(address) {
-        this.scanProgress.status = 'Address too large for UTXO API — rebuilding from transactions...';
+        this.scanProgress.status = 'Address too large — rebuilding UTXOs from transaction history...';
         this._updateProgress();
 
-        const TX_APIS = [
-            { name: 'mempool.space', base: MEMPOOL_API },
-            { name: 'blockstream.info', base: 'https://blockstream.info/api' }
+        const apis = [
+            { name: 'mempool.space', base: MEMPOOL_API, blocked: false, cooldownUntil: 0 },
+            { name: 'blockstream.info', base: 'https://blockstream.info/api', blocked: false, cooldownUntil: 0 }
         ];
 
-        let allTxs = [];
-        let usedApi = null;
+        const allTxs = [];
+        let lastTxid = null;
+        let page = 0;
+        let done = false;
 
-        for (const api of TX_APIS) {
-            allTxs = [];
-            let lastTxid = null;
-            let page = 0;
-            let consecutiveErrors = 0;
-            usedApi = api.name;
-
-            while (true) {
-                const url = lastTxid
-                    ? `${api.base}/address/${address}/txs/chain/${lastTxid}`
-                    : `${api.base}/address/${address}/txs`;
-
-                let success = false;
-                for (let attempt = 0; attempt < 3; attempt++) {
-                    try {
-                        const res = await fetch(url);
-                        if (res.status === 429) {
-                            console.log(`[Scanner] ${api.name} rate-limited, waiting...`);
-                            await new Promise(r => setTimeout(r, 2000 + attempt * 2000));
-                            continue;
-                        }
-                        if (!res.ok) { break; }
-                        const txs = await res.json();
-                        if (!txs || txs.length === 0) { success = true; break; }
-                        allTxs.push(...txs);
-                        lastTxid = txs[txs.length - 1].txid;
-                        page++;
-                        consecutiveErrors = 0;
-                        success = true;
-                        this.scanProgress.status = `Loading transactions via ${api.name}... (${allTxs.length} txs, page ${page})`;
-                        this._updateProgress();
-                        if (txs.length < 25) break;
-                        break;
-                    } catch (e) {
-                        console.log(`[Scanner] ${api.name} TX page ${page} attempt ${attempt + 1} failed:`, e.message);
-                        await new Promise(r => setTimeout(r, 1000 + attempt * 1500));
-                    }
-                }
-
-                if (!success) {
-                    consecutiveErrors++;
-                    if (consecutiveErrors >= 3) {
-                        console.log(`[Scanner] ${api.name} failed after ${consecutiveErrors} consecutive errors at page ${page}`);
-                        break;
-                    }
-                    await new Promise(r => setTimeout(r, 2000));
-                    continue;
-                }
-
-                const lastBatch = allTxs.length > 0 ? allTxs.length - (allTxs.length > 25 ? 25 : allTxs.length) : 0;
-                if (allTxs.length === lastBatch || (allTxs.length > lastBatch && allTxs.length - lastBatch < 25)) {
-                    break;
-                }
-
-                const delay = page % 10 === 0 ? 600 : 300;
-                await new Promise(r => setTimeout(r, delay));
+        while (!done) {
+            const now = Date.now();
+            const api = apis.find(a => !a.blocked && now >= a.cooldownUntil)
+                      || apis.find(a => !a.blocked);
+            if (!api) {
+                console.log('[Scanner] All TX APIs blocked, using partial data');
+                break;
             }
 
-            if (allTxs.length > 100) {
-                console.log(`[Scanner] ${api.name}: loaded ${allTxs.length} transactions successfully`);
-                break;
-            } else {
-                console.log(`[Scanner] ${api.name}: only ${allTxs.length} txs, trying next API...`);
+            if (now < api.cooldownUntil) {
+                const wait = api.cooldownUntil - now;
+                this.scanProgress.status = `Rate-limited, waiting ${Math.ceil(wait / 1000)}s... (${allTxs.length} txs loaded)`;
+                this._updateProgress();
+                await new Promise(r => setTimeout(r, wait));
+            }
+
+            const url = lastTxid
+                ? `${api.base}/address/${address}/txs/chain/${lastTxid}`
+                : `${api.base}/address/${address}/txs`;
+
+            let fetched = false;
+            for (let attempt = 0; attempt < 3 && !fetched; attempt++) {
+                try {
+                    const res = await fetch(url);
+                    if (res.status === 429) {
+                        const cooldown = 15000 + attempt * 10000;
+                        console.log(`[Scanner] ${api.name} rate-limited (429), cooldown ${cooldown / 1000}s`);
+                        api.cooldownUntil = Date.now() + cooldown;
+                        break;
+                    }
+                    if (!res.ok) {
+                        api.blocked = true;
+                        console.log(`[Scanner] ${api.name} returned ${res.status}, switching API`);
+                        break;
+                    }
+                    const txs = await res.json();
+                    if (!txs || txs.length === 0) { done = true; fetched = true; break; }
+                    allTxs.push(...txs);
+                    lastTxid = txs[txs.length - 1].txid;
+                    page++;
+                    fetched = true;
+                    this.scanProgress.status = `Loading TX history via ${api.name}... (${allTxs.length} txs, page ${page})`;
+                    this._updateProgress();
+                    if (txs.length < 25) { done = true; }
+                } catch (e) {
+                    console.log(`[Scanner] ${api.name} page ${page} attempt ${attempt + 1}:`, e.message);
+                    api.cooldownUntil = Date.now() + 8000 + attempt * 5000;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+
+            if (fetched) {
+                await new Promise(r => setTimeout(r, 800));
             }
         }
 
         if (allTxs.length === 0) return [];
-        console.log(`[Scanner] Loaded ${allTxs.length} transactions via ${usedApi} for UTXO reconstruction`);
+        console.log(`[Scanner] Loaded ${allTxs.length} transactions for UTXO reconstruction`);
 
         this.scanProgress.status = `Reconstructing UTXOs from ${allTxs.length} transactions...`;
         this._updateProgress();
@@ -370,9 +362,9 @@ class PalindromScanner {
             }
         }
 
-        this.scanProgress.status = `Rebuilt ${utxos.length} UTXOs from ${allTxs.length} txs (${usedApi})`;
+        this.scanProgress.status = `Rebuilt ${utxos.length} UTXOs from ${allTxs.length} txs`;
         this._updateProgress();
-        console.log(`[Scanner] UTXO rebuild: ${utxos.length} unspent from ${allTxs.length} txs, ${spent.size} spent outputs tracked`);
+        console.log(`[Scanner] UTXO rebuild: ${utxos.length} unspent from ${allTxs.length} txs, ${spent.size} spent tracked`);
         return utxos;
     }
 
