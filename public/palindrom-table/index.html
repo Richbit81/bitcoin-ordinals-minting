@@ -74,6 +74,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .pf-seq{font-family:monospace;letter-spacing:1px;color:var(--wh);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pf-rar{font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;white-space:nowrap}
 
+.cb.drift{background:#0c0c18;border-color:var(--vi);color:var(--vi)}
+.cb.drift.on{background:var(--vi);color:#fff;box-shadow:0 0 8px rgba(178,102,255,.4)}
+.drift-label{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:7px;color:var(--dm);white-space:nowrap;pointer-events:none;margin-bottom:2px;opacity:0;transition:opacity .15s}
+.cb.drift:hover .drift-label{opacity:1}
+.drift-info{font-size:8px;color:var(--vi);text-align:center;margin-top:4px;min-height:12px;transition:.2s}
+
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
 @media(max-width:900px){
@@ -135,6 +141,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="ana-bar" id="analysisBar"></div>
   </div>
 
+  <div class="section" id="driftSection" style="display:none">
+    <div class="section-title" style="color:var(--vi)">Drift aktiv</div>
+    <div class="drift-info" id="driftInfo"></div>
+  </div>
+
   <div class="section">
     <div class="section-title">Instrument-Layout</div>
     <div class="vm-btns" id="voiceMapBtns"></div>
@@ -162,6 +173,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button class="cb kill" id="kb" onclick="toggleKill('inner')">Bass</button>
     <button class="cb live" id="bfill" onmousedown="startFill()" onmouseup="stopFill()" onmouseleave="stopFill()" ontouchstart="startFill()" ontouchend="stopFill()">Fill</button>
     <button class="cb live" id="bdrop" onclick="doDrop()">Drop</button>
+    <span style="width:1px;height:16px;background:var(--bd);margin:0 2px"></span>
+    <button class="cb drift" id="dPar" onclick="toggleDrift('param')" style="position:relative" title="Param-Drift: Filter/Decay oszillieren">Par</button>
+    <button class="cb drift" id="dFx" onclick="toggleDrift('fx')" style="position:relative" title="FX-Morph: Effekte wandern zyklisch">FX</button>
+    <button class="cb drift" id="dVar" onclick="toggleDrift('var')" style="position:relative" title="Variation-Shift: Pattern wechseln">Var</button>
+    <button class="cb drift" id="dKey" onclick="toggleDrift('key')" style="position:relative" title="Key-Wander: Tonart im Quintenzirkel">Key</button>
   </div>
   <div id="help">
     <b>Wallet</b> = Deine Palindrom-SATs laden<br>
@@ -178,7 +194,7 @@ let playing = false, muted = false, bpm = 110, swing = 0;
 let sweepAngle = -Math.PI / 2, lastFrame = 0, gTime = 0;
 let modules = [], particles = [], ripples = [], shockwaves = [];
 let dragging = null, dragOff = { x: 0, y: 0 }, hovered = null;
-let killedZones = new Set(), filling = false, absoluteBeat = 0;
+let killedZones = new Set(), filling = false, absoluteBeat = 0, rotationCount = 0;
 let palindromeChain = [], activeChainIdx = 0, lastAnalysis = null;
 
 const STEPS = 16;
@@ -969,8 +985,8 @@ function stopAll() {
   if (playing) { playing = false; document.getElementById('bp').innerHTML = '&#9654; Play'; }
   clearAll();
   palindromeChain = []; activeChainIdx = 0;
-  sweepAngle = -Math.PI / 2; currentBeat = -1;
-  buildChainUI();
+  sweepAngle = -Math.PI / 2; currentBeat = -1; rotationCount = 0;
+  buildChainUI(); updateDriftUI();
   document.getElementById('chainHint').textContent = 'Mehrere Palindrome = mehrere Ringe';
   if (G) { G.clearRect(0, 0, W, H); drawDisk(); }
 }
@@ -1018,6 +1034,75 @@ function doDrop() {
   if (ac) { const t = ac.currentTime; masterGain.gain.setValueAtTime(0.1, t); masterGain.gain.linearRampToValueAtTime(0.5, t + 0.06); }
   shockwaves.push({ t: 0, x: cx, y: cy });
 }
+var drift = { param: false, fx: false, 'var': false, key: false };
+var CIRCLE_OF_FIFTHS = ['C min', 'G min', 'D min', 'A min', 'E min', 'B min', 'F# min', 'F min'];
+
+function toggleDrift(which) {
+  drift[which] = !drift[which];
+  var ids = { param: 'dPar', fx: 'dFx', 'var': 'dVar', key: 'dKey' };
+  document.getElementById(ids[which]).classList.toggle('on', drift[which]);
+  updateDriftUI();
+}
+
+function updateDriftUI() {
+  var active = [];
+  if (drift.param) active.push('Param');
+  if (drift.fx) active.push('FX');
+  if (drift['var']) active.push('Var');
+  if (drift.key) active.push('Key');
+  var sec = document.getElementById('driftSection');
+  var info = document.getElementById('driftInfo');
+  if (active.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  info.textContent = active.join(' + ') + ' (Rot #' + rotationCount + ')';
+}
+
+function applyDrift() {
+  rotationCount++;
+  if (!drift.param && !drift.fx && !drift['var'] && !drift.key) { updateDriftUI(); return; }
+
+  var t = ac ? ac.currentTime : 0;
+  var rot = rotationCount;
+
+  if (drift.param) {
+    var phase = rot * 0.4;
+    modules.forEach(function(m) {
+      var sine = Math.sin(phase + m.step * 0.5);
+      m.param = Math.max(0.1, Math.min(0.95, m.param + sine * 0.08));
+    });
+  }
+
+  if (drift.fx && ac) {
+    var cycle = rot % 8;
+    var revW = cycle < 2 ? 0.7 : 0.25;
+    var delW = (cycle >= 2 && cycle < 4) ? 0.6 : 0.2;
+    var choW = (cycle >= 4 && cycle < 6) ? 0.65 : 0.2;
+    var phaW = (cycle >= 6) ? 0.6 : 0.2;
+    if (reverbWet) reverbWet.gain.setTargetAtTime(revW, t, 0.3);
+    if (delayWet) delayWet.gain.setTargetAtTime(delW, t, 0.3);
+    if (chorusWet) chorusWet.gain.setTargetAtTime(choW, t, 0.3);
+    if (phaserWet) phaserWet.gain.setTargetAtTime(phaW, t, 0.3);
+  }
+
+  if (drift['var']) {
+    modules.forEach(function(m) {
+      m.variation = (m.variation + 1) % 6;
+    });
+  }
+
+  if (drift.key) {
+    if (rot % 4 === 0) {
+      var idx = CIRCLE_OF_FIFTHS.indexOf(curKey);
+      if (idx === -1) idx = 0;
+      idx = (idx + 1) % CIRCLE_OF_FIFTHS.length;
+      curKey = CIRCLE_OF_FIFTHS[idx];
+      document.getElementById('bk').textContent = curKey;
+    }
+  }
+
+  updateDriftUI();
+}
+
 function toggleSidebar() {
   document.getElementById('side').classList.toggle('open');
   document.getElementById('side-bg').classList.toggle('open');
@@ -1243,14 +1328,16 @@ function loop(ts) {
     var prevBeat = currentBeat;
     currentBeat = beat;
     absoluteBeat++;
-    // Chain rotation detection: when sweep wraps around, switch to next ring
-    if (palindromeChain.length > 1 && prevBeat >= STEPS - 2 && beat <= 1) {
-      var oldPid = palindromeChain[activeChainIdx].pid;
-      modules.forEach(function(m) { if (m.palindromeId === oldPid) m.silence(); });
-      activeChainIdx = (activeChainIdx + 1) % palindromeChain.length;
-      var newAna = analyzePalindrome(palindromeChain[activeChainIdx].palStr);
-      applyAnalysisGlobals(newAna);
-      buildChainUI();
+    if (prevBeat >= STEPS - 2 && beat <= 1) {
+      applyDrift();
+      if (palindromeChain.length > 1) {
+        var oldPid = palindromeChain[activeChainIdx].pid;
+        modules.forEach(function(m) { if (m.palindromeId === oldPid) m.silence(); });
+        activeChainIdx = (activeChainIdx + 1) % palindromeChain.length;
+        var newAna = analyzePalindrome(palindromeChain[activeChainIdx].palStr);
+        applyAnalysisGlobals(newAna);
+        buildChainUI();
+      }
     }
     var isOdd = beat % 2 === 1;
     var swingDelaySec = isOdd ? (60 / bpm / 4) * swing : 0;
