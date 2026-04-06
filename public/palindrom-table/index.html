@@ -85,14 +85,27 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
 @media(max-width:900px){
-  #side{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:30;transform:translateX(-100%);transition:transform .25s ease}
+  #side{position:fixed;left:0;top:0;bottom:0;width:260px;z-index:30;transform:translateX(-100%);transition:transform .25s ease}
   #side.open{transform:translateX(0)}
   #side-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:25}
   #side-bg.open{display:block}
   #tog{display:block}
   #help{display:none}
-  #bar{max-width:96%;padding:4px 6px;gap:3px;bottom:6px}
-  .cb{padding:4px 7px;font-size:9px}
+  #bar{max-width:98%;padding:5px 8px;gap:4px;bottom:6px}
+  .cb{padding:6px 10px;font-size:10px;min-height:36px}
+  .cb.kill,.cb.live,.cb.drift{min-height:36px;padding:6px 9px}
+  .vm-btn{padding:6px 10px;font-size:9px;min-height:32px}
+  .pal-btn{padding:8px;font-size:10px;min-height:36px}
+  .pf-item{padding:6px 8px;font-size:9px;min-height:36px}
+  .chain-item{padding:6px 8px;font-size:10px}
+  .ci-rm{font-size:14px;padding:2px 6px;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center}
+  .w-sel{padding:8px;font-size:11px;min-height:36px}
+  .drift-tog{padding:8px 12px!important;font-size:10px!important;min-height:36px}
+  .section-title{font-size:10px}
+}
+@media(max-width:480px){
+  #bar{flex-wrap:wrap;gap:3px;padding:4px 6px;bottom:4px}
+  .cb{padding:5px 7px;font-size:9px;min-height:32px}
 }
 </style>
 </head>
@@ -187,6 +200,10 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button class="cb drift" id="dFx" onclick="toggleDrift('fx')" style="position:relative" title="FX Morph: Effects cycle">FX</button>
     <button class="cb drift" id="dVar" onclick="toggleDrift('var')" style="position:relative" title="Variation Shift: Patterns change">Var</button>
     <button class="cb drift" id="dKey" onclick="toggleDrift('key')" style="position:relative" title="Key Wander: Key shifts in circle of fifths">Key</button>
+    <span style="width:1px;height:16px;background:var(--bd);margin:0 2px"></span>
+    <button class="cb drift" id="bHum" onclick="cycleHumanize()" title="Humanize: micro-timing & velocity variation">H:Off</button>
+    <span style="width:1px;height:16px;background:var(--bd);margin:0 2px"></span>
+    <button class="cb" id="bShare" onclick="shareChain()" title="Copy shareable URL to clipboard">&#128279; Share</button>
   </div>
   <div id="help">
     <b>Wallet</b> = Load your Palindrome SATs<br>
@@ -204,6 +221,7 @@ let sweepAngle = -Math.PI / 2, lastFrame = 0, gTime = 0;
 let modules = [], particles = [], ripples = [], shockwaves = [];
 let dragging = null, dragOff = { x: 0, y: 0 }, hovered = null;
 let killedZones = new Set(), filling = false, absoluteBeat = 0, rotationCount = 0;
+let humanizeAmt = 0;
 let palindromeChain = [], activeChainIdx = 0, lastAnalysis = null;
 
 const STEPS = 16;
@@ -434,7 +452,7 @@ class Mod {
     this.type = def.type; this.label = def.label; this.sym = def.sym;
     this.color = def.color; this.zone = def.zone; this.digit = def.digit;
     this.digitIndex = digitIndex; this.palindromeId = palindromeId;
-    this.x = x; this.y = y; this.r = 26;
+    this.x = x; this.y = y; this.r = (window.innerWidth <= 900) ? 32 : 26;
     this.param = 0.5; this._baseParam = 0.5; this.variation = 0; this.gainMult = 1; this.velocity = 1;
     this.phase = Math.random() * Math.PI * 2;
     this.nodes = null; this.pulse = 0; this.lastBeat = -1;
@@ -452,6 +470,9 @@ class Mod {
   initAudio() {
     if (!ac) return; this.destroyAudio(); const n = {};
     const t = this.type;
+    n.pan = ac.createStereoPanner();
+    n.pan.pan.value = Math.max(-1, Math.min(1, Math.cos(this.angle) * 0.7));
+    n.pan.connect(masterGain);
     if (t === 'bass') {
       n.osc = ac.createOscillator(); n.sub = ac.createOscillator();
       n.flt = ac.createBiquadFilter(); n.g = ac.createGain();
@@ -460,7 +481,7 @@ class Mod {
       n.subG = ac.createGain(); n.subG.gain.value = 0.4;
       n.flt.type = 'lowpass'; n.flt.frequency.value = 300; n.flt.Q.value = 3; n.g.gain.value = 0;
       n.osc.connect(n.flt); n.sub.connect(n.subG); n.subG.connect(n.g);
-      n.flt.connect(n.g); n.g.connect(masterGain);
+      n.flt.connect(n.g); n.g.connect(n.pan);
       n.osc.start(); n.sub.start();
     } else if (t === 'pad') {
       n.o1 = ac.createOscillator(); n.o2 = ac.createOscillator(); n.o3 = ac.createOscillator();
@@ -470,7 +491,7 @@ class Mod {
       n.o1.frequency.value = bf; n.o2.frequency.value = bf * 1.004; n.o3.frequency.value = bf * 0.997;
       n.flt.type = 'lowpass'; n.flt.frequency.value = 2000; n.flt.Q.value = 0.5; n.g.gain.value = 0;
       n.o1.connect(n.flt); n.o2.connect(n.flt); n.o3.connect(n.flt);
-      n.flt.connect(n.g); n.g.connect(masterGain); n.g.connect(reverbSend); n.g.connect(chorusSend);
+      n.flt.connect(n.g); n.g.connect(n.pan); n.g.connect(reverbSend); n.g.connect(chorusSend);
       n.o1.start(); n.o2.start(); n.o3.start();
     } else if (t === 'lead') {
       n.osc = ac.createOscillator(); n.fmMod = ac.createOscillator(); n.fmG = ac.createGain();
@@ -481,14 +502,14 @@ class Mod {
       n.fmMod.connect(n.fmG); n.fmG.connect(n.osc.frequency);
       n.flt.type = 'lowpass'; n.flt.frequency.value = 2500; n.flt.Q.value = 3; n.g.gain.value = 0;
       n.osc.connect(n.flt); n.flt.connect(n.g);
-      n.g.connect(masterGain); n.g.connect(delaySend); n.g.connect(phaserSend); n.g.connect(chorusSend);
+      n.g.connect(n.pan); n.g.connect(delaySend); n.g.connect(phaserSend); n.g.connect(chorusSend);
       n.osc.start(); n.fmMod.start();
     } else if (t === 'arp') {
       n.osc = ac.createOscillator(); n.flt = ac.createBiquadFilter(); n.g = ac.createGain();
       n.osc.type = 'sawtooth'; n.osc.frequency.value = fr(0, 1);
       n.flt.type = 'lowpass'; n.flt.frequency.value = 3500; n.flt.Q.value = 5; n.g.gain.value = 0;
       n.osc.connect(n.flt); n.flt.connect(n.g);
-      n.g.connect(masterGain); n.g.connect(delaySend); n.g.connect(chorusSend);
+      n.g.connect(n.pan); n.g.connect(delaySend); n.g.connect(chorusSend);
       n.osc.start(); n.step = 0;
     } else if (t === 'bell') {
       n.car = ac.createOscillator(); n.mod = ac.createOscillator(); n.mG = ac.createGain();
@@ -501,14 +522,14 @@ class Mod {
       n.vibG.gain.value = 3;
       n.vib.connect(n.vibG); n.vibG.connect(n.car.frequency);
       n.mod.connect(n.mG); n.mG.connect(n.car.frequency);
-      n.car.connect(n.g); n.g.connect(masterGain); n.g.connect(reverbSend); n.g.connect(delaySend); n.g.connect(phaserSend);
+      n.car.connect(n.g); n.g.connect(n.pan); n.g.connect(reverbSend); n.g.connect(delaySend); n.g.connect(phaserSend);
       n.car.start(); n.mod.start(); n.vib.start();
     } else if (t === 'acid') {
       n.osc = ac.createOscillator(); n.flt = ac.createBiquadFilter(); n.g = ac.createGain();
       n.osc.type = 'sawtooth'; n.osc.frequency.value = fr(0, 0);
       n.flt.type = 'lowpass'; n.flt.frequency.value = 400; n.flt.Q.value = 15; n.g.gain.value = 0;
       n.osc.connect(n.flt); n.flt.connect(n.g);
-      n.g.connect(masterGain); n.g.connect(delaySend); n.g.connect(tapeSend);
+      n.g.connect(n.pan); n.g.connect(delaySend); n.g.connect(tapeSend);
       n.osc.start(); n.step = 0;
     }
     this.nodes = n;
@@ -525,7 +546,14 @@ class Mod {
     if (this.lastBeat === absBeat) return; this.lastBeat = absBeat; this.pulse = 1;
     if (killedZones.has(this.zone)) { this.pulse = 0.2; return; }
     const zp = this.zp;
-    const t0 = (when && ac) ? when : (ac ? ac.currentTime : 0);
+    var t0 = (when && ac) ? when : (ac ? ac.currentTime : 0);
+    if (humanizeAmt > 0) {
+      var jitter = (Math.random() - 0.5) * 2 * humanizeAmt * 0.012;
+      t0 = Math.max(ac ? ac.currentTime : 0, t0 + jitter);
+      this.velocity *= (1 + (Math.random() - 0.5) * humanizeAmt * 0.3);
+      if (this.velocity < 0.3) this.velocity = 0.3;
+      if (this.velocity > 1.4) this.velocity = 1.4;
+    }
     if (this.zone === 'outer') this.tDrum(zp, stepBeat, t0);
     else if (this.zone === 'mid') this.tMel(stepBeat, zp, t0);
     else if (this.zone === 'inner') this.tBass(stepBeat, zp, t0);
@@ -533,6 +561,7 @@ class Mod {
   }
   tDrum(zp, bn, t0) {
     if (!ac || muted) return; const t = t0 || ac.currentTime; var pm = this.param; if (!isFinite(pm)) pm = 0.5; var gm = this.gainMult * this.velocity; if (!isFinite(gm) || gm <= 0) gm = 1;
+    const dest = (this.nodes && this.nodes.pan) ? this.nodes.pan : masterGain;
     if (this.type === 'kick') {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine';
       const startF = 100 + zp * 80 + pm * 60;
@@ -541,7 +570,7 @@ class Mod {
       o.frequency.exponentialRampToValueAtTime(22, t + 0.12 + pm * 0.08);
       g.gain.setValueAtTime(0.85 * gm, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + decay);
-      o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + decay + 0.1);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + decay + 0.1);
       sidechain(t); shockwaves.push({ t: 0, x: this.x, y: this.y });
     } else if (this.type === 'snare') {
       const decay = 0.1 + zp * 0.08 + pm * 0.06;
@@ -550,24 +579,24 @@ class Mod {
       o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
       g.gain.setValueAtTime(0.42 * gm, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + decay);
-      o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + decay + 0.1);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + decay + 0.1);
       const bz = ac.sampleRate * (0.06 + zp * 0.06 + pm * 0.04), bf = ac.createBuffer(1, bz, ac.sampleRate), d = bf.getChannelData(0);
       for (let i = 0; i < bz; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bz, 1.2);
       const s = ac.createBufferSource(), ng = ac.createGain(); s.buffer = bf;
       ng.gain.setValueAtTime(0.38 * gm, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08 + pm * 0.04);
-      s.connect(ng); ng.connect(masterGain); ng.connect(reverbSend); ng.connect(delaySend); s.start(t);
+      s.connect(ng); ng.connect(dest); ng.connect(reverbSend); ng.connect(delaySend); s.start(t);
       // Ghost note
       if (Math.random() < 0.45 + pm * 0.2) {
         const gt = t + 60 / bpm / 8;
         const go = ac.createOscillator(), gg = ac.createGain(); go.type = 'triangle';
         go.frequency.setValueAtTime(160, gt); go.frequency.exponentialRampToValueAtTime(50, gt + 0.05);
         gg.gain.setValueAtTime(0.12, gt); gg.gain.exponentialRampToValueAtTime(0.001, gt + 0.06);
-        go.connect(gg); gg.connect(masterGain); go.start(gt); go.stop(gt + 0.1);
+        go.connect(gg); gg.connect(dest); go.start(gt); go.stop(gt + 0.1);
         const gbz = ac.sampleRate * 0.03, gbf = ac.createBuffer(1, gbz, ac.sampleRate), gd = gbf.getChannelData(0);
         for (let i = 0; i < gbz; i++) gd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / gbz, 2);
         const gs = ac.createBufferSource(), gng = ac.createGain(); gs.buffer = gbf;
         gng.gain.setValueAtTime(0.1, gt); gng.gain.exponentialRampToValueAtTime(0.001, gt + 0.04);
-        gs.connect(gng); gng.connect(masterGain); gs.start(gt);
+        gs.connect(gng); gng.connect(dest); gs.start(gt);
       }
     } else if (this.type === 'hihat') {
       const dur = 0.015 + zp * 0.06 + pm * 0.06;
@@ -576,7 +605,7 @@ class Mod {
       const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
       s.buffer = bf; fl.type = 'highpass'; fl.frequency.value = 5000 + (1 - pm) * 5000;
       g.gain.setValueAtTime(0.26 * gm, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      s.connect(fl); fl.connect(g); g.connect(masterGain); g.connect(chorusSend); s.start(t);
+      s.connect(fl); fl.connect(g); g.connect(dest); g.connect(chorusSend); s.start(t);
       // Ghost note
       if (Math.random() < 0.5 + pm * 0.15) {
         const gt = t + 60 / bpm / 8;
@@ -586,7 +615,7 @@ class Mod {
         const gs = ac.createBufferSource(), gfl = ac.createBiquadFilter(), gg = ac.createGain();
         gs.buffer = gbf; gfl.type = 'highpass'; gfl.frequency.value = 7000;
         gg.gain.setValueAtTime(0.08, gt); gg.gain.exponentialRampToValueAtTime(0.001, gt + gdur);
-        gs.connect(gfl); gfl.connect(gg); gg.connect(masterGain); gs.start(gt);
+        gs.connect(gfl); gfl.connect(gg); gg.connect(dest); gs.start(gt);
       }
     } else if (this.type === 'clap') {
       const spread = 0.01 + pm * 0.008;
@@ -597,7 +626,7 @@ class Mod {
         const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = bf;
         g.gain.setValueAtTime((0.3 - c * 0.07) * (0.5 + zp * 0.4 + pm * 0.2), t + off);
         g.gain.exponentialRampToValueAtTime(0.001, t + off + 0.05 + zp * 0.08 + pm * 0.06);
-        s.connect(g); g.connect(masterGain); g.connect(reverbSend); g.connect(tapeSend); s.start(t + off);
+        s.connect(g); g.connect(dest); g.connect(reverbSend); g.connect(tapeSend); s.start(t + off);
       }
     }
     this.pW(this.type === 'kick' ? 0.9 : 0.5);
@@ -697,7 +726,15 @@ class Mod {
     if (!this.nodes || !ac) return;
     if (this.nodes.g) this.nodes.g.gain.setTargetAtTime(0, ac.currentTime, 0.15);
   }
-  pW(v) { this.wH[this.wI % this.wH.length] = v; this.wI++; }
+  pW(v) {
+    var decay = this.zone === 'outer' ? 0.7 : 0.85;
+    for (var i = 0; i < 3; i++) {
+      var idx = (this.wI + i) % this.wH.length;
+      this.wH[idx] = v * (1 - i * 0.25) * (0.8 + Math.sin(this.phase + this.wI * 0.4) * 0.2);
+    }
+    this.wI += 3;
+    for (var j = 0; j < this.wH.length; j++) this.wH[j] *= decay;
+  }
 }
 
 let palindromeCounter = 0;
@@ -825,6 +862,41 @@ function getSymmetryPairs() {
     for (let i = 0; i < Math.floor(n / 2); i++) pairs.push([group[i], group[n - 1 - i]]);
   });
   return pairs;
+}
+
+function shareChain() {
+  if (palindromeChain.length === 0) return;
+  var pals = palindromeChain.map(function(e) { return e.palStr; }).join(',');
+  var params = new URLSearchParams();
+  params.set('chain', pals);
+  params.set('bpm', bpm);
+  params.set('key', curKey);
+  params.set('vm', curVoiceMap || 0);
+  var url = window.location.origin + window.location.pathname + '?' + params.toString();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      var btn = document.getElementById('bShare');
+      if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = '\u{1F517} Share'; }, 2000); }
+    });
+  } else {
+    prompt('Share URL:', url);
+  }
+}
+function loadFromURL() {
+  var params = new URLSearchParams(window.location.search);
+  var chain = params.get('chain');
+  if (!chain) return false;
+  var pals = chain.split(',').filter(function(p) { return p.length >= 3; });
+  if (pals.length === 0) return false;
+  initAudio();
+  if (params.get('bpm')) { bpm = parseInt(params.get('bpm')) || 110; document.getElementById('bb').textContent = '\u2669 ' + bpm; }
+  if (params.get('key')) { curKey = params.get('key'); document.getElementById('bk').textContent = curKey; }
+  if (params.get('vm')) { var vmi = parseInt(params.get('vm')); if (vmi >= 0 && vmi < VOICE_MAPS.length) switchVoiceMap(vmi); }
+  palindromeChain = [];
+  pals.forEach(function(p) { palindromeChain.push({ palStr: p, pid: 0, ringRadius: 0.5 }); });
+  rebuildChain();
+  if (!playing) togglePlay();
+  return true;
 }
 
 const DEMO_PALINDROMES = ['53704040735', '8091441908', '12347074321', '304515403'];
@@ -1044,6 +1116,16 @@ function toggleKill(zone) {
 }
 function startFill() { filling = true; document.getElementById('bfill').classList.add('on'); }
 function stopFill() { filling = false; document.getElementById('bfill').classList.remove('on'); }
+function cycleHumanize() {
+  var levels = [0, 0.3, 0.6, 1.0];
+  var labels = ['H:Off', 'H:Low', 'H:Mid', 'H:Hi'];
+  var idx = levels.indexOf(humanizeAmt);
+  idx = (idx + 1) % levels.length;
+  humanizeAmt = levels[idx];
+  var btn = document.getElementById('bHum');
+  btn.textContent = labels[idx];
+  if (idx > 0) btn.classList.add('on'); else btn.classList.remove('on');
+}
 function doDrop() {
   killedZones.clear();
   ['kd', 'km', 'kb'].forEach(id => document.getElementById(id).classList.remove('on'));
@@ -1126,6 +1208,18 @@ function toggleSidebar() {
   document.getElementById('side').classList.toggle('open');
   document.getElementById('side-bg').classList.toggle('open');
 }
+(function() {
+  var startX = 0, startY = 0;
+  document.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - startX;
+    var dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+    var side = document.getElementById('side');
+    if (dx > 0 && !side.classList.contains('open') && startX < 40) toggleSidebar();
+    else if (dx < 0 && side.classList.contains('open')) toggleSidebar();
+  }, { passive: true });
+})();
 
 function resize() {
   const cw = document.getElementById('cw');
@@ -1188,10 +1282,13 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
 });
 
+var KEY_HUES = { 'C min': 190, 'C# min': 210, 'D min': 230, 'Eb min': 250, 'E min': 270, 'F min': 290, 'F# min': 310, 'G min': 330, 'Ab min': 350, 'A min': 10, 'Bb min': 30, 'B min': 50 };
 function drawDisk() {
-  const bgGrad = G.createRadialGradient(cx, cy, 0, cx, cy, tR * 1.2);
-  bgGrad.addColorStop(0, 'rgba(0,229,255,0.03)');
-  bgGrad.addColorStop(0.5, 'rgba(178,102,255,0.02)');
+  var hue = KEY_HUES[curKey] || 190;
+  var pulse = playing ? 0.02 + Math.sin(gTime * 0.5) * 0.01 : 0.02;
+  var bgGrad = G.createRadialGradient(cx, cy, 0, cx, cy, tR * 1.2);
+  bgGrad.addColorStop(0, 'hsla(' + hue + ',80%,60%,' + (pulse + 0.01) + ')');
+  bgGrad.addColorStop(0.5, 'hsla(' + ((hue + 60) % 360) + ',60%,50%,' + pulse + ')');
   bgGrad.addColorStop(1, 'rgba(0,0,0,0)');
   G.fillStyle = bgGrad; G.fillRect(0, 0, W, H);
   [{r:ZO,c:ZC.outer},{r:ZM,c:ZC.mid},{r:ZI,c:ZC.inner}].forEach(z => {
@@ -1273,7 +1370,8 @@ function drawModule(m) {
     var wx = m.x + Math.cos(a) * wr, wy = m.y + Math.sin(a) * wr;
     if (i === 0) G.moveTo(wx, wy); else G.lineTo(wx, wy);
   }
-  G.closePath(); G.strokeStyle = m.color + '44'; G.lineWidth = 0.8; G.stroke();
+  G.closePath(); G.fillStyle = m.color + '12'; G.fill();
+  G.strokeStyle = m.color + '55'; G.lineWidth = 0.8; G.stroke();
   G.fillStyle = m.color;
   G.font = 'bold 11px sans-serif'; G.textAlign = 'center'; G.textBaseline = 'middle';
   G.fillText(m.sym, m.x, m.y - 3);
@@ -1351,7 +1449,16 @@ function loop(ts) {
       applyDrift();
       if (palindromeChain.length > 1) {
         var oldPid = palindromeChain[activeChainIdx].pid;
-        modules.forEach(function(m) { if (m.palindromeId === oldPid) m.silence(); });
+        var fadeTime = ac ? ac.currentTime : 0;
+        var fadeDur = (60 / bpm) * 2;
+        modules.forEach(function(m) {
+          if (m.palindromeId === oldPid && m.nodes && m.nodes.g) {
+            try {
+              m.nodes.g.gain.setValueAtTime(m.nodes.g.gain.value, fadeTime);
+              m.nodes.g.gain.linearRampToValueAtTime(0, fadeTime + fadeDur);
+            } catch (e) { m.silence(); }
+          }
+        });
         activeChainIdx = (activeChainIdx + 1) % palindromeChain.length;
         var newAna = analyzePalindrome(palindromeChain[activeChainIdx].palStr);
         applyAnalysisGlobals(newAna);
@@ -1386,6 +1493,7 @@ function loop(ts) {
 }
 
 resize(); buildVoiceMapUI(); buildDigitLegend(); buildChainUI();
+loadFromURL();
 </script>
 <script src="/palindrom/wallet.js"></script>
 <script src="/palindrom/palindrom-scanner.js"></script>
