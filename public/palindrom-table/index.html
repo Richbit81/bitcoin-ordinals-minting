@@ -63,6 +63,17 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .ana-v.cy{color:var(--cy)}.ana-v.li{color:var(--li)}.ana-v.vi{color:var(--vi)}.ana-v.or{color:var(--or)}
 .ana-bar{display:flex;gap:1px;margin-top:4px}.ana-seg{height:14px;border-radius:2px;min-width:3px;transition:width .3s}
 
+.w-sel{flex:1;padding:5px 6px;border-radius:5px;background:#0c0c18;border:1px solid var(--bd);color:var(--wh);font:inherit;font-size:9px;cursor:pointer;outline:none;-webkit-appearance:none}
+.w-sel:focus{border-color:var(--cy)}
+.w-status{font-size:8px;padding:3px 0;color:var(--dm);text-align:center;transition:.15s}.w-status.ok{color:var(--li)}.w-status.err{color:var(--rd)}
+.w-progress{margin-top:4px;height:3px;border-radius:2px;background:var(--bd);overflow:hidden}.w-progress-fill{height:100%;background:var(--cy);transition:width .3s;width:0%}
+.pal-found{max-height:160px;overflow-y:auto;margin-top:4px;display:flex;flex-direction:column;gap:2px}
+.pf-item{display:flex;align-items:center;gap:5px;padding:4px 6px;border-radius:4px;background:#0a0a16;font-size:8px;cursor:pointer;border:1px solid transparent;transition:.15s}
+.pf-item:hover{border-color:var(--dm)}.pf-item.sel{border-color:var(--cy);background:#0c0c1a;box-shadow:0 0 4px rgba(0,229,255,.1)}
+.pf-cb{accent-color:var(--cy);width:12px;height:12px;pointer-events:none}
+.pf-seq{font-family:monospace;letter-spacing:1px;color:var(--wh);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-rar{font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;white-space:nowrap}
+
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
 @media(max-width:900px){
@@ -83,16 +94,31 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <h1>PalindromTable</h1>
   <div class="sub">Interactive Music Disk</div>
 
-  <div class="section">
-    <div class="section-title">Palindrom eingeben</div>
-    <input id="palindromeInput" type="text" placeholder="z.B. 12321" maxlength="20" autocomplete="off" spellcheck="false">
-    <div class="hint" id="palHint">Zahlen-Palindrom eingeben</div>
+  <div class="section" id="walletSection">
+    <div class="section-title">Wallet</div>
     <div class="pal-btns">
-      <button class="pal-btn" onclick="loadPalindrome()">&#9654; Laden</button>
-      <button class="pal-btn" onclick="randomPalindrome()">&#127922; Random</button>
-      <button class="pal-btn" onclick="addToChain()">+ Kette</button>
+      <select id="walletType" class="w-sel"><option value="xverse">Xverse</option><option value="unisat">Unisat</option></select>
+      <button class="pal-btn" id="wConnBtn" onclick="handleConnect()">Connect</button>
+      <button class="pal-btn" id="wDiscBtn" onclick="handleDisconnect()" style="display:none">&#10005;</button>
+    </div>
+    <div class="w-status" id="wStatus">Nicht verbunden</div>
+    <button class="pal-btn" id="wScanBtn" onclick="handleScan()" style="display:none;width:100%;margin-top:4px">&#128269; Scan Palindrom SATs</button>
+    <div class="w-progress" id="wProgress" style="display:none"><div class="w-progress-fill" id="wProgressFill"></div></div>
+    <div class="hint" id="wProgressText" style="display:none"></div>
+    <div class="pal-found" id="wPalList" style="display:none"></div>
+    <div class="pal-btns" id="wLoadRow" style="display:none;margin-top:4px">
+      <button class="pal-btn" onclick="loadSelectedWalletPalindromes()" style="flex:2">&#9654; Ausgewaehlte laden</button>
+      <button class="pal-btn" onclick="selectAllWalletPalindromes()">Alle</button>
     </div>
   </div>
+
+  <div class="section">
+    <div class="section-title">Demo</div>
+    <button class="pal-btn" id="demoBtn" onclick="loadDemo()" style="width:100%">&#127925; Demo anhoeren (4 Palindrome)</button>
+    <div class="hint">Zeigt wie es klingt — verbinde Wallet fuer eigene Palindrome</div>
+  </div>
+
+  <input id="palindromeInput" type="hidden" value="">
 
   <div class="section">
     <div class="section-title">Palindrom-Kette</div>
@@ -116,10 +142,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="digit-legend" id="digitLegend"></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Presets</div>
-    <div class="preset-list" id="presetList"></div>
-  </div>
 </div>
 <div id="side-bg" onclick="toggleSidebar()"></div>
 
@@ -134,7 +156,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button class="cb" id="bsw" onclick="nextSwing()">Sw 0%</button>
     <button class="cb" id="bm" onclick="toggleMute()">&#128266;</button>
     <button class="cb" onclick="clearAll()">&#10005;</button>
-    <button class="cb" onclick="randomPalindrome()">&#127922;</button>
     <span style="width:1px;height:16px;background:var(--bd);margin:0 2px"></span>
     <button class="cb kill" id="kd" onclick="toggleKill('outer')">Drums</button>
     <button class="cb kill" id="km" onclick="toggleKill('mid')">Melody</button>
@@ -143,10 +164,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <button class="cb live" id="bdrop" onclick="doDrop()">Drop</button>
   </div>
   <div id="help">
-    <b>Palindrom</b> = Instrument Layout<br>
+    <b>Wallet</b> = Deine Palindrom-SATs laden<br>
     <b>Scroll</b> = Parameter<br>
-    <b>Shift+Scroll</b> = Variation<br>
-    <b>Right Click</b> = Remove<br>
     <b>Space</b> = Play/Pause
   </div>
 </div>
@@ -656,17 +675,9 @@ function isPalindrome(s) {
   if (cleaned.length < 2) return false;
   return cleaned === cleaned.split('').reverse().join('');
 }
-function loadPalindrome() {
-  const input = document.getElementById('palindromeInput');
-  const val = input.value.replace(/\D/g, '');
-  if (!val || !isPalindrome(val)) {
-    input.classList.add('invalid');
-    document.getElementById('palHint').textContent = 'Kein gueltiges Palindrom!';
-    setTimeout(() => input.classList.remove('invalid'), 1000);
-    return;
-  }
-  input.classList.remove('invalid');
-  document.getElementById('palHint').textContent = 'Palindrom geladen!';
+function loadPalindrome(palStr) {
+  var val = palStr || (document.getElementById('palindromeInput') ? document.getElementById('palindromeInput').value.replace(/\D/g, '') : '');
+  if (!val || !isPalindrome(val)) return;
   initAudio(); clearAll();
   palindromeChain = [{ palStr: val, pid: 0, ringRadius: 0.5 }];
   activeChainIdx = 0;
@@ -719,41 +730,13 @@ function applyAnalysisGlobals(ana) {
   updateAnalysisUI(ana);
 }
 function randomPalindrome() {
-  const lengths = [5, 7, 9, 11];
-  const len = lengths[Math.floor(Math.random() * lengths.length)];
-  const half = Math.ceil(len / 2);
-  let digits = [];
-  for (let i = 0; i < half; i++) digits.push(Math.floor(Math.random() * 10));
-  const full = [...digits];
-  const mirror = [...digits].reverse();
+  var lengths = [5, 7, 9, 11];
+  var len = lengths[Math.floor(Math.random() * lengths.length)];
+  var half = Math.ceil(len / 2), d = [];
+  for (var i = 0; i < half; i++) d.push(Math.floor(Math.random() * 10));
+  var full = d.slice(); var mirror = d.slice().reverse();
   if (len % 2 === 1) mirror.shift();
-  const palStr = full.join('');
-  document.getElementById('palindromeInput').value = palStr;
-  document.getElementById('palHint').textContent = 'Random: ' + palStr;
-  initAudio(); clearAll();
-  palindromeChain = [{ palStr: palStr, pid: 0, ringRadius: 0.5 }];
-  activeChainIdx = 0;
-  palindromeChain[0].pid = placePalindromeOnDisk(palStr);
-  applyAnalysisGlobals(lastAnalysis);
-  buildChainUI();
-  if (!playing) togglePlay();
-}
-function addToChain() {
-  var val = document.getElementById('palindromeInput').value.replace(/\D/g, '');
-  if (!val || !isPalindrome(val)) {
-    document.getElementById('palindromeInput').classList.add('invalid');
-    document.getElementById('palHint').textContent = 'Kein gueltiges Palindrom!';
-    setTimeout(function() { document.getElementById('palindromeInput').classList.remove('invalid'); }, 1000);
-    return;
-  }
-  document.getElementById('palindromeInput').classList.remove('invalid');
-  initAudio();
-  palindromeChain.push({ palStr: val, pid: 0, ringRadius: 0 });
-  rebuildChain();
-  document.getElementById('palindromeInput').value = '';
-  document.getElementById('palHint').textContent = 'Zur Kette hinzugefuegt!';
-  document.getElementById('chainHint').textContent = palindromeChain.length + ' Palindrome in Kette';
-  if (!playing) togglePlay();
+  loadPalindrome(full.concat(mirror).join(''));
 }
 function rebuildChain() {
   clearAll();
@@ -812,39 +795,146 @@ function getSymmetryPairs() {
   return pairs;
 }
 
-const PRESETS = [
-  { name: 'Minimal Beat', desc: '10201', bpm: 100, key: 'C min', pal: '10201' },
-  { name: 'Deep Groove', desc: '3040403', bpm: 122, key: 'G min', pal: '3040403' },
-  { name: 'Acid Mirror', desc: '80208', bpm: 135, key: 'F min', pal: '80208' },
-  { name: 'Bell Pad', desc: '5374735', bpm: 90, key: 'E min', pal: '5374735' },
-  { name: 'Full Spectrum', desc: '12345654321', bpm: 110, key: 'D min', pal: '12345654321' },
-  { name: 'Drum Circle', desc: '0912190', bpm: 128, key: 'A min', pal: '0912190' },
-  { name: 'Arp Dreams', desc: '6474746', bpm: 118, key: 'G min', pal: '6474746' },
-  { name: 'Bass Heavy', desc: '30503', bpm: 140, key: 'D min', pal: '30503' },
-  { name: 'Ambient Flow', desc: '57475', bpm: 85, key: 'E min', pal: '57475' },
-  { name: 'Big Palindrome', desc: '9876543210123456789', bpm: 115, key: 'A min', pal: '9876543210123456789' },
-];
-function buildPresetUI() {
-  const c = document.getElementById('presetList');
-  PRESETS.forEach(pr => {
-    const b = document.createElement('button'); b.className = 'pre';
-    b.innerHTML = pr.name + '<span>' + pr.desc + '</span>';
-    b.addEventListener('click', () => {
-      clearAll(); initAudio();
-      bpm = pr.bpm; curKey = pr.key;
-      document.getElementById('bb').textContent = '\u2669 ' + bpm;
-      document.getElementById('bk').textContent = curKey;
-      document.getElementById('palindromeInput').value = pr.pal;
-      if (delayNode) delayNode.delayTime.setTargetAtTime(60 / bpm * 0.75, ac.currentTime, 0.1);
-      palindromeChain = [{ palStr: pr.pal, pid: 0, ringRadius: 0.5 }];
-      activeChainIdx = 0;
-      palindromeChain[0].pid = placePalindromeOnDisk(pr.pal);
-      updateAnalysisUI(lastAnalysis);
-      buildChainUI();
-      if (!playing) togglePlay();
+const DEMO_PALINDROMES = ['5374735', '80208', '12345654321', '3040403'];
+const DEMO_BPM = 110;
+const DEMO_KEY = 'D min';
+
+function loadDemo() {
+  clearAll(); initAudio();
+  bpm = DEMO_BPM; curKey = DEMO_KEY;
+  document.getElementById('bb').textContent = '\u2669 ' + bpm;
+  document.getElementById('bk').textContent = curKey;
+  if (delayNode) delayNode.delayTime.setTargetAtTime(60 / bpm * 0.75, ac.currentTime, 0.1);
+  palindromeChain = [];
+  DEMO_PALINDROMES.forEach(function(p) { palindromeChain.push({ palStr: p, pid: 0, ringRadius: 0.5 }); });
+  rebuildChain();
+  if (!playing) togglePlay();
+}
+
+let walletPalindromes = [], walletSelected = new Set(), isDemo = false;
+
+async function handleConnect() {
+  var typeEl = document.getElementById('walletType');
+  var statusEl = document.getElementById('wStatus');
+  var connBtn = document.getElementById('wConnBtn');
+  var discBtn = document.getElementById('wDiscBtn');
+  var scanBtn = document.getElementById('wScanBtn');
+  if (!typeEl || !statusEl) return;
+  try {
+    statusEl.textContent = 'Verbinde...'; statusEl.className = 'w-status';
+    connBtn.disabled = true;
+    var result = await walletManager.connectWallet(typeEl.value);
+    if (result.success) {
+      var addr = result.address;
+      statusEl.textContent = '\u2713 ' + addr.substring(0, 8) + '...' + addr.substring(addr.length - 6);
+      statusEl.className = 'w-status ok';
+      connBtn.style.display = 'none'; typeEl.disabled = true;
+      discBtn.style.display = ''; scanBtn.style.display = '';
+      handleScan();
+    }
+  } catch (err) {
+    statusEl.textContent = '\u2717 ' + (err.message || 'Fehler'); statusEl.className = 'w-status err';
+    connBtn.disabled = false;
+  }
+}
+
+function handleDisconnect() {
+  walletManager.disconnect();
+  walletPalindromes = []; walletSelected.clear();
+  document.getElementById('wStatus').textContent = 'Nicht verbunden';
+  document.getElementById('wStatus').className = 'w-status';
+  document.getElementById('wConnBtn').style.display = ''; document.getElementById('wConnBtn').disabled = false;
+  document.getElementById('walletType').disabled = false;
+  document.getElementById('wDiscBtn').style.display = 'none';
+  document.getElementById('wScanBtn').style.display = 'none';
+  document.getElementById('wPalList').style.display = 'none';
+  document.getElementById('wLoadRow').style.display = 'none';
+  document.getElementById('wProgress').style.display = 'none';
+  document.getElementById('wProgressText').style.display = 'none';
+}
+
+async function handleScan() {
+  if (!walletManager.isConnected) return;
+  var scanBtn = document.getElementById('wScanBtn');
+  var progress = document.getElementById('wProgress');
+  var progressFill = document.getElementById('wProgressFill');
+  var progressText = document.getElementById('wProgressText');
+  scanBtn.disabled = true; scanBtn.textContent = 'Scanning...';
+  progress.style.display = ''; progressText.style.display = '';
+  progressFill.style.width = '10%';
+  try {
+    var results = await walletManager.scanForPalindromSATs(function(p) {
+      var pct = p.total > 0 ? Math.round((p.current / p.total) * 100) : 50;
+      progressFill.style.width = pct + '%';
+      progressText.textContent = p.status;
     });
-    c.appendChild(b);
+    progressFill.style.width = '100%';
+    walletPalindromes = results;
+    walletSelected.clear();
+    displayWalletPalindromes();
+    scanBtn.textContent = '\u2713 ' + results.length + ' gefunden';
+  } catch (err) {
+    progressText.textContent = '\u2717 ' + (err.message || 'Scan-Fehler');
+    scanBtn.textContent = '\uD83D\uDD0D Erneut scannen';
+    scanBtn.disabled = false;
+  }
+}
+
+function displayWalletPalindromes() {
+  var list = document.getElementById('wPalList');
+  var loadRow = document.getElementById('wLoadRow');
+  list.innerHTML = '';
+  if (walletPalindromes.length === 0) {
+    list.style.display = ''; loadRow.style.display = 'none';
+    list.innerHTML = '<div class="hint">Keine Palindrom-SATs gefunden</div>';
+    return;
+  }
+  list.style.display = ''; loadRow.style.display = '';
+  walletPalindromes.forEach(function(pal, idx) {
+    var rar = getRarityInfo(pal);
+    var item = document.createElement('div');
+    item.className = 'pf-item' + (walletSelected.has(idx) ? ' sel' : '');
+    item.innerHTML =
+      '<input type="checkbox" class="pf-cb"' + (walletSelected.has(idx) ? ' checked' : '') + '>' +
+      '<span class="pf-seq">' + pal.sequence + '</span>' +
+      '<span class="pf-rar" style="color:' + rar.color + ';border:1px solid ' + rar.color + '">' + rar.label + '</span>';
+    item.addEventListener('click', function() { toggleWalletSel(idx); });
+    list.appendChild(item);
   });
+}
+
+function getRarityInfo(pal) {
+  var len = String(pal.sat || pal.sequence).length;
+  if (len <= 5) return { label: 'Mythic', color: '#ff00ff' };
+  if (len <= 7) return { label: 'Legendary', color: '#ffaa00' };
+  if (len <= 9) return { label: 'Epic', color: '#aa00ff' };
+  if (len <= 11) return { label: 'Rare', color: '#0088ff' };
+  if (len <= 13) return { label: 'Uncommon', color: '#00cc44' };
+  return { label: 'Common', color: '#888888' };
+}
+
+function toggleWalletSel(idx) {
+  if (walletSelected.has(idx)) walletSelected.delete(idx); else walletSelected.add(idx);
+  displayWalletPalindromes();
+}
+
+function selectAllWalletPalindromes() {
+  if (walletSelected.size === walletPalindromes.length) { walletSelected.clear(); }
+  else { walletPalindromes.forEach(function(_, i) { walletSelected.add(i); }); }
+  displayWalletPalindromes();
+}
+
+function loadSelectedWalletPalindromes() {
+  if (walletSelected.size === 0) return;
+  clearAll(); initAudio();
+  palindromeChain = [];
+  var sorted = Array.from(walletSelected).sort(function(a, b) { return a - b; });
+  sorted.forEach(function(idx) {
+    var seq = walletPalindromes[idx].sequence;
+    palindromeChain.push({ palStr: seq, pid: 0, ringRadius: 0.5 });
+  });
+  rebuildChain();
+  if (!playing) togglePlay();
 }
 function buildDigitLegend() {
   const c = document.getElementById('digitLegend');
@@ -1189,17 +1279,9 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
-resize(); buildVoiceMapUI(); buildDigitLegend(); buildPresetUI(); buildChainUI();
-document.getElementById('palindromeInput').addEventListener('input', function(e) {
-  var val = e.target.value.replace(/\D/g, ''); e.target.value = val;
-  var hint = document.getElementById('palHint');
-  if (!val) { hint.textContent = 'Zahlen-Palindrom eingeben'; e.target.classList.remove('invalid'); return; }
-  if (isPalindrome(val)) { hint.textContent = '\u2713 Palindrom! (' + val.length + ' Ziffern)'; e.target.classList.remove('invalid'); }
-  else { hint.textContent = 'Noch kein Palindrom...'; e.target.classList.remove('invalid'); }
-});
-document.getElementById('palindromeInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') loadPalindrome();
-});
+resize(); buildVoiceMapUI(); buildDigitLegend(); buildChainUI();
 </script>
+<script src="/palindrom/wallet.js"></script>
+<script src="/palindrom/palindrom-scanner.js"></script>
 </body>
 </html>
