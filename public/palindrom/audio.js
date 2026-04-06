@@ -19,12 +19,16 @@ class AudioSystem {
         this.mainBus = null;
         
         // Send-Effekte
-        this.delayNode = null;
+        this.delayL = null;
+        this.delayR = null;
+        this.delayPanL = null;
+        this.delayPanR = null;
         this.delayFeedback = null;
         this.delayWetGain = null;
         this.reverbConvolver = null;
         this.reverbWetGain = null;
-        this.chorusDelay = null;
+        this.chorusDelays = [];
+        this.chorusLFOs = [];
         this.chorusWetGain = null;
         this.phaserFilter1 = null;
         this.phaserFilter2 = null;
@@ -35,7 +39,6 @@ class AudioSystem {
         this.vibratoLFOGain = null;
         this.tremoloLFO = null;
         this.tremoloLFOGain = null;
-        this.chorusLFO = null;
         this.phaserLFO = null;
         
         // Dynamics
@@ -58,6 +61,7 @@ class AudioSystem {
         this.activeOscillators = [];
         this._periodicWaves = {};
         this.warmthNode = null;
+        this._lastFrequency = 0;
         
         // Einstellungen (alle 0-100, sichere Bereiche)
         this.instrument = 'piano';
@@ -75,6 +79,10 @@ class AudioSystem {
         this.phaser = 0;
         this.tremolo = 0;
         this.compression = 0;
+        this.portamento = 0;
+        this.subBass = 0;
+        this.swing = 0;
+        this.humanize = 0;
         
         // EQ (±12dB max, nicht mehr ±20dB)
         this.eqLow = 0;
@@ -105,7 +113,12 @@ class AudioSystem {
             techno:  { kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0] },
             trap:    { kick: [1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], hihat: [1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,0] },
             rock:    { kick: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1] },
-            dubstep: { kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0] }
+            dubstep: { kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0] },
+            lofi:    { kick: [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], hihat: [0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0], rim: [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1] },
+            jazz:    { kick: [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0], snare: [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0], hihat: [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1], rim: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0] },
+            latin:   { kick: [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0], clap: [0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1], hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], tom: [0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0] },
+            ambient: { kick: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], openHat: [0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0], hihat: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], crash: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] },
+            dnb:     { kick: [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1], hihat: [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0], openHat: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1] },
         };
         this.beatStep = 0;
     }
@@ -187,42 +200,66 @@ class AudioSystem {
             
             // --- STUFE 7: Send-Effekte (parallel zum Dry-Signal) ---
             
-            // 7a: Delay (Send/Return)
-            this.delayNode = this.audioContext.createDelay(1.0);
-            this.delayNode.delayTime.value = 0.3;
+            // 7a: Ping-Pong Stereo Delay (L→R→L bouncing)
+            this.delayL = this.audioContext.createDelay(1.0);
+            this.delayL.delayTime.value = 0.3;
+            this.delayR = this.audioContext.createDelay(1.0);
+            this.delayR.delayTime.value = 0.3;
+            this.delayPanL = this.audioContext.createStereoPanner();
+            this.delayPanL.pan.value = -0.8;
+            this.delayPanR = this.audioContext.createStereoPanner();
+            this.delayPanR.pan.value = 0.8;
             this.delayFeedback = this.audioContext.createGain();
-            this.delayFeedback.gain.value = 0; // 0 = aus
+            this.delayFeedback.gain.value = 0;
             this.delayWetGain = this.audioContext.createGain();
-            this.delayWetGain.gain.value = 0; // 0 = aus
+            this.delayWetGain.gain.value = 0;
             
-            this.delayNode.connect(this.delayFeedback);
-            this.delayFeedback.connect(this.delayNode);  // Feedback-Loop
-            this.delayNode.connect(this.delayWetGain);
-            this.delayWetGain.connect(this.eqLowFilter);  // Return → EQ → Master
-            this.mainBus.connect(this.delayNode);          // Send
+            // Signal flow: mainBus → delayL → panL → delayR → panR → feedback → delayL
+            this.delayL.connect(this.delayPanL);
+            this.delayPanL.connect(this.delayR);
+            this.delayR.connect(this.delayPanR);
+            this.delayPanR.connect(this.delayFeedback);
+            this.delayFeedback.connect(this.delayL);
+            this.delayPanL.connect(this.delayWetGain);
+            this.delayPanR.connect(this.delayWetGain);
+            this.delayWetGain.connect(this.eqLowFilter);
+            this.mainBus.connect(this.delayL);
             
             // 7b: Reverb (Send/Return)
             this._createReverbImpulse();
             // reverbConvolver → reverbWetGain → EQ wird in _createReverbImpulse verbunden
             this.mainBus.connect(this.reverbConvolver);    // Send
             
-            // 7c: Chorus (Send/Return)
-            this.chorusDelay = this.audioContext.createDelay(0.05);
-            this.chorusDelay.delayTime.value = 0.005;
-            this.chorusLFO = this.audioContext.createOscillator();
-            this.chorusLFO.type = 'sine';
-            this.chorusLFO.frequency.value = 1.5;
-            this.chorusLFOGain = this.audioContext.createGain();
-            this.chorusLFOGain.gain.value = 0.002; // Subtile Delay-Modulation
-            this.chorusLFO.connect(this.chorusLFOGain);
-            this.chorusLFOGain.connect(this.chorusDelay.delayTime);
-            this.chorusLFO.start();
-            
+            // 7c: Multi-Voice Chorus (3 taps for lush sound)
             this.chorusWetGain = this.audioContext.createGain();
-            this.chorusWetGain.gain.value = 0; // 0 = aus
-            this.chorusDelay.connect(this.chorusWetGain);
-            this.chorusWetGain.connect(this.eqLowFilter);  // Return → EQ
-            this.mainBus.connect(this.chorusDelay);         // Send
+            this.chorusWetGain.gain.value = 0;
+            this.chorusWetGain.connect(this.eqLowFilter);
+            this.chorusDelays = [];
+            this.chorusLFOs = [];
+            const chorusCfg = [
+                { delay: 0.003, rate: 1.1, depth: 0.0015 },
+                { delay: 0.005, rate: 1.7, depth: 0.002 },
+                { delay: 0.007, rate: 2.3, depth: 0.0018 },
+            ];
+            for (const cfg of chorusCfg) {
+                const cd = this.audioContext.createDelay(0.05);
+                cd.delayTime.value = cfg.delay;
+                const lfo = this.audioContext.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = cfg.rate;
+                const lfoG = this.audioContext.createGain();
+                lfoG.gain.value = cfg.depth;
+                lfo.connect(lfoG);
+                lfoG.connect(cd.delayTime);
+                lfo.start();
+                const tapGain = this.audioContext.createGain();
+                tapGain.gain.value = 0.33;
+                cd.connect(tapGain);
+                tapGain.connect(this.chorusWetGain);
+                this.mainBus.connect(cd);
+                this.chorusDelays.push(cd);
+                this.chorusLFOs.push(lfo);
+            }
             
             // 7d: Phaser (Send/Return)
             this.phaserFilter1 = this.audioContext.createBiquadFilter();
@@ -707,12 +744,16 @@ class AudioSystem {
             );
         }
         
+        // Portamento: glide time based on parameter (0-100 → 0-80ms)
+        const glideTime = (this.portamento / 100) * 0.08;
+        const prevFreq = this._lastFrequency || frequency;
+        this._lastFrequency = frequency;
+        
         // Build oscillators with stereo spread and periodic waves
         const oscillators = [];
         for (const oc of config.oscs) {
             const osc = this.audioContext.createOscillator();
             
-            // Use PeriodicWave for richer timbre, fall back to standard type
             if (oc.wave && pw[oc.wave]) {
                 osc.setPeriodicWave(pw[oc.wave]);
             } else {
@@ -720,21 +761,29 @@ class AudioSystem {
             }
             
             let freq = frequency;
+            let prevF = prevFreq;
             if (oc.freqRatio !== undefined) {
                 freq = frequency * oc.freqRatio;
+                prevF = prevFreq * oc.freqRatio;
             } else if (oc.detune) {
-                freq = frequency * Math.pow(2, oc.detune / 12);
+                const ratio = Math.pow(2, oc.detune / 12);
+                freq = frequency * ratio;
+                prevF = prevFreq * ratio;
             }
-            osc.frequency.value = freq;
             
-            // Micro-random detune (±2 cents) for natural imperfection
+            if (glideTime > 0.001 && prevF !== freq) {
+                osc.frequency.setValueAtTime(prevF, now);
+                osc.frequency.exponentialRampToValueAtTime(freq, now + glideTime);
+            } else {
+                osc.frequency.value = freq;
+            }
+            
             const microDetune = (Math.random() - 0.5) * 4;
             osc.detune.value = (oc.cents || 0) + microDetune;
             
             const oscGain = this.audioContext.createGain();
             oscGain.gain.value = oc.gain;
             
-            // Stereo panning per oscillator
             const panner = this.audioContext.createStereoPanner();
             panner.pan.value = oc.pan || 0;
             
@@ -750,6 +799,31 @@ class AudioSystem {
             osc.start(now);
             osc.stop(now + totalDuration + 0.1);
             oscillators.push(osc);
+        }
+        
+        // Sub-bass: octave-below sine for weight (only when enabled and freq > 80Hz)
+        if (this.subBass > 0 && frequency > 80) {
+            const subOsc = this.audioContext.createOscillator();
+            subOsc.type = 'sine';
+            const subFreq = frequency / 2;
+            if (glideTime > 0.001) {
+                subOsc.frequency.setValueAtTime(prevFreq / 2, now);
+                subOsc.frequency.exponentialRampToValueAtTime(subFreq, now + glideTime);
+            } else {
+                subOsc.frequency.value = subFreq;
+            }
+            const subGain = this.audioContext.createGain();
+            subGain.gain.value = (this.subBass / 100) * 0.12;
+            subOsc.connect(subGain);
+            if (noteFilter) {
+                subGain.connect(noteFilter);
+            } else {
+                subGain.connect(envGain);
+            }
+            this.vibratoLFOGain.connect(subOsc.detune);
+            subOsc.start(now);
+            subOsc.stop(now + totalDuration + 0.1);
+            oscillators.push(subOsc);
         }
         
         if (noteFilter) {
@@ -810,7 +884,8 @@ class AudioSystem {
     // BEAT-SYSTEM
     // ================================================================
 
-    playKick(time) {
+    playKick(time, vel = 1.0) {
+        const v = vel;
         // Sub body: deep sine sweep for weight
         const sub = this.audioContext.createOscillator();
         sub.type = 'sine';
@@ -818,8 +893,8 @@ class AudioSystem {
         sub.frequency.exponentialRampToValueAtTime(42, time + 0.06);
         sub.frequency.exponentialRampToValueAtTime(30, time + 0.25);
         const subGain = this.audioContext.createGain();
-        subGain.gain.setValueAtTime(0.55, time);
-        subGain.gain.setValueAtTime(0.45, time + 0.04);
+        subGain.gain.setValueAtTime(0.55 * v, time);
+        subGain.gain.setValueAtTime(0.45 * v, time + 0.04);
         subGain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
         sub.connect(subGain);
         subGain.connect(this.beatGain);
@@ -873,14 +948,15 @@ class AudioSystem {
         nSrc.stop(time + 0.04);
     }
 
-    playSnare(time) {
+    playSnare(time, vel = 1.0) {
+        const v = vel;
         // Body oscillator 1: main tone
         const body1 = this.audioContext.createOscillator();
         body1.type = 'triangle';
         body1.frequency.setValueAtTime(240, time);
         body1.frequency.exponentialRampToValueAtTime(130, time + 0.04);
         const body1Gain = this.audioContext.createGain();
-        body1Gain.gain.setValueAtTime(0.25, time);
+        body1Gain.gain.setValueAtTime(0.25 * v, time);
         body1Gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
         body1.connect(body1Gain);
         body1Gain.connect(this.beatGain);
@@ -945,7 +1021,8 @@ class AudioSystem {
         transient.stop(time + 0.015);
     }
 
-    playHiHat(time) {
+    playHiHat(time, vel = 1.0) {
+        const v = vel;
         // Metallic oscillators: more partials for richer metallic tone
         const ratios = [1, 1.34, 1.61, 1.88, 2.14, 2.55];
         const baseFreq = 5800;
@@ -962,7 +1039,7 @@ class AudioSystem {
             osc.type = 'square';
             osc.frequency.value = baseFreq * ratio;
             const g = this.audioContext.createGain();
-            g.gain.setValueAtTime(0.025, time);
+            g.gain.setValueAtTime(0.025 * v, time);
             g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
             osc.connect(g);
             g.connect(metalBus);
@@ -996,6 +1073,155 @@ class AudioSystem {
         noise.stop(time + 0.065);
     }
 
+    playClap(time, vel = 1.0) {
+        const v = vel;
+        // Multiple noise bursts with slight time offsets (simulates multiple hands)
+        for (let i = 0; i < 4; i++) {
+            const offset = i * 0.008 + Math.random() * 0.004;
+            const dur = 0.03;
+            const bufSize = Math.floor(this.audioContext.sampleRate * dur);
+            const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let j = 0; j < bufSize; j++) d[j] = Math.random() * 2 - 1;
+            const src = this.audioContext.createBufferSource();
+            src.buffer = buf;
+            const bp = this.audioContext.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.value = 1500 + Math.random() * 500;
+            bp.Q.value = 0.6;
+            const g = this.audioContext.createGain();
+            const amp = (0.18 - i * 0.03) * v;
+            g.gain.setValueAtTime(amp, time + offset);
+            g.gain.exponentialRampToValueAtTime(0.001, time + offset + dur);
+            src.connect(bp);
+            bp.connect(g);
+            g.connect(this.beatGain);
+            src.start(time + offset);
+            src.stop(time + offset + dur + 0.01);
+        }
+        // Reverb tail
+        const tailBuf = this.audioContext.createBuffer(1, Math.floor(this.audioContext.sampleRate * 0.12), this.audioContext.sampleRate);
+        const td = tailBuf.getChannelData(0);
+        for (let i = 0; i < td.length; i++) td[i] = Math.random() * 2 - 1;
+        const tailSrc = this.audioContext.createBufferSource();
+        tailSrc.buffer = tailBuf;
+        const hp = this.audioContext.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 1000;
+        const tg = this.audioContext.createGain();
+        tg.gain.setValueAtTime(0.12 * v, time + 0.03);
+        tg.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+        tailSrc.connect(hp); hp.connect(tg); tg.connect(this.beatGain);
+        tailSrc.start(time + 0.03); tailSrc.stop(time + 0.16);
+    }
+
+    playOpenHiHat(time, vel = 1.0) {
+        const v = vel;
+        const ratios = [1, 1.34, 1.61, 1.88, 2.14, 2.55];
+        const baseFreq = 5800;
+        for (const ratio of ratios) {
+            const osc = this.audioContext.createOscillator();
+            osc.type = 'square';
+            osc.frequency.value = baseFreq * ratio;
+            const g = this.audioContext.createGain();
+            g.gain.setValueAtTime(0.02 * v, time);
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+            osc.connect(g); g.connect(this.beatGain);
+            osc.start(time); osc.stop(time + 0.25);
+        }
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.2);
+        const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buf;
+        const hp = this.audioContext.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 7000;
+        const ng = this.audioContext.createGain();
+        ng.gain.setValueAtTime(0.14 * v, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+        noise.connect(hp); hp.connect(ng); ng.connect(this.beatGain);
+        noise.start(time); noise.stop(time + 0.22);
+    }
+
+    playRim(time, vel = 1.0) {
+        const v = vel;
+        const osc = this.audioContext.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1000, time);
+        osc.frequency.exponentialRampToValueAtTime(500, time + 0.005);
+        const g = this.audioContext.createGain();
+        g.gain.setValueAtTime(0.2 * v, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.015);
+        osc.connect(g); g.connect(this.beatGain);
+        osc.start(time); osc.stop(time + 0.025);
+        // Noise click
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.008);
+        const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+        const src = this.audioContext.createBufferSource();
+        src.buffer = buf;
+        const bp = this.audioContext.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = 3000; bp.Q.value = 2;
+        const ng = this.audioContext.createGain();
+        ng.gain.setValueAtTime(0.15 * v, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.008);
+        src.connect(bp); bp.connect(ng); ng.connect(this.beatGain);
+        src.start(time); src.stop(time + 0.015);
+    }
+
+    playTom(time, vel = 1.0) {
+        const v = vel;
+        const osc = this.audioContext.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(250, time);
+        osc.frequency.exponentialRampToValueAtTime(120, time + 0.1);
+        const g = this.audioContext.createGain();
+        g.gain.setValueAtTime(0.35 * v, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+        osc.connect(g); g.connect(this.beatGain);
+        osc.start(time); osc.stop(time + 0.25);
+        // Attack click
+        const click = this.audioContext.createOscillator();
+        click.type = 'triangle';
+        click.frequency.setValueAtTime(500, time);
+        const cg = this.audioContext.createGain();
+        cg.gain.setValueAtTime(0.12 * v, time);
+        cg.gain.exponentialRampToValueAtTime(0.001, time + 0.01);
+        click.connect(cg); cg.connect(this.beatGain);
+        click.start(time); click.stop(time + 0.02);
+    }
+
+    playCrash(time, vel = 1.0) {
+        const v = vel;
+        // Metallic oscillators at inharmonic ratios
+        const ratios = [1, 1.42, 2.11, 2.87, 3.53];
+        for (const ratio of ratios) {
+            const osc = this.audioContext.createOscillator();
+            osc.type = 'square';
+            osc.frequency.value = 4200 * ratio;
+            const g = this.audioContext.createGain();
+            g.gain.setValueAtTime(0.015 * v, time);
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.6);
+            osc.connect(g); g.connect(this.beatGain);
+            osc.start(time); osc.stop(time + 0.7);
+        }
+        // Wide noise band
+        const bufSize = Math.floor(this.audioContext.sampleRate * 0.8);
+        const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buf;
+        const hp = this.audioContext.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 5000;
+        const ng = this.audioContext.createGain();
+        ng.gain.setValueAtTime(0.18 * v, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + 0.7);
+        noise.connect(hp); hp.connect(ng); ng.connect(this.beatGain);
+        noise.start(time); noise.stop(time + 0.8);
+    }
+
     startBeats() {
         if (this.beatStyle === 'none') {
             this.stopBeats();
@@ -1012,7 +1238,6 @@ class AudioSystem {
         this._beatPattern = pattern;
         this._beatRunning = true;
         
-        // Lookahead scheduler: schedules beats 150ms ahead, wakes every 25ms
         const LOOKAHEAD_SEC = 0.15;
         const INTERVAL_MS = 25;
         
@@ -1024,14 +1249,31 @@ class AudioSystem {
             while (this._beatNextStepTime < horizon) {
                 const step = this.beatStep % 16;
                 const p = this._beatPattern;
-                if (p.kick  && p.kick[step])  this.playKick(this._beatNextStepTime);
-                if (p.snare && p.snare[step]) this.playSnare(this._beatNextStepTime);
-                if (p.hihat && p.hihat[step]) this.playHiHat(this._beatNextStepTime);
-                if (p.clap  && p.clap[step])  this.playClap?.(this._beatNextStepTime);
-                if (p.openHat && p.openHat[step]) this.playOpenHiHat?.(this._beatNextStepTime);
-                if (p.rim   && p.rim[step])   this.playRim?.(this._beatNextStepTime);
-                if (p.tom   && p.tom[step])   this.playTom?.(this._beatNextStepTime);
-                if (p.crash && p.crash[step]) this.playCrash?.(this._beatNextStepTime);
+                
+                // Swing: shift odd steps forward (0-100 → 0-66% of step)
+                let swingOffset = 0;
+                if (this.swing > 0 && step % 2 === 1) {
+                    swingOffset = stepDuration * (this.swing / 100) * 0.66;
+                }
+                
+                // Humanize: random timing jitter (±3ms) and velocity variation
+                let humanizeOffset = 0;
+                let humanizeVel = 1.0;
+                if (this.humanize > 0) {
+                    humanizeOffset = (Math.random() - 0.5) * 0.006 * (this.humanize / 100);
+                    humanizeVel = 1.0 + (Math.random() - 0.5) * 0.2 * (this.humanize / 100);
+                }
+                
+                const t = this._beatNextStepTime + swingOffset + humanizeOffset;
+                
+                if (p.kick    && p.kick[step])    this.playKick(t, humanizeVel);
+                if (p.snare   && p.snare[step])   this.playSnare(t, humanizeVel);
+                if (p.hihat   && p.hihat[step])   this.playHiHat(t, humanizeVel);
+                if (p.clap    && p.clap[step])    this.playClap(t, humanizeVel);
+                if (p.openHat && p.openHat[step]) this.playOpenHiHat(t, humanizeVel);
+                if (p.rim     && p.rim[step])     this.playRim(t, humanizeVel);
+                if (p.tom     && p.tom[step])     this.playTom(t, humanizeVel);
+                if (p.crash   && p.crash[step])   this.playCrash(t, humanizeVel);
                 this.beatStep++;
                 this._beatNextStepTime += stepDuration;
             }
@@ -1106,20 +1348,15 @@ class AudioSystem {
         }
     }
 
-    // --- DELAY: Wet max 35%, Feedback max 25% (kein Aufschaukeln) ---
+    // --- DELAY: Ping-pong stereo, Wet max 35%, Feedback max 25% ---
     setDelay(value) {
         this.delay = value;
+        const t = this.audioContext.currentTime;
         if (this.delayWetGain) {
-            this.delayWetGain.gain.setTargetAtTime(
-                (value / 100) * 0.35,
-                this.audioContext.currentTime, 0.02
-            );
+            this.delayWetGain.gain.setTargetAtTime((value / 100) * 0.35, t, 0.02);
         }
         if (this.delayFeedback) {
-            this.delayFeedback.gain.setTargetAtTime(
-                (value / 100) * 0.25,
-                this.audioContext.currentTime, 0.02
-            );
+            this.delayFeedback.gain.setTargetAtTime((value / 100) * 0.25, t, 0.02);
         }
     }
 
@@ -1241,6 +1478,22 @@ class AudioSystem {
             this.eqHighFilter.gain.setTargetAtTime(this.eqHigh, this.audioContext.currentTime, 0.02);
         }
     }
+
+    // --- PORTAMENTO: Glide time 0-80ms ---
+    setPortamento(value) { this.portamento = value; }
+
+    // --- SUB-BASS: Octave-below oscillator level ---
+    setSubBass(value) { this.subBass = value; }
+
+    // --- SWING: Shift odd beat steps (0-100%) ---
+    setSwing(value) {
+        this.swing = value;
+        this.stopBeats();
+        if (this.beatStyle !== 'none') this.startBeats();
+    }
+
+    // --- HUMANIZE: Random timing + velocity jitter ---
+    setHumanize(value) { this.humanize = value; }
 
     // --- Beat-System ---
     setBeatStyle(style) {

@@ -351,6 +351,24 @@ class PalindromSoundBox {
             });
         }
         
+        const portamentoSlider = document.getElementById('portamentoSlider');
+        if (portamentoSlider) {
+            portamentoSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('portamentoValue').textContent = value;
+                audioSystem.setPortamento(parseInt(value));
+            });
+        }
+        
+        const subBassSlider = document.getElementById('subBassSlider');
+        if (subBassSlider) {
+            subBassSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('subBassValue').textContent = value;
+                audioSystem.setSubBass(parseInt(value));
+            });
+        }
+        
         // EQ
         const eqLowSlider = document.getElementById('eqLowSlider');
         if (eqLowSlider) {
@@ -405,6 +423,22 @@ class PalindromSoundBox {
                 const value = e.target.value;
                 document.getElementById('beatVolumeValue').textContent = value;
                 audioSystem.setBeatVolume(parseInt(value));
+            });
+        }
+        const swingSlider = document.getElementById('swingSlider');
+        if (swingSlider) {
+            swingSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('swingValue').textContent = value;
+                audioSystem.setSwing(parseInt(value));
+            });
+        }
+        const humanizeSlider = document.getElementById('humanizeSlider');
+        if (humanizeSlider) {
+            humanizeSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                document.getElementById('humanizeValue').textContent = value;
+                audioSystem.setHumanize(parseInt(value));
             });
         }
         if (sequenceTempoSelect) {
@@ -623,6 +657,8 @@ class PalindromSoundBox {
             { id: 'phaser', label: 'phaserValue', fn: 'setPhaser', max: 60 },
             { id: 'tremolo', label: 'tremoloValue', fn: 'setTremolo', max: 60 },
             { id: 'compression', label: 'compressionValue', fn: 'setCompression', max: 70 },
+            { id: 'portamento', label: 'portamentoValue', fn: 'setPortamento', max: 80 },
+            { id: 'subBass', label: 'subBassValue', fn: 'setSubBass', max: 70 },
         ];
 
         for (const effect of effects) {
@@ -649,6 +685,14 @@ class PalindromSoundBox {
             if (label) label.textContent = value;
             if (audioSystem[eq.fn]) audioSystem[eq.fn](value);
         }
+
+        // Swing & Humanize
+        const swingVal = Math.random() < 0.5 ? rand(10, 60) : 0;
+        const swEl = document.getElementById('swingSlider');
+        if (swEl) { swEl.value = swingVal; document.getElementById('swingValue').textContent = swingVal; audioSystem.setSwing(swingVal); }
+        const humVal = Math.random() < 0.5 ? rand(10, 50) : 0;
+        const humEl = document.getElementById('humanizeSlider');
+        if (humEl) { humEl.value = humVal; document.getElementById('humanizeValue').textContent = humVal; audioSystem.setHumanize(humVal); }
 
         // Beat System: Bei Randomize immer AUS lassen
         const beatEl = document.getElementById('beatStyleSelect');
@@ -710,6 +754,8 @@ class PalindromSoundBox {
             ['phaserSlider', 'phaserValue', 0, 'setPhaser'],
             ['tremoloSlider', 'tremoloValue', 0, 'setTremolo'],
             ['compressionSlider', 'compressionValue', 0, 'setCompression'],
+            ['portamentoSlider', 'portamentoValue', 0, 'setPortamento'],
+            ['subBassSlider', 'subBassValue', 0, 'setSubBass'],
         ];
         for (const [sliderId, labelId, val, fn] of defaults) {
             setSlider(sliderId, labelId, val);
@@ -726,6 +772,8 @@ class PalindromSoundBox {
         if (beatEl) { beatEl.value = 'none'; audioSystem.setBeatStyle('none'); }
         setSlider('bpmSlider', 'bpmValue', 120); audioSystem.setBPM(120);
         setSlider('beatVolumeSlider', 'beatVolumeValue', 50); audioSystem.setBeatVolume(50);
+        setSlider('swingSlider', 'swingValue', 0); audioSystem.setSwing(0);
+        setSlider('humanizeSlider', 'humanizeValue', 0); audioSystem.setHumanize(0);
 
         // Melody Tempo: 1x
         const tempoEl = document.getElementById('sequenceTempoSelect');
@@ -1590,7 +1638,9 @@ class PalindromSoundBox {
             smoothness: getVal('smoothnessSlider'), chorus: getVal('chorusSlider'), phaser: getVal('phaserSlider'),
             tremolo: getVal('tremoloSlider'), compression: getVal('compressionSlider'),
             eqLow: getVal('eqLowSlider'), eqMid: getVal('eqMidSlider'), eqHigh: getVal('eqHighSlider'),
+            portamento: getVal('portamentoSlider'), subBass: getVal('subBassSlider'),
             beatStyle: getVal('beatStyleSelect'), bpm: getVal('bpmSlider'), beatVolume: getVal('beatVolumeSlider'),
+            swing: getVal('swingSlider'), humanize: getVal('humanizeSlider'),
             sequenceTempo: getVal('sequenceTempoSelect'),
         };
     }
@@ -1617,12 +1667,16 @@ class PalindromSoundBox {
         set('phaserSlider', p.phaser, 'phaserValue', 'setPhaser');
         set('tremoloSlider', p.tremolo, 'tremoloValue', 'setTremolo');
         set('compressionSlider', p.compression, 'compressionValue', 'setCompression');
+        set('portamentoSlider', p.portamento, 'portamentoValue', 'setPortamento');
+        set('subBassSlider', p.subBass, 'subBassValue', 'setSubBass');
         set('eqLowSlider', p.eqLow, 'eqLowValue', 'setEQLow');
         set('eqMidSlider', p.eqMid, 'eqMidValue', 'setEQMid');
         set('eqHighSlider', p.eqHigh, 'eqHighValue', 'setEQHigh');
         set('beatStyleSelect', p.beatStyle, null, 'setBeatStyle');
         set('bpmSlider', p.bpm, 'bpmValue', 'setBPM');
         set('beatVolumeSlider', p.beatVolume, 'beatVolumeValue', 'setBeatVolume');
+        set('swingSlider', p.swing, 'swingValue', 'setSwing');
+        set('humanizeSlider', p.humanize, 'humanizeValue', 'setHumanize');
         set('sequenceTempoSelect', p.sequenceTempo, null, 'setSequenceTempo');
     }
 
