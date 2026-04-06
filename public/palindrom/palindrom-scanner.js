@@ -1,6 +1,6 @@
-// Palindrom Scanner - Findet Palindrom Rare SATs in einem Wallet
-// Primary: server-seitiger Scan (schnell, parallel, gecached)
-// Fallback: client-seitiger Scan direkt via ordinals.com (Browser nicht blockiert)
+// Palindrom Scanner - Finds Palindrome Rare SATs in a wallet
+// Primary: server-side scan (fast, parallel, cached)
+// Fallback: client-side scan via ordinals.com (non-blocking)
 
 const PALINDROM_API_BASE = window.PALINDROM_API_URL || '';
 const PALINDROM_API_FALLBACK = 'https://bitcoin-ordinals-backend-production.up.railway.app';
@@ -54,14 +54,14 @@ class PalindromScanner {
 
             // 2) Server returned 0 — check if ordinals was reachable
             console.log('[Scanner] Server found 0 palindromes, trying client-side scan...');
-            this.scanProgress.status = 'Server-Scan fand nichts, starte Browser-Scan...';
+            this.scanProgress.status = 'Server found nothing, starting browser scan...';
             this._updateProgress();
 
             return await this._clientScan(address);
         } catch (error) {
             // 3) Server failed entirely — try client-side
             console.warn('[Scanner] Server scan failed, falling back to client-side:', error.message);
-            this.scanProgress.status = 'Server nicht erreichbar, starte Browser-Scan...';
+            this.scanProgress.status = 'Server unreachable, starting browser scan...';
             this._updateProgress();
             try {
                 return await this._clientScan(address);
@@ -103,22 +103,10 @@ class PalindromScanner {
     async _clientScan(address) {
         const startTime = Date.now();
 
-        // Step 1: Get UTXOs from server (handles >500 UTXO wallets)
-        this.scanProgress.status = 'Lade UTXOs vom Server...';
+        this.scanProgress.status = 'Loading UTXOs...';
         this._updateProgress();
-        let utxos;
-        try {
-            const utxoRes = await this._fetchWithFallback(`/api/palindrom/utxos/${address}`);
-            if (utxoRes.ok) {
-                const data = await utxoRes.json();
-                utxos = data.utxos;
-            }
-        } catch (e) { /* fall through to mempool.space */ }
-        if (!utxos || utxos.length === 0) {
-            const utxoRes = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
-            if (utxoRes.ok) utxos = await utxoRes.json();
-        }
-        if (!utxos || utxos.length === 0) throw new Error('Konnte UTXOs nicht laden');
+        const utxos = await this._fetchAllUtxos(address);
+        if (utxos.length === 0) throw new Error('Could not load UTXOs');
         console.log(`[Scanner] Client: ${utxos.length} UTXOs loaded`);
 
         // Step 2: Fetch sat ranges from ordinals.com (browser is not blocked!)
@@ -146,7 +134,7 @@ class PalindromScanner {
             if (completed % 5 === 0 || completed === total) {
                 this.scanProgress = {
                     current: completed, total,
-                    status: `Browser-Scan: ${completed}/${total} UTXOs... (${allPalindromes.length} gefunden)`
+                    status: `Browser scan: ${completed}/${total} UTXOs... (${allPalindromes.length} found)`
                 };
                 this._updateProgress();
             }
@@ -178,6 +166,76 @@ class PalindromScanner {
         this._updateProgress();
         console.log(`[Scanner] Client: ${allPalindromes.length} Palindrome in ${elapsed}s (${total} UTXOs)`);
         return allPalindromes;
+    }
+
+    async _fetchAllUtxos(address) {
+        const sources = [];
+
+        // Source 1: Our backend (may handle large wallets)
+        try {
+            this.scanProgress.status = 'Loading UTXOs from server...';
+            this._updateProgress();
+            const res = await this._fetchWithFallback(`/api/palindrom/utxos/${address}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.utxos && data.utxos.length > 0) {
+                    sources.push({ name: 'server', utxos: data.utxos });
+                    console.log(`[Scanner] Server: ${data.utxos.length} UTXOs`);
+                }
+            }
+        } catch (e) { console.log('[Scanner] Server UTXOs unavailable'); }
+
+        // Source 2: mempool.space
+        try {
+            this.scanProgress.status = 'Loading UTXOs from mempool.space...';
+            this._updateProgress();
+            const res = await fetch(`${MEMPOOL_API}/address/${address}/utxo`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    sources.push({ name: 'mempool.space', utxos: data });
+                    console.log(`[Scanner] mempool.space: ${data.length} UTXOs`);
+                }
+            }
+        } catch (e) { console.log('[Scanner] mempool.space unavailable'); }
+
+        // Source 3: blockstream.info (independent Esplora instance)
+        try {
+            this.scanProgress.status = 'Loading UTXOs from blockstream.info...';
+            this._updateProgress();
+            const res = await fetch(`https://blockstream.info/api/address/${address}/utxo`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    sources.push({ name: 'blockstream.info', utxos: data });
+                    console.log(`[Scanner] blockstream.info: ${data.length} UTXOs`);
+                }
+            }
+        } catch (e) { console.log('[Scanner] blockstream.info unavailable'); }
+
+        if (sources.length === 0) return [];
+
+        // Merge and deduplicate: use all UTXOs from all sources
+        const seen = new Set();
+        const merged = [];
+        // Sort sources by count descending so the richest source is primary
+        sources.sort((a, b) => b.utxos.length - a.utxos.length);
+        for (const src of sources) {
+            for (const utxo of src.utxos) {
+                const key = `${utxo.txid}:${utxo.vout}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    merged.push(utxo);
+                }
+            }
+        }
+
+        const srcNames = sources.map(s => `${s.name}(${s.utxos.length})`).join(', ');
+        console.log(`[Scanner] Merged UTXOs: ${merged.length} from ${sources.length} sources [${srcNames}]`);
+        this.scanProgress.status = `${merged.length} UTXOs loaded (${sources.length} sources)`;
+        this._updateProgress();
+
+        return merged;
     }
 
     async _fetchSatRangesFromHtml(utxoKey) {
@@ -239,7 +297,7 @@ class PalindromScanner {
     }
 
     // ========================================
-    // Hilfsfunktionen (für UI-Darstellung)
+    // Utility functions
     // ========================================
 
     static formatSatNumber(sat) {
@@ -257,5 +315,5 @@ class PalindromScanner {
     }
 }
 
-// Globale Instanz
+// Global instance
 const palindromScanner = new PalindromScanner();
