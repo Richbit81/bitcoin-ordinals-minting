@@ -170,8 +170,9 @@ class PalindromScanner {
 
     async _fetchAllUtxos(address) {
         const sources = [];
+        let directApiFailed = false;
 
-        // Source 1: Our backend (may handle large wallets)
+        // Source 1: Our backend
         try {
             this.scanProgress.status = 'Loading UTXOs from server...';
             this._updateProgress();
@@ -185,7 +186,7 @@ class PalindromScanner {
             }
         } catch (e) { console.log('[Scanner] Server UTXOs unavailable'); }
 
-        // Source 2: mempool.space
+        // Source 2: mempool.space UTXO endpoint
         try {
             this.scanProgress.status = 'Loading UTXOs from mempool.space...';
             this._updateProgress();
@@ -196,10 +197,13 @@ class PalindromScanner {
                     sources.push({ name: 'mempool.space', utxos: data });
                     console.log(`[Scanner] mempool.space: ${data.length} UTXOs`);
                 }
+            } else if (res.status === 400) {
+                directApiFailed = true;
+                console.log('[Scanner] mempool.space UTXO endpoint returned 400 (address too large)');
             }
         } catch (e) { console.log('[Scanner] mempool.space unavailable'); }
 
-        // Source 3: blockstream.info (independent Esplora instance)
+        // Source 3: blockstream.info UTXO endpoint
         try {
             this.scanProgress.status = 'Loading UTXOs from blockstream.info...';
             this._updateProgress();
@@ -210,15 +214,30 @@ class PalindromScanner {
                     sources.push({ name: 'blockstream.info', utxos: data });
                     console.log(`[Scanner] blockstream.info: ${data.length} UTXOs`);
                 }
+            } else if (res.status === 400) {
+                directApiFailed = true;
             }
         } catch (e) { console.log('[Scanner] blockstream.info unavailable'); }
 
+        // Source 4: If direct UTXO endpoints failed (400 = too many UTXOs),
+        // reconstruct UTXO set from paginated transactions
+        if (directApiFailed && sources.length <= 1) {
+            try {
+                const txUtxos = await this._buildUtxosFromTransactions(address);
+                if (txUtxos.length > 0) {
+                    sources.push({ name: 'tx-rebuild', utxos: txUtxos });
+                    console.log(`[Scanner] tx-rebuild: ${txUtxos.length} UTXOs reconstructed from transactions`);
+                }
+            } catch (e) {
+                console.log('[Scanner] Transaction-based UTXO rebuild failed:', e.message);
+            }
+        }
+
         if (sources.length === 0) return [];
 
-        // Merge and deduplicate: use all UTXOs from all sources
+        // Merge and deduplicate
         const seen = new Set();
         const merged = [];
-        // Sort sources by count descending so the richest source is primary
         sources.sort((a, b) => b.utxos.length - a.utxos.length);
         for (const src of sources) {
             for (const utxo of src.utxos) {
@@ -236,6 +255,73 @@ class PalindromScanner {
         this._updateProgress();
 
         return merged;
+    }
+
+    async _buildUtxosFromTransactions(address) {
+        this.scanProgress.status = 'Address too large for UTXO API — rebuilding from transactions...';
+        this._updateProgress();
+
+        const allTxs = [];
+        let lastTxid = null;
+        let page = 0;
+
+        while (true) {
+            const url = lastTxid
+                ? `${MEMPOOL_API}/address/${address}/txs/chain/${lastTxid}`
+                : `${MEMPOOL_API}/address/${address}/txs`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) break;
+                const txs = await res.json();
+                if (!txs || txs.length === 0) break;
+                allTxs.push(...txs);
+                lastTxid = txs[txs.length - 1].txid;
+                page++;
+                this.scanProgress.status = `Loading transactions... (${allTxs.length} txs, page ${page})`;
+                this._updateProgress();
+                if (txs.length < 25) break;
+                await new Promise(r => setTimeout(r, 150));
+            } catch (e) {
+                console.log('[Scanner] TX fetch error at page', page, e.message);
+                break;
+            }
+        }
+
+        if (allTxs.length === 0) return [];
+        console.log(`[Scanner] Loaded ${allTxs.length} transactions for UTXO reconstruction`);
+
+        const spent = new Set();
+        for (const tx of allTxs) {
+            if (!tx.vin) continue;
+            for (const inp of tx.vin) {
+                if (inp.prevout && inp.prevout.scriptpubkey_address === address) {
+                    spent.add(`${inp.txid}:${inp.vout}`);
+                }
+            }
+        }
+
+        const utxos = [];
+        const seen = new Set();
+        for (const tx of allTxs) {
+            if (!tx.vout) continue;
+            for (let i = 0; i < tx.vout.length; i++) {
+                const out = tx.vout[i];
+                if (out.scriptpubkey_address !== address) continue;
+                const key = `${tx.txid}:${i}`;
+                if (spent.has(key) || seen.has(key)) continue;
+                seen.add(key);
+                utxos.push({
+                    txid: tx.txid,
+                    vout: i,
+                    value: out.value,
+                    status: { confirmed: !!tx.status?.confirmed }
+                });
+            }
+        }
+
+        this.scanProgress.status = `Rebuilt ${utxos.length} UTXOs from ${allTxs.length} transactions`;
+        this._updateProgress();
+        return utxos;
     }
 
     async _fetchSatRangesFromHtml(utxoKey) {
