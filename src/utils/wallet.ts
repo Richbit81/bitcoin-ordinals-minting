@@ -1698,7 +1698,7 @@ export const pushPsbt = async (
 
 /**
  * Fetches all inscription IDs held by the currently connected wallet
- * using the wallet extension API directly (UniSat / OKX).
+ * using the wallet extension API directly (UniSat / Xverse / OKX).
  * Returns an empty set if the wallet doesn't support getInscriptions.
  */
 export async function getWalletInscriptionIds(walletType?: WalletType | null): Promise<Set<string>> {
@@ -1718,6 +1718,27 @@ export async function getWalletInscriptionIds(walletType?: WalletType | null): P
         if (id) ids.add(id);
       }
       cursor += page.list.length;
+      guard++;
+    }
+    return ids;
+  }
+
+  if (walletType === 'xverse' && window.BitcoinProvider?.request) {
+    const pageSize = 100;
+    let offset = 0;
+    let total = Infinity;
+    let guard = 0;
+    while (offset < total && guard < 200) {
+      const res: any = await window.BitcoinProvider.request('ord_getInscriptions', { offset, limit: pageSize });
+      const result = res?.result ?? res;
+      total = Number(result?.total ?? 0);
+      const list = Array.isArray(result?.inscriptions) ? result.inscriptions : (Array.isArray(result?.list) ? result.list : []);
+      if (list.length === 0) break;
+      for (const item of list) {
+        const id = String(item?.inscriptionId || item?.inscription_id || '').trim();
+        if (id) ids.add(id);
+      }
+      offset += list.length;
       guard++;
     }
     return ids;
