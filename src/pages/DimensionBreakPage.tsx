@@ -31,41 +31,98 @@ function DimensionCracksCanvas() {
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
     if (!ctx) return;
 
-    let smoothMx = -1, smoothMy = -1;
+    let smx = -1, smy = -1, prevMx = -1, prevMy = -1, mouseSpeed = 0;
 
-    type Crack = { x: number; y: number; angle: number; len: number; maxLen: number; speed: number; branches: Crack[]; width: number; life: number; hue: number };
-    type Hole = { x: number; y: number; size: number; pulse: number; hue: number; life: number; maxLife: number };
+    type Vec = { x: number; y: number };
+    type CrackSeg = Vec & { w: number };
+    type Crack = { segs: CrackSeg[]; angle: number; maxLen: number; speed: number; branches: Crack[]; width: number; life: number; hue: number; growing: boolean };
+    type Rift = { x: number; y: number; pts: Vec[]; size: number; pulse: number; hue: number; life: number; maxLife: number; rot: number; energy: number };
+    type Shard = { x: number; y: number; vx: number; vy: number; rot: number; vr: number; size: number; hue: number; life: number; shape: Vec[]; alpha: number };
+    type Spark = { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; hue: number; size: number };
+    type Shockwave = { x: number; y: number; r: number; maxR: number; life: number; hue: number };
 
     const cracks: Crack[] = [];
-    const holes: Hole[] = [];
+    const rifts: Rift[] = [];
+    const shards: Shard[] = [];
+    const sparks: Spark[] = [];
+    const shockwaves: Shockwave[] = [];
+
+    const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
+
+    function makeRiftShape(cx: number, cy: number, size: number): Vec[] {
+      const pts: Vec[] = [];
+      const n = 7 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const r = size * (0.5 + Math.random() * 0.5);
+        pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+      return pts;
+    }
+
+    function makeShardShape(sz: number): Vec[] {
+      const n = 3 + Math.floor(Math.random() * 3);
+      const pts: Vec[] = [];
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+        const r = sz * (0.4 + Math.random() * 0.6);
+        pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+      }
+      return pts;
+    }
 
     function spawnCrack(x: number, y: number, angle?: number, width?: number) {
-      if (cracks.length > 60) return;
+      if (cracks.length > 80) return;
+      const w = width ?? 1.5 + Math.random() * 3;
       cracks.push({
-        x, y, angle: angle ?? Math.random() * Math.PI * 2, len: 0,
-        maxLen: 40 + Math.random() * 160, speed: 0.8 + Math.random() * 2,
-        branches: [], width: width ?? 1 + Math.random() * 2.5, life: 1,
-        hue: 260 + Math.random() * 40,
+        segs: [{ x, y, w }], angle: angle ?? Math.random() * Math.PI * 2,
+        maxLen: 60 + Math.random() * 220, speed: 1.2 + Math.random() * 2.5,
+        branches: [], width: w, life: 1, hue: 255 + Math.random() * 50, growing: true,
       });
     }
 
-    function spawnHole(x: number, y: number) {
-      if (holes.length > 25) return;
-      holes.push({ x, y, size: 3 + Math.random() * 12, pulse: Math.random() * Math.PI * 2, hue: 270 + Math.random() * 50, life: 0, maxLife: 200 + Math.random() * 400 });
+    function spawnRift(x: number, y: number, size?: number) {
+      if (rifts.length > 18) return;
+      const sz = size ?? 8 + Math.random() * 30;
+      rifts.push({ x, y, pts: makeRiftShape(x, y, sz), size: sz, pulse: Math.random() * Math.PI * 2, hue: 260 + Math.random() * 60, life: 0, maxLife: 300 + Math.random() * 500, rot: (Math.random() - 0.5) * 0.003, energy: 0.5 + Math.random() * 0.5 });
     }
 
-    for (let i = 0; i < 12; i++) spawnCrack(Math.random() * 2000, Math.random() * 2000);
-    for (let i = 0; i < 8; i++) spawnHole(Math.random() * 2000, Math.random() * 2000);
+    function spawnShard(x: number, y: number, vx: number, vy: number) {
+      if (shards.length > 60) return;
+      const sz = 3 + Math.random() * 10;
+      shards.push({ x, y, vx, vy, rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.08, size: sz, hue: 260 + Math.random() * 50, life: 1, shape: makeShardShape(sz), alpha: 0.4 + Math.random() * 0.4 });
+    }
+
+    function spawnSparks(x: number, y: number, count: number, hue: number) {
+      for (let i = 0; i < count; i++) {
+        if (sparks.length > 300) return;
+        const a = Math.random() * Math.PI * 2;
+        const spd = 0.5 + Math.random() * 3;
+        sparks.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, maxLife: 60 + Math.random() * 120, hue: hue + (Math.random() - 0.5) * 30, size: 1 + Math.random() * 2.5 });
+      }
+    }
+
+    function spawnShockwave(x: number, y: number) {
+      if (shockwaves.length > 6) return;
+      shockwaves.push({ x, y, r: 0, maxR: 150 + Math.random() * 200, life: 1, hue: 265 + Math.random() * 30 });
+    }
+
+    const W = () => window.innerWidth;
+    const H = () => window.innerHeight;
+
+    for (let i = 0; i < 18; i++) spawnCrack(Math.random() * 2000, Math.random() * 2000);
+    for (let i = 0; i < 6; i++) spawnRift(Math.random() * 2000, Math.random() * 2000);
+    for (let i = 0; i < 10; i++) spawnShard(Math.random() * 2000, Math.random() * 2000, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3);
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      canvas.width = W() * dpr;
+      canvas.height = H() * dpr;
+      canvas.style.width = `${W()}px`;
+      canvas.style.height = `${H()}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
@@ -75,165 +132,402 @@ function DimensionCracksCanvas() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseleave', onLeave);
 
-    let spawnTimer = 0;
+    let frame = 0;
     const draw = (ts: number) => {
       const t = ts * 0.001;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const mx = mouseRef.current.x;
-      const my = mouseRef.current.y;
+      const w = W(), h = H();
+      const mx = mouseRef.current.x, my = mouseRef.current.y;
       const hasMouse = mx >= 0 && my >= 0;
 
       if (hasMouse) {
-        smoothMx = smoothMx < 0 ? mx : smoothMx + (mx - smoothMx) * 0.08;
-        smoothMy = smoothMy < 0 ? my : smoothMy + (my - smoothMy) * 0.08;
-      } else { smoothMx = -1; smoothMy = -1; }
+        smx = smx < 0 ? mx : smx + (mx - smx) * 0.1;
+        smy = smy < 0 ? my : smy + (my - smy) * 0.1;
+        if (prevMx >= 0) mouseSpeed = mouseSpeed * 0.85 + Math.hypot(mx - prevMx, my - prevMy) * 0.15;
+        prevMx = mx; prevMy = my;
+      } else { smx = -1; smy = -1; prevMx = -1; prevMy = -1; mouseSpeed *= 0.9; }
 
       ctx.clearRect(0, 0, w, h);
+      frame++;
 
-      spawnTimer++;
-      if (spawnTimer % 90 === 0) {
-        spawnCrack(Math.random() * w, Math.random() * h);
-      }
-      if (spawnTimer % 150 === 0) {
-        spawnHole(Math.random() * w, Math.random() * h);
-      }
-      if (hasMouse && spawnTimer % 20 === 0) {
-        const ox = smoothMx + (Math.random() - 0.5) * 200;
-        const oy = smoothMy + (Math.random() - 0.5) * 200;
-        spawnCrack(ox, oy, Math.atan2(oy - smoothMy, ox - smoothMx), 0.5 + Math.random() * 1.5);
-      }
-      if (hasMouse && spawnTimer % 60 === 0) {
-        spawnHole(smoothMx + (Math.random() - 0.5) * 300, smoothMy + (Math.random() - 0.5) * 300);
+      const prox = (px: number, py: number, radius = 500) => {
+        if (smx < 0) return 0;
+        return Math.max(0, 1 - Math.hypot(px - smx, py - smy) / radius);
+      };
+
+      // --- Ambient dimensional fog ---
+      for (let i = 0; i < 3; i++) {
+        const fx = w * (0.2 + i * 0.3) + Math.sin(t * 0.3 + i * 2) * 80;
+        const fy = h * (0.3 + i * 0.2) + Math.cos(t * 0.2 + i) * 60;
+        const fr = 200 + Math.sin(t * 0.5 + i) * 60;
+        const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+        const a = 0.025 + prox(fx, fy, 600) * 0.04;
+        fg.addColorStop(0, `hsla(${270 + i * 20}, 70%, 40%, ${a})`);
+        fg.addColorStop(1, 'transparent');
+        ctx.fillStyle = fg;
+        ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
       }
 
-      const drawCrack = (c: Crack) => {
-        let proximity = 0;
-        if (smoothMx >= 0) {
-          const dx = c.x - smoothMx, dy = c.y - smoothMy;
-          proximity = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 500);
+      // --- Spawning logic ---
+      if (frame % 60 === 0) spawnCrack(Math.random() * w, Math.random() * h);
+      if (frame % 120 === 0) spawnRift(Math.random() * w, Math.random() * h);
+      if (frame % 200 === 0) spawnShard(Math.random() * w, Math.random() * h, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5);
+      if (hasMouse) {
+        if (frame % 10 === 0) {
+          const ox = smx + (Math.random() - 0.5) * 250;
+          const oy = smy + (Math.random() - 0.5) * 250;
+          spawnCrack(ox, oy, Math.atan2(oy - smy, ox - smx) + (Math.random() - 0.5) * 0.6, 0.8 + Math.random() * 2);
         }
+        if (frame % 40 === 0) spawnRift(smx + (Math.random() - 0.5) * 350, smy + (Math.random() - 0.5) * 350, 5 + Math.random() * 20);
+        if (mouseSpeed > 5 && frame % 8 === 0) {
+          spawnShard(smx, smy, (Math.random() - 0.5) * mouseSpeed * 0.3, (Math.random() - 0.5) * mouseSpeed * 0.3);
+          spawnSparks(smx, smy, 2, 270);
+        }
+        if (mouseSpeed > 15 && frame % 30 === 0) spawnShockwave(smx, smy);
+      }
 
-        const growSpeed = c.speed * (1 + proximity * 3);
-        if (c.len < c.maxLen) {
-          c.len += growSpeed;
-          if (c.len > c.maxLen * 0.4 && c.branches.length < 3 && Math.random() < 0.02 * (1 + proximity * 4)) {
-            const bAngle = c.angle + (Math.random() - 0.5) * 1.2;
-            const bx = c.x + Math.cos(c.angle) * c.len;
-            const by = c.y + Math.sin(c.angle) * c.len;
-            const branch: Crack = { x: bx, y: by, angle: bAngle, len: 0, maxLen: c.maxLen * (0.3 + Math.random() * 0.4), speed: c.speed * 0.8, branches: [], width: c.width * 0.6, life: 1, hue: c.hue + (Math.random() - 0.5) * 20 };
-            c.branches.push(branch);
+      // --- Shockwaves ---
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.r += (sw.maxR - sw.r) * 0.06;
+        sw.life -= 0.015;
+        if (sw.life <= 0) { shockwaves.splice(i, 1); continue; }
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${sw.hue}, 80%, 70%, ${sw.life * 0.25})`;
+        ctx.lineWidth = 2 + sw.life * 4;
+        ctx.shadowColor = `hsla(${sw.hue}, 100%, 60%, ${sw.life * 0.4})`;
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.r * 0.97, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${sw.hue + 30}, 100%, 85%, ${sw.life * 0.15})`;
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // --- Draw cracks (multi-layered) ---
+      const growCrack = (c: Crack) => {
+        const tip = c.segs[c.segs.length - 1];
+        let p = prox(tip.x, tip.y);
+
+        if (c.growing) {
+          const totalLen = c.segs.length * 3;
+          const growSpd = c.speed * (1 + p * 4);
+          const steps = Math.ceil(growSpd);
+          for (let s = 0; s < steps && totalLen + s * 3 < c.maxLen; s++) {
+            const prev = c.segs[c.segs.length - 1];
+            c.angle += (Math.random() - 0.5) * 0.3;
+            const nx = prev.x + Math.cos(c.angle) * 3;
+            const ny = prev.y + Math.sin(c.angle) * 3;
+            const nw = c.width * (1 - (totalLen + s * 3) / c.maxLen * 0.7);
+            c.segs.push({ x: nx, y: ny, w: Math.max(0.3, nw) });
+
+            if (c.segs.length > 8 && c.branches.length < 4 && Math.random() < 0.025 * (1 + p * 5)) {
+              const bAngle = c.angle + (Math.random() > 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.8);
+              const branch: Crack = { segs: [{ x: nx, y: ny, w: nw * 0.6 }], angle: bAngle, maxLen: c.maxLen * (0.2 + Math.random() * 0.35), speed: c.speed * 0.75, branches: [], width: nw * 0.6, life: 1, hue: c.hue + (Math.random() - 0.5) * 25, growing: true };
+              c.branches.push(branch);
+            }
           }
+          if (c.segs.length * 3 >= c.maxLen) c.growing = false;
         } else {
-          c.life -= 0.003;
+          c.life -= 0.004 + (1 - p) * 0.002;
         }
-
         if (c.life <= 0) return false;
 
-        const baseAlpha = c.life * (0.3 + proximity * 0.5);
-        const glowAlpha = c.life * (0.15 + proximity * 0.4);
+        p = prox(c.segs[0].x, c.segs[0].y);
+        const baseA = c.life * (0.35 + p * 0.55);
 
+        // Outer glow layer
         ctx.save();
-        ctx.shadowColor = `hsla(${c.hue}, 80%, 60%, ${glowAlpha})`;
-        ctx.shadowBlur = 8 + proximity * 20;
-        ctx.strokeStyle = `hsla(${c.hue}, 70%, 75%, ${baseAlpha})`;
-        ctx.lineWidth = c.width * (1 + proximity * 0.5);
-        ctx.lineCap = 'round';
-
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.shadowColor = `hsla(${c.hue}, 100%, 55%, ${baseA * 0.5})`;
+        ctx.shadowBlur = 15 + p * 30;
+        ctx.strokeStyle = `hsla(${c.hue}, 60%, 50%, ${baseA * 0.2})`;
+        ctx.lineWidth = c.width * 4;
         ctx.beginPath();
-        ctx.moveTo(c.x, c.y);
-        const steps = Math.floor(c.len / 4);
-        let px = c.x, py = c.y;
-        for (let i = 1; i <= steps; i++) {
-          const frac = i / Math.max(1, Math.floor(c.maxLen / 4));
-          const jitter = (1 - frac) * 3;
-          px += Math.cos(c.angle) * 4 + (Math.random() - 0.5) * jitter;
-          py += Math.sin(c.angle) * 4 + (Math.random() - 0.5) * jitter;
-          ctx.lineTo(px, py);
-        }
+        ctx.moveTo(c.segs[0].x, c.segs[0].y);
+        for (let i = 1; i < c.segs.length; i++) ctx.lineTo(c.segs[i].x, c.segs[i].y);
         ctx.stroke();
-
-        if (c.width > 1.5 && c.len > 10) {
-          ctx.strokeStyle = `hsla(${c.hue + 20}, 100%, 90%, ${baseAlpha * 0.4})`;
-          ctx.lineWidth = 0.5;
-          ctx.shadowBlur = 0;
-          ctx.stroke();
-        }
         ctx.restore();
 
+        // Mid layer
+        ctx.save();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = `hsla(${c.hue}, 70%, 65%, ${baseA * 0.6})`;
+        ctx.lineWidth = c.width * 1.5;
+        ctx.shadowColor = `hsla(${c.hue + 15}, 90%, 70%, ${baseA * 0.3})`;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(c.segs[0].x, c.segs[0].y);
+        for (let i = 1; i < c.segs.length; i++) ctx.lineTo(c.segs[i].x, c.segs[i].y);
+        ctx.stroke();
+        ctx.restore();
+
+        // Bright core
+        ctx.save();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = `hsla(${c.hue + 30}, 100%, 90%, ${baseA * 0.8})`;
+        ctx.lineWidth = Math.max(0.5, c.width * 0.4);
+        ctx.beginPath();
+        ctx.moveTo(c.segs[0].x, c.segs[0].y);
+        for (let i = 1; i < c.segs.length; i++) ctx.lineTo(c.segs[i].x, c.segs[i].y);
+        ctx.stroke();
+        ctx.restore();
+
+        // Sparks at tip while growing
+        if (c.growing && Math.random() < 0.15) {
+          const tipSeg = c.segs[c.segs.length - 1];
+          spawnSparks(tipSeg.x, tipSeg.y, 1, c.hue);
+        }
+
         for (let i = c.branches.length - 1; i >= 0; i--) {
-          if (!drawCrack(c.branches[i])) c.branches.splice(i, 1);
+          if (!growCrack(c.branches[i])) c.branches.splice(i, 1);
         }
         return c.life > 0;
       };
 
       for (let i = cracks.length - 1; i >= 0; i--) {
-        if (!drawCrack(cracks[i])) {
-          cracks.splice(i, 1);
-        }
+        if (!growCrack(cracks[i])) cracks.splice(i, 1);
       }
 
-      for (let i = holes.length - 1; i >= 0; i--) {
-        const ho = holes[i];
-        ho.life++;
-        if (ho.life > ho.maxLife) { holes.splice(i, 1); continue; }
+      // --- Dimensional rifts ---
+      for (let i = rifts.length - 1; i >= 0; i--) {
+        const r = rifts[i];
+        r.life++;
+        if (r.life > r.maxLife) { rifts.splice(i, 1); continue; }
 
-        let proximity = 0;
-        if (smoothMx >= 0) {
-          const dx = ho.x - smoothMx, dy = ho.y - smoothMy;
-          proximity = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 400);
+        const p = prox(r.x, r.y, 450);
+        const fadeIn = Math.min(1, r.life / 50);
+        const fadeOut = Math.min(1, (r.maxLife - r.life) / 50);
+        const alpha = fadeIn * fadeOut;
+        const pulse = Math.sin(t * 2.5 + r.pulse) * 0.25 + 0.75;
+        const sc = (1 + p * 1.8) * pulse;
+
+        // Rotate rift points slowly
+        for (const pt of r.pts) {
+          const dx = pt.x - r.x, dy = pt.y - r.y;
+          const a = Math.atan2(dy, dx) + r.rot;
+          const d = Math.hypot(dx, dy);
+          pt.x = r.x + Math.cos(a) * d;
+          pt.y = r.y + Math.sin(a) * d;
         }
 
-        const fadeIn = Math.min(1, ho.life / 40);
-        const fadeOut = Math.min(1, (ho.maxLife - ho.life) / 40);
-        const alpha = fadeIn * fadeOut;
-        const pulse = Math.sin(t * 2 + ho.pulse) * 0.3 + 0.7;
-        const sz = ho.size * (1 + proximity * 1.5) * pulse;
-
         ctx.save();
-        const grad = ctx.createRadialGradient(ho.x, ho.y, 0, ho.x, ho.y, sz * 3);
-        grad.addColorStop(0, `hsla(${ho.hue}, 80%, 50%, ${alpha * (0.5 + proximity * 0.4) * pulse})`);
-        grad.addColorStop(0.3, `hsla(${ho.hue + 20}, 90%, 40%, ${alpha * (0.2 + proximity * 0.3) * pulse})`);
-        grad.addColorStop(0.6, `hsla(${ho.hue}, 70%, 30%, ${alpha * 0.1 * pulse})`);
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.fillRect(ho.x - sz * 3, ho.y - sz * 3, sz * 6, sz * 6);
 
+        // Deep void
         ctx.beginPath();
-        ctx.arc(ho.x, ho.y, sz, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${ho.hue}, 60%, 5%, ${alpha * (0.7 + proximity * 0.3)})`;
+        const scaledPts = r.pts.map(pt => ({ x: r.x + (pt.x - r.x) * sc, y: r.y + (pt.y - r.y) * sc }));
+        ctx.moveTo(scaledPts[0].x, scaledPts[0].y);
+        for (let j = 1; j < scaledPts.length; j++) ctx.lineTo(scaledPts[j].x, scaledPts[j].y);
+        ctx.closePath();
+        ctx.fillStyle = `hsla(${r.hue}, 50%, 3%, ${alpha * (0.85 + p * 0.15)})`;
         ctx.fill();
 
-        ctx.beginPath();
-        ctx.arc(ho.x, ho.y, sz * 1.3, 0, Math.PI * 2);
-        ctx.strokeStyle = `hsla(${ho.hue}, 80%, 60%, ${alpha * (0.2 + proximity * 0.4) * pulse})`;
-        ctx.lineWidth = 1 + proximity;
-        ctx.shadowColor = `hsla(${ho.hue}, 100%, 60%, ${alpha * 0.4})`;
-        ctx.shadowBlur = 10 + proximity * 15;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        // Inner glow from another dimension
+        const ig = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.size * sc * 1.2);
+        ig.addColorStop(0, `hsla(${r.hue + 40}, 100%, 60%, ${alpha * 0.35 * pulse * r.energy})`);
+        ig.addColorStop(0.4, `hsla(${r.hue + 20}, 80%, 40%, ${alpha * 0.15 * pulse})`);
+        ig.addColorStop(1, 'transparent');
+        ctx.fillStyle = ig;
+        ctx.fill();
 
-        if (proximity > 0.3) {
-          const ringCount = 2 + Math.floor(proximity * 3);
-          for (let r = 1; r <= ringCount; r++) {
-            const rr = sz * (1.5 + r * 0.5) + Math.sin(t * 3 + r) * 3;
+        // Crackling edge
+        ctx.shadowColor = `hsla(${r.hue}, 100%, 60%, ${alpha * 0.6})`;
+        ctx.shadowBlur = 12 + p * 25;
+        ctx.strokeStyle = `hsla(${r.hue}, 80%, 70%, ${alpha * (0.4 + p * 0.5) * pulse})`;
+        ctx.lineWidth = 1.5 + p * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(scaledPts[0].x, scaledPts[0].y);
+        for (let j = 1; j < scaledPts.length; j++) {
+          const mid = { x: (scaledPts[j].x + scaledPts[(j + 1) % scaledPts.length].x) / 2, y: (scaledPts[j].y + scaledPts[(j + 1) % scaledPts.length].y) / 2 };
+          const jx = (Math.random() - 0.5) * 4 * (1 + p * 3);
+          const jy = (Math.random() - 0.5) * 4 * (1 + p * 3);
+          ctx.quadraticCurveTo(scaledPts[j].x + jx, scaledPts[j].y + jy, mid.x, mid.y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Bright inner edge
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = `hsla(${r.hue + 30}, 100%, 90%, ${alpha * 0.25 * pulse})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Energy tendrils from rift
+        if (p > 0.1 || Math.random() < 0.02) {
+          const tendrilCount = Math.floor(1 + p * 4);
+          for (let tt = 0; tt < tendrilCount; tt++) {
+            const startPt = scaledPts[Math.floor(Math.random() * scaledPts.length)];
+            const ta = Math.atan2(startPt.y - r.y, startPt.x - r.x) + (Math.random() - 0.5) * 1.5;
+            const tLen = 15 + Math.random() * 40 * (1 + p * 2);
             ctx.beginPath();
-            ctx.arc(ho.x, ho.y, rr, 0, Math.PI * 2);
-            ctx.strokeStyle = `hsla(${ho.hue + r * 10}, 80%, 60%, ${alpha * 0.08 * (1 - r / (ringCount + 1))})`;
-            ctx.lineWidth = 0.5;
+            ctx.moveTo(startPt.x, startPt.y);
+            let tx = startPt.x, ty = startPt.y;
+            const steps = Math.floor(tLen / 5);
+            for (let s = 0; s < steps; s++) {
+              tx += Math.cos(ta + (Math.random() - 0.5) * 0.8) * 5;
+              ty += Math.sin(ta + (Math.random() - 0.5) * 0.8) * 5;
+              ctx.lineTo(tx, ty);
+            }
+            ctx.strokeStyle = `hsla(${r.hue + 20}, 90%, 70%, ${alpha * (0.1 + p * 0.3) * (1 - tt / tendrilCount)})`;
+            ctx.lineWidth = 0.5 + Math.random();
+            ctx.shadowColor = `hsla(${r.hue}, 100%, 60%, ${alpha * 0.2})`;
+            ctx.shadowBlur = 6;
             ctx.stroke();
           }
         }
+
+        // Leak sparks from rift
+        if (Math.random() < 0.04 + p * 0.15) {
+          const sp = scaledPts[Math.floor(Math.random() * scaledPts.length)];
+          spawnSparks(sp.x, sp.y, 1 + Math.floor(p * 3), r.hue);
+        }
+
+        // Distortion rings when mouse is near
+        if (p > 0.25) {
+          const rc = 2 + Math.floor(p * 4);
+          for (let rr = 0; rr < rc; rr++) {
+            const radius = r.size * sc * (1.4 + rr * 0.4) + Math.sin(t * 4 + rr * 1.5) * 4;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `hsla(${r.hue + rr * 15}, 70%, 60%, ${alpha * 0.06 * (1 - rr / rc)})`;
+            ctx.lineWidth = 0.6;
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+          }
+        }
+
         ctx.restore();
       }
 
+      // --- Lightning arcs between nearby rifts ---
+      for (let i = 0; i < rifts.length; i++) {
+        for (let j = i + 1; j < rifts.length; j++) {
+          const d = dist(rifts[i], rifts[j]);
+          if (d < 300 && Math.random() < 0.008 + prox(rifts[i].x, rifts[i].y) * 0.03) {
+            const a = rifts[i], b = rifts[j];
+            ctx.save();
+            ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2}, 90%, 75%, 0.15)`;
+            ctx.lineWidth = 0.8;
+            ctx.shadowColor = `hsla(${a.hue}, 100%, 70%, 0.3)`;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            const segs = 6 + Math.floor(Math.random() * 6);
+            for (let s = 1; s <= segs; s++) {
+              const frac = s / segs;
+              const lx = a.x + (b.x - a.x) * frac + (Math.random() - 0.5) * 40;
+              const ly = a.y + (b.y - a.y) * frac + (Math.random() - 0.5) * 40;
+              ctx.lineTo(lx, ly);
+            }
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      // --- Floating shards ---
+      for (let i = shards.length - 1; i >= 0; i--) {
+        const s = shards[i];
+        const p = prox(s.x, s.y, 400);
+        s.life -= 0.003 + (1 - p) * 0.001;
+        if (s.life <= 0) { shards.splice(i, 1); continue; }
+
+        if (smx >= 0) {
+          const dx = s.x - smx, dy = s.y - smy;
+          const d = Math.hypot(dx, dy);
+          if (d < 200 && d > 0) {
+            const force = (200 - d) / 200 * 0.15;
+            s.vx += (dx / d) * force;
+            s.vy += (dy / d) * force;
+            s.vr += (Math.random() - 0.5) * 0.01 * force;
+          }
+        }
+
+        s.x += s.vx; s.y += s.vy; s.rot += s.vr;
+        s.vx *= 0.995; s.vy *= 0.995;
+
+        const a = s.life * s.alpha;
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.rot);
+
+        // Shard glow
+        ctx.shadowColor = `hsla(${s.hue}, 80%, 60%, ${a * 0.5})`;
+        ctx.shadowBlur = 8 + p * 12;
+        ctx.fillStyle = `hsla(${s.hue}, 60%, 15%, ${a * 0.6})`;
+        ctx.strokeStyle = `hsla(${s.hue}, 80%, 70%, ${a * (0.5 + p * 0.4)})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(s.shape[0].x, s.shape[0].y);
+        for (let j = 1; j < s.shape.length; j++) ctx.lineTo(s.shape[j].x, s.shape[j].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner reflection
+        ctx.fillStyle = `hsla(${s.hue + 30}, 100%, 85%, ${a * 0.15})`;
+        ctx.beginPath();
+        const cx = s.shape.reduce((acc, p) => acc + p.x, 0) / s.shape.length;
+        const cy = s.shape.reduce((acc, p) => acc + p.y, 0) / s.shape.length;
+        ctx.arc(cx * 0.3, cy * 0.3, s.size * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // --- Sparks ---
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const sp = sparks[i];
+        sp.life -= 1 / sp.maxLife;
+        if (sp.life <= 0) { sparks.splice(i, 1); continue; }
+        sp.x += sp.vx; sp.y += sp.vy;
+        sp.vy += 0.01;
+        sp.vx *= 0.99; sp.vy *= 0.99;
+        const a = sp.life;
+
+        ctx.save();
+        ctx.shadowColor = `hsla(${sp.hue}, 100%, 70%, ${a * 0.6})`;
+        ctx.shadowBlur = 4 + sp.size * 2;
+        ctx.fillStyle = `hsla(${sp.hue}, 90%, 80%, ${a})`;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.size * sp.life, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // --- Mouse cursor dimensional distortion ---
       if (hasMouse) {
-        const cursorGrad = ctx.createRadialGradient(smoothMx, smoothMy, 0, smoothMx, smoothMy, 250);
-        cursorGrad.addColorStop(0, 'hsla(270, 80%, 60%, 0.06)');
-        cursorGrad.addColorStop(0.5, 'hsla(260, 60%, 40%, 0.03)');
-        cursorGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = cursorGrad;
-        ctx.fillRect(smoothMx - 250, smoothMy - 250, 500, 500);
+        const intensity = Math.min(1, mouseSpeed / 30);
+        const cursorR = 200 + intensity * 100;
+        const cg = ctx.createRadialGradient(smx, smy, 0, smx, smy, cursorR);
+        cg.addColorStop(0, `hsla(275, 80%, 55%, ${0.06 + intensity * 0.08})`);
+        cg.addColorStop(0.3, `hsla(260, 70%, 45%, ${0.03 + intensity * 0.04})`);
+        cg.addColorStop(0.6, `hsla(250, 60%, 35%, ${0.01 + intensity * 0.02})`);
+        cg.addColorStop(1, 'transparent');
+        ctx.fillStyle = cg;
+        ctx.fillRect(smx - cursorR, smy - cursorR, cursorR * 2, cursorR * 2);
+
+        // Pulsating ring
+        const ringR = 30 + Math.sin(t * 3) * 8 + intensity * 20;
+        ctx.beginPath();
+        ctx.arc(smx, smy, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(270, 80%, 65%, ${0.08 + intensity * 0.15})`;
+        ctx.lineWidth = 1;
+        ctx.shadowColor = `hsla(270, 100%, 60%, ${0.15 + intensity * 0.2})`;
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Thin inner ring
+        ctx.beginPath();
+        ctx.arc(smx, smy, ringR * 0.6, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(280, 100%, 80%, ${0.04 + intensity * 0.08})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
       }
 
       rafRef.current = requestAnimationFrame(draw);
