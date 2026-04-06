@@ -64,6 +64,10 @@
       "destination": "/palindrom/$1"
     },
     {
+      "source": "/palindrom-table/(.*)",
+      "destination": "/palindrom-table/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
