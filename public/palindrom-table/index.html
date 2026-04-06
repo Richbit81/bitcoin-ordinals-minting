@@ -58,6 +58,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .ci-num{color:var(--cy);font-weight:700;min-width:14px;text-align:center}.ci-pal{flex:1;color:var(--wh);overflow:hidden;text-overflow:ellipsis}
 .ci-rm{background:none;border:none;color:var(--dm);cursor:pointer;font-size:11px;padding:0 3px;font-family:inherit;transition:.1s}.ci-rm:hover{color:var(--rd)}
 
+.ana-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:8px}
+.ana-k{color:var(--dm);text-align:right;white-space:nowrap}.ana-v{color:var(--wh);font-family:monospace;font-weight:600}
+.ana-v.cy{color:var(--cy)}.ana-v.li{color:var(--li)}.ana-v.vi{color:var(--vi)}.ana-v.or{color:var(--or)}
+.ana-bar{display:flex;gap:1px;margin-top:4px}.ana-seg{height:14px;border-radius:2px;min-width:3px;transition:width .3s}
+
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--dm2);border-radius:2px}
 
 @media(max-width:900px){
@@ -96,6 +101,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="pal-btns" style="margin-top:4px">
       <button class="pal-btn" onclick="clearChain()">&#10005; Kette leeren</button>
     </div>
+  </div>
+
+  <div class="section" id="analysisSection" style="display:none">
+    <div class="section-title">Palindrom-Analyse</div>
+    <div class="ana-grid" id="analysisGrid"></div>
+    <div class="ana-bar" id="analysisBar"></div>
   </div>
 
   <div class="section">
@@ -149,7 +160,7 @@ let sweepAngle = -Math.PI / 2, lastFrame = 0, gTime = 0;
 let modules = [], particles = [], ripples = [], shockwaves = [];
 let dragging = null, dragOff = { x: 0, y: 0 }, hovered = null;
 let killedZones = new Set(), filling = false, absoluteBeat = 0;
-let palindromeChain = [], activeChainIdx = 0;
+let palindromeChain = [], activeChainIdx = 0, lastAnalysis = null;
 
 const STEPS = 16;
 const ZI = 0.33, ZM = 0.66, ZO = 1.0;
@@ -184,6 +195,65 @@ function buildDigitDefs() {
   });
 }
 let DIGIT_DEFS = buildDigitDefs();
+
+function analyzePalindrome(palStr) {
+  var digits = palStr.split('').map(Number), n = digits.length;
+  var digitSum = digits.reduce(function(a, b) { return a + b; }, 0);
+  var lengthFactor = Math.min(n / 19, 1);
+  var freq = new Array(10).fill(0);
+  digits.forEach(function(d) { freq[d]++; });
+  var maxFreq = Math.max.apply(null, freq);
+  var uniqueCount = freq.filter(function(f) { return f > 0; }).length;
+  var contrasts = [];
+  for (var i = 0; i < n - 1; i++) contrasts.push(Math.abs(digits[i] - digits[i + 1]));
+  contrasts.push(contrasts[0] || 0);
+  var avgContrast = contrasts.reduce(function(a, b) { return a + b; }, 0) / Math.max(contrasts.length, 1);
+  var centerIdx = Math.floor(n / 2);
+  var numVal = 0;
+  for (var i = 0; i < n; i++) numVal = (numVal * 7 + digits[i] * 13) % 997;
+  var symmetryScore = 0;
+  for (var i = 0; i < Math.floor(n / 2); i++) symmetryScore += (digits[i] === digits[n - 1 - i]) ? 1 : 0;
+  symmetryScore = symmetryScore / Math.floor(n / 2);
+  var autoKey = KEYS[digitSum % KEYS.length];
+  var autoSwing = n <= 5 ? 0.3 : n <= 7 ? 0.15 : n <= 11 ? 0.05 : 0;
+  var fxDepth = 0.3 + lengthFactor * 0.5;
+  var density = uniqueCount / 10;
+  return {
+    digits: digits, n: n, digitSum: digitSum, lengthFactor: lengthFactor,
+    freq: freq, maxFreq: maxFreq, uniqueCount: uniqueCount,
+    contrasts: contrasts, avgContrast: avgContrast, centerIdx: centerIdx,
+    numVal: numVal, symmetryScore: symmetryScore,
+    autoKey: autoKey, autoSwing: autoSwing, fxDepth: fxDepth, density: density
+  };
+}
+
+function updateAnalysisUI(analysis) {
+  var sec = document.getElementById('analysisSection');
+  if (!sec || !analysis) { if (sec) sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  var grid = document.getElementById('analysisGrid');
+  var moodLabel = analysis.n <= 5 ? 'Ambient' : analysis.n <= 9 ? 'Balanced' : analysis.n <= 13 ? 'Komplex' : 'Maximal';
+  var contrastLabel = analysis.avgContrast < 2 ? 'Weich' : analysis.avgContrast < 4 ? 'Mittel' : 'Hart';
+  grid.innerHTML =
+    '<span class="ana-k">Laenge:</span><span class="ana-v cy">' + analysis.n + ' Ziffern → ' + moodLabel + '</span>' +
+    '<span class="ana-k">Quersumme:</span><span class="ana-v li">' + analysis.digitSum + ' → ' + analysis.autoKey + '</span>' +
+    '<span class="ana-k">Kontrast:</span><span class="ana-v or">' + analysis.avgContrast.toFixed(1) + ' → ' + contrastLabel + '</span>' +
+    '<span class="ana-k">Vielfalt:</span><span class="ana-v vi">' + analysis.uniqueCount + '/10 Instrumente</span>' +
+    '<span class="ana-k">Swing:</span><span class="ana-v">' + Math.round(analysis.autoSwing * 100) + '%</span>' +
+    '<span class="ana-k">FX-Tiefe:</span><span class="ana-v">' + Math.round(analysis.fxDepth * 100) + '%</span>' +
+    '<span class="ana-k">Seed:</span><span class="ana-v" style="color:var(--dm)">#' + analysis.numVal + '</span>';
+  var bar = document.getElementById('analysisBar');
+  bar.innerHTML = '';
+  var defs = DIGIT_DEFS;
+  for (var i = 0; i < 10; i++) {
+    if (analysis.freq[i] > 0) {
+      var seg = document.createElement('div'); seg.className = 'ana-seg';
+      seg.style.background = defs[i].color; seg.style.width = (analysis.freq[i] * 18) + 'px';
+      seg.title = defs[i].label + ' (' + analysis.freq[i] + '×)';
+      bar.appendChild(seg);
+    }
+  }
+}
 
 const KEY_DATA = {
   'C min': { base: 130.81, p: [1, 1.189, 1.335, 1.498, 1.782] },
@@ -315,7 +385,7 @@ class Mod {
     this.color = def.color; this.zone = def.zone; this.digit = def.digit;
     this.digitIndex = digitIndex; this.palindromeId = palindromeId;
     this.x = x; this.y = y; this.r = 26;
-    this.param = 0.5; this.variation = 0;
+    this.param = 0.5; this.variation = 0; this.gainMult = 1; this.velocity = 1;
     this.phase = Math.random() * Math.PI * 2;
     this.nodes = null; this.pulse = 0; this.lastBeat = -1;
     this.wH = new Float32Array(24); this.wI = 0;
@@ -412,14 +482,14 @@ class Mod {
     ripples.push({ x: this.x, y: this.y, r: this.r, mr: this.r + 50 + zp * 40, c: this.color, t: 0 });
   }
   tDrum(zp, bn, t0) {
-    if (!ac || muted) return; const t = t0 || ac.currentTime, pm = this.param;
+    if (!ac || muted) return; const t = t0 || ac.currentTime, pm = this.param, gm = this.gainMult * this.velocity;
     if (this.type === 'kick') {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine';
       const startF = 100 + zp * 80 + pm * 60;
       const decay = 0.25 + zp * 0.2 + pm * 0.15;
       o.frequency.setValueAtTime(startF, t);
       o.frequency.exponentialRampToValueAtTime(22, t + 0.12 + pm * 0.08);
-      g.gain.setValueAtTime(0.85, t);
+      g.gain.setValueAtTime(0.85 * gm, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + decay);
       o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + decay + 0.1);
       sidechain(t); shockwaves.push({ t: 0, x: this.x, y: this.y });
@@ -428,13 +498,13 @@ class Mod {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle';
       o.frequency.setValueAtTime(180 + zp * 60 + pm * 40, t);
       o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
-      g.gain.setValueAtTime(0.42, t);
+      g.gain.setValueAtTime(0.42 * gm, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + decay);
       o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + decay + 0.1);
       const bz = ac.sampleRate * (0.06 + zp * 0.06 + pm * 0.04), bf = ac.createBuffer(1, bz, ac.sampleRate), d = bf.getChannelData(0);
       for (let i = 0; i < bz; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bz, 1.2);
       const s = ac.createBufferSource(), ng = ac.createGain(); s.buffer = bf;
-      ng.gain.setValueAtTime(0.38, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08 + pm * 0.04);
+      ng.gain.setValueAtTime(0.38 * gm, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08 + pm * 0.04);
       s.connect(ng); ng.connect(masterGain); ng.connect(reverbSend); ng.connect(delaySend); s.start(t);
       // Ghost note
       if (Math.random() < 0.45 + pm * 0.2) {
@@ -455,7 +525,7 @@ class Mod {
       for (let i = 0; i < bz; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bz, 1.3 + (1 - pm) * 2);
       const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
       s.buffer = bf; fl.type = 'highpass'; fl.frequency.value = 5000 + (1 - pm) * 5000;
-      g.gain.setValueAtTime(0.26, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      g.gain.setValueAtTime(0.26 * gm, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
       s.connect(fl); fl.connect(g); g.connect(masterGain); g.connect(chorusSend); s.start(t);
       // Ghost note
       if (Math.random() < 0.5 + pm * 0.15) {
@@ -484,7 +554,7 @@ class Mod {
   }
   tMel(beat, zp, t0) {
     if (!ac || muted || !this.nodes) return;
-    const t = t0 || ac.currentTime, oct = zp > 0.5 ? 2 : 1, v = this.variation, pm = this.param;
+    const t = t0 || ac.currentTime, oct = zp > 0.5 ? 2 : 1, v = this.variation, pm = this.param, gm = this.gainMult * this.velocity;
     if (this.type === 'lead') {
       const M = [
         [0,2,4,3,2,0,1,3],[4,3,2,0,2,4,3,1],[0,1,2,4,3,2,1,0],
@@ -497,7 +567,7 @@ class Mod {
       this.nodes.flt.frequency.setValueAtTime(600 + pm * 6000, t);
       this.nodes.flt.frequency.setTargetAtTime(400 + pm * 800, t + 0.008, 0.05 + (1 - pm) * 0.06);
       this.nodes.flt.Q.setValueAtTime(1.5 + pm * 4, t);
-      this.nodes.g.gain.setValueAtTime(0.13, t); this.nodes.g.gain.setTargetAtTime(0.03, t + 0.04, 0.04 + pm * 0.04);
+      this.nodes.g.gain.setValueAtTime(0.13 * gm, t); this.nodes.g.gain.setTargetAtTime(0.03 * gm, t + 0.04, 0.04 + pm * 0.04);
     } else if (this.type === 'arp') {
       const P = [
         [0,2,4,2],[0,4,2,4],[4,2,0,2],
@@ -512,7 +582,7 @@ class Mod {
         this.nodes.flt.frequency.setValueAtTime(1500 + pm * 7000, at);
         this.nodes.flt.frequency.setTargetAtTime(500 + pm * 400, at + 0.005, 0.015 + pm * 0.02);
         this.nodes.flt.Q.setValueAtTime(3 + pm * 5, at);
-        this.nodes.g.gain.setValueAtTime((0.1 + pm * 0.03) * (1 - i * 0.15), at);
+        this.nodes.g.gain.setValueAtTime((0.1 + pm * 0.03) * (1 - i * 0.15) * gm, at);
         this.nodes.g.gain.setTargetAtTime(0.001, at + 0.005, 0.012 + pm * 0.02);
       }
     } else if (this.type === 'bell') {
@@ -526,7 +596,7 @@ class Mod {
       this.nodes.mod.frequency.setTargetAtTime(f * (2.0 + pm * 4), t, 0.01);
       this.nodes.mG.gain.setTargetAtTime(150 + pm * 500, t, 0.01);
       if (this.nodes.vibG) this.nodes.vibG.gain.setTargetAtTime(2 + pm * 6, t, 0.02);
-      this.nodes.g.gain.setValueAtTime(0.07, t);
+      this.nodes.g.gain.setValueAtTime(0.07 * gm, t);
       this.nodes.g.gain.setTargetAtTime(0.001, t + 0.005, 0.06 + pm * 0.25);
     } else if (this.type === 'acid') {
       const P = [
@@ -542,13 +612,13 @@ class Mod {
       this.nodes.flt.frequency.setValueAtTime(cutBase, t);
       this.nodes.flt.frequency.exponentialRampToValueAtTime(150 + pm * 250, t + 0.06 + pm * 0.04);
       this.nodes.flt.Q.setValueAtTime(6 + pm * 18, t);
-      this.nodes.g.gain.setValueAtTime(accent ? 0.16 + pm * 0.05 : 0.07, t);
+      this.nodes.g.gain.setValueAtTime((accent ? 0.16 + pm * 0.05 : 0.07) * gm, t);
       this.nodes.g.gain.setTargetAtTime(0.015, t + 0.015, 0.03 + pm * 0.02);
     }
     this.pW(0.35);
   }
   tBass(beat, zp, t0) {
-    if (!ac || muted || !this.nodes) return; const t = t0 || ac.currentTime, pm = this.param;
+    if (!ac || muted || !this.nodes) return; const t = t0 || ac.currentTime, pm = this.param, gm = this.gainMult * this.velocity;
     if (this.type === 'bass') {
       const P = [
         [0,0,2,2,3,3,0,0],[0,2,0,3,0,4,0,2],[0,0,0,2,3,3,4,0],
@@ -560,7 +630,7 @@ class Mod {
       this.nodes.flt.frequency.setValueAtTime(120 + pm * 900, t);
       this.nodes.flt.frequency.setTargetAtTime(100 + pm * 300, t + 0.01, 0.04 + (1 - pm) * 0.08);
       this.nodes.flt.Q.setValueAtTime(2 + pm * 5, t);
-      this.nodes.g.gain.setTargetAtTime(0.18, t, 0.02 + pm * 0.03);
+      this.nodes.g.gain.setTargetAtTime(0.18 * gm, t, 0.02 + pm * 0.03);
     } else if (this.type === 'pad') {
       const C = [[0,2],[0,3],[2,4],[3,0],[1,4],[4,2]];
       const ci = ((Math.floor(beat / 8) % C.length) + C.length) % C.length, ch = C[ci];
@@ -569,7 +639,7 @@ class Mod {
       this.nodes.o2.frequency.setTargetAtTime(fr(ch[1], 0) * (1 + pm * 0.008), t, 0.3);
       if (this.nodes.o3) this.nodes.o3.frequency.setTargetAtTime(bf * (0.998 - pm * 0.004), t, 0.3);
       if (this.nodes.flt) this.nodes.flt.frequency.setTargetAtTime(800 + pm * 3000, t, 0.2);
-      this.nodes.g.gain.setTargetAtTime(0.05 + pm * 0.05, t, 0.25);
+      this.nodes.g.gain.setTargetAtTime((0.05 + pm * 0.05) * gm, t, 0.25);
     }
     this.pW(0.5);
   }
@@ -601,13 +671,15 @@ function loadPalindrome() {
   palindromeChain = [{ palStr: val, pid: 0, ringRadius: 0.5 }];
   activeChainIdx = 0;
   palindromeChain[0].pid = placePalindromeOnDisk(val);
+  applyAnalysisGlobals(lastAnalysis);
   buildChainUI();
   if (!playing) togglePlay();
 }
 function placePalindromeOnDisk(palStr, ringRadius) {
   const pid = ++palindromeCounter;
-  const digits = palStr.split('').map(Number);
-  const n = digits.length;
+  const ana = analyzePalindrome(palStr);
+  lastAnalysis = ana;
+  const digits = ana.digits, n = ana.n;
   for (let i = 0; i < n; i++) {
     const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
     const def = DIGIT_DEFS[digits[i]];
@@ -623,11 +695,28 @@ function placePalindromeOnDisk(palStr, ringRadius) {
     const x = cx + Math.cos(angle) * radialDist * tR;
     const y = cy + Math.sin(angle) * radialDist * tR;
     const m = new Mod(def, x, y, i, pid);
-    m.variation = digits[i] % 6;
+    m.gainMult = 0.8 + (ana.freq[digits[i]] / ana.maxFreq) * 0.4;
+    m.velocity = 0.7 + (ana.contrasts[i] / 9) * 0.5;
+    m.param = i === ana.centerIdx ? 0.75 : (0.35 + ana.lengthFactor * 0.3);
+    m.variation = (digits[i] + ana.numVal + i) % 6;
     m.initAudio();
     modules.push(m);
   }
   return pid;
+}
+function applyAnalysisGlobals(ana) {
+  if (!ana) return;
+  curKey = ana.autoKey;
+  document.getElementById('bk').textContent = curKey;
+  swing = ana.autoSwing;
+  document.getElementById('bsw').textContent = 'Sw ' + Math.round(swing * 100) + '%';
+  if (ac) {
+    if (reverbSend) reverbSend.gain.setTargetAtTime(0.25 + ana.fxDepth * 0.35, ac.currentTime, 0.1);
+    if (delaySend) delaySend.gain.setTargetAtTime(0.2 + ana.lengthFactor * 0.3, ac.currentTime, 0.1);
+    if (chorusSend) chorusSend.gain.setTargetAtTime(0.3 + (1 - ana.lengthFactor) * 0.3, ac.currentTime, 0.1);
+    if (phaserSend) phaserSend.gain.setTargetAtTime(0.3 + ana.density * 0.4, ac.currentTime, 0.1);
+  }
+  updateAnalysisUI(ana);
 }
 function randomPalindrome() {
   const lengths = [5, 7, 9, 11];
@@ -645,6 +734,7 @@ function randomPalindrome() {
   palindromeChain = [{ palStr: palStr, pid: 0, ringRadius: 0.5 }];
   activeChainIdx = 0;
   palindromeChain[0].pid = placePalindromeOnDisk(palStr);
+  applyAnalysisGlobals(lastAnalysis);
   buildChainUI();
   if (!playing) togglePlay();
 }
@@ -749,6 +839,7 @@ function buildPresetUI() {
       palindromeChain = [{ palStr: pr.pal, pid: 0, ringRadius: 0.5 }];
       activeChainIdx = 0;
       palindromeChain[0].pid = placePalindromeOnDisk(pr.pal);
+      updateAnalysisUI(lastAnalysis);
       buildChainUI();
       if (!playing) togglePlay();
     });
@@ -1067,6 +1158,8 @@ function loop(ts) {
       var oldPid = palindromeChain[activeChainIdx].pid;
       modules.forEach(function(m) { if (m.palindromeId === oldPid) m.silence(); });
       activeChainIdx = (activeChainIdx + 1) % palindromeChain.length;
+      var newAna = analyzePalindrome(palindromeChain[activeChainIdx].palStr);
+      applyAnalysisGlobals(newAna);
       buildChainUI();
     }
     var isOdd = beat % 2 === 1;
