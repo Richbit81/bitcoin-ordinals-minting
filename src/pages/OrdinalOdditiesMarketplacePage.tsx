@@ -149,20 +149,20 @@ function HorrorCanvas() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const PARTICLE_COUNT = 120;
-    const RADIUS = 350;
+    const PARTICLE_COUNT = 220;
+    const RADIUS = 500;
     let smoothMx = -1, smoothMy = -1;
 
-    type Particle = { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; type: 'ember' | 'fog' | 'eye'; blinkPhase: number };
+    type Particle = { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; type: 'ember' | 'fog' | 'eye' | 'vein'; blinkPhase: number; angle: number };
     const particles: Particle[] = [];
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const type = i < 8 ? 'eye' : i < 40 ? 'fog' : 'ember';
+      const type = i < 14 ? 'eye' : i < 60 ? 'fog' : i < 80 ? 'vein' : 'ember';
       particles.push({
         x: Math.random() * 2000, y: Math.random() * 2000,
-        vx: (Math.random() - 0.5) * (type === 'fog' ? 0.3 : 0.8),
-        vy: type === 'ember' ? -Math.random() * 0.6 - 0.2 : (Math.random() - 0.5) * 0.3,
-        size: type === 'eye' ? 6 + Math.random() * 4 : type === 'fog' ? 30 + Math.random() * 60 : 1 + Math.random() * 3,
-        life: Math.random() * 300, maxLife: 200 + Math.random() * 400, type, blinkPhase: Math.random() * Math.PI * 2,
+        vx: (Math.random() - 0.5) * (type === 'fog' ? 0.4 : type === 'vein' ? 0.15 : 0.9),
+        vy: type === 'ember' ? -Math.random() * 0.8 - 0.3 : type === 'vein' ? (Math.random() - 0.5) * 0.1 : (Math.random() - 0.5) * 0.4,
+        size: type === 'eye' ? 8 + Math.random() * 8 : type === 'fog' ? 50 + Math.random() * 100 : type === 'vein' ? 40 + Math.random() * 80 : 1.5 + Math.random() * 4,
+        life: Math.random() * 300, maxLife: 250 + Math.random() * 500, type, blinkPhase: Math.random() * Math.PI * 2, angle: Math.random() * Math.PI * 2,
       });
     }
 
@@ -219,69 +219,122 @@ function HorrorCanvas() {
         const alpha = fadeIn * fadeOut;
 
         if (p.type === 'fog') {
-          const fogAlpha = alpha * (0.03 + proximity * 0.06);
-          const fogSize = p.size + proximity * 40;
+          const fogAlpha = alpha * (0.08 + proximity * 0.18);
+          const fogSize = p.size + proximity * 80;
+          const pulse = Math.sin(t * 0.3 + p.blinkPhase) * 0.3 + 0.7;
           const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, fogSize);
-          grad.addColorStop(0, `rgba(${80 + proximity * 80}, 0, 0, ${fogAlpha})`);
-          grad.addColorStop(0.5, `rgba(40, 0, 0, ${fogAlpha * 0.5})`);
+          grad.addColorStop(0, `rgba(${100 + proximity * 100}, ${proximity * 10}, 0, ${fogAlpha * pulse})`);
+          grad.addColorStop(0.4, `rgba(60, 0, 0, ${fogAlpha * 0.5 * pulse})`);
+          grad.addColorStop(0.7, `rgba(30, 0, 5, ${fogAlpha * 0.2})`);
           grad.addColorStop(1, 'transparent');
           ctx.fillStyle = grad;
           ctx.fillRect(p.x - fogSize, p.y - fogSize, fogSize * 2, fogSize * 2);
+        } else if (p.type === 'vein') {
+          const veinAlpha = alpha * (0.04 + proximity * 0.15);
+          const len = p.size * (1 + proximity * 1.5);
+          const wave = Math.sin(t * 0.5 + p.blinkPhase + p.x * 0.005) * 8;
+          ctx.save();
+          ctx.globalAlpha = veinAlpha;
+          ctx.strokeStyle = `rgba(${140 + proximity * 80}, 0, ${10 + proximity * 20}, 1)`;
+          ctx.lineWidth = 1 + proximity * 2;
+          ctx.shadowColor = `rgba(200, 0, 0, ${veinAlpha})`;
+          ctx.shadowBlur = 6 + proximity * 15;
+          ctx.beginPath();
+          ctx.moveTo(p.x - len / 2, p.y + wave);
+          ctx.quadraticCurveTo(p.x - len / 4, p.y - wave * 1.5, p.x, p.y + wave * 0.5);
+          ctx.quadraticCurveTo(p.x + len / 4, p.y - wave, p.x + len / 2, p.y + wave * 0.8);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.restore();
         } else if (p.type === 'eye') {
-          const eyeAlpha = alpha * (0.15 + proximity * 0.7);
+          const eyeAlpha = alpha * (0.35 + proximity * 0.65);
           const blink = Math.sin(t * 0.8 + p.blinkPhase);
           if (blink > -0.3) {
-            const s = p.size * (1 + proximity * 0.5);
+            const s = p.size * (1 + proximity * 0.8);
             let angle = 0;
             if (smoothMx >= 0) {
               angle = Math.atan2(smoothMy - p.y, smoothMx - p.x);
             }
-            const pupilDist = s * 0.2 * (smoothMx >= 0 ? Math.min(1, proximity * 3 + 0.3) : 0);
+            const pupilDist = s * 0.25 * (smoothMx >= 0 ? Math.min(1, proximity * 3 + 0.4) : 0.15);
             ctx.save();
             ctx.globalAlpha = eyeAlpha;
+            ctx.shadowColor = `rgba(255, 0, 0, ${eyeAlpha * 0.6})`;
+            ctx.shadowBlur = 15 + proximity * 25;
             ctx.beginPath();
-            ctx.ellipse(p.x, p.y, s, s * (0.4 + blink * 0.15), 0, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${160 + proximity * 95}, ${20 + proximity * 20}, 0, 1)`;
+            ctx.ellipse(p.x, p.y, s, s * (0.45 + blink * 0.15), 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${180 + proximity * 75}, ${30 + proximity * 30}, 0, 1)`;
             ctx.fill();
+            ctx.shadowBlur = 0;
             ctx.beginPath();
+            const irisSize = s * 0.55;
             const px = p.x + Math.cos(angle) * pupilDist;
             const py = p.y + Math.sin(angle) * pupilDist;
-            ctx.arc(px, py, s * 0.35, 0, Math.PI * 2);
+            const irisGrad = ctx.createRadialGradient(px, py, 0, px, py, irisSize);
+            irisGrad.addColorStop(0, '#000');
+            irisGrad.addColorStop(0.5, `rgba(${40 + proximity * 60}, 0, 0, 1)`);
+            irisGrad.addColorStop(0.8, `rgba(${100 + proximity * 80}, ${proximity * 15}, 0, 1)`);
+            irisGrad.addColorStop(1, `rgba(${160 + proximity * 60}, ${20 + proximity * 20}, 0, 0.5)`);
+            ctx.arc(px, py, irisSize, 0, Math.PI * 2);
+            ctx.fillStyle = irisGrad;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(px, py, s * 0.22, 0, Math.PI * 2);
             ctx.fillStyle = '#000';
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(px - s * 0.1, py - s * 0.1, s * 0.1, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, ${100 + proximity * 100}, ${proximity * 80}, 0.8)`;
+            ctx.arc(px - s * 0.08, py - s * 0.08, s * 0.08, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, ${150 + proximity * 105}, ${80 + proximity * 80}, 0.9)`;
             ctx.fill();
             ctx.restore();
           }
         } else {
-          const emberAlpha = alpha * (0.3 + proximity * 0.7);
-          const sz = p.size * (1 + proximity * 2);
-          ctx.fillStyle = `rgba(${200 + Math.random() * 55}, ${Math.random() * 40}, 0, ${emberAlpha})`;
-          ctx.shadowColor = `rgba(255, 0, 0, ${emberAlpha * 0.5})`;
-          ctx.shadowBlur = 4 + proximity * 12;
+          const emberAlpha = alpha * (0.5 + proximity * 0.5);
+          const sz = p.size * (1 + proximity * 3);
+          ctx.fillStyle = `rgba(${200 + Math.random() * 55}, ${Math.random() * 50}, 0, ${emberAlpha})`;
+          ctx.shadowColor = `rgba(255, 0, 0, ${emberAlpha * 0.7})`;
+          ctx.shadowBlur = 6 + proximity * 20;
           ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
           ctx.shadowBlur = 0;
         }
 
-        if (proximity > 0.3 && p.type === 'ember') {
-          const push = (proximity - 0.3) * 2;
+        if (proximity > 0.2 && (p.type === 'ember' || p.type === 'vein')) {
+          const push = (proximity - 0.2) * 2.5;
           const dx = p.x - smoothMx, dy = p.y - smoothMy;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          p.vx += (dx / dist) * push * 0.3;
-          p.vy += (dy / dist) * push * 0.3;
-          p.vx *= 0.96; p.vy *= 0.96;
+          p.vx += (dx / dist) * push * 0.4;
+          p.vy += (dy / dist) * push * 0.4;
+          p.vx *= 0.95; p.vy *= 0.95;
         }
       }
 
+      // ambient red fog always visible
+      const ambientPulse = Math.sin(t * 0.15) * 0.3 + 0.7;
+      const ambGrad1 = ctx.createRadialGradient(w * 0.2, h * 0.3, 0, w * 0.2, h * 0.3, w * 0.5);
+      ambGrad1.addColorStop(0, `rgba(80, 0, 0, ${0.04 * ambientPulse})`);
+      ambGrad1.addColorStop(1, 'transparent');
+      ctx.fillStyle = ambGrad1;
+      ctx.fillRect(0, 0, w, h);
+      const ambGrad2 = ctx.createRadialGradient(w * 0.8, h * 0.7, 0, w * 0.8, h * 0.7, w * 0.4);
+      ambGrad2.addColorStop(0, `rgba(60, 0, 10, ${0.035 * ambientPulse})`);
+      ambGrad2.addColorStop(1, 'transparent');
+      ctx.fillStyle = ambGrad2;
+      ctx.fillRect(0, 0, w, h);
+
       if (hasMouse) {
         const grad = ctx.createRadialGradient(smoothMx, smoothMy, 0, smoothMx, smoothMy, RADIUS);
-        grad.addColorStop(0, 'rgba(120, 0, 0, 0.08)');
-        grad.addColorStop(0.4, 'rgba(60, 0, 0, 0.04)');
+        grad.addColorStop(0, 'rgba(160, 0, 0, 0.15)');
+        grad.addColorStop(0.3, 'rgba(100, 0, 0, 0.08)');
+        grad.addColorStop(0.6, 'rgba(50, 0, 10, 0.04)');
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
         ctx.fillRect(smoothMx - RADIUS, smoothMy - RADIUS, RADIUS * 2, RADIUS * 2);
+
+        const ringPulse = Math.sin(t * 2) * 0.3 + 0.7;
+        ctx.strokeStyle = `rgba(150, 0, 0, ${0.06 * ringPulse})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(smoothMx, smoothMy, RADIUS * 0.6 + Math.sin(t * 1.5) * 20, 0, Math.PI * 2);
+        ctx.stroke();
       }
 
       rafRef.current = requestAnimationFrame(draw);
@@ -528,8 +581,9 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
 
       <HorrorCanvas />
 
-      <div className="absolute pointer-events-none" style={{ top: '5%', left: '3%', width: 500, height: 500, background: 'radial-gradient(circle, #40000015 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
-      <div className="absolute pointer-events-none" style={{ top: '60%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, #60000010 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ top: '5%', left: '3%', width: 600, height: 600, background: 'radial-gradient(circle, #60000030 0%, #40000015 40%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ top: '50%', right: '5%', width: 500, height: 500, background: 'radial-gradient(circle, #50000025 0%, #30000010 40%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ bottom: '10%', left: '40%', width: 700, height: 400, background: 'radial-gradient(ellipse, #40000020 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
 
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-3 py-6">
 
