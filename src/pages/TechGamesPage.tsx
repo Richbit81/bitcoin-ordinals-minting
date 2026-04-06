@@ -217,8 +217,10 @@ export const TechGamesPage: React.FC = () => {
   const [pendingItem, setPendingItem] = useState<TechGameItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<TechGameItem | null>(null);
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
-  const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null); // inscriptionId of expanded item
+  const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
   const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0']);
+  const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
@@ -430,29 +432,45 @@ export const TechGamesPage: React.FC = () => {
         />
       </h1>
 
-      {/* Statistics & Info Banner */}
-      <div className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-6 mb-8 max-w-4xl mx-auto shadow-lg shadow-red-600/10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-center md:text-left">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {TECH_GAMES_ITEMS.length} Games & Tools Available
-            </h2>
-            <p className="text-sm text-gray-400">
-              {TECH_GAMES_ITEMS.filter(i => i.category === 'game').length} Games • {' '}
-              {TECH_GAMES_ITEMS.filter(i => i.category === 'tool').length} Tools • {' '}
-              {TECH_GAMES_ITEMS.filter(i => i.category === 'music').length} Music Tools
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 justify-center md:justify-end">
-            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-blue-600 text-white shadow-sm">
-              🎮 Game
-            </span>
-            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-green-600 text-white shadow-sm">
-              🔧 Tool
-            </span>
-            <span className="px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm bg-purple-600 text-white shadow-sm">
-              🎵 Music
-            </span>
+      {/* Category Filter Tabs */}
+      <div className="max-w-4xl mx-auto mb-8">
+        <div className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-4 shadow-lg shadow-red-600/10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left">
+              <h2 className="text-xl font-bold text-white">
+                {filteredItems.length} {activeFilter === 'all' ? 'Items' : activeFilter === 'game' ? 'Games' : activeFilter === 'music' ? 'Music Tools' : 'Tools'}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {TECH_GAMES_ITEMS.filter(i => i.category === 'game').length} Games • {TECH_GAMES_ITEMS.filter(i => i.category === 'tool').length} Tools • {TECH_GAMES_ITEMS.filter(i => i.category === 'music').length} Music
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {([
+                { key: 'all' as const, label: '🔥 All', color: 'red' },
+                { key: 'game' as const, label: '🎮 Games', color: 'blue' },
+                { key: 'music' as const, label: '🎵 Music', color: 'purple' },
+                { key: 'tool' as const, label: '🔧 Tools', color: 'green' },
+              ]).map(({ key, label, color }) => {
+                const isActive = activeFilter === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveFilter(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${
+                      isActive
+                        ? `bg-${color}-600 text-white shadow-lg shadow-${color}-600/30 scale-105`
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                    style={isActive ? {
+                      backgroundColor: color === 'red' ? '#dc2626' : color === 'blue' ? '#2563eb' : color === 'purple' ? '#9333ea' : '#16a34a',
+                      boxShadow: `0 4px 14px ${color === 'red' ? 'rgba(220,38,38,0.3)' : color === 'blue' ? 'rgba(37,99,235,0.3)' : color === 'purple' ? 'rgba(147,51,234,0.3)' : 'rgba(22,163,74,0.3)'}`,
+                    } : undefined}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -471,7 +489,7 @@ export const TechGamesPage: React.FC = () => {
           contentVisibility: 'auto',
         }}
       >
-        {TECH_GAMES_ITEMS.map((item) => (
+        {filteredItems.map((item) => (
           <div
             key={item.inscriptionId}
             className="bg-gray-900/80 backdrop-blur-sm border border-red-600/50 rounded-lg p-6 hover:border-red-500 hover:bg-gray-900/90 transition-all duration-300 flex flex-col hover:shadow-lg hover:shadow-red-600/20 hover:scale-[1.02] group relative overflow-hidden"
