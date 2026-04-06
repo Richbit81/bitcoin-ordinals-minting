@@ -23,6 +23,233 @@ import { getOrdinalAddress, getUnisatTaprootAddress } from '../utils/wallet';
 const TOTAL_SUPPLY = 100;
 const LIMIT_PER_ADDRESS = 1;
 
+function DimensionCracksCanvas() {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const mouseRef = React.useRef({ x: -1, y: -1 });
+  const rafRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let smoothMx = -1, smoothMy = -1;
+
+    type Crack = { x: number; y: number; angle: number; len: number; maxLen: number; speed: number; branches: Crack[]; width: number; life: number; hue: number };
+    type Hole = { x: number; y: number; size: number; pulse: number; hue: number; life: number; maxLife: number };
+
+    const cracks: Crack[] = [];
+    const holes: Hole[] = [];
+
+    function spawnCrack(x: number, y: number, angle?: number, width?: number) {
+      if (cracks.length > 60) return;
+      cracks.push({
+        x, y, angle: angle ?? Math.random() * Math.PI * 2, len: 0,
+        maxLen: 40 + Math.random() * 160, speed: 0.8 + Math.random() * 2,
+        branches: [], width: width ?? 1 + Math.random() * 2.5, life: 1,
+        hue: 260 + Math.random() * 40,
+      });
+    }
+
+    function spawnHole(x: number, y: number) {
+      if (holes.length > 25) return;
+      holes.push({ x, y, size: 3 + Math.random() * 12, pulse: Math.random() * Math.PI * 2, hue: 270 + Math.random() * 50, life: 0, maxLife: 200 + Math.random() * 400 });
+    }
+
+    for (let i = 0; i < 12; i++) spawnCrack(Math.random() * 2000, Math.random() * 2000);
+    for (let i = 0; i < 8; i++) spawnHole(Math.random() * 2000, Math.random() * 2000);
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { mouseRef.current = { x: -1, y: -1 }; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseleave', onLeave);
+
+    let spawnTimer = 0;
+    const draw = (ts: number) => {
+      const t = ts * 0.001;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const hasMouse = mx >= 0 && my >= 0;
+
+      if (hasMouse) {
+        smoothMx = smoothMx < 0 ? mx : smoothMx + (mx - smoothMx) * 0.08;
+        smoothMy = smoothMy < 0 ? my : smoothMy + (my - smoothMy) * 0.08;
+      } else { smoothMx = -1; smoothMy = -1; }
+
+      ctx.clearRect(0, 0, w, h);
+
+      spawnTimer++;
+      if (spawnTimer % 90 === 0) {
+        spawnCrack(Math.random() * w, Math.random() * h);
+      }
+      if (spawnTimer % 150 === 0) {
+        spawnHole(Math.random() * w, Math.random() * h);
+      }
+      if (hasMouse && spawnTimer % 20 === 0) {
+        const ox = smoothMx + (Math.random() - 0.5) * 200;
+        const oy = smoothMy + (Math.random() - 0.5) * 200;
+        spawnCrack(ox, oy, Math.atan2(oy - smoothMy, ox - smoothMx), 0.5 + Math.random() * 1.5);
+      }
+      if (hasMouse && spawnTimer % 60 === 0) {
+        spawnHole(smoothMx + (Math.random() - 0.5) * 300, smoothMy + (Math.random() - 0.5) * 300);
+      }
+
+      const drawCrack = (c: Crack) => {
+        let proximity = 0;
+        if (smoothMx >= 0) {
+          const dx = c.x - smoothMx, dy = c.y - smoothMy;
+          proximity = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 500);
+        }
+
+        const growSpeed = c.speed * (1 + proximity * 3);
+        if (c.len < c.maxLen) {
+          c.len += growSpeed;
+          if (c.len > c.maxLen * 0.4 && c.branches.length < 3 && Math.random() < 0.02 * (1 + proximity * 4)) {
+            const bAngle = c.angle + (Math.random() - 0.5) * 1.2;
+            const bx = c.x + Math.cos(c.angle) * c.len;
+            const by = c.y + Math.sin(c.angle) * c.len;
+            const branch: Crack = { x: bx, y: by, angle: bAngle, len: 0, maxLen: c.maxLen * (0.3 + Math.random() * 0.4), speed: c.speed * 0.8, branches: [], width: c.width * 0.6, life: 1, hue: c.hue + (Math.random() - 0.5) * 20 };
+            c.branches.push(branch);
+          }
+        } else {
+          c.life -= 0.003;
+        }
+
+        if (c.life <= 0) return false;
+
+        const baseAlpha = c.life * (0.3 + proximity * 0.5);
+        const glowAlpha = c.life * (0.15 + proximity * 0.4);
+
+        ctx.save();
+        ctx.shadowColor = `hsla(${c.hue}, 80%, 60%, ${glowAlpha})`;
+        ctx.shadowBlur = 8 + proximity * 20;
+        ctx.strokeStyle = `hsla(${c.hue}, 70%, 75%, ${baseAlpha})`;
+        ctx.lineWidth = c.width * (1 + proximity * 0.5);
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        const steps = Math.floor(c.len / 4);
+        let px = c.x, py = c.y;
+        for (let i = 1; i <= steps; i++) {
+          const frac = i / Math.max(1, Math.floor(c.maxLen / 4));
+          const jitter = (1 - frac) * 3;
+          px += Math.cos(c.angle) * 4 + (Math.random() - 0.5) * jitter;
+          py += Math.sin(c.angle) * 4 + (Math.random() - 0.5) * jitter;
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        if (c.width > 1.5 && c.len > 10) {
+          ctx.strokeStyle = `hsla(${c.hue + 20}, 100%, 90%, ${baseAlpha * 0.4})`;
+          ctx.lineWidth = 0.5;
+          ctx.shadowBlur = 0;
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        for (let i = c.branches.length - 1; i >= 0; i--) {
+          if (!drawCrack(c.branches[i])) c.branches.splice(i, 1);
+        }
+        return c.life > 0;
+      };
+
+      for (let i = cracks.length - 1; i >= 0; i--) {
+        if (!drawCrack(cracks[i])) {
+          cracks.splice(i, 1);
+        }
+      }
+
+      for (let i = holes.length - 1; i >= 0; i--) {
+        const ho = holes[i];
+        ho.life++;
+        if (ho.life > ho.maxLife) { holes.splice(i, 1); continue; }
+
+        let proximity = 0;
+        if (smoothMx >= 0) {
+          const dx = ho.x - smoothMx, dy = ho.y - smoothMy;
+          proximity = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 400);
+        }
+
+        const fadeIn = Math.min(1, ho.life / 40);
+        const fadeOut = Math.min(1, (ho.maxLife - ho.life) / 40);
+        const alpha = fadeIn * fadeOut;
+        const pulse = Math.sin(t * 2 + ho.pulse) * 0.3 + 0.7;
+        const sz = ho.size * (1 + proximity * 1.5) * pulse;
+
+        ctx.save();
+        const grad = ctx.createRadialGradient(ho.x, ho.y, 0, ho.x, ho.y, sz * 3);
+        grad.addColorStop(0, `hsla(${ho.hue}, 80%, 50%, ${alpha * (0.5 + proximity * 0.4) * pulse})`);
+        grad.addColorStop(0.3, `hsla(${ho.hue + 20}, 90%, 40%, ${alpha * (0.2 + proximity * 0.3) * pulse})`);
+        grad.addColorStop(0.6, `hsla(${ho.hue}, 70%, 30%, ${alpha * 0.1 * pulse})`);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(ho.x - sz * 3, ho.y - sz * 3, sz * 6, sz * 6);
+
+        ctx.beginPath();
+        ctx.arc(ho.x, ho.y, sz, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${ho.hue}, 60%, 5%, ${alpha * (0.7 + proximity * 0.3)})`;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(ho.x, ho.y, sz * 1.3, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${ho.hue}, 80%, 60%, ${alpha * (0.2 + proximity * 0.4) * pulse})`;
+        ctx.lineWidth = 1 + proximity;
+        ctx.shadowColor = `hsla(${ho.hue}, 100%, 60%, ${alpha * 0.4})`;
+        ctx.shadowBlur = 10 + proximity * 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        if (proximity > 0.3) {
+          const ringCount = 2 + Math.floor(proximity * 3);
+          for (let r = 1; r <= ringCount; r++) {
+            const rr = sz * (1.5 + r * 0.5) + Math.sin(t * 3 + r) * 3;
+            ctx.beginPath();
+            ctx.arc(ho.x, ho.y, rr, 0, Math.PI * 2);
+            ctx.strokeStyle = `hsla(${ho.hue + r * 10}, 80%, 60%, ${alpha * 0.08 * (1 - r / (ringCount + 1))})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      if (hasMouse) {
+        const cursorGrad = ctx.createRadialGradient(smoothMx, smoothMy, 0, smoothMx, smoothMy, 250);
+        cursorGrad.addColorStop(0, 'hsla(270, 80%, 60%, 0.06)');
+        cursorGrad.addColorStop(0.5, 'hsla(260, 60%, 40%, 0.03)');
+        cursorGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = cursorGrad;
+        ctx.fillRect(smoothMx - 250, smoothMy - 250, 500, 500);
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 2 }} />;
+}
+
 export const DimensionBreakPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
@@ -293,6 +520,8 @@ export const DimensionBreakPage: React.FC = () => {
         filter: 'blur(18px) brightness(0.35)',
         transform: 'scale(1.1)',
       }} />
+
+      <DimensionCracksCanvas />
 
       <div className="relative z-10 container mx-auto px-4 py-6 min-h-screen flex flex-col">
         {/* Back */}
