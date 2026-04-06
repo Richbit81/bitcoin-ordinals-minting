@@ -26,6 +26,14 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: '19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0',
+    name: 'SLOW FIRE',
+    description: 'SLOW FIRE is a browser-based first-person shooter inspired by SUPERHOT. Time only moves when you move — plan every step, dodge bullets in slow motion, and eliminate waves of enemies across 20 hand-crafted levels. Pick up fallen weapons for ammo, switch between pistols, knives, swords, bats, machine guns, and grenades. Features minimalist red-and-white visuals, procedural audio, and a synthwave background score. Must be played in fullscreen for proper mouse control. The game uses edge-of-screen detection for camera movement, so windowed mode will break the controls.',
+    price: 0,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: '927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0',
     name: 'GAVS - Generative Audio Visual System',
     description:
