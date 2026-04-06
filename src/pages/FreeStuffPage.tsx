@@ -57,6 +57,7 @@ export const FreeStuffPage: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const [previewItem, setPreviewItem] = useState<typeof FREE_ITEMS[0] | null>(null);
 
   const handleMint = async (item: typeof FREE_ITEMS[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -215,14 +216,12 @@ export const FreeStuffPage: React.FC = () => {
 
               {/* Try First (HTML ordinals) */}
               {(item as any).isHtml && (
-                <a
-                  href={`https://ordinals.com/content/${item.inscriptionId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setPreviewItem(item)}
                   className="block w-full py-2 mb-2 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-bold text-xs transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/20"
                 >
                   🚀 Try First
-                </a>
+                </button>
               )}
 
               {/* Fee Rate Selector */}
@@ -297,6 +296,36 @@ export const FreeStuffPage: React.FC = () => {
             Free delegate inscriptions • Only network fees apply
           </p>
         </div>
+
+        {/* Try First Preview Modal */}
+        {previewItem && (
+          <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" onClick={() => setPreviewItem(null)}>
+            <div
+              className="relative bg-black border-2 border-purple-600 rounded-xl overflow-hidden"
+              style={{ width: '50vw', height: '50vh', minWidth: 320, minHeight: 240 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-2 border-b border-purple-600/50 bg-black/90">
+                <h3 className="text-sm font-bold text-white">{previewItem.name}</h3>
+                <button
+                  onClick={() => setPreviewItem(null)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <iframe
+                src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
+                title={previewItem.name}
+                className="w-full"
+                style={{ height: 'calc(100% - 40px)', border: 'none', background: '#000' }}
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Wallet Connect Modal */}
         {showWalletConnect && (
