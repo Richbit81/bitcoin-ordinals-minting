@@ -34,31 +34,46 @@ const VISIBILITY_LABEL: Record<string, string> = {
   dm: 'DM',
 };
 
-const LevelBadge: React.FC<{ level?: string; role?: string }> = ({ level, role }) => {
+const LevelBadge: React.FC<{ level?: string; role?: string; userId?: string }> = ({ level, role, userId }) => {
   if (role === 'admin') return <span className="ml-1 inline-block rounded bg-red-500/70 px-1 py-px text-[8px] font-bold text-white leading-none">ADMIN</span>;
   if (level === 'level2') return <span className="ml-1 inline-block rounded bg-yellow-500/70 px-1 py-px text-[8px] font-bold text-black leading-none">L2</span>;
   if (level === 'level1') return <span className="ml-1 inline-block rounded bg-pink-500/50 px-1 py-px text-[8px] font-bold text-pink-100 leading-none">L1</span>;
-  return <span className="ml-1 inline-block rounded bg-gray-500/50 px-1 py-px text-[8px] font-bold text-gray-200 leading-none">Guest</span>;
+  if (level === 'public' || (userId && userId.startsWith('guest-'))) return <span className="ml-1 inline-block rounded bg-gray-500/50 px-1 py-px text-[8px] font-bold text-gray-200 leading-none">Guest</span>;
+  return null;
 };
 
-const PuppetAvatar: React.FC<{ walletAddress?: string; displayName: string }> = ({ walletAddress, displayName }) => {
-  const [src, setSrc] = React.useState<string | null>(null);
+const puppetAvatarCache = new Map<string, string | null>();
+
+const PuppetAvatar: React.FC<{ walletAddress?: string; displayName: string; level?: string; msgUserId?: string; currentUser?: { id: string; walletAddress?: string; level?: string } | null }> = ({ walletAddress, displayName, level, msgUserId, currentUser }) => {
+  const resolvedWallet = walletAddress || (currentUser && msgUserId === currentUser.id ? currentUser.walletAddress : undefined);
+  const isPuppetHolder = level === 'level2' || (currentUser && msgUserId === currentUser.id && currentUser.level === 'level2');
+
+  const [src, setSrc] = React.useState<string | null>(() => {
+    if (resolvedWallet && puppetAvatarCache.has(resolvedWallet)) return puppetAvatarCache.get(resolvedWallet)!;
+    return null;
+  });
   const tried = React.useRef(false);
 
   React.useEffect(() => {
-    if (!walletAddress || tried.current) return;
+    if (tried.current || !isPuppetHolder) return;
+    if (resolvedWallet && puppetAvatarCache.has(resolvedWallet)) { setSrc(puppetAvatarCache.get(resolvedWallet)!); return; }
     tried.current = true;
     (async () => {
       try {
         const { PINK_PUPPETS_HASHLIST } = await import('../../data/pinkPuppetsHashlist');
-        const ids = PINK_PUPPETS_HASHLIST.map((x: any) => String(x.inscriptionId || '').trim());
-        if (ids.length > 0) setSrc(`https://ordinals.com/content/${ids[0]}`);
+        const ids = PINK_PUPPETS_HASHLIST.map((x: any) => String(x.inscriptionId || '').trim()).filter(Boolean);
+        if (ids.length === 0) return;
+        const hash = (resolvedWallet || displayName).split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+        const idx = Math.abs(hash) % ids.length;
+        const url = `https://ordinals.com/content/${ids[idx]}`;
+        if (resolvedWallet) puppetAvatarCache.set(resolvedWallet, url);
+        setSrc(url);
       } catch { /* no avatar */ }
     })();
-  }, [walletAddress]);
+  }, [resolvedWallet, isPuppetHolder, displayName]);
 
   if (src) {
-    return <img src={src} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" onError={() => setSrc(null)} />;
+    return <img src={src} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" onError={() => { if (resolvedWallet) puppetAvatarCache.set(resolvedWallet, null); setSrc(null); }} />;
   }
   const letter = (displayName || '?')[0].toUpperCase();
   const hue = displayName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
@@ -283,7 +298,7 @@ export const UnifiedChatPanel: React.FC = () => {
                         </div>
                       )}
                       <div className="flex items-center gap-1.5 text-[10px] text-pink-200/70">
-                        <PuppetAvatar walletAddress={msg.walletAddress} displayName={msg.displayName} />
+                        <PuppetAvatar walletAddress={msg.walletAddress} displayName={msg.displayName} level={msg.level} msgUserId={msg.userId} currentUser={user ? { id: user.id, walletAddress: user.walletAddress, level: user.level } : null} />
                         <button
                           className="font-semibold hover:underline hover:text-pink-100"
                           onClick={() => { if (user && msg.userId !== user.id && !msg.userId.startsWith('guest-')) void startDm(msg.userId); }}
@@ -291,7 +306,7 @@ export const UnifiedChatPanel: React.FC = () => {
                         >
                           {msg.displayName}
                         </button>
-                        <LevelBadge level={msg.level} role={msg.role} />
+                        <LevelBadge level={msg.level} role={msg.role} userId={msg.userId} />
                         <span className="ml-auto">{new Date(msg.createdAt).toLocaleTimeString()}</span>
                       </div>
                       <p className="mt-0.5 whitespace-pre-wrap text-xs text-pink-50">{msg.content}</p>
