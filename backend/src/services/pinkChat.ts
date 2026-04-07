@@ -202,8 +202,8 @@ export const registerChatUser = async (email: string, password: string, displayN
   const state = await readState();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const trimmedName = String(displayName || '').trim();
-  if (!normalizedEmail || !String(password || '').trim()) throw new Error('E-Mail und Passwort erforderlich.');
-  if (!trimmedName) throw new Error('Display-Name erforderlich.');
+  if (!normalizedEmail || !String(password || '').trim()) throw new Error('Email and password required.');
+  if (!trimmedName) throw new Error('Display name required.');
   if (state.users.some((u) => u.email.toLowerCase() === normalizedEmail)) throw new Error('E-Mail bereits registriert.');
   const user: ChatUser = {
     id: uid('usr'),
@@ -227,7 +227,7 @@ export const loginChatUser = async (email: string, password: string) => {
   const state = await readState();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const user = state.users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  if (!user || user.passwordHash !== hashPassword(password)) throw new Error('Ungültige Login-Daten.');
+  if (!user || user.passwordHash !== hashPassword(password)) throw new Error('Invalid login credentials.');
   const token = uid('pst');
   state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
   await writeState(state);
@@ -259,14 +259,14 @@ export const startWalletLink = async (userId: string, walletAddress: string) => 
 export const verifyWalletLink = async (userId: string, walletAddress: string, signature: string) => {
   const state = await readState();
   const challenge = [...state.walletChallenges].reverse().find((c) => c.userId === userId && c.walletAddress === walletAddress);
-  if (!challenge) throw new Error('Keine aktive Wallet-Challenge gefunden.');
-  if (!String(signature || '').trim()) throw new Error('Signatur erforderlich.');
+  if (!challenge) throw new Error('No active wallet challenge found.');
+  if (!String(signature || '').trim()) throw new Error('Signature required.');
   // Placeholder signature check: at least deterministic hashing path.
   const signatureHash = hashSignature(signature);
-  if (!signatureHash) throw new Error('Signatur ungültig.');
+  if (!signatureHash) throw new Error('Invalid signature.');
 
   const user = state.users.find((u) => u.id === userId);
-  if (!user) throw new Error('User nicht gefunden.');
+  if (!user) throw new Error('User not found.');
   const { owns: holder, count: puppetCount } = await checkPinkPuppetOwnership(walletAddress);
   user.walletAddress = walletAddress;
   user.level2Active = holder;
@@ -287,7 +287,7 @@ export const verifyWalletLink = async (userId: string, walletAddress: string, si
 export const revalidateWalletForUser = async (userId: string) => {
   const state = await readState();
   const user = state.users.find((u) => u.id === userId);
-  if (!user) throw new Error('User nicht gefunden.');
+  if (!user) throw new Error('User not found.');
   if (!user.walletAddress) return toSafeUser(user);
   const { owns: holder, count: puppetCount } = await checkPinkPuppetOwnership(user.walletAddress);
   const previousLevel = user.level;
@@ -327,11 +327,11 @@ export const getRoomsForUser = async (user?: ChatUser | null) => {
 };
 
 export const createRoom = async (user: ChatUser, payload: { name: string; slug: string; description?: string; visibility: RoomVisibility }) => {
-  if (user.role !== 'admin') throw new Error('Nur Admins dürfen Räume erstellen.');
+  if (user.role !== 'admin') throw new Error('Only admins can create rooms.');
   const state = await readState();
   const slug = String(payload.slug || '').trim().toLowerCase();
-  if (!slug) throw new Error('Slug erforderlich.');
-  if (state.rooms.some((r) => r.slug === slug && !r.archived)) throw new Error('Slug bereits vergeben.');
+  if (!slug) throw new Error('Slug required.');
+  if (state.rooms.some((r) => r.slug === slug && !r.archived)) throw new Error('Slug already taken.');
   const room: ChatRoom = {
     id: uid('room'),
     slug,
@@ -357,24 +357,24 @@ export const createRoom = async (user: ChatUser, payload: { name: string; slug: 
 export const getRoomMessages = async (roomId: string, user?: ChatUser | null): Promise<ChatMessage[]> => {
   const state = await readState();
   const room = state.rooms.find((r) => r.id === roomId && !r.archived);
-  if (!room) throw new Error('Raum nicht gefunden.');
+  if (!room) throw new Error('Room not found.');
   if (room.visibility === 'dm') {
-    if (!user || !room.dmParticipants?.includes(user.id)) throw new Error('Keine Berechtigung.');
+    if (!user || !room.dmParticipants?.includes(user.id)) throw new Error('Access denied.');
   } else if (!user && room.visibility !== 'public') {
-    throw new Error('Login erforderlich.');
+    throw new Error('Login required.');
   } else if (user && !canAccessRoom(room.visibility, user.level, user.role, user.id, room.dmParticipants)) {
-    throw new Error('Keine Berechtigung für diesen Raum.');
+    throw new Error('No access to this room.');
   }
   return state.messages.filter((m) => m.roomId === roomId).slice(-200);
 };
 
 export const updateDisplayName = async (userId: string, newName: string) => {
   const trimmed = String(newName || '').trim();
-  if (!trimmed) throw new Error('Display-Name darf nicht leer sein.');
-  if (trimmed.length > 24) throw new Error('Display-Name zu lang (max 24 Zeichen).');
+  if (!trimmed) throw new Error('Display name cannot be empty.');
+  if (trimmed.length > 24) throw new Error('Display name too long (max 24 characters).');
   const state = await readState();
   const user = state.users.find((u) => u.id === userId);
-  if (!user) throw new Error('User nicht gefunden.');
+  if (!user) throw new Error('User not found.');
   user.displayName = trimmed;
   await writeState(state);
   return toSafeUser(user);
@@ -382,12 +382,12 @@ export const updateDisplayName = async (userId: string, newName: string) => {
 
 export const postRoomMessage = async (roomId: string, user: ChatUser, content: string, replyTo?: { id: string; displayName: string; content: string }): Promise<ChatMessage> => {
   const trimmed = String(content || '').trim();
-  if (!trimmed) throw new Error('Leere Nachricht.');
-  if (trimmed.length > 1200) throw new Error('Nachricht ist zu lang (max 1200 Zeichen).');
+  if (!trimmed) throw new Error('Empty message.');
+  if (trimmed.length > 1200) throw new Error('Message too long (max 1200 characters).');
   const state = await readState();
   const room = state.rooms.find((r) => r.id === roomId && !r.archived);
-  if (!room) throw new Error('Raum nicht gefunden.');
-  if (!canAccessRoom(room.visibility, user.level, user.role, user.id, room.dmParticipants)) throw new Error('Keine Berechtigung.');
+  if (!room) throw new Error('Room not found.');
+  if (!canAccessRoom(room.visibility, user.level, user.role, user.id, room.dmParticipants)) throw new Error('Access denied.');
   const message: ChatMessage = {
     id: uid('msg'),
     roomId,
@@ -407,13 +407,13 @@ export const postRoomMessage = async (roomId: string, user: ChatUser, content: s
 
 export const postGuestRoomMessage = async (roomId: string, displayName: string, content: string, replyTo?: { id: string; displayName: string; content: string }): Promise<ChatMessage> => {
   const trimmed = String(content || '').trim();
-  if (!trimmed) throw new Error('Leere Nachricht.');
-  if (trimmed.length > 1200) throw new Error('Nachricht ist zu lang (max 1200 Zeichen).');
+  if (!trimmed) throw new Error('Empty message.');
+  if (trimmed.length > 1200) throw new Error('Message too long (max 1200 characters).');
   const name = String(displayName || '').trim();
-  if (!name) throw new Error('Display-Name erforderlich.');
+  if (!name) throw new Error('Display name required.');
   const state = await readState();
   const room = state.rooms.find((r) => r.id === roomId && !r.archived);
-  if (!room) throw new Error('Raum nicht gefunden.');
+  if (!room) throw new Error('Room not found.');
   if (room.visibility !== 'public') throw new Error('Guests can only post in public rooms.');
   const message: ChatMessage = {
     id: uid('msg'),
@@ -433,8 +433,8 @@ export const postGuestRoomMessage = async (roomId: string, displayName: string, 
 export const deleteMessage = async (roomId: string, messageId: string, user: ChatUser): Promise<void> => {
   const state = await readState();
   const msg = state.messages.find((m) => m.id === messageId && m.roomId === roomId);
-  if (!msg) throw new Error('Nachricht nicht gefunden.');
-  if (user.role !== 'admin' && msg.userId !== user.id) throw new Error('Keine Berechtigung.');
+  if (!msg) throw new Error('Message not found.');
+  if (user.role !== 'admin' && msg.userId !== user.id) throw new Error('Access denied.');
   msg.deleted = true;
   msg.content = '';
   await writeState(state);
@@ -443,10 +443,10 @@ export const deleteMessage = async (roomId: string, messageId: string, user: Cha
 const ALLOWED_REACTIONS = new Set(['fire', 'heart', 'laugh', 'thumbsup', 'skull', '100']);
 
 export const toggleReaction = async (roomId: string, messageId: string, emoji: string, userId: string, displayName: string): Promise<ChatMessage> => {
-  if (!ALLOWED_REACTIONS.has(emoji)) throw new Error('Ungültiges Emoji.');
+  if (!ALLOWED_REACTIONS.has(emoji)) throw new Error('Invalid emoji.');
   const state = await readState();
   const msg = state.messages.find((m) => m.id === messageId && m.roomId === roomId);
-  if (!msg) throw new Error('Nachricht nicht gefunden.');
+  if (!msg) throw new Error('Message not found.');
   if (!msg.reactions) msg.reactions = {};
   if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
   const idx = msg.reactions[emoji].indexOf(userId);
@@ -461,12 +461,12 @@ export const toggleReaction = async (roomId: string, messageId: string, emoji: s
 };
 
 export const getOrCreateDmRoom = async (userId: string, targetUserId: string): Promise<ChatRoom> => {
-  if (userId === targetUserId) throw new Error('Kann keinen DM-Raum mit sich selbst erstellen.');
+  if (userId === targetUserId) throw new Error('Cannot create a DM with yourself.');
   const state = await readState();
   const targetUser = state.users.find((u) => u.id === targetUserId);
-  if (!targetUser) throw new Error('Zielbenutzer nicht gefunden.');
+  if (!targetUser) throw new Error('Target user not found.');
   const currentUser = state.users.find((u) => u.id === userId);
-  if (!currentUser) throw new Error('User nicht gefunden.');
+  if (!currentUser) throw new Error('User not found.');
   const pair = [userId, targetUserId].sort();
   const existing = state.rooms.find((r) => r.visibility === 'dm' && r.dmParticipants && r.dmParticipants[0] === pair[0] && r.dmParticipants[1] === pair[1] && !r.archived);
   if (existing) return existing;

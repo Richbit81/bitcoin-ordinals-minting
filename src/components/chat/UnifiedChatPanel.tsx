@@ -265,7 +265,7 @@ export const UnifiedChatPanel: React.FC = () => {
           );
         })}
         {tab === 'dms' && dmRooms.length === 0 && (
-          <span className="text-[10px] text-pink-200/60 py-1">Keine DMs. Klicke auf einen Usernamen, um eine DM zu starten.</span>
+          <span className="text-[10px] text-pink-200/60 py-1">No DMs yet. Click a username to start one.</span>
         )}
       </div>
 
@@ -289,7 +289,7 @@ export const UnifiedChatPanel: React.FC = () => {
                   onMouseLeave={() => { setHoveredMsgId(null); if (emojiPickerMsgId === msg.id) setEmojiPickerMsgId(null); }}
                 >
                   {isDeleted ? (
-                    <p className="text-[10px] text-pink-200/40 italic">Nachricht gelöscht</p>
+                    <p className="text-[10px] text-pink-200/40 italic">Message deleted</p>
                   ) : (
                     <>
                       {msg.replyTo && (
@@ -302,7 +302,7 @@ export const UnifiedChatPanel: React.FC = () => {
                         <button
                           className="font-semibold hover:underline hover:text-pink-100"
                           onClick={() => { if (user && msg.userId !== user.id && !msg.userId.startsWith('guest-')) void startDm(msg.userId); }}
-                          title={user && !msg.userId.startsWith('guest-') && msg.userId !== user?.id ? 'DM starten' : ''}
+                          title={user && !msg.userId.startsWith('guest-') && msg.userId !== user?.id ? 'Start DM' : ''}
                         >
                           {msg.displayName}
                         </button>
@@ -332,8 +332,8 @@ export const UnifiedChatPanel: React.FC = () => {
                       {/* Action buttons on hover */}
                       {hoveredMsgId === msg.id && (
                         <div className="absolute -top-2 right-1 flex gap-0.5 rounded border border-pink-300/30 bg-black/80 px-1 py-0.5 shadow-lg">
-                          <button onClick={() => setReplyingTo(msg)} title="Antworten" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">↩</button>
-                          <button onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)} title="Reaktion" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">😀</button>
+                          <button onClick={() => setReplyingTo(msg)} title="Reply" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">↩</button>
+                          <button onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)} title="React" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">😀</button>
                           {canDelete && (
                             confirmDeleteId === msg.id ? (
                               <>
@@ -341,7 +341,7 @@ export const UnifiedChatPanel: React.FC = () => {
                                 <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">✕</button>
                               </>
                             ) : (
-                              <button onClick={() => setConfirmDeleteId(msg.id)} title="Löschen" className="text-[10px] text-pink-200/70 hover:text-red-300 px-0.5">🗑</button>
+                              <button onClick={() => setConfirmDeleteId(msg.id)} title="Delete" className="text-[10px] text-pink-200/70 hover:text-red-300 px-0.5">🗑</button>
                             )
                           )}
                         </div>

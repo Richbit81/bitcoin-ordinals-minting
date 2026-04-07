@@ -94,7 +94,7 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [token, commitSession]);
 
   const verifyWallet = useCallback(async (walletAddress: string, signature?: string) => {
-    if (!token) throw new Error('Bitte zuerst einloggen.');
+    if (!token) throw new Error('Please log in first.');
     const start = await pinkChatApi.walletLinkStart(token, walletAddress);
     const resolvedSignature = signature?.trim() || `wallet-proof:${start.nonce}:${walletAddress}`;
     const nextUser = await pinkChatApi.walletLinkVerify(token, walletAddress, resolvedSignature);
@@ -109,7 +109,7 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [token, commitSession]);
 
   const revalidateWallet = useCallback(async () => {
-    if (!token) throw new Error('Nicht eingeloggt.');
+    if (!token) throw new Error('Not logged in.');
     const nextUser = await pinkChatApi.walletRevalidate(token);
     if (nextUser.walletAddress) {
       try {
@@ -124,7 +124,7 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [token, commitSession]);
 
   const updateProfile = useCallback(async (data: { displayName: string }) => {
-    if (!token) throw new Error('Nicht eingeloggt.');
+    if (!token) throw new Error('Not logged in.');
     const nextUser = await pinkChatApi.updateMe(token, data);
     commitSession({ token, user: nextUser });
   }, [token, commitSession]);

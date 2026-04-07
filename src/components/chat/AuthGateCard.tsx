@@ -99,7 +99,7 @@ export const AuthGateCard: React.FC = () => {
             ) : (
               <>
                 <span className="truncate">{user.displayName}</span>
-                <button onClick={() => { setEditNameValue(user.displayName); setEditingName(true); }} title="Name ändern" className="shrink-0 text-pink-300/60 hover:text-pink-200 text-[10px]">✏️</button>
+                <button onClick={() => { setEditNameValue(user.displayName); setEditingName(true); }} title="Edit name" className="shrink-0 text-pink-300/60 hover:text-pink-200 text-[10px]">✏️</button>
               </>
             )}
           </div>

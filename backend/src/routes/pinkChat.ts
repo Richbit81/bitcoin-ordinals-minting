@@ -53,7 +53,7 @@ router.post('/auth/register', async (req, res) => {
     const email = sanitizeText(req.body?.email).toLowerCase();
     const password = String(req.body?.password || '');
     const displayName = sanitizeText(req.body?.displayName);
-    if (!displayName.trim()) return res.status(400).json({ error: 'Display-Name erforderlich.' });
+    if (!displayName.trim()) return res.status(400).json({ error: 'Display name required.' });
     const session = await registerChatUser(email, password, displayName);
     res.json(session);
   } catch (err: any) {

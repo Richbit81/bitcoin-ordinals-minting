@@ -291,7 +291,7 @@ export const pinkChatApi = {
       if (!isMockFallback(err)) throw new Error('Session expired – please log in again.');
       const state = readMock();
       const user = resolveMockUserByToken(state, token);
-      if (!user) throw new Error('Session ungültig.');
+      if (!user) throw new Error('Invalid session.');
       return user;
     }
   },
