@@ -306,8 +306,9 @@ export const revalidateWalletForUser = async (userId: string) => {
   return toSafeUser(user);
 };
 
-const canAccessRoom = (visibility: RoomVisibility, level: string, role: string) => {
+const canAccessRoom = (visibility: RoomVisibility, level: string, role: string, userId?: string, dmParticipants?: string[]) => {
   if (role === 'admin') return true;
+  if (visibility === 'dm') return !!userId && !!dmParticipants && dmParticipants.includes(userId);
   if (visibility === 'public') return true;
   if (visibility === 'level1') return level === 'level1' || level === 'level2';
   if (visibility === 'level2') return level === 'level2';
@@ -319,8 +320,9 @@ export const getRoomsForUser = async (user?: ChatUser | null) => {
   return state.rooms
     .filter((r) => !r.archived)
     .filter((r) => {
+      if (r.visibility === 'dm') return !!user && !!r.dmParticipants && r.dmParticipants.includes(user.id);
       if (!user) return r.visibility === 'public';
-      return canAccessRoom(r.visibility, user.level, user.role);
+      return canAccessRoom(r.visibility, user.level, user.role, user.id, r.dmParticipants);
     });
 };
 
@@ -356,19 +358,36 @@ export const getRoomMessages = async (roomId: string, user?: ChatUser | null): P
   const state = await readState();
   const room = state.rooms.find((r) => r.id === roomId && !r.archived);
   if (!room) throw new Error('Raum nicht gefunden.');
-  if (!user && room.visibility !== 'public') throw new Error('Login erforderlich.');
-  if (user && !canAccessRoom(room.visibility, user.level, user.role)) throw new Error('Keine Berechtigung für diesen Raum.');
+  if (room.visibility === 'dm') {
+    if (!user || !room.dmParticipants?.includes(user.id)) throw new Error('Keine Berechtigung.');
+  } else if (!user && room.visibility !== 'public') {
+    throw new Error('Login erforderlich.');
+  } else if (user && !canAccessRoom(room.visibility, user.level, user.role, user.id, room.dmParticipants)) {
+    throw new Error('Keine Berechtigung für diesen Raum.');
+  }
   return state.messages.filter((m) => m.roomId === roomId).slice(-200);
 };
 
-export const postRoomMessage = async (roomId: string, user: ChatUser, content: string): Promise<ChatMessage> => {
+export const updateDisplayName = async (userId: string, newName: string) => {
+  const trimmed = String(newName || '').trim();
+  if (!trimmed) throw new Error('Display-Name darf nicht leer sein.');
+  if (trimmed.length > 24) throw new Error('Display-Name zu lang (max 24 Zeichen).');
+  const state = await readState();
+  const user = state.users.find((u) => u.id === userId);
+  if (!user) throw new Error('User nicht gefunden.');
+  user.displayName = trimmed;
+  await writeState(state);
+  return toSafeUser(user);
+};
+
+export const postRoomMessage = async (roomId: string, user: ChatUser, content: string, replyTo?: { id: string; displayName: string; content: string }): Promise<ChatMessage> => {
   const trimmed = String(content || '').trim();
   if (!trimmed) throw new Error('Leere Nachricht.');
   if (trimmed.length > 1200) throw new Error('Nachricht ist zu lang (max 1200 Zeichen).');
   const state = await readState();
   const room = state.rooms.find((r) => r.id === roomId && !r.archived);
   if (!room) throw new Error('Raum nicht gefunden.');
-  if (!canAccessRoom(room.visibility, user.level, user.role)) throw new Error('Keine Berechtigung.');
+  if (!canAccessRoom(room.visibility, user.level, user.role, user.id, room.dmParticipants)) throw new Error('Keine Berechtigung.');
   const message: ChatMessage = {
     id: uid('msg'),
     roomId,
@@ -376,13 +395,17 @@ export const postRoomMessage = async (roomId: string, user: ChatUser, content: s
     displayName: user.displayName,
     content: trimmed,
     createdAt: nowIso(),
+    level: user.level,
+    role: user.role,
+    walletAddress: user.walletAddress,
+    ...(replyTo ? { replyTo: { id: replyTo.id, displayName: replyTo.displayName, content: replyTo.content.slice(0, 200) } } : {}),
   };
   state.messages.push(message);
   await writeState(state);
   return message;
 };
 
-export const postGuestRoomMessage = async (roomId: string, displayName: string, content: string): Promise<ChatMessage> => {
+export const postGuestRoomMessage = async (roomId: string, displayName: string, content: string, replyTo?: { id: string; displayName: string; content: string }): Promise<ChatMessage> => {
   const trimmed = String(content || '').trim();
   if (!trimmed) throw new Error('Leere Nachricht.');
   if (trimmed.length > 1200) throw new Error('Nachricht ist zu lang (max 1200 Zeichen).');
@@ -399,10 +422,71 @@ export const postGuestRoomMessage = async (roomId: string, displayName: string, 
     displayName: name,
     content: trimmed,
     createdAt: nowIso(),
+    level: 'public',
+    ...(replyTo ? { replyTo: { id: replyTo.id, displayName: replyTo.displayName, content: replyTo.content.slice(0, 200) } } : {}),
   };
   state.messages.push(message);
   await writeState(state);
   return message;
+};
+
+export const deleteMessage = async (roomId: string, messageId: string, user: ChatUser): Promise<void> => {
+  const state = await readState();
+  const msg = state.messages.find((m) => m.id === messageId && m.roomId === roomId);
+  if (!msg) throw new Error('Nachricht nicht gefunden.');
+  if (user.role !== 'admin' && msg.userId !== user.id) throw new Error('Keine Berechtigung.');
+  msg.deleted = true;
+  msg.content = '';
+  await writeState(state);
+};
+
+const ALLOWED_REACTIONS = new Set(['fire', 'heart', 'laugh', 'thumbsup', 'skull', '100']);
+
+export const toggleReaction = async (roomId: string, messageId: string, emoji: string, userId: string, displayName: string): Promise<ChatMessage> => {
+  if (!ALLOWED_REACTIONS.has(emoji)) throw new Error('Ungültiges Emoji.');
+  const state = await readState();
+  const msg = state.messages.find((m) => m.id === messageId && m.roomId === roomId);
+  if (!msg) throw new Error('Nachricht nicht gefunden.');
+  if (!msg.reactions) msg.reactions = {};
+  if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+  const idx = msg.reactions[emoji].indexOf(userId);
+  if (idx >= 0) {
+    msg.reactions[emoji].splice(idx, 1);
+    if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
+  } else {
+    msg.reactions[emoji].push(userId);
+  }
+  await writeState(state);
+  return msg;
+};
+
+export const getOrCreateDmRoom = async (userId: string, targetUserId: string): Promise<ChatRoom> => {
+  if (userId === targetUserId) throw new Error('Kann keinen DM-Raum mit sich selbst erstellen.');
+  const state = await readState();
+  const targetUser = state.users.find((u) => u.id === targetUserId);
+  if (!targetUser) throw new Error('Zielbenutzer nicht gefunden.');
+  const currentUser = state.users.find((u) => u.id === userId);
+  if (!currentUser) throw new Error('User nicht gefunden.');
+  const pair = [userId, targetUserId].sort();
+  const existing = state.rooms.find((r) => r.visibility === 'dm' && r.dmParticipants && r.dmParticipants[0] === pair[0] && r.dmParticipants[1] === pair[1] && !r.archived);
+  if (existing) return existing;
+  const room: ChatRoom = {
+    id: uid('dm'),
+    slug: `dm-${pair[0].slice(0, 8)}-${pair[1].slice(0, 8)}`,
+    name: `${currentUser.displayName} & ${targetUser.displayName}`,
+    visibility: 'dm',
+    createdAt: nowIso(),
+    createdBy: userId,
+    dmParticipants: pair,
+  };
+  state.rooms.push(room);
+  await writeState(state);
+  return room;
+};
+
+export const getDmRoomsForUser = async (userId: string): Promise<ChatRoom[]> => {
+  const state = await readState();
+  return state.rooms.filter((r) => r.visibility === 'dm' && r.dmParticipants?.includes(userId) && !r.archived);
 };
 
 export const runDailyWalletRevalidation = async () => {

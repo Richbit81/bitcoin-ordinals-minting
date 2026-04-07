@@ -1,6 +1,6 @@
 export type ChatLevel = 'public' | 'level1' | 'level2';
 export type ChatRole = 'member' | 'admin';
-export type RoomVisibility = 'public' | 'level1' | 'level2' | 'admin';
+export type RoomVisibility = 'public' | 'level1' | 'level2' | 'admin' | 'dm';
 
 export interface ChatUser {
   id: string;
@@ -38,6 +38,13 @@ export interface ChatRoom {
   archived?: boolean;
   createdAt: string;
   createdBy: string;
+  dmParticipants?: string[];
+}
+
+export interface ChatMessageReplyTo {
+  id: string;
+  displayName: string;
+  content: string;
 }
 
 export interface ChatMessage {
@@ -47,6 +54,12 @@ export interface ChatMessage {
   displayName: string;
   content: string;
   createdAt: string;
+  level?: ChatLevel;
+  role?: ChatRole;
+  walletAddress?: string;
+  replyTo?: ChatMessageReplyTo;
+  reactions?: Record<string, string[]>;
+  deleted?: boolean;
 }
 
 export interface ChatAuditLog {

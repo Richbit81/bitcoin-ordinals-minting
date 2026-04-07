@@ -5,13 +5,15 @@ import { usePinkChatAuth } from '../../contexts/PinkChatAuthContext';
 
 export const AuthGateCard: React.FC = () => {
   const { walletState } = useWallet();
-  const { user, login, register, logout, verifyWallet, revalidateWallet } = usePinkChatAuth();
+  const { user, login, register, logout, verifyWallet, revalidateWallet, updateProfile } = usePinkChatAuth();
   const [mode, setMode] = React.useState<'login' | 'register'>('login');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [displayName, setDisplayName] = React.useState('');
   const [error, setError] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const [editingName, setEditingName] = React.useState(false);
+  const [editNameValue, setEditNameValue] = React.useState('');
 
   const submit = async () => {
     setBusy(true);
@@ -77,7 +79,30 @@ export const AuthGateCard: React.FC = () => {
         </>
       ) : (
         <div className="mt-2 space-y-1.5 text-xs text-pink-100 min-w-0">
-          <p className="truncate"><span className="font-semibold">User:</span> {user.displayName}</p>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="font-semibold shrink-0">User:</span>
+            {editingName ? (
+              <form className="flex items-center gap-1 flex-1 min-w-0" onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editNameValue.trim()) return;
+                setBusy(true); setError('');
+                try { await updateProfile({ displayName: editNameValue.trim() }); setEditingName(false); }
+                catch (err: any) { setError(err?.message || 'Update failed'); }
+                finally { setBusy(false); }
+              }}>
+                <input autoFocus value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)} maxLength={24}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditingName(false); }}
+                  className="flex-1 min-w-0 rounded border border-pink-300/40 bg-black/30 px-1.5 py-0.5 text-xs text-pink-100" />
+                <button type="submit" disabled={busy || !editNameValue.trim()} className="text-[10px] text-green-300 hover:text-green-200 disabled:opacity-50">✓</button>
+                <button type="button" onClick={() => setEditingName(false)} className="text-[10px] text-red-300 hover:text-red-200">✕</button>
+              </form>
+            ) : (
+              <>
+                <span className="truncate">{user.displayName}</span>
+                <button onClick={() => { setEditNameValue(user.displayName); setEditingName(true); }} title="Name ändern" className="shrink-0 text-pink-300/60 hover:text-pink-200 text-[10px]">✏️</button>
+              </>
+            )}
+          </div>
           <p><span className="font-semibold">Level:</span> {String(user.level || 'level1').toUpperCase()}{user.role === 'admin' ? ' · Admin' : ''}</p>
           {user.walletAddress && (
             <p className="truncate" title={user.walletAddress}><span className="font-semibold">Wallet:</span> {truncateAddr(user.walletAddress)}</p>

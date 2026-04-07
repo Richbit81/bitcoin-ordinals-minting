@@ -1,6 +1,9 @@
 import express from 'express';
 import {
   createRoom,
+  deleteMessage,
+  getDmRoomsForUser,
+  getOrCreateDmRoom,
   getRoomMessages,
   getRoomsForUser,
   getUserByToken,
@@ -13,6 +16,8 @@ import {
   runDailyWalletRevalidation,
   startWalletLink,
   toSafeUser,
+  toggleReaction,
+  updateDisplayName,
   verifyWalletLink,
 } from '../services/pinkChat';
 import { checkRateLimit } from '../services/pinkChatRateLimit';
@@ -71,6 +76,17 @@ router.post('/auth/login', async (req, res) => {
 
 router.get('/auth/me', authRequired, async (req, res) => {
   res.json(toSafeUser((req as any).chatUser));
+});
+
+router.patch('/auth/me', authRequired, async (req, res) => {
+  try {
+    const user = (req as any).chatUser;
+    const displayName = sanitizeText(req.body?.displayName);
+    const updated = await updateDisplayName(user.id, displayName);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Update failed' });
+  }
 });
 
 router.post('/auth/logout', authRequired, async (req, res) => {
@@ -149,22 +165,77 @@ router.post('/chat/rooms/:roomId/messages', async (req, res) => {
     const ip = req.ip || 'unknown';
     const content = sanitizeText(req.body?.content);
     const roomId = String(req.params.roomId);
+    const replyTo = req.body?.replyTo || undefined;
 
     if (token) {
       const user = await getUserByToken(token);
       if (!user) return res.status(401).json({ error: 'Invalid session' });
       if (!checkRateLimit(`msg:${user.id}:${ip}`, 20, 60 * 1000)) return res.status(429).json({ error: 'Too many messages' });
-      const message = await postRoomMessage(roomId, user, content);
+      const message = await postRoomMessage(roomId, user, content, replyTo);
       return res.json(message);
     }
 
     const displayName = sanitizeText(req.body?.displayName);
     if (!displayName) return res.status(400).json({ error: 'displayName required for guest messages' });
     if (!checkRateLimit(`guest:${ip}`, 10, 60 * 1000)) return res.status(429).json({ error: 'Too many messages' });
-    const message = await postGuestRoomMessage(roomId, displayName, content);
+    const message = await postGuestRoomMessage(roomId, displayName, content, replyTo);
     res.json(message);
   } catch (err: any) {
     res.status(400).json({ error: err?.message || 'Post message failed' });
+  }
+});
+
+router.delete('/chat/rooms/:roomId/messages/:messageId', authRequired, async (req, res) => {
+  try {
+    const user = (req as any).chatUser;
+    await deleteMessage(String(req.params.roomId), String(req.params.messageId), user);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Delete failed' });
+  }
+});
+
+router.post('/chat/rooms/:roomId/messages/:messageId/reactions', async (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    const emoji = sanitizeText(req.body?.emoji);
+    const roomId = String(req.params.roomId);
+    const messageId = String(req.params.messageId);
+
+    if (token) {
+      const user = await getUserByToken(token);
+      if (!user) return res.status(401).json({ error: 'Invalid session' });
+      const updated = await toggleReaction(roomId, messageId, emoji, user.id, user.displayName);
+      return res.json(updated);
+    }
+
+    const guestName = sanitizeText(req.body?.displayName);
+    if (!guestName) return res.status(400).json({ error: 'displayName required' });
+    const guestId = `guest-${guestName.toLowerCase().replace(/\s+/g, '-')}`;
+    const updated = await toggleReaction(roomId, messageId, emoji, guestId, guestName);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Reaction failed' });
+  }
+});
+
+router.get('/chat/dm', authRequired, async (req, res) => {
+  try {
+    const user = (req as any).chatUser;
+    const rooms = await getDmRoomsForUser(user.id);
+    res.json(rooms);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'DM rooms failed' });
+  }
+});
+
+router.post('/chat/dm/:targetUserId', authRequired, async (req, res) => {
+  try {
+    const user = (req as any).chatUser;
+    const room = await getOrCreateDmRoom(user.id, String(req.params.targetUserId));
+    res.json(room);
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'DM create failed' });
   }
 });
 

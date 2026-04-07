@@ -15,6 +15,7 @@ type PinkChatAuthContextType = {
   refreshMe: () => Promise<void>;
   verifyWallet: (walletAddress: string, signature?: string) => Promise<void>;
   revalidateWallet: () => Promise<void>;
+  updateProfile: (data: { displayName: string }) => Promise<void>;
 };
 
 const PinkChatAuthContext = createContext<PinkChatAuthContextType | undefined>(undefined);
@@ -122,6 +123,12 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     commitSession({ token, user: nextUser });
   }, [token, commitSession]);
 
+  const updateProfile = useCallback(async (data: { displayName: string }) => {
+    if (!token) throw new Error('Nicht eingeloggt.');
+    const nextUser = await pinkChatApi.updateMe(token, data);
+    commitSession({ token, user: nextUser });
+  }, [token, commitSession]);
+
   const value = useMemo(() => ({
     user,
     token,
@@ -132,7 +139,8 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     refreshMe,
     verifyWallet,
     revalidateWallet,
-  }), [user, token, loading, register, login, logout, refreshMe, verifyWallet, revalidateWallet]);
+    updateProfile,
+  }), [user, token, loading, register, login, logout, refreshMe, verifyWallet, revalidateWallet, updateProfile]);
 
   return <PinkChatAuthContext.Provider value={value}>{children}</PinkChatAuthContext.Provider>;
 };

@@ -420,15 +420,15 @@ export const pinkChatApi = {
     }
   },
 
-  async postMessage(roomId: string, content: string, token: string | null, displayName: string, userId: string): Promise<PinkChatMessage> {
+  async postMessage(roomId: string, content: string, token: string | null, displayName: string, userId: string, replyTo?: { id: string; displayName: string; content: string }): Promise<PinkChatMessage> {
     try {
       await ensureApiChecked();
       if (getApiStatus() === 'missing') throw new Error('pinkchat-api-missing');
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const body = token
-        ? JSON.stringify({ content })
-        : JSON.stringify({ content, displayName });
+        ? JSON.stringify({ content, ...(replyTo ? { replyTo } : {}) })
+        : JSON.stringify({ content, displayName, ...(replyTo ? { replyTo } : {}) });
       return await apiRequest<PinkChatMessage>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
         method: 'POST',
         headers,
@@ -437,12 +437,91 @@ export const pinkChatApi = {
     } catch (err) {
       if (!isMockFallback(err)) throw err;
       const state = readMock();
-      const message: PinkChatMessage = { id: uid('msg'), roomId, content: content.trim(), createdAt: nowIso(), displayName, userId };
+      const message: PinkChatMessage = { id: uid('msg'), roomId, content: content.trim(), createdAt: nowIso(), displayName, userId, ...(replyTo ? { replyTo } : {}) };
       state.messages.push(message);
       writeMock(state);
       console.log(`[PinkChat] POST_MESSAGE (mock) room=${roomId} user="${displayName}" userId=${userId} total_msgs=${state.messages.length}`);
       return message;
     }
+  },
+
+  async updateMe(token: string, data: { displayName: string }): Promise<PinkChatSession['user']> {
+    try {
+      return await apiRequest<PinkChatSession['user']>('/api/pinkchat/auth/me', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      const state = readMock();
+      const user = resolveMockUserByToken(state, token);
+      if (!user) throw new Error('Not logged in.');
+      user.displayName = data.displayName.trim();
+      writeMock(state);
+      return user;
+    }
+  },
+
+  async deleteMessage(roomId: string, messageId: string, token: string): Promise<void> {
+    try {
+      await apiRequest<{ success: boolean }>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      const state = readMock();
+      const msg = state.messages.find((m) => m.id === messageId);
+      if (msg) { (msg as any).deleted = true; msg.content = ''; }
+      writeMock(state);
+    }
+  },
+
+  async toggleReaction(roomId: string, messageId: string, emoji: string, token: string | null, displayName?: string): Promise<PinkChatMessage> {
+    try {
+      await ensureApiChecked();
+      if (getApiStatus() === 'missing') throw new Error('pinkchat-api-missing');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return await apiRequest<PinkChatMessage>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/reactions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ emoji, ...(token ? {} : { displayName }) }),
+      });
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      const state = readMock();
+      const msg = state.messages.find((m) => m.id === messageId);
+      if (!msg) throw new Error('Message not found');
+      if (!(msg as any).reactions) (msg as any).reactions = {};
+      const reactions = (msg as any).reactions as Record<string, string[]>;
+      if (!reactions[emoji]) reactions[emoji] = [];
+      const userId = token ? (resolveMockUserByToken(state, token)?.id || 'unknown') : `guest-${(displayName || '').toLowerCase().replace(/\s+/g, '-')}`;
+      const idx = reactions[emoji].indexOf(userId);
+      if (idx >= 0) { reactions[emoji].splice(idx, 1); if (reactions[emoji].length === 0) delete reactions[emoji]; }
+      else { reactions[emoji].push(userId); }
+      writeMock(state);
+      return msg;
+    }
+  },
+
+  async getDmRooms(token: string): Promise<PinkChatRoom[]> {
+    try {
+      return await apiRequest<PinkChatRoom[]>('/api/pinkchat/chat/dm', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      return [];
+    }
+  },
+
+  async getOrCreateDm(targetUserId: string, token: string): Promise<PinkChatRoom> {
+    return await apiRequest<PinkChatRoom>(`/api/pinkchat/chat/dm/${encodeURIComponent(targetUserId)}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
   },
 };
 

@@ -5,10 +5,21 @@ import { PinkChatMessage, PinkChatRoom } from '../../types/pinkChat';
 
 const GUEST_NAME_KEY = 'pinkchat_guest_name';
 
+const EMOJI_MAP: Record<string, string> = {
+  fire: '🔥',
+  heart: '❤️',
+  laugh: '😂',
+  thumbsup: '👍',
+  skull: '💀',
+  '100': '💯',
+};
+const EMOJI_KEYS = Object.keys(EMOJI_MAP);
+
 const canAccessRoom = (room: PinkChatRoom, level: string, role: string) => {
   if (role === 'admin') return true;
   if (room.visibility === 'open') return true;
   if (room.visibility === 'public') return true;
+  if (room.visibility === 'dm') return false;
   if (room.visibility === 'level1') return level === 'level1' || level === 'level2';
   if (room.visibility === 'level2') return level === 'level2';
   return false;
@@ -20,11 +31,48 @@ const VISIBILITY_LABEL: Record<string, string> = {
   level1: 'L1',
   level2: 'L2',
   admin: 'Admin',
+  dm: 'DM',
+};
+
+const LevelBadge: React.FC<{ level?: string; role?: string }> = ({ level, role }) => {
+  if (role === 'admin') return <span className="ml-1 inline-block rounded bg-red-500/70 px-1 py-px text-[8px] font-bold text-white leading-none">ADMIN</span>;
+  if (level === 'level2') return <span className="ml-1 inline-block rounded bg-yellow-500/70 px-1 py-px text-[8px] font-bold text-black leading-none">L2</span>;
+  if (level === 'level1') return <span className="ml-1 inline-block rounded bg-pink-500/50 px-1 py-px text-[8px] font-bold text-pink-100 leading-none">L1</span>;
+  return <span className="ml-1 inline-block rounded bg-gray-500/50 px-1 py-px text-[8px] font-bold text-gray-200 leading-none">Guest</span>;
+};
+
+const PuppetAvatar: React.FC<{ walletAddress?: string; displayName: string }> = ({ walletAddress, displayName }) => {
+  const [src, setSrc] = React.useState<string | null>(null);
+  const tried = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!walletAddress || tried.current) return;
+    tried.current = true;
+    (async () => {
+      try {
+        const { PINK_PUPPETS_HASHLIST } = await import('../../data/pinkPuppetsHashlist');
+        const ids = PINK_PUPPETS_HASHLIST.map((x: any) => String(x.inscriptionId || '').trim());
+        if (ids.length > 0) setSrc(`https://ordinals.com/content/${ids[0]}`);
+      } catch { /* no avatar */ }
+    })();
+  }, [walletAddress]);
+
+  if (src) {
+    return <img src={src} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" onError={() => setSrc(null)} />;
+  }
+  const letter = (displayName || '?')[0].toUpperCase();
+  const hue = displayName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: `hsl(${hue}, 60%, 40%)` }}>
+      {letter}
+    </span>
+  );
 };
 
 export const UnifiedChatPanel: React.FC = () => {
   const { user, token } = usePinkChatAuth();
   const [allRooms, setAllRooms] = React.useState<PinkChatRoom[]>([]);
+  const [dmRooms, setDmRooms] = React.useState<PinkChatRoom[]>([]);
   const [activeRoomId, setActiveRoomId] = React.useState('');
   const [messages, setMessages] = React.useState<PinkChatMessage[]>([]);
   const [draft, setDraft] = React.useState('');
@@ -32,31 +80,46 @@ export const UnifiedChatPanel: React.FC = () => {
   const [error, setError] = React.useState('');
   const [guestName, setGuestName] = React.useState(() => localStorage.getItem(GUEST_NAME_KEY) || '');
   const [guestNameConfirmed, setGuestNameConfirmed] = React.useState(() => !!localStorage.getItem(GUEST_NAME_KEY));
+  const [replyingTo, setReplyingTo] = React.useState<PinkChatMessage | null>(null);
+  const [tab, setTab] = React.useState<'rooms' | 'dms'>('rooms');
+  const [hoveredMsgId, setHoveredMsgId] = React.useState<string | null>(null);
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = React.useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
 
   const loadRooms = React.useCallback(async () => {
     const rooms = await pinkChatApi.getRooms(token || undefined);
-    setAllRooms(rooms.filter((r) => !r.archived));
+    setAllRooms(rooms.filter((r) => !r.archived && r.visibility !== 'dm'));
   }, [token]);
 
-  React.useEffect(() => {
-    void loadRooms();
-  }, [loadRooms]);
+  const loadDmRooms = React.useCallback(async () => {
+    if (!token) { setDmRooms([]); return; }
+    try {
+      const rooms = await pinkChatApi.getDmRooms(token);
+      setDmRooms(rooms);
+    } catch { setDmRooms([]); }
+  }, [token]);
+
+  React.useEffect(() => { void loadRooms(); }, [loadRooms]);
+  React.useEffect(() => { void loadDmRooms(); }, [loadDmRooms]);
 
   const visibleRooms = React.useMemo(() => {
     if (!user) return allRooms.filter((r) => r.visibility === 'open' || r.visibility === 'public');
     return allRooms.filter((r) => canAccessRoom(r, user.level, user.role));
   }, [allRooms, user]);
 
-  React.useEffect(() => {
-    if (!visibleRooms.length) { setActiveRoomId(''); return; }
-    if (!activeRoomId || !visibleRooms.some((r) => r.id === activeRoomId)) {
-      const openRoom = visibleRooms.find((r) => r.visibility === 'open');
-      setActiveRoomId(openRoom ? openRoom.id : visibleRooms[0].id);
-    }
-  }, [visibleRooms, activeRoomId]);
+  const displayedRooms = tab === 'dms' ? dmRooms : visibleRooms;
 
-  const activeRoom = visibleRooms.find((r) => r.id === activeRoomId);
+  React.useEffect(() => {
+    if (!displayedRooms.length) { setActiveRoomId(''); return; }
+    if (!activeRoomId || !displayedRooms.some((r) => r.id === activeRoomId)) {
+      const openRoom = displayedRooms.find((r) => r.visibility === 'open');
+      setActiveRoomId(openRoom ? openRoom.id : displayedRooms[0].id);
+    }
+  }, [displayedRooms, activeRoomId]);
+
+  const activeRoom = [...visibleRooms, ...dmRooms].find((r) => r.id === activeRoomId);
   const isOpenRoom = activeRoom?.visibility === 'open' || activeRoom?.visibility === 'public';
+  const isDmRoom = activeRoom?.visibility === 'dm';
   const canPost = !!activeRoom && (!!user || (isOpenRoom && guestNameConfirmed && guestName.trim().length > 0));
 
   const load = React.useCallback(async () => {
@@ -86,16 +149,17 @@ export const UnifiedChatPanel: React.FC = () => {
 
   const send = async () => {
     if (!canPost || !activeRoomId || !draft.trim()) return;
-
     const senderName = user ? user.displayName : guestName.trim();
     const senderId = user ? user.id : `guest-${guestName.trim().toLowerCase().replace(/\s+/g, '-')}`;
     const senderToken = token || null;
+    const reply = replyingTo ? { id: replyingTo.id, displayName: replyingTo.displayName, content: replyingTo.content } : undefined;
 
     try {
       setSending(true);
-      const posted = await pinkChatApi.postMessage(activeRoomId, draft, senderToken, senderName, senderId);
+      const posted = await pinkChatApi.postMessage(activeRoomId, draft, senderToken, senderName, senderId, reply);
       setMessages((prev) => [...prev, posted].slice(-200));
       setDraft('');
+      setReplyingTo(null);
       setError('');
     } catch (err: any) {
       setError(err?.message || 'Failed to send message.');
@@ -104,22 +168,72 @@ export const UnifiedChatPanel: React.FC = () => {
     }
   };
 
+  const handleDelete = async (msgId: string) => {
+    if (!token || !activeRoomId) return;
+    try {
+      await pinkChatApi.deleteMessage(activeRoomId, msgId, token);
+      setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, deleted: true, content: '' } : m));
+      setConfirmDeleteId(null);
+    } catch (err: any) {
+      setError(err?.message || 'Delete failed.');
+    }
+  };
+
+  const handleReaction = async (msgId: string, emoji: string) => {
+    if (!activeRoomId) return;
+    const senderToken = token || null;
+    const gName = !token ? guestName.trim() : undefined;
+    try {
+      const updated = await pinkChatApi.toggleReaction(activeRoomId, msgId, emoji, senderToken, gName);
+      setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, reactions: updated.reactions } : m));
+    } catch { /* silent */ }
+    setEmojiPickerMsgId(null);
+  };
+
+  const startDm = async (targetUserId: string) => {
+    if (!token || !user || targetUserId === user.id) return;
+    try {
+      const room = await pinkChatApi.getOrCreateDm(targetUserId, token);
+      await loadDmRooms();
+      setTab('dms');
+      setActiveRoomId(room.id);
+    } catch (err: any) {
+      setError(err?.message || 'DM failed.');
+    }
+  };
+
+  const getDmPartnerName = (room: PinkChatRoom) => {
+    if (!user || !room.name) return room.name;
+    const parts = room.name.split(' & ');
+    return parts.find((p) => p !== user.displayName) || room.name;
+  };
+
   const msgEndRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const showGuestPrompt = !user && isOpenRoom && !guestNameConfirmed;
+  const currentUserId = user?.id || (guestNameConfirmed ? `guest-${guestName.trim().toLowerCase().replace(/\s+/g, '-')}` : '');
 
   return (
     <section className="rounded-2xl border border-pink-300/70 bg-black/45 p-3 flex flex-col">
-      <div className="mb-1.5">
+      <div className="mb-1.5 flex items-center justify-between">
         <h3 className="text-xs font-bold text-pink-100">PinkPuppets Chat</h3>
+        {user && (
+          <div className="flex gap-1">
+            <button onClick={() => setTab('rooms')} className={`rounded px-2 py-0.5 text-[10px] ${tab === 'rooms' ? 'bg-pink-500/20 text-pink-100 border border-pink-300/50' : 'text-pink-200/70 hover:text-pink-100'}`}>Rooms</button>
+            <button onClick={() => { setTab('dms'); void loadDmRooms(); }} className={`rounded px-2 py-0.5 text-[10px] ${tab === 'dms' ? 'bg-pink-500/20 text-pink-100 border border-pink-300/50' : 'text-pink-200/70 hover:text-pink-100'}`}>
+              DMs{dmRooms.length > 0 && <span className="ml-1 rounded-full bg-pink-500/40 px-1 text-[8px]">{dmRooms.length}</span>}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mb-2 flex flex-wrap gap-1.5">
-        {visibleRooms.map((room) => {
-          const badge = VISIBILITY_LABEL[room.visibility] || '';
+        {displayedRooms.map((room) => {
+          const badge = isDmRoom ? '' : (VISIBILITY_LABEL[room.visibility] || '');
+          const label = room.visibility === 'dm' ? getDmPartnerName(room) : room.name;
           return (
             <button
               key={room.id}
@@ -130,11 +244,14 @@ export const UnifiedChatPanel: React.FC = () => {
                   : 'border-pink-300/40 bg-black/20 text-pink-200/80 hover:bg-pink-500/10'
               }`}
             >
-              #{room.name}
+              {room.visibility === 'dm' ? '💬' : '#'}{label}
               {badge && <span className="rounded bg-pink-500/30 px-1 py-px text-[9px] text-pink-200">{badge}</span>}
             </button>
           );
         })}
+        {tab === 'dms' && dmRooms.length === 0 && (
+          <span className="text-[10px] text-pink-200/60 py-1">Keine DMs. Klicke auf einen Usernamen, um eine DM zu starten.</span>
+        )}
       </div>
 
       <div className="h-52 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
@@ -144,15 +261,90 @@ export const UnifiedChatPanel: React.FC = () => {
           </p>
         ) : (
           <div className="space-y-2">
-            {messages.map((msg) => (
-              <div key={msg.id} className="rounded border border-pink-300/20 bg-black/30 px-2 py-1">
-                <div className="flex items-center justify-between text-[10px] text-pink-200/70">
-                  <span className="font-semibold">{msg.displayName}</span>
-                  <span>{new Date(msg.createdAt).toLocaleTimeString()}</span>
+            {messages.map((msg) => {
+              const isOwn = msg.userId === currentUserId;
+              const canDelete = user && (user.role === 'admin' || isOwn);
+              const isDeleted = msg.deleted;
+
+              return (
+                <div
+                  key={msg.id}
+                  className="group relative rounded border border-pink-300/20 bg-black/30 px-2 py-1"
+                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => { setHoveredMsgId(null); if (emojiPickerMsgId === msg.id) setEmojiPickerMsgId(null); }}
+                >
+                  {isDeleted ? (
+                    <p className="text-[10px] text-pink-200/40 italic">Nachricht gelöscht</p>
+                  ) : (
+                    <>
+                      {msg.replyTo && (
+                        <div className="mb-1 rounded border-l-2 border-pink-400/40 bg-pink-900/20 px-2 py-0.5 text-[10px] text-pink-200/60">
+                          <span className="font-semibold">{msg.replyTo.displayName}:</span> {msg.replyTo.content.slice(0, 100)}{msg.replyTo.content.length > 100 ? '…' : ''}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5 text-[10px] text-pink-200/70">
+                        <PuppetAvatar walletAddress={msg.walletAddress} displayName={msg.displayName} />
+                        <button
+                          className="font-semibold hover:underline hover:text-pink-100"
+                          onClick={() => { if (user && msg.userId !== user.id && !msg.userId.startsWith('guest-')) void startDm(msg.userId); }}
+                          title={user && !msg.userId.startsWith('guest-') && msg.userId !== user?.id ? 'DM starten' : ''}
+                        >
+                          {msg.displayName}
+                        </button>
+                        <LevelBadge level={msg.level} role={msg.role} />
+                        <span className="ml-auto">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="mt-0.5 whitespace-pre-wrap text-xs text-pink-50">{msg.content}</p>
+
+                      {/* Reactions display */}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {Object.entries(msg.reactions).map(([emoji, users]) => (
+                            <button
+                              key={emoji}
+                              onClick={() => void handleReaction(msg.id, emoji)}
+                              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] transition-colors ${
+                                users.includes(currentUserId) ? 'border-pink-400 bg-pink-500/20 text-pink-100' : 'border-pink-300/20 bg-black/20 text-pink-200/70 hover:bg-pink-500/10'
+                              }`}
+                            >
+                              <span>{EMOJI_MAP[emoji] || emoji}</span>
+                              <span>{users.length}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action buttons on hover */}
+                      {hoveredMsgId === msg.id && (
+                        <div className="absolute -top-2 right-1 flex gap-0.5 rounded border border-pink-300/30 bg-black/80 px-1 py-0.5 shadow-lg">
+                          <button onClick={() => setReplyingTo(msg)} title="Antworten" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">↩</button>
+                          <button onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)} title="Reaktion" className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">😀</button>
+                          {canDelete && (
+                            confirmDeleteId === msg.id ? (
+                              <>
+                                <button onClick={() => void handleDelete(msg.id)} className="text-[10px] text-red-400 hover:text-red-300 px-0.5 font-bold">✓</button>
+                                <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] text-pink-200/70 hover:text-pink-100 px-0.5">✕</button>
+                              </>
+                            ) : (
+                              <button onClick={() => setConfirmDeleteId(msg.id)} title="Löschen" className="text-[10px] text-pink-200/70 hover:text-red-300 px-0.5">🗑</button>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {/* Emoji picker */}
+                      {emojiPickerMsgId === msg.id && (
+                        <div className="absolute -top-8 right-1 flex gap-0.5 rounded border border-pink-300/30 bg-black/90 px-1 py-0.5 shadow-lg z-10">
+                          {EMOJI_KEYS.map((ek) => (
+                            <button key={ek} onClick={() => void handleReaction(msg.id, ek)} className="text-sm hover:scale-125 transition-transform px-0.5">{EMOJI_MAP[ek]}</button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap text-xs text-pink-50">{msg.content}</p>
-              </div>
-            ))}
+              );
+            })}
             <div ref={msgEndRef} />
           </div>
         )}
@@ -189,6 +381,15 @@ export const UnifiedChatPanel: React.FC = () => {
               </button>
             </div>
           )}
+
+          {/* Reply preview */}
+          {replyingTo && (
+            <div className="flex items-center gap-2 rounded border border-pink-400/30 bg-pink-900/20 px-2 py-1 text-[10px] text-pink-200/80">
+              <span className="flex-1 truncate">↩ <strong>{replyingTo.displayName}:</strong> {replyingTo.content.slice(0, 80)}</span>
+              <button onClick={() => setReplyingTo(null)} className="text-pink-300 hover:text-pink-100 shrink-0">✕</button>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <input
               value={draft}

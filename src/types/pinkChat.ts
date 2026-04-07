@@ -24,11 +24,18 @@ export interface PinkChatRoom {
   id: string;
   slug: string;
   name: string;
-  visibility: 'open' | 'public' | 'level1' | 'level2' | 'admin';
+  visibility: 'open' | 'public' | 'level1' | 'level2' | 'admin' | 'dm';
   description?: string;
   archived?: boolean;
   createdAt?: string;
   createdBy?: string;
+  dmParticipants?: string[];
+}
+
+export interface PinkChatMessageReplyTo {
+  id: string;
+  displayName: string;
+  content: string;
 }
 
 export interface PinkChatMessage {
@@ -38,6 +45,12 @@ export interface PinkChatMessage {
   displayName: string;
   content: string;
   createdAt: string;
+  level?: PinkChatLevel;
+  role?: PinkChatRole;
+  walletAddress?: string;
+  replyTo?: PinkChatMessageReplyTo;
+  reactions?: Record<string, string[]>;
+  deleted?: boolean;
 }
 
 export interface PinkChatWalletLinkStartResponse {
