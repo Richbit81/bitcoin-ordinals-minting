@@ -132,10 +132,36 @@ const writeMock = (state: MockState) => {
 
 type ApiStatus = 'unknown' | 'online' | 'missing';
 
-const getApiStatus = (): ApiStatus => 'missing';
+let _apiStatus: ApiStatus = 'unknown';
+let _apiCheckPromise: Promise<void> | null = null;
 
-const setApiStatus = (_status: ApiStatus) => {
-  /* noop – we always use local mock */
+const getApiStatus = (): ApiStatus => _apiStatus;
+
+const setApiStatus = (status: ApiStatus) => {
+  if (_apiStatus !== status) {
+    console.log(`[PinkChat] API status: ${_apiStatus} → ${status}`);
+    _apiStatus = status;
+  }
+};
+
+const probeApi = async () => {
+  if (_apiStatus !== 'unknown') return;
+  try {
+    const res = await fetch(`${API_URL}/api/pinkchat/chat/rooms`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    setApiStatus(res.ok || res.status === 401 ? 'online' : 'missing');
+  } catch {
+    setApiStatus('missing');
+  }
+};
+
+const ensureApiChecked = async () => {
+  if (_apiStatus !== 'unknown') return;
+  if (!_apiCheckPromise) _apiCheckPromise = probeApi();
+  await _apiCheckPromise;
 };
 
 const pinkPuppetIdSet = new Set(PINK_PUPPETS_HASHLIST.map((x) => String(x.inscriptionId || '').trim()));
@@ -186,19 +212,17 @@ const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: 
 };
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  await ensureApiChecked();
   if (getApiStatus() === 'missing') throw new Error('pinkchat-api-missing');
   const res = await fetch(`${API_URL}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init,
   });
   if (!res.ok) {
-    if (path.startsWith('/api/pinkchat')) {
-      setApiStatus('missing');
-    }
     const text = await res.text();
     throw new Error(text || `API error ${res.status}`);
   }
-  if (path.startsWith('/api/pinkchat')) setApiStatus('online');
+  setApiStatus('online');
   return res.json();
 }
 
