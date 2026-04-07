@@ -214,14 +214,17 @@ const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   await ensureApiChecked();
   if (getApiStatus() === 'missing') throw new Error('pinkchat-api-missing');
+  const { headers: initHeaders, ...restInit } = init || {};
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
+    ...restInit,
+    headers: { 'Content-Type': 'application/json', ...(initHeaders || {}) },
   });
   if (!res.ok) {
     const text = await res.text();
     if (res.status === 401) throw new Error('pinkchat-auth-invalid');
-    throw new Error(text || `API error ${res.status}`);
+    let msg = `API error ${res.status}`;
+    try { const j = JSON.parse(text); if (j.error) msg = j.error; } catch { if (text) msg = text; }
+    throw new Error(msg);
   }
   setApiStatus('online');
   return res.json();
