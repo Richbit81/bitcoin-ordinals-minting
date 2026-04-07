@@ -220,11 +220,14 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) throw new Error('pinkchat-auth-invalid');
     throw new Error(text || `API error ${res.status}`);
   }
   setApiStatus('online');
   return res.json();
 }
+
+const isMockFallback = (err: unknown) => err instanceof Error && err.message === 'pinkchat-api-missing';
 
 export const pinkChatApi = {
   async register(email: string, password: string, displayName: string): Promise<PinkChatSession> {
@@ -233,7 +236,8 @@ export const pinkChatApi = {
         method: 'POST',
         body: JSON.stringify({ email, password, displayName }),
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const normalizedEmail = email.trim().toLowerCase();
       if (state.users.some((u) => u.email.toLowerCase() === normalizedEmail)) throw new Error('Email already registered.');
@@ -251,7 +255,7 @@ export const pinkChatApi = {
       state.users.unshift(user);
       state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
       writeMock(state);
-      console.log(`[PinkChat] REGISTER user="${user.displayName}" id=${user.id} total_users=${state.users.length}`);
+      console.log(`[PinkChat] REGISTER (mock) user="${user.displayName}" id=${user.id} total_users=${state.users.length}`);
       return { token, user };
     }
   },
@@ -262,14 +266,15 @@ export const pinkChatApi = {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const user = state.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password);
       if (!user) throw new Error('Invalid login credentials.');
       const token = uid('tok');
       state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
       writeMock(state);
-      console.log(`[PinkChat] LOGIN user="${user.displayName}" id=${user.id}`);
+      console.log(`[PinkChat] LOGIN (mock) user="${user.displayName}" id=${user.id}`);
       return { token, user };
     }
   },
@@ -279,7 +284,8 @@ export const pinkChatApi = {
       return await apiRequest<PinkChatSession['user']>('/api/pinkchat/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw new Error('Session expired – please log in again.');
       const state = readMock();
       const user = resolveMockUserByToken(state, token);
       if (!user) throw new Error('Session ungültig.');
@@ -310,8 +316,9 @@ export const pinkChatApi = {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ walletAddress }),
       });
-    } catch {
-      console.log(`[PinkChat] WALLET_LINK_START wallet=${walletAddress}`);
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      console.log(`[PinkChat] WALLET_LINK_START (mock) wallet=${walletAddress}`);
       return { nonce: uid('nonce'), message: `Link Pink Puppets wallet ${walletAddress}` };
     }
   },
@@ -323,7 +330,8 @@ export const pinkChatApi = {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ walletAddress, signature }),
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const { owns: ownsPuppet, count: puppetCount } = await checkPinkPuppetOwnership(walletAddress);
       const isAdmin = ADMIN_WALLETS.has(walletAddress);
@@ -336,7 +344,7 @@ export const pinkChatApi = {
       user.lastVerifiedAt = nowIso();
       (user as any).puppetCount = puppetCount;
       writeMock(state);
-      console.log(`[PinkChat] WALLET_VERIFY user="${user.displayName}" wallet=${walletAddress} puppets=${puppetCount} isAdmin=${isAdmin} level=${user.level}`);
+      console.log(`[PinkChat] WALLET_VERIFY (mock) user="${user.displayName}" wallet=${walletAddress} puppets=${puppetCount} isAdmin=${isAdmin} level=${user.level}`);
       return user;
     }
   },
@@ -347,7 +355,8 @@ export const pinkChatApi = {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const user = resolveMockUserByToken(state, token);
       if (!user) throw new Error('Not logged in.');
@@ -359,7 +368,7 @@ export const pinkChatApi = {
       user.lastVerifiedAt = nowIso();
       (user as any).puppetCount = puppetCount;
       writeMock(state);
-      console.log(`[PinkChat] WALLET_REVALIDATE user="${user.displayName}" wallet=${user.walletAddress} puppets=${puppetCount} level=${user.level}`);
+      console.log(`[PinkChat] WALLET_REVALIDATE (mock) user="${user.displayName}" wallet=${user.walletAddress} puppets=${puppetCount} level=${user.level}`);
       return user;
     }
   },
@@ -381,12 +390,13 @@ export const pinkChatApi = {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const room: PinkChatRoom = { id: uid('room'), ...payload, archived: false, createdAt: nowIso() };
       state.rooms.push(room);
       writeMock(state);
-      console.log(`[PinkChat] CREATE_ROOM name="${room.name}" visibility=${room.visibility} total_rooms=${state.rooms.length}`);
+      console.log(`[PinkChat] CREATE_ROOM (mock) name="${room.name}" visibility=${room.visibility} total_rooms=${state.rooms.length}`);
       return room;
     }
   },
@@ -403,18 +413,19 @@ export const pinkChatApi = {
 
   async postMessage(roomId: string, content: string, token: string | null, displayName: string, userId: string): Promise<PinkChatMessage> {
     try {
-      if (!token) throw new Error('guest');
+      if (!token) throw new Error('pinkchat-api-missing');
       return await apiRequest<PinkChatMessage>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content }),
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
       const state = readMock();
       const message: PinkChatMessage = { id: uid('msg'), roomId, content: content.trim(), createdAt: nowIso(), displayName, userId };
       state.messages.push(message);
       writeMock(state);
-      console.log(`[PinkChat] POST_MESSAGE room=${roomId} user="${displayName}" userId=${userId} total_msgs=${state.messages.length}`);
+      console.log(`[PinkChat] POST_MESSAGE (mock) room=${roomId} user="${displayName}" userId=${userId} total_msgs=${state.messages.length}`);
       return message;
     }
   },
