@@ -166,6 +166,7 @@ const ensureApiChecked = async () => {
 
 const pinkPuppetIdSet = new Set(PINK_PUPPETS_HASHLIST.map((x) => String(x.inscriptionId || '').trim()));
 const ownershipCache = new Map<string, { value: { owns: boolean; count: number }; ts: number }>();
+const ownedPuppetIdsCache = new Map<string, { ids: string[]; ts: number }>();
 const OWNERSHIP_CACHE_MS = 2 * 60 * 1000;
 
 const resolveMockUserByToken = (state: MockState, token: string) => {
@@ -208,6 +209,38 @@ export const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{
     const result = { owns: false, count: 0 };
     ownershipCache.set(normalized, { value: result, ts: Date.now() });
     return result;
+  }
+};
+
+export const getOwnedPinkPuppetIds = async (walletAddress: string): Promise<string[]> => {
+  const normalized = String(walletAddress || '').trim();
+  if (!normalized) return [];
+  const cached = ownedPuppetIdsCache.get(normalized);
+  if (cached && Date.now() - cached.ts < OWNERSHIP_CACHE_MS) return cached.ids;
+  try {
+    const allIds: string[] = [];
+    let cursor = 0;
+    const pageSize = 100;
+    let guard = 0;
+    while (guard < 20) {
+      const res = await fetch(
+        `${API_URL}/v1/indexer/address/${encodeURIComponent(normalized)}/inscription-data?cursor=${cursor}&size=${pageSize}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      const items: any[] = data?.data?.inscription || [];
+      if (items.length === 0) break;
+      allIds.push(...items.map((item: any) => String(item.inscriptionId || '').trim()));
+      cursor += items.length;
+      if (items.length < pageSize) break;
+      guard++;
+    }
+    const owned = allIds.filter((id) => pinkPuppetIdSet.has(id));
+    ownedPuppetIdsCache.set(normalized, { ids: owned, ts: Date.now() });
+    return owned;
+  } catch {
+    return [];
   }
 };
 
@@ -445,7 +478,7 @@ export const pinkChatApi = {
     }
   },
 
-  async updateMe(token: string, data: { displayName: string }): Promise<PinkChatSession['user']> {
+  async updateMe(token: string, data: { displayName?: string; avatarInscriptionId?: string }): Promise<PinkChatSession['user']> {
     try {
       return await apiRequest<PinkChatSession['user']>('/api/pinkchat/auth/me', {
         method: 'PATCH',
@@ -457,7 +490,8 @@ export const pinkChatApi = {
       const state = readMock();
       const user = resolveMockUserByToken(state, token);
       if (!user) throw new Error('Not logged in.');
-      user.displayName = data.displayName.trim();
+      if (data.displayName) user.displayName = data.displayName.trim();
+      if (data.avatarInscriptionId !== undefined) user.avatarInscriptionId = data.avatarInscriptionId;
       writeMock(state);
       return user;
     }

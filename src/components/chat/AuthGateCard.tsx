@@ -2,6 +2,7 @@ import React from 'react';
 import { useWallet } from '../../contexts/WalletContext';
 import { getOrdinalAddress } from '../../utils/wallet';
 import { usePinkChatAuth } from '../../contexts/PinkChatAuthContext';
+import { getOwnedPinkPuppetIds } from '../../services/pinkChatService';
 
 export const AuthGateCard: React.FC = () => {
   const { walletState } = useWallet();
@@ -14,6 +15,9 @@ export const AuthGateCard: React.FC = () => {
   const [busy, setBusy] = React.useState(false);
   const [editingName, setEditingName] = React.useState(false);
   const [editNameValue, setEditNameValue] = React.useState('');
+  const [showAvatarPicker, setShowAvatarPicker] = React.useState(false);
+  const [ownedPuppetIds, setOwnedPuppetIds] = React.useState<string[]>([]);
+  const [loadingPuppets, setLoadingPuppets] = React.useState(false);
 
   const submit = async () => {
     setBusy(true);
@@ -79,31 +83,127 @@ export const AuthGateCard: React.FC = () => {
         </>
       ) : (
         <div className="mt-2 space-y-1.5 text-xs text-pink-100 min-w-0">
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="font-semibold shrink-0">User:</span>
-            {editingName ? (
-              <form className="flex items-center gap-1 flex-1 min-w-0" onSubmit={async (e) => {
-                e.preventDefault();
-                if (!editNameValue.trim()) return;
-                setBusy(true); setError('');
-                try { await updateProfile({ displayName: editNameValue.trim() }); setEditingName(false); }
-                catch (err: any) { setError(err?.message || 'Update failed'); }
-                finally { setBusy(false); }
-              }}>
-                <input autoFocus value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)} maxLength={24}
-                  onKeyDown={(e) => { if (e.key === 'Escape') setEditingName(false); }}
-                  className="flex-1 min-w-0 rounded border border-pink-300/40 bg-black/30 px-1.5 py-0.5 text-xs text-pink-100" />
-                <button type="submit" disabled={busy || !editNameValue.trim()} className="text-[10px] text-green-300 hover:text-green-200 disabled:opacity-50">✓</button>
-                <button type="button" onClick={() => setEditingName(false)} className="text-[10px] text-red-300 hover:text-red-200">✕</button>
-              </form>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {user.avatarInscriptionId ? (
+              <img
+                src={`https://ordinals.com/content/${user.avatarInscriptionId}`}
+                alt=""
+                className="h-8 w-8 rounded-full object-cover shrink-0 border border-pink-300/50 cursor-pointer hover:border-pink-300"
+                onClick={() => {
+                  if (!user.walletAddress) return;
+                  setShowAvatarPicker(!showAvatarPicker);
+                  if (!showAvatarPicker && ownedPuppetIds.length === 0) {
+                    setLoadingPuppets(true);
+                    getOwnedPinkPuppetIds(user.walletAddress).then(setOwnedPuppetIds).finally(() => setLoadingPuppets(false));
+                  }
+                }}
+                title="Change avatar"
+              />
             ) : (
-              <>
-                <span className="truncate">{user.displayName}</span>
-                <button onClick={() => { setEditNameValue(user.displayName); setEditingName(true); }} title="Edit name" className="shrink-0 text-pink-300/60 hover:text-pink-200 text-[10px]">✏️</button>
-              </>
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white cursor-pointer border border-pink-300/30 hover:border-pink-300"
+                style={{ backgroundColor: `hsl(${(user.displayName || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360}, 60%, 40%)` }}
+                onClick={() => {
+                  if (!user.walletAddress) return;
+                  setShowAvatarPicker(!showAvatarPicker);
+                  if (!showAvatarPicker && ownedPuppetIds.length === 0) {
+                    setLoadingPuppets(true);
+                    getOwnedPinkPuppetIds(user.walletAddress).then(setOwnedPuppetIds).finally(() => setLoadingPuppets(false));
+                  }
+                }}
+                title={user.walletAddress ? 'Choose avatar' : ''}
+              >
+                {(user.displayName || '?')[0].toUpperCase()}
+              </span>
             )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="font-semibold shrink-0">User:</span>
+                {editingName ? (
+                  <form className="flex items-center gap-1 flex-1 min-w-0" onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!editNameValue.trim()) return;
+                    setBusy(true); setError('');
+                    try { await updateProfile({ displayName: editNameValue.trim() }); setEditingName(false); }
+                    catch (err: any) { setError(err?.message || 'Update failed'); }
+                    finally { setBusy(false); }
+                  }}>
+                    <input autoFocus value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)} maxLength={24}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setEditingName(false); }}
+                      className="flex-1 min-w-0 rounded border border-pink-300/40 bg-black/30 px-1.5 py-0.5 text-xs text-pink-100" />
+                    <button type="submit" disabled={busy || !editNameValue.trim()} className="text-[10px] text-green-300 hover:text-green-200 disabled:opacity-50">✓</button>
+                    <button type="button" onClick={() => setEditingName(false)} className="text-[10px] text-red-300 hover:text-red-200">✕</button>
+                  </form>
+                ) : (
+                  <>
+                    <span className="truncate">{user.displayName}</span>
+                    <button onClick={() => { setEditNameValue(user.displayName); setEditingName(true); }} title="Edit name" className="shrink-0 text-pink-300/60 hover:text-pink-200 text-[10px]">✏️</button>
+                  </>
+                )}
+              </div>
+              <p><span className="font-semibold">Level:</span> {String(user.level || 'level1').toUpperCase()}{user.role === 'admin' ? ' · Admin' : ''}</p>
+            </div>
           </div>
-          <p><span className="font-semibold">Level:</span> {String(user.level || 'level1').toUpperCase()}{user.role === 'admin' ? ' · Admin' : ''}</p>
+
+          {showAvatarPicker && (
+            <div className="rounded border border-pink-300/40 bg-black/50 p-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-semibold text-pink-200">Choose your PinkPuppet Avatar</span>
+                <button onClick={() => setShowAvatarPicker(false)} className="text-[10px] text-pink-300/60 hover:text-pink-200">✕</button>
+              </div>
+              {loadingPuppets ? (
+                <p className="text-[10px] text-pink-200/60 py-2 text-center">Loading your PinkPuppets...</p>
+              ) : ownedPuppetIds.length === 0 ? (
+                <p className="text-[10px] text-pink-200/60 py-2 text-center">No PinkPuppets found in wallet. Verify your wallet first.</p>
+              ) : (
+                <div className="grid grid-cols-5 gap-1.5 max-h-32 overflow-y-auto">
+                  {ownedPuppetIds.map((id) => (
+                    <button
+                      key={id}
+                      onClick={async () => {
+                        setBusy(true); setError('');
+                        try {
+                          await updateProfile({ avatarInscriptionId: id });
+                          setShowAvatarPicker(false);
+                        } catch (err: any) { setError(err?.message || 'Avatar update failed'); }
+                        finally { setBusy(false); }
+                      }}
+                      disabled={busy}
+                      className={`rounded border p-0.5 transition-all hover:scale-105 ${
+                        user.avatarInscriptionId === id
+                          ? 'border-pink-400 bg-pink-500/20 ring-1 ring-pink-400'
+                          : 'border-pink-300/30 bg-black/30 hover:border-pink-300/60'
+                      }`}
+                    >
+                      <img
+                        src={`https://ordinals.com/content/${id}`}
+                        alt=""
+                        className="h-10 w-10 rounded object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {user.avatarInscriptionId && (
+                <button
+                  onClick={async () => {
+                    setBusy(true); setError('');
+                    try {
+                      await updateProfile({ avatarInscriptionId: '' });
+                      setShowAvatarPicker(false);
+                    } catch (err: any) { setError(err?.message || 'Reset failed'); }
+                    finally { setBusy(false); }
+                  }}
+                  disabled={busy}
+                  className="mt-1.5 w-full rounded border border-pink-300/30 bg-black/30 px-2 py-0.5 text-[10px] text-pink-200/70 hover:bg-pink-500/10"
+                >
+                  Remove Avatar
+                </button>
+              )}
+            </div>
+          )}
+
           {user.walletAddress && (
             <p className="truncate" title={user.walletAddress}><span className="font-semibold">Wallet:</span> {truncateAddr(user.walletAddress)}</p>
           )}

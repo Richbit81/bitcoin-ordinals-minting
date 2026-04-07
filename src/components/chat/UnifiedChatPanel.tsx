@@ -42,39 +42,19 @@ const LevelBadge: React.FC<{ level?: string; role?: string; userId?: string }> =
   return null;
 };
 
-const puppetAvatarCache = new Map<string, string | null>();
+const PuppetAvatar: React.FC<{ avatarInscriptionId?: string; displayName: string; userId?: string }> = ({ avatarInscriptionId, displayName, userId }) => {
+  const isGuest = !userId || userId.startsWith('guest-');
 
-const PuppetAvatar: React.FC<{ walletAddress?: string; displayName: string; level?: string; msgUserId?: string; currentUser?: { id: string; walletAddress?: string; level?: string } | null }> = ({ walletAddress, displayName, level, msgUserId, currentUser }) => {
-  const resolvedWallet = walletAddress || (currentUser && msgUserId === currentUser.id ? currentUser.walletAddress : undefined);
-  const isPuppetHolder = level === 'level2' || (currentUser && msgUserId === currentUser.id && currentUser.level === 'level2');
-
-  const [src, setSrc] = React.useState<string | null>(() => {
-    if (resolvedWallet && puppetAvatarCache.has(resolvedWallet)) return puppetAvatarCache.get(resolvedWallet)!;
-    return null;
-  });
-  const tried = React.useRef(false);
-
-  React.useEffect(() => {
-    if (tried.current || !isPuppetHolder) return;
-    if (resolvedWallet && puppetAvatarCache.has(resolvedWallet)) { setSrc(puppetAvatarCache.get(resolvedWallet)!); return; }
-    tried.current = true;
-    (async () => {
-      try {
-        const { PINK_PUPPETS_HASHLIST } = await import('../../data/pinkPuppetsHashlist');
-        const ids = PINK_PUPPETS_HASHLIST.map((x: any) => String(x.inscriptionId || '').trim()).filter(Boolean);
-        if (ids.length === 0) return;
-        const hash = (resolvedWallet || displayName).split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
-        const idx = Math.abs(hash) % ids.length;
-        const url = `https://ordinals.com/content/${ids[idx]}`;
-        if (resolvedWallet) puppetAvatarCache.set(resolvedWallet, url);
-        setSrc(url);
-      } catch { /* no avatar */ }
-    })();
-  }, [resolvedWallet, isPuppetHolder, displayName]);
-
-  if (src) {
-    return <img src={src} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" onError={() => { if (resolvedWallet) puppetAvatarCache.set(resolvedWallet, null); setSrc(null); }} />;
+  if (!isGuest && avatarInscriptionId) {
+    return (
+      <img
+        src={`https://ordinals.com/content/${avatarInscriptionId}`}
+        alt=""
+        className="h-5 w-5 rounded-full object-cover shrink-0"
+      />
+    );
   }
+
   const letter = (displayName || '?')[0].toUpperCase();
   const hue = displayName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
   return (
@@ -298,7 +278,7 @@ export const UnifiedChatPanel: React.FC = () => {
                         </div>
                       )}
                       <div className="flex items-center gap-1.5 text-[10px] text-pink-200/70">
-                        <PuppetAvatar walletAddress={msg.walletAddress} displayName={msg.displayName} level={msg.level} msgUserId={msg.userId} currentUser={user ? { id: user.id, walletAddress: user.walletAddress, level: user.level } : null} />
+                        <PuppetAvatar avatarInscriptionId={msg.avatarInscriptionId || (user && msg.userId === user.id ? user.avatarInscriptionId : undefined)} displayName={msg.displayName} userId={msg.userId} />
                         <button
                           className="font-semibold hover:underline hover:text-pink-100"
                           onClick={() => { if (user && msg.userId !== user.id && !msg.userId.startsWith('guest-')) void startDm(msg.userId); }}

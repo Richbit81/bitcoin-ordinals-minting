@@ -13,6 +13,7 @@ export interface PinkChatUser {
   lastVerifiedAt?: string | null;
   createdAt?: string;
   puppetCount?: number;
+  avatarInscriptionId?: string;
 }
 
 export interface PinkChatSession {
@@ -48,6 +49,7 @@ export interface PinkChatMessage {
   level?: PinkChatLevel;
   role?: PinkChatRole;
   walletAddress?: string;
+  avatarInscriptionId?: string;
   replyTo?: PinkChatMessageReplyTo;
   reactions?: Record<string, string[]>;
   deleted?: boolean;

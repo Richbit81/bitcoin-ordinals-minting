@@ -15,7 +15,7 @@ type PinkChatAuthContextType = {
   refreshMe: () => Promise<void>;
   verifyWallet: (walletAddress: string, signature?: string) => Promise<void>;
   revalidateWallet: () => Promise<void>;
-  updateProfile: (data: { displayName: string }) => Promise<void>;
+  updateProfile: (data: { displayName?: string; avatarInscriptionId?: string }) => Promise<void>;
 };
 
 const PinkChatAuthContext = createContext<PinkChatAuthContextType | undefined>(undefined);
@@ -123,7 +123,7 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     commitSession({ token, user: nextUser });
   }, [token, commitSession]);
 
-  const updateProfile = useCallback(async (data: { displayName: string }) => {
+  const updateProfile = useCallback(async (data: { displayName?: string; avatarInscriptionId?: string }) => {
     if (!token) throw new Error('Not logged in.');
     const nextUser = await pinkChatApi.updateMe(token, data);
     commitSession({ token, user: nextUser });
