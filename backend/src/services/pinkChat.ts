@@ -355,6 +355,29 @@ export const postRoomMessage = async (roomId: string, user: ChatUser, content: s
   return message;
 };
 
+export const postGuestRoomMessage = async (roomId: string, displayName: string, content: string): Promise<ChatMessage> => {
+  const trimmed = String(content || '').trim();
+  if (!trimmed) throw new Error('Leere Nachricht.');
+  if (trimmed.length > 1200) throw new Error('Nachricht ist zu lang (max 1200 Zeichen).');
+  const name = String(displayName || '').trim();
+  if (!name) throw new Error('Display-Name erforderlich.');
+  const state = await readState();
+  const room = state.rooms.find((r) => r.id === roomId && !r.archived);
+  if (!room) throw new Error('Raum nicht gefunden.');
+  if (room.visibility !== 'public') throw new Error('Guests can only post in public rooms.');
+  const message: ChatMessage = {
+    id: uid('msg'),
+    roomId,
+    userId: `guest-${name.toLowerCase().replace(/\s+/g, '-')}`,
+    displayName: name,
+    content: trimmed,
+    createdAt: nowIso(),
+  };
+  state.messages.push(message);
+  await writeState(state);
+  return message;
+};
+
 export const runDailyWalletRevalidation = async () => {
   const state = await readState();
   const now = nowIso();

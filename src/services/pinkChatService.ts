@@ -381,7 +381,10 @@ export const pinkChatApi = {
       return await apiRequest<PinkChatRoom[]>('/api/pinkchat/chat/rooms', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) {
+        console.warn('[PinkChat] getRooms API error, falling back to mock:', err);
+      }
       return readMock().rooms.filter((r) => !r.archived);
     }
   },
@@ -409,18 +412,27 @@ export const pinkChatApi = {
       return await apiRequest<PinkChatMessage[]>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-    } catch {
+    } catch (err) {
+      if (!isMockFallback(err)) {
+        console.warn('[PinkChat] getMessages API error, falling back to mock:', err);
+      }
       return readMock().messages.filter((m) => m.roomId === roomId).slice(-200);
     }
   },
 
   async postMessage(roomId: string, content: string, token: string | null, displayName: string, userId: string): Promise<PinkChatMessage> {
     try {
-      if (!token) throw new Error('pinkchat-api-missing');
+      await ensureApiChecked();
+      if (getApiStatus() === 'missing') throw new Error('pinkchat-api-missing');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body = token
+        ? JSON.stringify({ content })
+        : JSON.stringify({ content, displayName });
       return await apiRequest<PinkChatMessage>(`/api/pinkchat/chat/rooms/${encodeURIComponent(roomId)}/messages`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content }),
+        headers,
+        body,
       });
     } catch (err) {
       if (!isMockFallback(err)) throw err;

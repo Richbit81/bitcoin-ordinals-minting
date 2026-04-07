@@ -6,6 +6,7 @@ import {
   getUserByToken,
   invalidateToken,
   loginChatUser,
+  postGuestRoomMessage,
   postRoomMessage,
   registerChatUser,
   revalidateWalletForUser,
@@ -142,13 +143,25 @@ router.get('/chat/rooms/:roomId/messages', async (req, res) => {
   }
 });
 
-router.post('/chat/rooms/:roomId/messages', authRequired, async (req, res) => {
+router.post('/chat/rooms/:roomId/messages', async (req, res) => {
   try {
-    const user = (req as any).chatUser;
+    const token = getBearerToken(req);
     const ip = req.ip || 'unknown';
-    if (!checkRateLimit(`msg:${user.id}:${ip}`, 20, 60 * 1000)) return res.status(429).json({ error: 'Too many messages' });
     const content = sanitizeText(req.body?.content);
-    const message = await postRoomMessage(String(req.params.roomId), user, content);
+    const roomId = String(req.params.roomId);
+
+    if (token) {
+      const user = await getUserByToken(token);
+      if (!user) return res.status(401).json({ error: 'Invalid session' });
+      if (!checkRateLimit(`msg:${user.id}:${ip}`, 20, 60 * 1000)) return res.status(429).json({ error: 'Too many messages' });
+      const message = await postRoomMessage(roomId, user, content);
+      return res.json(message);
+    }
+
+    const displayName = sanitizeText(req.body?.displayName);
+    if (!displayName) return res.status(400).json({ error: 'displayName required for guest messages' });
+    if (!checkRateLimit(`guest:${ip}`, 10, 60 * 1000)) return res.status(429).json({ error: 'Too many messages' });
+    const message = await postGuestRoomMessage(roomId, displayName, content);
     res.json(message);
   } catch (err: any) {
     res.status(400).json({ error: err?.message || 'Post message failed' });
