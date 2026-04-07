@@ -174,7 +174,7 @@ const resolveMockUserByToken = (state: MockState, token: string) => {
   return state.users.find((u) => u.id === session.userId) || null;
 };
 
-const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
+export const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
   const normalized = String(walletAddress || '').trim();
   if (!normalized) return { owns: false, count: 0 };
   const cached = ownershipCache.get(normalized);

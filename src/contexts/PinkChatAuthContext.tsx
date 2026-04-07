@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { pinkChatApi } from '../services/pinkChatService';
+import { checkPinkPuppetOwnership, pinkChatApi } from '../services/pinkChatService';
 import { PinkChatSession, PinkChatUser } from '../types/pinkChat';
 
 const STORAGE_KEY = 'pinkchat_session';
@@ -97,12 +97,28 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const start = await pinkChatApi.walletLinkStart(token, walletAddress);
     const resolvedSignature = signature?.trim() || `wallet-proof:${start.nonce}:${walletAddress}`;
     const nextUser = await pinkChatApi.walletLinkVerify(token, walletAddress, resolvedSignature);
+    try {
+      const { count } = await checkPinkPuppetOwnership(walletAddress);
+      if (count > (nextUser.puppetCount || 0)) {
+        nextUser.puppetCount = count;
+        if (count > 0) { nextUser.level2Active = true; nextUser.level = 'level2'; }
+      }
+    } catch { /* server count is used as fallback */ }
     commitSession({ token, user: nextUser });
   }, [token, commitSession]);
 
   const revalidateWallet = useCallback(async () => {
     if (!token) throw new Error('Nicht eingeloggt.');
     const nextUser = await pinkChatApi.walletRevalidate(token);
+    if (nextUser.walletAddress) {
+      try {
+        const { count } = await checkPinkPuppetOwnership(nextUser.walletAddress);
+        if (count > (nextUser.puppetCount || 0)) {
+          nextUser.puppetCount = count;
+          if (count > 0) { nextUser.level2Active = true; nextUser.level = 'level2'; }
+        }
+      } catch { /* server count is used as fallback */ }
+    }
     commitSession({ token, user: nextUser });
   }, [token, commitSession]);
 

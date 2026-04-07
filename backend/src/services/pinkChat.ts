@@ -86,7 +86,37 @@ const PINK_PUPPET_IDS = new Set([
   'accecd200b2b9f7707085b737f49f81fa478aacbc2bcb4bc7f68296d917c8819i0',
 ]);
 
-const INDEXER_BASE = process.env.INDEXER_API_URL || 'https://open-api.unisat.io';
+const INDEXER_URLS = [
+  process.env.INDEXER_API_URL,
+  'https://api.richart.app',
+  'https://open-api.unisat.io',
+].filter(Boolean) as string[];
+
+const fetchInscriptions = async (addr: string, cursor: number, pageSize: number): Promise<any[] | null> => {
+  const urlPath = `/v1/indexer/address/${encodeURIComponent(addr)}/inscription-data?cursor=${cursor}&size=${pageSize}`;
+  for (const base of INDEXER_URLS) {
+    try {
+      const res = await fetch(`${base}${urlPath}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) {
+        console.warn(`[PinkChat] Indexer ${base} returned ${res.status}`);
+        continue;
+      }
+      const text = await res.text();
+      if (text.trimStart().startsWith('<')) {
+        console.warn(`[PinkChat] Indexer ${base} returned HTML instead of JSON`);
+        continue;
+      }
+      const data = JSON.parse(text);
+      return data?.data?.inscription || [];
+    } catch (err) {
+      console.warn(`[PinkChat] Indexer ${base} failed:`, (err as Error).message);
+    }
+  }
+  return null;
+};
 
 const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
   const addr = String(walletAddress || '').trim();
@@ -97,11 +127,8 @@ const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: 
     const pageSize = 100;
     let guard = 0;
     while (guard < 20) {
-      const url = `${INDEXER_BASE}/v1/indexer/address/${encodeURIComponent(addr)}/inscription-data?cursor=${cursor}&size=${pageSize}`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`Indexer ${res.status}`);
-      const data = await res.json() as any;
-      const items: any[] = data?.data?.inscription || [];
+      const items = await fetchInscriptions(addr, cursor, pageSize);
+      if (items === null) throw new Error('All indexer endpoints failed');
       if (items.length === 0) break;
       allIds.push(...items.map((item: any) => String(item.inscriptionId || '').trim()));
       cursor += items.length;
@@ -109,10 +136,10 @@ const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: 
       guard++;
     }
     const count = allIds.filter((id) => PINK_PUPPET_IDS.has(id)).length;
-    console.log(`[PinkChat] Ownership check: ${allIds.length} inscriptions scanned, ${count} PinkPuppet(s) for ${addr.slice(0, 12)}...`);
+    console.log(`[PinkChat] Ownership check OK: ${allIds.length} inscriptions scanned, ${count} PinkPuppet(s) for ${addr.slice(0, 12)}...`);
     return { owns: count > 0, count };
   } catch (err) {
-    console.warn('[PinkChat] Ownership check failed, falling back to address heuristic:', err);
+    console.error('[PinkChat] Ownership check FAILED for', addr.slice(0, 12), '...:', (err as Error).message);
     return { owns: addr.startsWith('bc1p'), count: 0 };
   }
 };
