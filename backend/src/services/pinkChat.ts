@@ -86,7 +86,7 @@ const PINK_PUPPET_IDS = new Set([
   'accecd200b2b9f7707085b737f49f81fa478aacbc2bcb4bc7f68296d917c8819i0',
 ]);
 
-const INDEXER_BASE = process.env.INDEXER_API_URL || 'https://api.richart.app';
+const INDEXER_BASE = process.env.INDEXER_API_URL || 'https://open-api.unisat.io';
 
 const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
   const addr = String(walletAddress || '').trim();
@@ -168,7 +168,7 @@ export const toSafeUser = (user: ChatUser) => ({
   level2Active: !!user.level2Active,
   lastVerifiedAt: user.lastVerifiedAt || null,
   createdAt: user.createdAt,
-  puppetCount: (user as any).puppetCount || 0,
+  puppetCount: user.puppetCount || 0,
 });
 
 export const registerChatUser = async (email: string, password: string, displayName: string) => {
@@ -244,13 +244,13 @@ export const verifyWalletLink = async (userId: string, walletAddress: string, si
   user.walletAddress = walletAddress;
   user.level2Active = holder;
   user.level = holder ? 'level2' : 'level1';
-  (user as any).puppetCount = puppetCount;
+  user.puppetCount = puppetCount;
   user.lastVerifiedAt = nowIso();
   state.audit.push({
     id: uid('audit'),
     type: holder ? 'level_upgrade' : 'wallet_revalidate',
     userId,
-    details: { walletAddress, holder, reason: 'wallet_link_verify' },
+    details: { walletAddress, holder, puppetCount, reason: 'wallet_link_verify' },
     createdAt: nowIso(),
   });
   await writeState(state);
@@ -266,13 +266,13 @@ export const revalidateWalletForUser = async (userId: string) => {
   const previousLevel = user.level;
   user.level2Active = holder;
   user.level = holder ? 'level2' : 'level1';
-  (user as any).puppetCount = puppetCount;
+  user.puppetCount = puppetCount;
   user.lastVerifiedAt = nowIso();
   state.audit.push({
     id: uid('audit'),
     type: holder ? 'wallet_revalidate' : 'level_downgrade',
     userId,
-    details: { walletAddress: user.walletAddress, holder, previousLevel, nextLevel: user.level, reason: 'manual_revalidate' },
+    details: { walletAddress: user.walletAddress, holder, puppetCount, previousLevel, nextLevel: user.level, reason: 'manual_revalidate' },
     createdAt: nowIso(),
   });
   await writeState(state);

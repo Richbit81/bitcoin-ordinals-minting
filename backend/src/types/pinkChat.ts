@@ -13,6 +13,7 @@ export interface ChatUser {
   level2Active?: boolean;
   lastVerifiedAt?: string | null;
   createdAt: string;
+  puppetCount?: number;
 }
 
 export interface ChatSession {
