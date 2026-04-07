@@ -56,7 +56,7 @@ export const UnifiedChatPanel: React.FC = () => {
   }, [visibleRooms, activeRoomId]);
 
   const activeRoom = visibleRooms.find((r) => r.id === activeRoomId);
-  const isOpenRoom = activeRoom?.visibility === 'open';
+  const isOpenRoom = activeRoom?.visibility === 'open' || activeRoom?.visibility === 'public';
   const canPost = !!activeRoom && (!!user || (isOpenRoom && guestNameConfirmed && guestName.trim().length > 0));
 
   const load = React.useCallback(async () => {

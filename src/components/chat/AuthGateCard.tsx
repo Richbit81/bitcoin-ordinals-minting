@@ -17,7 +17,7 @@ export const AuthGateCard: React.FC = () => {
     setBusy(true);
     setError('');
     try {
-      if (mode === 'register') await register(email, password, displayName || email.split('@')[0] || 'PuppetUser');
+      if (mode === 'register') await register(email, password, displayName);
       else await login(email, password);
       setPassword('');
     } catch (err: any) {
@@ -66,11 +66,11 @@ export const AuthGateCard: React.FC = () => {
             }}
           >
             {mode === 'register' && (
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name *" required className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
             )}
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-            <button type="submit" disabled={busy || !email || !password} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
+            <button type="submit" disabled={busy || !email || !password || (mode === 'register' && !displayName.trim())} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
               {mode === 'register' ? 'Create Account (Level 1)' : 'Login (Level 1)'}
             </button>
           </form>

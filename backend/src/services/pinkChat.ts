@@ -19,9 +19,102 @@ const nowIso = () => new Date().toISOString();
 const hashPassword = (password: string) => crypto.createHash('sha256').update(`pinkchat:${password}`).digest('hex');
 const hashSignature = (value: string) => crypto.createHash('sha256').update(String(value || '')).digest('hex');
 
-const isLikelyPinkPuppetHolder = (walletAddress: string) => {
-  // NOTE: Placeholder ownership rule. Replace with real chain lookup integration.
-  return String(walletAddress || '').trim().toLowerCase().startsWith('bc1p');
+const PINK_PUPPET_IDS = new Set([
+  'de7da70debc3e9af1a3891a283b8cf9b02646943c4d0fb66ffb9c26c74dcca6ei0',
+  '191508fb61b72816d55d2b7a2b22f913c2de620cdc70ac442fb1e9eba6121769i0',
+  '4eed21c58340880bf28d835cd419cc7dcfea2b4f00f6183a733a3117a043628bi0',
+  '4eed21c58340880bf28d835cd419cc7dcfea2b4f00f6183a733a3117a043628bi1',
+  'd7116ecead52325beb79a5cb26fc4bc2b95550cb77b6cc24083a9b4f75e309f7i0',
+  '602c2075565e5586ea76aa14a0972a844f4498e7a9dc39b3a35e858696f249eei0',
+  '4fbc84618bdaea6922be0bf8c7524af99ad832f789f47799d89faeb060bb6de3i0',
+  'e3073ae150210263ca8963174779bab76b8bdf2238d73c47ac3b629ffe11e9dfi0',
+  'd0eb3024744d635592c6a233bc5ed5ec26129923cc253417e9832fcdd79760bfi0',
+  'f00bbc6ba76783e45f5ae977b1035fceeacc53dc641817f9ce0323a7151c72d4i0',
+  '73a66a85fd909d753650070f9aaa8b12b016cf517d39eeec9ec11ea48a91be6fi0',
+  'ee32b348142f541c8e01407fcb22c6469fcc4969ad2c3f80e900d867f5d3aa0bi0',
+  'f255577679af61d11166564579e95f82a60445e27dfef12ac5093272ad50154ai0',
+  '7d6f60899bb59d18a7a5d460f583068d3451d7ee60b8ddf5ba16a0d7a6fb0f21i0',
+  '98046e5c4a2bc962298dbbdd6e0a0077ac4c733912fdbe3ac2b422bb0378c40bi0',
+  'dd816ff62fa6903886b64e750b8717df7584b708af4eec84cf282d577ea95837i0',
+  'a0af92209f815d5ac4c991089349a4f8d87020f110f5fa1b0c300537e869a062i0',
+  '50cdfa0100f38c5b04a37f5e9f836e11fcb72b3bfdd3d00374bf25f87c3d1866i0',
+  '4a32a1504e77a3135103cab1bb8cdd8be3ac4bc3928e0597a38e9eca707cada1i0',
+  '93b2028c6dc01870bb6d5e68f9c505c038632dcbea9fd12ee2bc30db388ddb4ei0',
+  'ebd6043cdd086229d2412cc46672af23623c09a3aea1b8018c2d15c4fd802ae6i0',
+  '2fda7bfdf14f0e7cba4e7d8e0ce73ecfd63c0861b710ed417e12c33b8c743460i0',
+  '6d62222a7a5891dec842f74fbe49a33eba1e41093634ac748cd01c32fd508c32i0',
+  'd869c4aac69c440fdd1398a709ca401355ee5f714c2f1f5a6a44434a17682c94i0',
+  'f27e12e81918c5f09d61c85ef1c0df8f3ed119d490d4a43fe24a8aeda1ad4be0i0',
+  '8d5801dd0ee7b0b5e5382e8f9e603a3a2700fd3200ac5ce0b4493fce84cbd79ei0',
+  '025d303b709dc01e23df7af61fa61cb462e2cb247c23cc27762d35bb7674f851i0',
+  'befc63358844acdd6513d1c93ab6881e4066ce3075c7b170b8e9f4cb44d09376i0',
+  '3fd2b67cffde4b28920fc124d90e7f919ff265b8ee81538ae5e496cd9daba0aai0',
+  '8233b0ffad0132535d871821636fcb288ec772fc1a09edb922b888851a8ef628i0',
+  '6d2d250ac4cb84f8b53bf14431b7f66499c5069409614835a7a263d37663a7f0i0',
+  '044413c8e8e7b0b5e6079b1585b9e4f4bc261d9080d7c724e176e11a59f63c8bi0',
+  '4e1d09572993ed51fba46b45be0977aae0655da721f87d5e9b43756f8c628386i0',
+  '4e1d09572993ed51fba46b45be0977aae0655da721f87d5e9b43756f8c628386i1',
+  '5a2510c37569613a1eed8ebdb84dbe1ff2b72622b2f60c9d27be5d9726039a71i0',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i0',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i1',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i2',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i3',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i4',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i5',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i6',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i7',
+  '84ed827971d6fe84083cc09d378ea7fdebc536b58cf18c8b0244eb8eb28702e0i8',
+  '87203c4049e12308181b83fd7aac46a0cb1ac5eafeefd844761b05832c4beec8i0',
+  '5b068e93b38ad903fb81ba0e5b31906cd34936abdeb1437b727c526fa43f669ai0',
+  '92dac2e3fe9943dcbc70336f10ebf54a87ee68ec8c922911ee2721402e617f0ai0',
+  'd44744eef230cc00c9078d56f9e86ef4c94f90731b9f10760d797cad19e6e2afi0',
+  'a41eaf3ae69cfed50837a039ef991a1b656b90e4445d3119e388a9e526ba571ei0',
+  '4efd04b5acf5aee59092272cfba7ccfe2608a7c58db034191e9a0a30ab63cf0ai0',
+  '4efd04b5acf5aee59092272cfba7ccfe2608a7c58db034191e9a0a30ab63cf0ai1',
+  '22a77db1e89ed8a67c849a6d7be763fbe8cc03a94967da3fa46eecf8bda9f500i0',
+  '22a77db1e89ed8a67c849a6d7be763fbe8cc03a94967da3fa46eecf8bda9f500i1',
+  '22a77db1e89ed8a67c849a6d7be763fbe8cc03a94967da3fa46eecf8bda9f500i2',
+  '0a98934e66eba2c5febf88fe3988ffe8deac60387a31fad5877616afc97d169ai0',
+  '820b4320c83689c9ac3a41de97b85f01650d7dc101c2d8fe7fc23d093547eff1i0',
+  'de7023b65b0d2a16717cc866c4673d4e7783ad0fea147b851844a0def8185b31i0',
+  '54f267513045f9977f490ad6b74af5f71574e2559af2c38c34c658e2e4b80572i0',
+  '6a3774c872b7831263e128ba188f12fdd9b1fadfc7ffcf3b9054a499b85eee72i0',
+  '830ca11b91e602dcbf7a25af89c75cf3f53baad98623fd1b728954a1c081ce90i0',
+  'fb169bde8db6916fee58dd05d99448fb117eedfc31563815034b08bceca77ea8i0',
+  '62d33a903f148f85f6325c92ee1c8766abca84f4e0c6e3aaf1e3c5a9b08f9db7i0',
+  'b0212bf77cc5b2cc0ce71131ce623704bce54bd90aea0a3e7f1866bdb2a3d8eai0',
+  'accecd200b2b9f7707085b737f49f81fa478aacbc2bcb4bc7f68296d917c8819i0',
+]);
+
+const INDEXER_BASE = process.env.INDEXER_API_URL || 'https://api.richart.app';
+
+const checkPinkPuppetOwnership = async (walletAddress: string): Promise<{ owns: boolean; count: number }> => {
+  const addr = String(walletAddress || '').trim();
+  if (!addr) return { owns: false, count: 0 };
+  try {
+    const allIds: string[] = [];
+    let cursor = 0;
+    const pageSize = 100;
+    let guard = 0;
+    while (guard < 20) {
+      const url = `${INDEXER_BASE}/v1/indexer/address/${encodeURIComponent(addr)}/inscription-data?cursor=${cursor}&size=${pageSize}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Indexer ${res.status}`);
+      const data = await res.json() as any;
+      const items: any[] = data?.data?.inscription || [];
+      if (items.length === 0) break;
+      allIds.push(...items.map((item: any) => String(item.inscriptionId || '').trim()));
+      cursor += items.length;
+      if (items.length < pageSize) break;
+      guard++;
+    }
+    const count = allIds.filter((id) => PINK_PUPPET_IDS.has(id)).length;
+    console.log(`[PinkChat] Ownership check: ${allIds.length} inscriptions scanned, ${count} PinkPuppet(s) for ${addr.slice(0, 12)}...`);
+    return { owns: count > 0, count };
+  } catch (err) {
+    console.warn('[PinkChat] Ownership check failed, falling back to address heuristic:', err);
+    return { owns: addr.startsWith('bc1p'), count: 0 };
+  }
 };
 
 const ensureDir = async () => {
@@ -75,18 +168,21 @@ export const toSafeUser = (user: ChatUser) => ({
   level2Active: !!user.level2Active,
   lastVerifiedAt: user.lastVerifiedAt || null,
   createdAt: user.createdAt,
+  puppetCount: (user as any).puppetCount || 0,
 });
 
 export const registerChatUser = async (email: string, password: string, displayName: string) => {
   const state = await readState();
   const normalizedEmail = String(email || '').trim().toLowerCase();
+  const trimmedName = String(displayName || '').trim();
   if (!normalizedEmail || !String(password || '').trim()) throw new Error('E-Mail und Passwort erforderlich.');
+  if (!trimmedName) throw new Error('Display-Name erforderlich.');
   if (state.users.some((u) => u.email.toLowerCase() === normalizedEmail)) throw new Error('E-Mail bereits registriert.');
   const user: ChatUser = {
     id: uid('usr'),
     email: normalizedEmail,
     passwordHash: hashPassword(password),
-    displayName: String(displayName || normalizedEmail.split('@')[0] || 'PuppetUser').trim(),
+    displayName: trimmedName,
     level: 'level1',
     role: state.users.length === 0 ? 'admin' : 'member',
     level2Active: false,
@@ -144,10 +240,11 @@ export const verifyWalletLink = async (userId: string, walletAddress: string, si
 
   const user = state.users.find((u) => u.id === userId);
   if (!user) throw new Error('User nicht gefunden.');
-  const holder = isLikelyPinkPuppetHolder(walletAddress);
+  const { owns: holder, count: puppetCount } = await checkPinkPuppetOwnership(walletAddress);
   user.walletAddress = walletAddress;
   user.level2Active = holder;
   user.level = holder ? 'level2' : 'level1';
+  (user as any).puppetCount = puppetCount;
   user.lastVerifiedAt = nowIso();
   state.audit.push({
     id: uid('audit'),
@@ -165,10 +262,11 @@ export const revalidateWalletForUser = async (userId: string) => {
   const user = state.users.find((u) => u.id === userId);
   if (!user) throw new Error('User nicht gefunden.');
   if (!user.walletAddress) return toSafeUser(user);
-  const holder = isLikelyPinkPuppetHolder(user.walletAddress);
+  const { owns: holder, count: puppetCount } = await checkPinkPuppetOwnership(user.walletAddress);
   const previousLevel = user.level;
   user.level2Active = holder;
   user.level = holder ? 'level2' : 'level1';
+  (user as any).puppetCount = puppetCount;
   user.lastVerifiedAt = nowIso();
   state.audit.push({
     id: uid('audit'),
@@ -262,7 +360,7 @@ export const runDailyWalletRevalidation = async () => {
   const now = nowIso();
   for (const user of state.users) {
     if (!user.walletAddress || !user.level2Active) continue;
-    const holder = isLikelyPinkPuppetHolder(user.walletAddress);
+    const { owns: holder } = await checkPinkPuppetOwnership(user.walletAddress);
     if (!holder) {
       user.level2Active = false;
       user.level = 'level1';
