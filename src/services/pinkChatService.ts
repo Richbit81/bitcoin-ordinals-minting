@@ -480,8 +480,8 @@ export const pinkChatApi = {
 
   async updateMe(token: string, data: { displayName?: string; avatarInscriptionId?: string }): Promise<PinkChatSession['user']> {
     try {
-      return await apiRequest<PinkChatSession['user']>('/api/pinkchat/auth/me', {
-        method: 'PATCH',
+      return await apiRequest<PinkChatSession['user']>('/api/pinkchat/auth/me/update', {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify(data),
       });
