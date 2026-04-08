@@ -121,7 +121,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     items: [
       { label: 'Eito Bitto', route: '/EitoBitto', img: '/eito-bitto-logo.png' },
       { label: 'Ordinal Oddities', route: '/ordinaloddities', img: '/images/ordinal-oddities-preview.webp' },
-      { label: 'Pink Puppets', route: '/pinkpuppets', img: '/images/pinkpuppets-banner.png' },
+      { label: 'Pink Puppets', route: '/pinkpuppets/marketplace', img: '/images/pinkpuppets-banner.png' },
     ],
   },
   {
