@@ -274,7 +274,7 @@ export const HomePageV2: React.FC = () => {
         <header className="sticky top-0 z-40 border-b border-white/5 bg-black/70 backdrop-blur-xl">
           <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-14">
             <button onClick={() => navigate('/')} className="hover:opacity-80 transition">
-              <img src="/richartlogo.png" alt="richart.app" className="h-8 w-auto" />
+              <img src="/richartlogo.png" alt="richart.app" className="h-8 w-auto drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]" />
             </button>
             <nav className="hidden md:flex items-center gap-1">
               {NAV_MENUS.map((menu) => (
@@ -292,7 +292,7 @@ export const HomePageV2: React.FC = () => {
 
         {/* Hero */}
         <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
-          <img src="/richartlogo.png" alt="richart.app" className="max-w-[220px] md:max-w-[280px] h-auto" />
+          <img src="/richartlogo.png" alt="richart.app" className="max-w-[220px] md:max-w-[280px] h-auto drop-shadow-[0_0_15px_rgba(220,38,38,0.6)]" />
           <p className="mt-3 text-sm text-gray-400 max-w-md mx-auto">
             Bitcoin Ordinals — Collections, Marketplace, Games & Tools
           </p>
