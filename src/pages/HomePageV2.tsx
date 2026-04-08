@@ -351,21 +351,23 @@ export const HomePageV2: React.FC = () => {
                 onClick={() => navigate(item.route)}
                 className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col"
               >
-                <div className="aspect-square relative overflow-hidden bg-black">
+                <div className="aspect-square relative overflow-hidden bg-black p-3">
                   <span className={`absolute top-2.5 right-2.5 z-20 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
                     {item.tag}
                   </span>
-                  {item.isHtml ? (
-                    <iframe
-                      src={item.src}
-                      className="absolute inset-0 w-full h-full pointer-events-none"
-                      sandbox="allow-scripts allow-same-origin"
-                      loading="lazy"
-                      title={item.name}
-                    />
-                  ) : (
-                    <img src={item.src} alt={item.name} className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                  )}
+                  <div className="relative w-full h-full rounded-xl overflow-hidden border border-white/10">
+                    {item.isHtml ? (
+                      <iframe
+                        src={item.src}
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        sandbox="allow-scripts allow-same-origin"
+                        loading="lazy"
+                        title={item.name}
+                      />
+                    ) : (
+                      <img src={item.src} alt={item.name} className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                    )}
+                  </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
                 </div>
                 <div className="px-4 py-3 flex-1 flex flex-col">
