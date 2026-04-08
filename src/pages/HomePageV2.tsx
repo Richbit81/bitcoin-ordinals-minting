@@ -289,7 +289,7 @@ export const HomePageV2: React.FC = () => {
                 <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
               ))}
             </nav>
-            <a href="/" className="text-xs text-gray-500 hover:text-gray-300 transition">Classic View</a>
+            <a href="/classic" className="text-xs text-gray-500 hover:text-gray-300 transition">Classic View</a>
           </div>
         </header>
 

@@ -57,7 +57,7 @@ function AppContent() {
   const location = useLocation();
   
   // HeaderMenu auf allen Seiten anzeigen, aber mit unterschiedlichen Optionen
-  const isHomePage = location.pathname === '/';
+  const isHomePage = location.pathname === '/' || location.pathname === '/classic';
   const isMintingPage = location.pathname === '/black-wild'; // Nur auf Mint-Seite
 
   return (
@@ -70,8 +70,8 @@ function AppContent() {
       
       <Suspense fallback={<div className="px-4 py-6 text-sm text-gray-300">Loading page...</div>}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/v2" element={<HomePageV2 />} />
+          <Route path="/" element={<HomePageV2 />} />
+          <Route path="/classic" element={<HomePage />} />
           <Route path="/black-wild" element={<MintingPage />} />
           <Route path="/point-shop" element={<PointShopPage />} />
           <Route path="/tech-games" element={<TechGamesPage />} />
