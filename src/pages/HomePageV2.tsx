@@ -101,13 +101,13 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/images/btc-mixtape.png' },
       { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0' },
       { label: 'Smile A Bit', route: '/smile-a-bit', img: '/images/smile-collection.png' },
-      { label: 'SLUMS', route: '/slums' },
+      { label: 'SLUMS', route: '/slums', img: '/images/slums-preview.svg' },
       { label: 'Dimension Break', route: '/dimension-break', img: '/images/dimension-break-preview.gif' },
-      { label: 'Black & Wild', route: '/black-wild' },
-      { label: 'Random Stuff', route: '/random-stuff' },
-      { label: 'Free Stuff', route: '/free-stuff' },
-      { label: '1984', route: '/1984' },
-      { label: 'Void Sculptor', route: '/void-sculptor' },
+      { label: 'Black & Wild', route: '/black-wild', img: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif' },
+      { label: 'Random Stuff', route: '/random-stuff', img: 'https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0' },
+      { label: 'Free Stuff', route: '/free-stuff', img: 'https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0' },
+      { label: '1984', route: '/1984', img: 'https://ordinals.com/content/5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0' },
+      { label: 'Void Sculptor', route: '/void-sculptor', img: 'https://ordinals.com/content/663aece070e8500f10c3aea0d87b9da00981f16699abcf7c95eb044d95a46828i0' },
     ],
   },
   {
@@ -127,16 +127,16 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Tech & Games',
     items: [
-      { label: 'All Items', route: '/tech-games' },
-      { label: 'Games', route: '/tech-games?filter=game' },
-      { label: 'Music', route: '/tech-games?filter=music' },
-      { label: 'Tools', route: '/tech-games?filter=tool' },
+      { label: 'All Items', route: '/tech-games', img: '/images/techgames-logo.gif' },
+      { label: 'Games', route: '/tech-games?filter=game', img: '/images/techgames-logo.gif' },
+      { label: 'Music', route: '/tech-games?filter=music', img: '/images/techgames-logo.gif' },
+      { label: 'Tools', route: '/tech-games?filter=tool', img: '/images/techgames-logo.gif' },
     ],
   },
   {
     label: 'Books',
     items: [
-      { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
+      { label: 'Books Onchain', route: '/books-onchain', img: '/images/books-onchain.png' },
     ],
   },
   {
@@ -173,42 +173,80 @@ const ALL_NEW_STUFF = [
 
 function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const ref = useRef<HTMLDivElement>(null);
+
+  const handleEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setOpen(true);
+  };
+  const handleLeave = () => {
+    timeoutRef.current = setTimeout(() => setOpen(false), 120);
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      clearTimeout(timeoutRef.current);
+    };
   }, []);
 
+  const hasImages = menu.items.some(i => i.img);
+  const isGrid = hasImages && menu.items.length > 4;
+
   return (
-    <div ref={ref} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div ref={ref} className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <button
         onClick={() => setOpen(!open)}
-        className="px-4 py-2 text-sm font-semibold text-gray-200 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+        className={`px-4 py-2 text-sm font-semibold transition-colors rounded-lg ${open ? 'text-white bg-white/10' : 'text-gray-200 hover:text-white hover:bg-white/10'}`}
       >
         {menu.label}
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-56 rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-          {menu.items.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                if (item.external) window.open(item.route, '_blank', 'noopener');
-                else navigate(item.route);
-                setOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
-            >
-              {item.img && (
-                <img src={item.img} alt="" className="h-7 w-7 rounded object-cover shrink-0" loading="lazy" />
-              )}
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <div className="absolute top-full left-0 pt-1 z-50">
+          <div className={`rounded-xl border border-white/10 bg-black/95 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden ${isGrid ? 'w-[480px] p-3' : 'w-72'}`}>
+            {isGrid ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {menu.items.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      if (item.external) window.open(item.route, '_blank', 'noopener');
+                      else navigate(item.route);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
+                  >
+                    {item.img && (
+                      <img src={item.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10" loading="lazy" />
+                    )}
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              menu.items.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    if (item.external) window.open(item.route, '_blank', 'noopener');
+                    else navigate(item.route);
+                    setOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
+                >
+                  {item.img && (
+                    <img src={item.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10" loading="lazy" />
+                  )}
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -227,8 +265,8 @@ export const HomePageV2: React.FC = () => {
         {/* Top Bar */}
         <header className="sticky top-0 z-40 border-b border-white/5 bg-black/70 backdrop-blur-xl">
           <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-14">
-            <button onClick={() => navigate('/')} className="text-lg font-black tracking-tight text-white hover:opacity-80 transition">
-              richart<span className="text-red-500">.</span>app
+            <button onClick={() => navigate('/')} className="hover:opacity-80 transition">
+              <img src="/richartlogo.png" alt="richart.app" className="h-8 w-auto" />
             </button>
             <nav className="hidden md:flex items-center gap-1">
               {NAV_MENUS.map((menu) => (
@@ -245,10 +283,8 @@ export const HomePageV2: React.FC = () => {
         </div>
 
         {/* Hero */}
-        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center">
-          <h1 className="text-5xl sm:text-6xl font-black text-white tracking-tight">
-            richart<span className="text-red-500">.</span>app
-          </h1>
+        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
+          <img src="/richartlogo.png" alt="richart.app" className="max-w-[220px] md:max-w-[280px] h-auto" />
           <p className="mt-3 text-sm text-gray-400 max-w-md mx-auto">
             Bitcoin Ordinals — Collections, Marketplace, Games & Tools
           </p>
