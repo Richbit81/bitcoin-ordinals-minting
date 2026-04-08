@@ -308,6 +308,69 @@ export const HomePageV2: React.FC = () => {
           </p>
         </div>
 
+        {/* Spotlight Section */}
+        <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Spotlight</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                name: 'Bad Cats',
+                desc: '500 Recursive Ordinals on Bitcoin. Each cat is uniquely generated on-chain.',
+                src: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0',
+                route: '/badcats',
+                isHtml: true,
+                tag: 'COLLECTION',
+                tagColor: 'bg-purple-600',
+              },
+              {
+                name: 'Bitcoin Mixtape',
+                desc: 'A fully on-chain music experience. Listen, collect and inscribe beats on Bitcoin.',
+                src: '/mixtape.png',
+                route: '/bitcoin-mixtape',
+                isHtml: false,
+                tag: 'MUSIC',
+                tagColor: 'bg-amber-600',
+              },
+              {
+                name: 'SLOW FIRE',
+                desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
+                src: 'https://ordinals.com/content/19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0',
+                route: '/tech-games',
+                isHtml: true,
+                tag: 'GAME',
+                tagColor: 'bg-red-600',
+              },
+            ].map((item) => (
+              <div
+                key={item.name}
+                onClick={() => navigate(item.route)}
+                className="group cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 overflow-hidden"
+              >
+                <div className="aspect-[16/10] relative overflow-hidden bg-black">
+                  <span className={`absolute top-2.5 right-2.5 z-10 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
+                    {item.tag}
+                  </span>
+                  {item.isHtml ? (
+                    <iframe
+                      src={item.src}
+                      className="w-full h-full pointer-events-none"
+                      sandbox="allow-scripts allow-same-origin"
+                      loading="lazy"
+                      title={item.name}
+                    />
+                  ) : (
+                    <img src={item.src} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  )}
+                </div>
+                <div className="px-4 py-3">
+                  <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
+                  <p className="mt-1 text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* New Stuff Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">New & Featured</h2>
