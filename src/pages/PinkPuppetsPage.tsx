@@ -85,7 +85,7 @@ export const PinkPuppetsPage: React.FC = () => {
             <img
               src="/images/pinkpuppets-banner.png"
               alt="PinkPuppets Banner"
-              className="mx-auto max-h-[90px] w-full rounded-lg object-contain sm:max-h-[110px]"
+              className="mx-auto max-h-[140px] w-full object-contain sm:max-h-[170px]"
             />
           </div>
 
