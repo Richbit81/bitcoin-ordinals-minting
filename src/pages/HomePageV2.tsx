@@ -145,6 +145,12 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'Point Shop', route: '/point-shop', img: '/pointshop.png' },
     ],
   },
+  {
+    label: 'CATTACK',
+    items: [
+      { label: 'CATTACK', route: '/cattack', img: '/images/cattack-card.png' },
+    ],
+  },
 ];
 
 const ALL_NEWS = [
