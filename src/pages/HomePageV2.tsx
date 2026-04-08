@@ -270,6 +270,7 @@ function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navi
 export const HomePageV2: React.FC = () => {
   const navigate = useNavigate();
   const [showMempoolModal, setShowMempoolModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <>
@@ -280,7 +281,7 @@ export const HomePageV2: React.FC = () => {
         <header className="sticky top-0 z-40 border-b border-white/5 bg-black/70 backdrop-blur-xl">
           <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-14">
             <button onClick={() => navigate('/')} className="hover:opacity-80 transition group">
-              <span className="text-base font-bold text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: "'Press Start 2P', cursive", textShadow: '0 0 10px rgba(220,38,38,0.6), 0 0 20px rgba(220,38,38,0.3)' }}>
+              <span className="text-xs sm:text-base font-bold text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: "'Press Start 2P', cursive", textShadow: '0 0 10px rgba(220,38,38,0.6), 0 0 20px rgba(220,38,38,0.3)' }}>
                 richart<span className="text-red-500">.</span>app
               </span>
             </button>
@@ -289,8 +290,37 @@ export const HomePageV2: React.FC = () => {
                 <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
               ))}
             </nav>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex flex-col gap-1 p-2"
+              aria-label="Menu"
+            >
+              <span className={`block w-5 h-0.5 bg-gray-300 transition-all duration-200 ${mobileMenuOpen ? 'rotate-45 translate-y-[3px]' : ''}`} />
+              <span className={`block w-5 h-0.5 bg-gray-300 transition-all duration-200 ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+              <span className={`block w-5 h-0.5 bg-gray-300 transition-all duration-200 ${mobileMenuOpen ? '-rotate-45 -translate-y-[3px]' : ''}`} />
+            </button>
           </div>
         </header>
+
+        {/* Mobile Slide Menu */}
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+            <div className="absolute top-0 right-0 h-full w-[280px] bg-black/95 border-l border-white/10 overflow-y-auto">
+              <div className="flex items-center justify-between px-4 h-14 border-b border-white/10">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Menu</span>
+                <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-white">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="py-2">
+                {NAV_MENUS.map((menu) => (
+                  <MobileMenuSection key={menu.label} menu={menu} navigate={(path) => { navigate(path); setMobileMenuOpen(false); }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mempool Banner */}
         <div className="relative z-10 mx-auto max-w-7xl w-full px-4 mt-4">
@@ -300,7 +330,7 @@ export const HomePageV2: React.FC = () => {
         {/* Hero */}
         <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
           <h1
-            className="text-4xl sm:text-5xl md:text-6xl text-white tracking-tight"
+            className="text-2xl sm:text-4xl md:text-6xl text-white tracking-tight"
             style={{
               fontFamily: "'Press Start 2P', cursive",
               textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
@@ -351,7 +381,7 @@ export const HomePageV2: React.FC = () => {
                 onClick={() => navigate(item.route)}
                 className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col"
               >
-                <div className="aspect-square relative overflow-hidden bg-black p-3">
+                <div className="aspect-video sm:aspect-square relative overflow-hidden bg-black p-3">
                   <span className={`absolute top-2.5 right-2.5 z-20 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
                     {item.tag}
                   </span>
@@ -418,7 +448,7 @@ export const HomePageV2: React.FC = () => {
         {/* News & Links Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">News & Links</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
             {ALL_NEWS.map((item) => (
               <div
                 key={item.name}
@@ -436,16 +466,6 @@ export const HomePageV2: React.FC = () => {
           </div>
         </section>
 
-        {/* Mobile Navigation */}
-        <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10 md:hidden">
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Navigation</h2>
-          <div className="space-y-3">
-            {NAV_MENUS.map((menu) => (
-              <MobileAccordion key={menu.label} menu={menu} navigate={navigate} />
-            ))}
-          </div>
-        </section>
-
         {/* Footer */}
         <footer className="relative z-10 mt-auto border-t border-white/5 py-6 text-center text-xs text-gray-600">
           richart.app — Bitcoin Ordinals Platform
@@ -457,19 +477,19 @@ export const HomePageV2: React.FC = () => {
   );
 };
 
-function MobileAccordion({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navigate: (path: string) => void }) {
+function MobileMenuSection({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
+    <div>
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-200"
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-200 hover:bg-white/5 transition-colors"
       >
         {menu.label}
-        <span className={`text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▾</span>
+        <span className={`text-gray-500 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▾</span>
       </button>
       {open && (
-        <div className="border-t border-white/5">
+        <div className="bg-white/[0.02]">
           {menu.items.map((item) => (
             <button
               key={item.label}
@@ -477,9 +497,9 @@ function MobileAccordion({ menu, navigate }: { menu: typeof NAV_MENUS[number]; n
                 if (item.external) window.open(item.route, '_blank', 'noopener');
                 else navigate(item.route);
               }}
-              className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-6 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-left"
             >
-              <NavThumb item={item} size="h-6 w-6" />
+              <NavThumb item={item} size="h-7 w-7" />
               <span>{item.label}</span>
             </button>
           ))}
