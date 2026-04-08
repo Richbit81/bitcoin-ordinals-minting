@@ -117,7 +117,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Friends',
+    label: 'Friends Marketplace',
     items: [
       { label: 'Eito Bitto', route: '/EitoBitto', img: '/eito-bitto-logo.png' },
       { label: 'Ordinal Oddities', route: '/ordinaloddities', img: '/images/ordinal-oddities-preview.webp' },
