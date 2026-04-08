@@ -12,6 +12,7 @@ import { MarketplacePage } from './pages/MarketplacePage';
 import { MarketplaceProfilePage } from './pages/MarketplaceProfilePage';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const HomePageV2 = lazy(() => import('./pages/HomePageV2').then((m) => ({ default: m.HomePageV2 })));
 const MintingPage = lazy(() => import('./pages/MintingPage').then((m) => ({ default: m.MintingPage })));
 const PointShopPage = lazy(() => import('./pages/PointShopPage').then((m) => ({ default: m.PointShopPage })));
 const TechGamesPage = lazy(() => import('./pages/TechGamesPage').then((m) => ({ default: m.TechGamesPage })));
@@ -70,6 +71,7 @@ function AppContent() {
       <Suspense fallback={<div className="px-4 py-6 text-sm text-gray-300">Loading page...</div>}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/v2" element={<HomePageV2 />} />
           <Route path="/black-wild" element={<MintingPage />} />
           <Route path="/point-shop" element={<PointShopPage />} />
           <Route path="/tech-games" element={<TechGamesPage />} />
