@@ -344,27 +344,28 @@ export const HomePageV2: React.FC = () => {
               <div
                 key={item.name}
                 onClick={() => navigate(item.route)}
-                className="group cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 overflow-hidden"
+                className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col"
               >
-                <div className="aspect-[16/10] relative overflow-hidden bg-black">
-                  <span className={`absolute top-2.5 right-2.5 z-10 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
+                <div className="aspect-square relative overflow-hidden bg-black">
+                  <span className={`absolute top-2.5 right-2.5 z-20 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
                     {item.tag}
                   </span>
                   {item.isHtml ? (
                     <iframe
                       src={item.src}
-                      className="w-full h-full pointer-events-none"
+                      className="absolute inset-0 w-full h-full pointer-events-none"
                       sandbox="allow-scripts allow-same-origin"
                       loading="lazy"
                       title={item.name}
                     />
                   ) : (
-                    <img src={item.src} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                    <img src={item.src} alt={item.name} className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                   )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
                 </div>
-                <div className="px-4 py-3">
+                <div className="px-4 py-3 flex-1 flex flex-col">
                   <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
-                  <p className="mt-1 text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+                  <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">{item.desc}</p>
                 </div>
               </div>
             ))}
