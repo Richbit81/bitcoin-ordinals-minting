@@ -345,6 +345,13 @@ export const HomePage: React.FC = () => {
       order: 2,
     },
     {
+      id: 'ordinaloddities',
+      name: 'Ordinal Oddities',
+      thumbnail: '/images/ordinal-oddities-preview.webp',
+      description: 'Ordinal Oddities Collection',
+      order: 2,
+    },
+    {
       id: 'dimension-break',
       name: 'Dimension Break',
       thumbnail: '/images/dimension-break-preview.gif',
@@ -614,6 +621,7 @@ export const HomePage: React.FC = () => {
           const route = (project as any).collectionId 
             ? `/collection/${(project as any).collectionId}`
             : project.id === 'eito-bitto' ? '/EitoBitto'
+            : project.id === 'ordinaloddities' ? '/ordinaloddities'
             : `/${project.id}`;
           
           return (
@@ -623,6 +631,7 @@ export const HomePage: React.FC = () => {
             className={`w-full cursor-pointer transition-all duration-300 flex flex-col items-center h-full group relative touch-manipulation ${
               project.id === 'bitcoin-mixtape' ? 'order-1' :
               project.id === 'eito-bitto' ? 'order-2' :
+              project.id === 'ordinaloddities' ? 'order-2' :
               project.id === 'badcats' ? 'order-3' :
               project.id === 'smile-a-bit' ? 'order-4' :
               project.id === 'slums' ? 'order-5' :
@@ -651,7 +660,7 @@ export const HomePage: React.FC = () => {
                   NEW
                 </div>
               )}
-              {project.id === 'eito-bitto' && (
+              {(project.id === 'eito-bitto' || project.id === 'ordinaloddities') && (
                 <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 bg-cyan-500 px-2 py-0.5 text-[8px] font-extrabold tracking-wider text-white rounded-full shadow-lg">
                   FRIENDS
                 </div>
