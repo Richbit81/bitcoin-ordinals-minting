@@ -67,7 +67,7 @@ export const PinkPuppetsPage: React.FC = () => {
         <div className="mx-auto w-full max-w-[1440px]">
 
           {/* Banner */}
-          <div className="mb-3 rounded-2xl border-2 border-pink-400/80 bg-gradient-to-r from-[#ff4fcf]/20 to-[#ff8de2]/10 p-2 shadow-[0_0_30px_rgba(255,79,207,0.15)] sm:p-3">
+          <div className="mb-3 p-2 sm:p-3">
             <div className="flex items-center justify-between gap-2 mb-2">
               <button
                 onClick={() => navigate('/')}
