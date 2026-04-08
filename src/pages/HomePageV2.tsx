@@ -113,7 +113,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Marketplace',
     items: [
-      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
+      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/marketplace-symbol.png' },
     ],
   },
   {
@@ -136,7 +136,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Books',
     items: [
-      { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
+      { label: 'Books Onchain', route: '/books-onchain', img: '/images/books-onchain.png' },
     ],
   },
   {
