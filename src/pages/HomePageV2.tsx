@@ -101,7 +101,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/mixtape.png' },
       { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0', isHtml: true },
       { label: 'Smile A Bit', route: '/smile-a-bit', img: '/images/smile-collection.png' },
-      { label: 'SLUMS', route: '/slums', img: '/images/slums-preview.svg' },
+      { label: 'SLUMS', route: '/slums', img: 'https://ordinals.com/content/8e26e5823d7fc3cd092b605feec7d1e7ce6e8908ca320d702a75f6160a552a89i0' },
       { label: 'Dimension Break', route: '/dimension-break', img: '/images/dimension-break-preview.gif' },
       { label: 'Black & Wild', route: '/black-wild', img: '/thumbnail_Unbenanntes_Projekt-2026-01-01T222604.577-ezgif.com-apng-to-avif-converter - Kopie.avif' },
       { label: 'Random Stuff', route: '/random-stuff', img: 'https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0' },
