@@ -75,12 +75,17 @@ export const PinkPuppetsPage: React.FC = () => {
               >
                 ← Home
               </button>
-              <button
-                onClick={() => navigate('/pinkpuppets/marketplace')}
-                className="shrink-0 rounded-lg border-2 border-black bg-[#ff4fcf] px-4 py-1.5 text-xs font-bold text-black shadow-[2px_2px_0_#000] transition hover:translate-y-[-1px] hover:bg-[#ff61d6]"
-              >
-                PuppetMarket
-              </button>
+              <div className="flex items-center gap-2">
+                <a href="https://x.com/PinkPuppets_" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1.5 text-pink-300/60 hover:text-pink-200 transition-colors" title="@PinkPuppets_ on X">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+                <button
+                  onClick={() => navigate('/pinkpuppets/marketplace')}
+                  className="shrink-0 rounded-lg border-2 border-black bg-[#ff4fcf] px-4 py-1.5 text-xs font-bold text-black shadow-[2px_2px_0_#000] transition hover:translate-y-[-1px] hover:bg-[#ff61d6]"
+                >
+                  PuppetMarket
+                </button>
+              </div>
             </div>
             <img
               src="/images/pinkpuppets-banner.png"
