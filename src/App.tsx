@@ -56,17 +56,19 @@ function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
   const location = useLocation();
   
-  // HeaderMenu auf allen Seiten anzeigen, aber mit unterschiedlichen Optionen
-  const isHomePage = location.pathname === '/' || location.pathname === '/classic';
-  const isMintingPage = location.pathname === '/black-wild'; // Nur auf Mint-Seite
+  const isV2Home = location.pathname === '/';
+  const isHomePage = isV2Home || location.pathname === '/classic';
+  const isMintingPage = location.pathname === '/black-wild';
 
   return (
     <div className="min-h-screen bg-black">
-      <HeaderMenu 
-        onGalleryClick={() => setShowGallery(true)} 
-        showFullMenu={!isHomePage}
-        showMintingMenu={isMintingPage}
-      />
+      {!isV2Home && (
+        <HeaderMenu 
+          onGalleryClick={() => setShowGallery(true)} 
+          showFullMenu={!isHomePage}
+          showMintingMenu={isMintingPage}
+        />
+      )}
       
       <Suspense fallback={<div className="px-4 py-6 text-sm text-gray-300">Loading page...</div>}>
         <Routes>
