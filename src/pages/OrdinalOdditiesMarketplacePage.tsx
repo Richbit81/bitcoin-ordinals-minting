@@ -592,6 +592,10 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
           <button onClick={() => navigate('/')} className="h-mono px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all hover:bg-[#a002]" style={{ border: hBorder('#80000080'), color: '#c44', background: '#80000015', boxShadow: '0 0 12px #80000020' }}>
             {'<'} BACK
           </button>
+          <a href="https://x.com/odditiesbtc" target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1.5 px-3 py-2 text-xs transition-all hover:opacity-80" style={{ color: '#c448' }} title="@odditiesbtc on X">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            <span className="hidden sm:inline">@odditiesbtc</span>
+          </a>
         </div>
 
         {/* TITLE */}

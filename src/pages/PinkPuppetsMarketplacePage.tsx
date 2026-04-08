@@ -772,6 +772,10 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 py-8">
         <div className="mb-3 flex items-center">
           <button onClick={() => navigate('/pinkpuppets')} className="rounded-lg border border-pink-300/70 bg-black/35 px-3 py-2 text-sm text-pink-100 hover:bg-pink-900/30">← Back to PinkPuppets</button>
+          <a href="https://x.com/PinkPuppets_" target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1.5 px-3 py-2 text-xs text-pink-300/60 transition-all hover:text-pink-200" title="@PinkPuppets_ on X">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            <span className="hidden sm:inline">@PinkPuppets_</span>
+          </a>
         </div>
 
         <div className="mb-3 w-full overflow-hidden rounded-lg border border-pink-300/60 bg-black/35">

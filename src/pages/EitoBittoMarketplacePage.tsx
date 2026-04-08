@@ -548,6 +548,10 @@ export const EitoBittoMarketplacePage: React.FC = () => {
           <button onClick={() => navigate('/')} className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all hover:bg-[#0ff2]" style={{ border: pxBorder('#0ff'), color: '#0ff', background: '#0ff08', boxShadow: `${pxShadow('#0884')}, 0 0 12px #0ff1` }}>
             {'<'} BACK
           </button>
+          <a href="https://x.com/eitobittobtc" target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1.5 px-3 py-2 text-xs transition-all hover:opacity-80" style={{ color: '#0ff8' }} title="@eitobittobtc on X">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            <span className="hidden sm:inline">@eitobittobtc</span>
+          </a>
         </div>
 
         {/* ── TITLE SECTION ── */}
