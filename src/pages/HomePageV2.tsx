@@ -92,14 +92,14 @@ function SynthLifeV2() {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 }
 
-type NavItem = { label: string; route: string; img?: string; external?: boolean };
+type NavItem = { label: string; route: string; img?: string; external?: boolean; isHtml?: boolean };
 
 const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Launchpad',
     items: [
-      { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/images/btc-mixtape.png' },
-      { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0' },
+      { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/mixtape.png' },
+      { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0', isHtml: true },
       { label: 'Smile A Bit', route: '/smile-a-bit', img: '/images/smile-collection.png' },
       { label: 'SLUMS', route: '/slums', img: '/images/slums-preview.svg' },
       { label: 'Dimension Break', route: '/dimension-break', img: '/images/dimension-break-preview.gif' },
@@ -107,13 +107,13 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'Random Stuff', route: '/random-stuff', img: 'https://ordinals.com/content/c46de6b56a28fc5c9da4d22a8a15825e604418c1ad1e4eea6650afdebff0e670i0' },
       { label: 'Free Stuff', route: '/free-stuff', img: 'https://ordinals.com/content/4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0' },
       { label: '1984', route: '/1984', img: 'https://ordinals.com/content/5c50d2e25d833e1357de824184e9d7859945c62f3b6af54c0f2f2a03caf5fd74i0' },
-      { label: 'Void Sculptor', route: '/void-sculptor', img: 'https://ordinals.com/content/663aece070e8500f10c3aea0d87b9da00981f16699abcf7c95eb044d95a46828i0' },
+      { label: 'Void Sculptor', route: '/void-sculptor', img: 'https://ordinals.com/content/663aece070e8500f10c3aea0d87b9da00981f16699abcf7c95eb044d95a46828i0', isHtml: true },
     ],
   },
   {
     label: 'Marketplace',
     items: [
-      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/marketplace-symbol.png' },
+      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
     ],
   },
   {
@@ -136,7 +136,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Books',
     items: [
-      { label: 'Books Onchain', route: '/books-onchain', img: '/images/books-onchain.png' },
+      { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
     ],
   },
   {
@@ -170,6 +170,18 @@ const ALL_NEW_STUFF = [
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
 ];
+
+function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
+  if (!item.img) return null;
+  if (item.isHtml) {
+    return (
+      <div className={`${size} rounded-lg overflow-hidden shrink-0 border border-white/10`}>
+        <iframe src={item.img} className="w-full h-full pointer-events-none scale-[0.5] origin-top-left" style={{ width: '200%', height: '200%' }} sandbox="allow-scripts allow-same-origin" loading="lazy" title={item.label} />
+      </div>
+    );
+  }
+  return <img src={item.img} alt="" className={`${size} rounded-lg object-cover shrink-0 border border-white/10`} loading="lazy" />;
+}
 
 function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -221,9 +233,7 @@ function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navi
                     }}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
                   >
-                    {item.img && (
-                      <img src={item.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10" loading="lazy" />
-                    )}
+                    <NavThumb item={item} />
                     <span className="font-medium">{item.label}</span>
                   </button>
                 ))}
@@ -239,9 +249,7 @@ function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navi
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
                 >
-                  {item.img && (
-                    <img src={item.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10" loading="lazy" />
-                  )}
+                  <NavThumb item={item} />
                   <span className="font-medium">{item.label}</span>
                 </button>
               ))
@@ -390,9 +398,7 @@ function MobileAccordion({ menu, navigate }: { menu: typeof NAV_MENUS[number]; n
               }}
               className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-left"
             >
-              {item.img && (
-                <img src={item.img} alt="" className="h-6 w-6 rounded object-cover shrink-0" loading="lazy" />
-              )}
+              <NavThumb item={item} size="h-6 w-6" />
               <span>{item.label}</span>
             </button>
           ))}
