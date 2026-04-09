@@ -168,7 +168,7 @@ const ALL_NEWS = [
 ];
 
 const ALL_NEW_STUFF = [
-  { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0', route: '/tech-games?try=19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Eito Bitto', thumb: '/eito-bitto-logo.png', route: '/EitoBitto', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
@@ -376,7 +376,7 @@ export const HomePageV2: React.FC = () => {
               {
                 name: 'SLOW FIRE',
                 desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
-                src: 'https://ordinals.com/content/19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0',
+                src: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
                 route: '/tech-games',
                 isHtml: true,
                 tag: 'GAME',
