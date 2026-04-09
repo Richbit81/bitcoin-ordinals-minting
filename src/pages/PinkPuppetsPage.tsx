@@ -95,16 +95,16 @@ export const PinkPuppetsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Main layout: content left + sidebar right */}
-          <div className="grid gap-3 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Main layout: 3 equal columns */}
+          <div className="grid gap-3 grid-cols-1 md:grid-cols-3">
 
-            {/* Left: Promo + Twitter (main focus) */}
-            <main className="min-w-0 order-1 grid gap-3 grid-cols-1 sm:grid-cols-2">
+            {/* Col 1: Promo */}
+            <div className="min-w-0">
               <a
                 href={promoBanners[promoIndex].href}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex flex-col overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200"
+                className="group flex flex-col h-full overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200"
               >
                 <img
                   src={promoBanners[promoIndex].image}
@@ -122,13 +122,16 @@ export const PinkPuppetsPage: React.FC = () => {
                   ))}
                 </div>
               </a>
+            </div>
 
-              <div className="rounded-2xl border border-pink-300/70 bg-black/35 p-3 flex flex-col">
+            {/* Col 2: Latest Posts */}
+            <div className="min-w-0">
+              <div className="rounded-2xl border border-pink-300/70 bg-black/35 p-3 flex flex-col h-full">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-bold text-pink-100">Latest Posts</h2>
                   <a href="https://x.com/PinkPuppets_" target="_blank" rel="noreferrer" className="text-[11px] text-pink-200/90 hover:text-pink-100 shrink-0">View on X</a>
                 </div>
-                <div className="flex-1 max-h-[800px] overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
+                <div className="flex-1 overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
                   {tweetIds.map((id) => (
                     <div key={id} className="mb-2 last:mb-0 [&_>div]:!my-0">
                       <Tweet id={id} />
@@ -136,16 +139,18 @@ export const PinkPuppetsPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-            </main>
+            </div>
 
-            {/* Right sidebar: Auth + Admin + Chat */}
-            <aside className="min-w-0 order-2 flex flex-col gap-3">
+            {/* Col 3: Auth + Admin + Chat */}
+            <div className="min-w-0 flex flex-col gap-3">
               <AuthGateCard />
               {user?.role === 'admin' && token && (
                 <AdminRoomManager token={token} onRoomCreated={() => {}} />
               )}
-              <UnifiedChatPanel />
-            </aside>
+              <div className="flex-1 flex flex-col min-h-0">
+                <UnifiedChatPanel />
+              </div>
+            </div>
           </div>
         </div>
       </div>
