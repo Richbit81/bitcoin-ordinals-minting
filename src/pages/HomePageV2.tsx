@@ -168,13 +168,13 @@ const ALL_NEWS = [
 ];
 
 const ALL_NEW_STUFF = [
-  { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0', route: '/tech-games', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0', route: '/tech-games?try=19beb0e2e969cb8f8d77edd1e2229ac783a20e3cc11b8e0e6d01b173a93e366fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Eito Bitto', thumb: '/eito-bitto-logo.png', route: '/EitoBitto', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
-  { name: 'RICHRACER', thumb: 'https://ordinals.com/content/0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0', route: '/tech-games', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
-  { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games', isIframe: true },
-  { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  { name: 'RICHRACER', thumb: 'https://ordinals.com/content/0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0', route: '/tech-games?try=0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
+  { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {

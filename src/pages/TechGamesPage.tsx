@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { WalletConnect } from '../components/WalletConnect';
@@ -210,6 +210,7 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
 
 export const TechGamesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { walletState } = useWallet();
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
@@ -222,6 +223,14 @@ export const TechGamesPage: React.FC = () => {
   const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0']);
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
+
+  useEffect(() => {
+    const tryId = searchParams.get('try');
+    if (tryId) {
+      const item = TECH_GAMES_ITEMS.find(i => i.inscriptionId === tryId);
+      if (item) setSelectedItem(item);
+    }
+  }, [searchParams]);
 
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
