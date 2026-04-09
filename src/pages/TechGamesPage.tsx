@@ -230,6 +230,8 @@ export const TechGamesPage: React.FC = () => {
   const isCompact50Try = tryModalLayout === 'compact50';
   const isMinimalFullscreenTry = tryModalLayout === 'minimalFullscreen';
   const useMinimalTryChrome = isCompact50Try || isMinimalFullscreenTry;
+  /** Liste/Filter ausblenden = weniger DOM, keine Preview-iframes im Hintergrund (näher an ord.io) */
+  const suspendHeavyPageForMinimalTry = Boolean(selectedItem && isMinimalFullscreenTry);
 
   useEffect(() => {
     const tryId = searchParams.get('try');
@@ -411,7 +413,13 @@ export const TechGamesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black p-4 md:p-8 pt-20 pb-24 md:pb-8">
+    <div
+      className={`min-h-screen bg-black ${
+        suspendHeavyPageForMinimalTry ? 'p-0' : 'p-4 md:p-8 pt-20 pb-24 md:pb-8'
+      }`}
+    >
+      {!suspendHeavyPageForMinimalTry && (
+      <>
       {/* Back Button */}
       <div className="mb-6">
         <button
@@ -692,6 +700,8 @@ export const TechGamesPage: React.FC = () => {
           onFeeRateChange={setInscriptionFeeRate}
         />
       </div>
+      </>
+      )}
 
       {/* Wallet Connect Modal */}
       {showWalletConnect && !walletState.connected && (
@@ -783,6 +793,7 @@ export const TechGamesPage: React.FC = () => {
           {/* Fullscreen iframe */}
           <div 
             className={`${useMinimalTryChrome ? 'flex-1 min-h-0 w-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
+            style={isMinimalFullscreenTry ? { contain: 'strict', isolation: 'isolate' as const } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
