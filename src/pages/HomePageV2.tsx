@@ -330,7 +330,7 @@ export const HomePageV2: React.FC = () => {
         {/* Hero */}
         <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
           <h1
-            className="text-2xl sm:text-4xl md:text-6xl text-white tracking-tight"
+            className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
             style={{
               fontFamily: "'Press Start 2P', cursive",
               textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
@@ -346,7 +346,7 @@ export const HomePageV2: React.FC = () => {
         {/* Spotlight Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Spotlight</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible scrollbar-hide">
             {[
               {
                 name: 'Bad Cats',
@@ -379,9 +379,9 @@ export const HomePageV2: React.FC = () => {
               <div
                 key={item.name}
                 onClick={() => navigate(item.route)}
-                className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col"
+                className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col min-w-[75vw] sm:min-w-0"
               >
-                <div className="aspect-video sm:aspect-square relative overflow-hidden bg-black p-3">
+                <div className="aspect-square relative overflow-hidden bg-black p-3">
                   <span className={`absolute top-2.5 right-2.5 z-20 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
                     {item.tag}
                   </span>
@@ -412,12 +412,12 @@ export const HomePageV2: React.FC = () => {
         {/* New Stuff Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">New & Featured</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 sm:overflow-visible scrollbar-hide">
             {ALL_NEW_STUFF.map((item) => (
               <div
                 key={item.name}
                 onClick={() => navigate(item.route)}
-                className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden"
+                className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden min-w-[140px] sm:min-w-0"
               >
                 <div className="aspect-square relative overflow-hidden bg-black">
                   {item.tag && (
@@ -448,12 +448,12 @@ export const HomePageV2: React.FC = () => {
         {/* News & Links Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">News & Links</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 sm:overflow-visible scrollbar-hide">
             {ALL_NEWS.map((item) => (
               <div
                 key={item.name}
                 onClick={() => item.route ? navigate(item.route) : window.open(item.link!, '_blank', 'noopener')}
-                className="group cursor-pointer rounded-lg border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden"
+                className="group cursor-pointer rounded-lg border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden min-w-[100px] sm:min-w-0"
               >
                 <div className="aspect-square overflow-hidden bg-black">
                   <img src={item.img} alt={item.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
