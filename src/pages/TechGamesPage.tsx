@@ -778,17 +778,10 @@ export const TechGamesPage: React.FC = () => {
             </div>
           </div>
           
-          {/* Fullscreen iframe - Optimized for performance */}
+          {/* Fullscreen iframe */}
           <div 
             className={`${isImmersiveTryMode ? 'w-full h-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
             onClick={(e) => e.stopPropagation()}
-            style={{
-              willChange: 'contents',
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-              contain: 'layout style paint',
-              isolation: 'isolate',
-            }}
           >
             <iframe
               src={`https://ordinals.com/content/${selectedItem.inscriptionId}`}
@@ -797,14 +790,9 @@ export const TechGamesPage: React.FC = () => {
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen"
               loading="eager"
               referrerPolicy="no-referrer"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webgl; xr-spatial-tracking"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webgl; webgl2; xr-spatial-tracking"
               allowFullScreen
               style={{
-                willChange: 'contents',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                isolation: 'isolate',
-                contain: 'layout style paint',
                 pointerEvents: 'auto',
               }}
               onError={(e) => {
