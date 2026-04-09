@@ -221,8 +221,16 @@ export const TechGamesPage: React.FC = () => {
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
   const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0']);
+  const SLOW_FIRE_INSCRIPTION_ID = 'e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0';
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
-  const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
+  const tryModalSize: '50' | '80' | null = selectedItem
+    ? immersiveIds.has(selectedItem.inscriptionId)
+      ? '50'
+      : selectedItem.inscriptionId === SLOW_FIRE_INSCRIPTION_ID
+        ? '80'
+        : null
+    : null;
+  const isSizedTryMode = tryModalSize !== null;
 
   useEffect(() => {
     const tryId = searchParams.get('try');
@@ -744,13 +752,17 @@ export const TechGamesPage: React.FC = () => {
       {/* Item Detail Modal - Fullscreen */}
       {selectedItem && (
         <>
-        {isImmersiveTryMode && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
+        {isSizedTryMode && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
         <div
-          className={`fixed z-50 flex flex-col ${isImmersiveTryMode ? 'inset-0 m-auto w-[50vw] h-[50vh] rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden' : 'inset-0'} bg-black`}
+          className={`fixed z-50 flex flex-col ${
+            isSizedTryMode
+              ? `inset-0 m-auto ${tryModalSize === '80' ? 'w-[80vw] h-[80vh]' : 'w-[50vw] h-[50vh]'} rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden`
+              : 'inset-0'
+          } bg-black`}
           onClick={() => setSelectedItem(null)}
         >
           {/* Header with Close Button */}
-          <div className={`flex justify-between items-center p-4 ${isImmersiveTryMode ? 'absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/85 to-transparent border-0' : 'border-b-2 border-red-600 bg-gray-900'}`}>
+          <div className={`flex justify-between items-center p-4 ${isSizedTryMode ? 'absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/85 to-transparent border-0' : 'border-b-2 border-red-600 bg-gray-900'}`}>
             <h2 className="text-2xl font-bold text-white">{selectedItem.name}</h2>
             <div className="flex items-center gap-4">
               {/* Mint Button - anzeigen wenn price > 0 oder mintable */}
@@ -780,7 +792,7 @@ export const TechGamesPage: React.FC = () => {
           
           {/* Fullscreen iframe */}
           <div 
-            className={`${isImmersiveTryMode ? 'w-full h-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
+            className={`${isSizedTryMode ? 'w-full h-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
@@ -819,7 +831,7 @@ export const TechGamesPage: React.FC = () => {
           </div>
 
           {/* Footer with Info */}
-          {!isImmersiveTryMode && (
+          {!isSizedTryMode && (
             <div
               className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
