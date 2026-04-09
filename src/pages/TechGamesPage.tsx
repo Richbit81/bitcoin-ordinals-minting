@@ -220,9 +220,16 @@ export const TechGamesPage: React.FC = () => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
-  const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0']);
+  /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
+  const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
+    '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'compact50',
+    '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
+  };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
-  const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
+  const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
+  const isCompact50Try = tryModalLayout === 'compact50';
+  const isMinimalFullscreenTry = tryModalLayout === 'minimalFullscreen';
+  const useMinimalTryChrome = isCompact50Try || isMinimalFullscreenTry;
 
   useEffect(() => {
     const tryId = searchParams.get('try');
@@ -256,15 +263,6 @@ export const TechGamesPage: React.FC = () => {
             // Setze iframe auf display: none für zusätzliche Performance
             (iframe as HTMLElement).style.display = 'none';
           }
-        }
-      });
-      // CPU-Priorität erhöhen durch requestAnimationFrame
-      requestAnimationFrame(() => {
-        // Force GPU acceleration
-        const modalContainer = document.querySelector('[class*="fixed inset-0"]') as HTMLElement;
-        if (modalContainer) {
-          modalContainer.style.transform = 'translateZ(0)';
-          modalContainer.style.willChange = 'contents';
         }
       });
     } else {
@@ -744,13 +742,17 @@ export const TechGamesPage: React.FC = () => {
       {/* Item Detail Modal - Fullscreen */}
       {selectedItem && (
         <>
-        {isImmersiveTryMode && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
+        {isCompact50Try && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
         <div
-          className={`fixed z-50 flex flex-col ${isImmersiveTryMode ? 'inset-0 m-auto w-[50vw] h-[50vh] rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden' : 'inset-0'} bg-black`}
+          className={`fixed z-50 flex flex-col ${
+            isCompact50Try
+              ? 'inset-0 m-auto w-[50vw] h-[50vh] rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden'
+              : 'inset-0'
+          } bg-black`}
           onClick={() => setSelectedItem(null)}
         >
           {/* Header with Close Button */}
-          <div className={`flex justify-between items-center p-4 ${isImmersiveTryMode ? 'absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/85 to-transparent border-0' : 'border-b-2 border-red-600 bg-gray-900'}`}>
+          <div className={`flex justify-between items-center p-4 ${useMinimalTryChrome ? 'absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/85 to-transparent border-0' : 'border-b-2 border-red-600 bg-gray-900'}`}>
             <h2 className="text-2xl font-bold text-white">{selectedItem.name}</h2>
             <div className="flex items-center gap-4">
               {/* Mint Button - anzeigen wenn price > 0 oder mintable */}
@@ -780,7 +782,7 @@ export const TechGamesPage: React.FC = () => {
           
           {/* Fullscreen iframe */}
           <div 
-            className={`${isImmersiveTryMode ? 'w-full h-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
+            className={`${useMinimalTryChrome ? 'flex-1 min-h-0 w-full' : 'flex-1'} w-full h-full bg-black overflow-hidden relative`}
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
@@ -819,7 +821,7 @@ export const TechGamesPage: React.FC = () => {
           </div>
 
           {/* Footer with Info */}
-          {!isImmersiveTryMode && (
+          {!useMinimalTryChrome && (
             <div
               className="p-4 border-t-2 border-red-600 bg-gray-900 text-white max-h-[40vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
