@@ -95,11 +95,11 @@ export const PinkPuppetsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Main layout: 3 equal columns */}
-          <div className="grid gap-3 grid-cols-1 md:grid-cols-3">
+          {/* Main layout: 3 equal columns, fixed height so chat matches */}
+          <div className="grid gap-3 grid-cols-1 md:grid-cols-3 md:h-[calc(100vh-300px)]">
 
             {/* Col 1: Promo */}
-            <div className="min-w-0">
+            <div className="min-w-0 md:h-full md:overflow-hidden">
               <a
                 href={promoBanners[promoIndex].href}
                 target="_blank"
@@ -109,7 +109,7 @@ export const PinkPuppetsPage: React.FC = () => {
                 <img
                   src={promoBanners[promoIndex].image}
                   alt={promoBanners[promoIndex].title}
-                  className="w-full flex-1 rounded-lg object-contain"
+                  className="w-full flex-1 rounded-lg object-contain min-h-0"
                   loading="lazy"
                 />
                 <div className="mt-2 text-center">
@@ -125,7 +125,7 @@ export const PinkPuppetsPage: React.FC = () => {
             </div>
 
             {/* Col 2: Latest Posts */}
-            <div className="min-w-0">
+            <div className="min-w-0 md:h-full md:overflow-hidden">
               <div className="rounded-2xl border border-pink-300/70 bg-black/35 p-3 flex flex-col h-full">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-bold text-pink-100">Latest Posts</h2>
@@ -142,7 +142,7 @@ export const PinkPuppetsPage: React.FC = () => {
             </div>
 
             {/* Col 3: Auth + Admin + Chat */}
-            <div className="min-w-0 flex flex-col gap-3">
+            <div className="min-w-0 md:h-full md:overflow-hidden flex flex-col gap-3">
               <AuthGateCard />
               {user?.role === 'admin' && token && (
                 <AdminRoomManager token={token} onRoomCreated={() => {}} />
