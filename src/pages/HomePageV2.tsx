@@ -361,6 +361,7 @@ export const HomePageV2: React.FC = () => {
                 isHtml: true,
                 tag: 'COLLECTION',
                 tagColor: 'bg-purple-600',
+                mintLive: true,
               },
               {
                 name: 'Bitcoin Mixtape',
@@ -370,6 +371,7 @@ export const HomePageV2: React.FC = () => {
                 isHtml: false,
                 tag: 'MUSIC',
                 tagColor: 'bg-amber-600',
+                mintLive: true,
               },
               {
                 name: 'SLOW FIRE',
@@ -379,6 +381,7 @@ export const HomePageV2: React.FC = () => {
                 isHtml: true,
                 tag: 'GAME',
                 tagColor: 'bg-red-600',
+                mintLive: false,
               },
             ].map((item) => (
               <div
@@ -406,7 +409,17 @@ export const HomePageV2: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
                 </div>
                 <div className="px-4 py-3 flex-1 flex flex-col">
-                  <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
+                    {item.mintLive && (
+                      <span
+                        className="px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wider text-green-300 bg-green-500/20 border border-green-400/40 rounded-full animate-pulse"
+                        style={{ boxShadow: '0 0 8px rgba(74,222,128,0.4), 0 0 16px rgba(74,222,128,0.2)' }}
+                      >
+                        Mint Live
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">{item.desc}</p>
                 </div>
               </div>
