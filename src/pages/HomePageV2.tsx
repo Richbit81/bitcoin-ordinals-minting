@@ -377,7 +377,7 @@ export const HomePageV2: React.FC = () => {
                 name: 'SLOW FIRE',
                 desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
                 src: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
-                route: '/tech-games',
+                route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
                 isHtml: true,
                 tag: 'GAME',
                 tagColor: 'bg-red-600',
