@@ -212,7 +212,7 @@ export const UnifiedChatPanel: React.FC = () => {
   const currentUserId = user?.id || (guestNameConfirmed ? `guest-${guestName.trim().toLowerCase().replace(/\s+/g, '-')}` : '');
 
   return (
-    <section className="rounded-2xl border border-pink-300/70 bg-black/45 p-3 flex flex-col">
+    <section className="rounded-2xl border border-pink-300/70 bg-black/45 p-3 flex flex-col h-full">
       <div className="mb-1.5 flex items-center justify-between">
         <h3 className="text-xs font-bold text-pink-100">PinkPuppets Chat</h3>
         {user && (
@@ -249,7 +249,7 @@ export const UnifiedChatPanel: React.FC = () => {
         )}
       </div>
 
-      <div className="h-52 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
         {messages.length === 0 ? (
           <p className="text-xs text-pink-100/70">
             {activeRoom ? 'No messages yet.' : 'No room selected.'}
