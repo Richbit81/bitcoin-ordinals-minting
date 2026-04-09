@@ -222,7 +222,7 @@ export const TechGamesPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
   /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
-    '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'compact50',
+    '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
