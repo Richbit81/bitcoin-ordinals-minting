@@ -67,8 +67,13 @@ export const PinkPuppetsPage: React.FC = () => {
         <div className="mx-auto w-full max-w-[1440px]">
 
           {/* Banner */}
-          <div className="mb-3 p-2 sm:p-3">
-            <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="mb-3">
+            <img
+              src="/images/pinkpuppets-banner.png"
+              alt="PinkPuppets Banner"
+              className="mx-auto max-h-[180px] w-full object-contain sm:max-h-[220px]"
+            />
+            <div className="flex items-center justify-between gap-2 mt-2 px-2 sm:px-3">
               <button
                 onClick={() => navigate('/')}
                 className="shrink-0 rounded-lg border border-pink-400/60 bg-black/30 px-2.5 py-1 text-[11px] text-pink-200 hover:bg-pink-900/30"
@@ -87,11 +92,6 @@ export const PinkPuppetsPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            <img
-              src="/images/pinkpuppets-banner.png"
-              alt="PinkPuppets Banner"
-              className="mx-auto max-h-[180px] w-full object-contain sm:max-h-[220px]"
-            />
           </div>
 
           {/* Main layout: content left + sidebar right */}
