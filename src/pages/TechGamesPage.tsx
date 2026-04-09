@@ -71,7 +71,7 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     ],
   },
   {
-    inscriptionId: '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0',
+    inscriptionId: '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0',
     name: 'RICHRACER',
     description:
       'A fully on-chain 3D racing game built with Three.js as a single Bitcoin Ordinals inscription. Race against AI on a real track with realistic physics (grip, downforce, drift). Modes: Time Attack, Race, Free Roam. Day/night cycles, rain weather, Ultra graphics with reflections, 8-angle replay system, visual damage, ghost car, rearview mirror, cinematic flyover, and dynamic audio. All assets loaded from on-chain inscriptions.',
@@ -220,7 +220,7 @@ export const TechGamesPage: React.FC = () => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
-  const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '0be50e7196f48c0cacf885bc9cd7b2d3269e7e934b16c59aa5418b83692fbcd6i0']);
+  const immersiveIds = new Set(['0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0', '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0']);
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const isImmersiveTryMode = selectedItem ? immersiveIds.has(selectedItem.inscriptionId) : false;
 
