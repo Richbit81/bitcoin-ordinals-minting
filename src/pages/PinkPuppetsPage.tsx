@@ -8,6 +8,7 @@ import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
 
 const FALLBACK_TWEETS = [
+  '2041180097626157365',
   '2039902984558043314',
   '2039676195684700171',
   '2039519039580676112',
@@ -127,7 +128,7 @@ export const PinkPuppetsPage: React.FC = () => {
                   <h2 className="text-sm font-bold text-pink-100">Latest Posts</h2>
                   <a href="https://x.com/PinkPuppets_" target="_blank" rel="noreferrer" className="text-[11px] text-pink-200/90 hover:text-pink-100 shrink-0">View on X</a>
                 </div>
-                <div className="flex-1 max-h-[500px] overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
+                <div className="flex-1 max-h-[800px] overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
                   {tweetIds.map((id) => (
                     <div key={id} className="mb-2 last:mb-0 [&_>div]:!my-0">
                       <Tweet id={id} />
