@@ -611,6 +611,9 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
               </p>
               <span className="h-px flex-1 max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #80000080, transparent)' }} />
             </div>
+            <p className="mt-3 h-mono text-[10px] md:text-[11px] uppercase tracking-[0.4em] font-bold text-center" style={{ color: '#aa3333', textShadow: '0 0 12px #80000080' }}>
+              ⛧ Sub-Million Inscription Collection ⛧
+            </p>
           </div>
         </div>
 
