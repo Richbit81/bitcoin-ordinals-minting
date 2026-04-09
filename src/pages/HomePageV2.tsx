@@ -280,11 +280,16 @@ export const HomePageV2: React.FC = () => {
         {/* Top Bar */}
         <header className="sticky top-0 z-40 border-b border-white/5 bg-black/70 backdrop-blur-xl">
           <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-14">
-            <button onClick={() => navigate('/')} className="hover:opacity-80 transition group">
-              <span className="text-xs sm:text-base font-bold text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: "'Press Start 2P', cursive", textShadow: '0 0 10px rgba(220,38,38,0.6), 0 0 20px rgba(220,38,38,0.3)' }}>
-                richart<span className="text-red-500">.</span>app
-              </span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/')} className="hover:opacity-80 transition group">
+                <span className="text-xs sm:text-base font-bold text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: "'Press Start 2P', cursive", textShadow: '0 0 10px rgba(220,38,38,0.6), 0 0 20px rgba(220,38,38,0.3)' }}>
+                  richart<span className="text-red-500">.</span>app
+                </span>
+              </button>
+              <a href="https://x.com/richbi11" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors" title="@richbi11 on X">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </a>
+            </div>
             <nav className="hidden md:flex items-center gap-1">
               {NAV_MENUS.map((menu) => (
                 <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
