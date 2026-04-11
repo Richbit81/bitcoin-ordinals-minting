@@ -719,7 +719,7 @@ export const TheBoxMarketplacePage: React.FC = () => {
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
           {rows.map((row) => {
-            const contentUrl = `https://ordinals.com/content/${encodeURIComponent(row.inscriptionId)}`;
+            const thumbUrl = `https://ordinals.com/preview/${encodeURIComponent(row.inscriptionId)}`;
             const ownerAddr = ownerByInscription[row.inscriptionId] || (row.isOwnedByConnectedWallet && currentAddress ? currentAddress : row.listing?.seller || '');
             const isListed = !!row.listing;
             const borderColor = isListed ? '#0f0' : row.isOwnedByConnectedWallet ? '#ff0' : '#f802';
@@ -735,7 +735,7 @@ export const TheBoxMarketplacePage: React.FC = () => {
                 )}
                 <button onClick={() => setSelectedId(row.inscriptionId)} className="aspect-square w-full overflow-hidden text-left relative" style={{ background: '#000' }}>
                   <iframe
-                    src={contentUrl}
+                    src={thumbUrl}
                     title={row.name}
                     className="w-full h-full border-0 relative z-[2] pointer-events-none"
                     sandbox="allow-scripts allow-same-origin"
