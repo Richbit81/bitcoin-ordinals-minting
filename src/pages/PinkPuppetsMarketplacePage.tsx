@@ -396,6 +396,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   const [itemFilter, setItemFilter] = React.useState<'all' | 'listed' | 'not-listed' | 'owned'>('all');
   const [traitFilter, setTraitFilter] = React.useState('');
   const [myOnly, setMyOnly] = React.useState(false);
+  const [showRarityInfo, setShowRarityInfo] = React.useState(false);
   const [ownedIds, setOwnedIds] = React.useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = React.useState(false);
   const [ownershipError, setOwnershipError] = React.useState<string | null>(null);
@@ -795,7 +796,79 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
           >
             My Puppets {walletState.connected ? `(${ownedIds.size})` : ''}
           </button>
+          <button
+            onClick={() => setShowRarityInfo(true)}
+            className="rounded-full border border-pink-300/60 bg-black/35 px-3 py-1 font-semibold text-pink-100 hover:bg-pink-500/20 hover:border-pink-200 transition-all"
+          >
+            Rarity ?
+          </button>
         </div>
+
+        {showRarityInfo && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)' }} onClick={() => setShowRarityInfo(false)}>
+            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-pink-300/50 bg-gradient-to-b from-[#2a1028] to-[#1a0a1a] p-6 shadow-2xl shadow-pink-900/40" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-pink-100">How Rarity Works</h3>
+                <button onClick={() => setShowRarityInfo(false)} className="rounded-full border border-pink-300/40 px-3 py-1 text-xs font-bold text-pink-200 hover:bg-pink-500/20 transition-colors">CLOSE</button>
+              </div>
+
+              <p className="text-sm text-pink-100/80 mb-5">Each Pink Puppet gets a <b className="text-pink-100">Tech Score</b> from 0–100 based on how rare it is. The score is built from <b className="text-pink-100">4 components</b>:</p>
+
+              <div className="space-y-3 mb-5">
+                <div className="rounded-xl border border-pink-400/30 bg-black/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-pink-100">Trait Rarity</span>
+                    <span className="text-xs font-bold text-pink-300 bg-pink-500/20 rounded-full px-2 py-0.5">55%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-black/50 mb-2"><div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-pink-300" style={{ width: '55%' }} /></div>
+                  <p className="text-xs text-pink-200/70">How rare are the individual traits? A trait shared by only 2 puppets scores much higher than one shared by 40.</p>
+                </div>
+
+                <div className="rounded-xl border border-pink-400/30 bg-black/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-pink-100">Trait Combo</span>
+                    <span className="text-xs font-bold text-pink-300 bg-pink-500/20 rounded-full px-2 py-0.5">20%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-black/50 mb-2"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-fuchsia-300" style={{ width: '20%' }} /></div>
+                  <p className="text-xs text-pink-200/70">Is the exact combination of all traits unique? A one-of-a-kind combo gets the maximum score.</p>
+                </div>
+
+                <div className="rounded-xl border border-pink-400/30 bg-black/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-pink-100">Complexity</span>
+                    <span className="text-xs font-bold text-pink-300 bg-pink-500/20 rounded-full px-2 py-0.5">15%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-black/50 mb-2"><div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-violet-300" style={{ width: '15%' }} /></div>
+                  <p className="text-xs text-pink-200/70">How many attributes does the puppet have? More attributes = more detail = higher score.</p>
+                </div>
+
+                <div className="rounded-xl border border-pink-400/30 bg-black/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-pink-100">Edition</span>
+                    <span className="text-xs font-bold text-pink-300 bg-pink-500/20 rounded-full px-2 py-0.5">10%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-black/50 mb-2"><div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-300" style={{ width: '10%' }} /></div>
+                  <p className="text-xs text-pink-200/70">Earlier inscriptions in the collection get a small bonus — OG status matters.</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-pink-400/30 bg-black/30 p-4 mb-4">
+                <p className="text-sm font-bold text-pink-100 mb-2">Percentile Ranking</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 h-4 rounded-full bg-black/50 overflow-hidden flex">
+                    <div className="h-full bg-pink-600/80 flex items-center justify-center text-[8px] font-bold text-white" style={{ width: '10%' }}>Top 10%</div>
+                    <div className="h-full bg-pink-500/50 flex items-center justify-center text-[8px] font-bold text-white/80" style={{ width: '15%' }}>Top 25%</div>
+                    <div className="h-full bg-pink-400/30 flex items-center justify-center text-[8px] font-bold text-white/60" style={{ width: '25%' }}>Top 50%</div>
+                    <div className="h-full bg-pink-300/15" style={{ width: '50%' }} />
+                  </div>
+                </div>
+                <p className="text-xs text-pink-200/70">All puppets are ranked by their total score. "Top 10%" means it's rarer than 90% of the collection.</p>
+              </div>
+
+              <p className="text-[11px] text-pink-200/50 text-center">Rarity is calculated on-chain from inscription metadata. It cannot be changed.</p>
+            </div>
+          </div>
+        )}
 
         <div className="mb-3 grid gap-2 md:grid-cols-4">
           <select
