@@ -7,7 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
-import { getOrdinalAddress } from '../utils/wallet';
+import { getOrdinalAddress, getPaymentAddress } from '../utils/wallet';
 
 // Bitcoin Mixtape Konfiguration
 const MIXTAPE_CONFIG = {
@@ -97,11 +97,34 @@ export const BitcoinMixtapePage: React.FC = () => {
     }
 
     const userAddress = getOrdinalAddress(walletState.accounts);
-    addDebug(`📍 Adresse: ${userAddress?.slice(0, 14)}...`);
+    const paymentAddr = getPaymentAddress(walletState.accounts);
+    addDebug(`📍 Ordinals: ${userAddress?.slice(0, 14)}... Payment: ${paymentAddr?.slice(0, 14)}...`);
 
     if (!userAddress) {
       addDebug('❌ Keine Adresse gefunden!');
       setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found. Please reconnect your wallet.' });
+      mintInProgressRef.current = false;
+      return;
+    }
+
+    // UniSat + Taproot: sendBitcoin() sendet von der aktuell aktiven Adresse.
+    // Wenn nur Taproot aktiv ist und keine separate Payment-Adresse existiert,
+    // kann nicht von der Payment-Adresse (wo die Funds sind) gesendet werden.
+    if (walletState.walletType === 'unisat' && userAddress.startsWith('bc1p') && paymentAddr === userAddress) {
+      addDebug('⚠️ UniSat: Nur Taproot aktiv, keine Payment-Adresse!');
+      setMintingStatus({
+        progress: 0,
+        status: 'error',
+        message:
+          '⚠️ UniSat ist mit der Taproot-Adresse verbunden.\n\n' +
+          'Die Zahlung muss aber von deiner Payment-Adresse (Legacy/SegWit) kommen, wo dein BTC liegt.\n\n' +
+          '📋 SO GEHT\'S:\n' +
+          '1. Öffne UniSat Wallet → Settings → Address Type\n' +
+          '2. Wechsle zu "Native SegWit" oder "Legacy"\n' +
+          '3. Klicke oben auf "Connect Wallet" und verbinde erneut\n' +
+          '4. Dann Mint drücken\n\n' +
+          '✅ Deine Inscription geht trotzdem an deine Taproot-Adresse!'
+      });
       mintInProgressRef.current = false;
       return;
     }

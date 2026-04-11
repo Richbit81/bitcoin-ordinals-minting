@@ -1161,13 +1161,7 @@ export const sendMultipleBitcoinPayments = async (
           lastTxid = await sendFn(recipient.address, recipient.amount);
           console.log(`[UniSat] ✅ Zahlung ${i + 1}/${sortedRecipients.length} erfolgreich: ${lastTxid}`);
         } catch (error: any) {
-          console.error(`[UniSat] ❌ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
-          
-          // Spezielle Fehlermeldung für Insufficient Balance
-          if (error?.message?.includes('Insufficient balance') || error?.code === -32603) {
-            throw new Error(`Insufficient balance bei Zahlung ${i + 1}/${sortedRecipients.length}.\n\n⚠️ WICHTIG: Wenn Ihr Guthaben auf einer SegWit-Adresse (bc1q...) liegt, aber UniSat eine Taproot-Adresse (bc1p...) anzeigt:\n1. Öffnen Sie das UniSat Wallet\n2. Wechseln Sie zur SegWit-Adresse (falls verfügbar)\n3. Oder stellen Sie sicher, dass genug Guthaben auf der aktuell ausgewählten Adresse vorhanden ist\n\nUniSat sollte automatisch das Gesamtguthaben verwenden, aber manchmal funktioniert das nicht korrekt.`);
-          }
-          
+          console.error(`[${walletLabel}] ❌ Fehler bei Zahlung ${i + 1}/${sortedRecipients.length}:`, error);
           throw error;
         }
         
