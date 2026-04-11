@@ -92,17 +92,17 @@ export const AuthGateCard: React.FC = () => {
                 void submitWalletLogin();
               }}
             >
-              <input value={walletDisplayName} onChange={(e) => setWalletDisplayName(e.target.value)} placeholder="Display name *" required className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              <input value={walletDisplayName} onChange={(e) => setWalletDisplayName(e.target.value)} placeholder="Display name (first time only)" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
               <p className="text-[10px] text-pink-200/60">
                 {walletState.connected
                   ? `Wallet connected: ${getOrdinalAddress(walletState.accounts)?.slice(0, 10)}...`
                   : 'Please connect your wallet first.'}
               </p>
-              <button type="submit" disabled={busy || !walletDisplayName.trim() || !walletState.connected} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
+              <button type="submit" disabled={busy || !walletState.connected} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
                 {busy ? 'Connecting...' : 'Login with Wallet'}
               </button>
               <p className="text-[10px] text-pink-200/50 leading-tight">
-                No email needed. If PinkPuppets are found in your wallet you get Level 2 automatically.
+                Returning user? Just connect wallet & click login. New user? Enter a display name first.
               </p>
             </form>
           ) : (
