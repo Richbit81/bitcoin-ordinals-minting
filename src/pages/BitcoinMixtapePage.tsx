@@ -299,15 +299,14 @@ export const BitcoinMixtapePage: React.FC = () => {
           <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
             {/* Mixtape Preview - Echte Inscription */}
             <div className="flex flex-col items-center mb-8">
-              <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30">
+              <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 pointer-events-none">
                 <iframe
                   src={`https://ordinals.com/content/${MIXTAPE_CONFIG.originalInscriptionId}`}
                   title={MIXTAPE_CONFIG.name}
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen"
+                  className="w-full h-full border-0 pointer-events-none"
+                  sandbox="allow-scripts allow-same-origin"
                   loading="eager"
                   referrerPolicy="no-referrer"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webgl; xr-spatial-tracking"
                 />
               </div>
               
@@ -343,7 +342,7 @@ export const BitcoinMixtapePage: React.FC = () => {
                 ref={mintButtonRef}
                 onClick={handleMint}
                 disabled={isMinting}
-                className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
+                className="relative z-50 w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30 pointer-events-auto"
               >
                 {isMinting ? (
                   <span className="flex items-center justify-center gap-2">
