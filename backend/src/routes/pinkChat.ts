@@ -13,6 +13,7 @@ import {
   postRoomMessage,
   registerChatUser,
   revalidateWalletForUser,
+  walletLoginUser,
   runDailyWalletRevalidation,
   startWalletLink,
   toSafeUser,
@@ -58,6 +59,20 @@ router.post('/auth/register', async (req, res) => {
     res.json(session);
   } catch (err: any) {
     res.status(400).json({ error: err?.message || 'Register failed' });
+  }
+});
+
+router.post('/auth/wallet-login', async (req, res) => {
+  try {
+    const ip = req.ip || 'unknown';
+    if (!checkRateLimit(`walletlogin:${ip}`, 15, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many attempts' });
+    const walletAddress = sanitizeText(req.body?.walletAddress);
+    const displayName = sanitizeText(req.body?.displayName);
+    if (!walletAddress) return res.status(400).json({ error: 'walletAddress required' });
+    const session = await walletLoginUser(walletAddress, displayName || undefined);
+    res.json(session);
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Wallet login failed' });
   }
 });
 

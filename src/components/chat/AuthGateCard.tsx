@@ -6,8 +6,8 @@ import { getOwnedPinkPuppetIds } from '../../services/pinkChatService';
 
 export const AuthGateCard: React.FC = () => {
   const { walletState } = useWallet();
-  const { user, login, register, logout, verifyWallet, revalidateWallet, updateProfile } = usePinkChatAuth();
-  const [mode, setMode] = React.useState<'login' | 'register'>('login');
+  const { user, login, register, walletLogin, logout, verifyWallet, revalidateWallet, updateProfile } = usePinkChatAuth();
+  const [mode, setMode] = React.useState<'login' | 'register' | 'wallet'>('login');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [displayName, setDisplayName] = React.useState('');
@@ -18,6 +18,25 @@ export const AuthGateCard: React.FC = () => {
   const [showAvatarPicker, setShowAvatarPicker] = React.useState(false);
   const [ownedPuppetIds, setOwnedPuppetIds] = React.useState<string[]>([]);
   const [loadingPuppets, setLoadingPuppets] = React.useState(false);
+  const [walletDisplayName, setWalletDisplayName] = React.useState('');
+
+  const submitWalletLogin = async () => {
+    const address = getOrdinalAddress(walletState.accounts);
+    if (!address) {
+      setError('Please connect your wallet first (Ordinals address required).');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await walletLogin(address, walletDisplayName);
+      setWalletDisplayName('');
+    } catch (err: any) {
+      setError(err?.message || 'Wallet login failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -63,23 +82,47 @@ export const AuthGateCard: React.FC = () => {
           <div className="mt-2 flex gap-2 text-xs">
             <button onClick={() => setMode('login')} className={`rounded px-2 py-1 ${mode === 'login' ? 'bg-pink-500/20 text-pink-100' : 'bg-black/20 text-pink-200/80'}`}>Login</button>
             <button onClick={() => setMode('register')} className={`rounded px-2 py-1 ${mode === 'register' ? 'bg-pink-500/20 text-pink-100' : 'bg-black/20 text-pink-200/80'}`}>Register</button>
+            <button onClick={() => setMode('wallet')} className={`rounded px-2 py-1 ${mode === 'wallet' ? 'bg-pink-500/20 text-pink-100' : 'bg-black/20 text-pink-200/80'}`}>Wallet</button>
           </div>
-          <form
-            className="mt-2 space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit();
-            }}
-          >
-            {mode === 'register' && (
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name *" required className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-            )}
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
-            <button type="submit" disabled={busy || !email || !password || (mode === 'register' && !displayName.trim())} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
-              {mode === 'register' ? 'Create Account (Level 1)' : 'Login (Level 1)'}
-            </button>
-          </form>
+          {mode === 'wallet' ? (
+            <form
+              className="mt-2 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitWalletLogin();
+              }}
+            >
+              <input value={walletDisplayName} onChange={(e) => setWalletDisplayName(e.target.value)} placeholder="Display name *" required className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              <p className="text-[10px] text-pink-200/60">
+                {walletState.connected
+                  ? `Wallet connected: ${getOrdinalAddress(walletState.accounts)?.slice(0, 10)}...`
+                  : 'Please connect your wallet first.'}
+              </p>
+              <button type="submit" disabled={busy || !walletDisplayName.trim() || !walletState.connected} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
+                {busy ? 'Connecting...' : 'Login with Wallet'}
+              </button>
+              <p className="text-[10px] text-pink-200/50 leading-tight">
+                No email needed. If PinkPuppets are found in your wallet you get Level 2 automatically.
+              </p>
+            </form>
+          ) : (
+            <form
+              className="mt-2 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submit();
+              }}
+            >
+              {mode === 'register' && (
+                <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name *" required className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              )}
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full rounded border border-pink-300/40 bg-black/30 px-2 py-1.5 text-xs text-pink-100" />
+              <button type="submit" disabled={busy || !email || !password || (mode === 'register' && !displayName.trim())} className="w-full rounded border border-black bg-[#ff4fcf] px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50">
+                {mode === 'register' ? 'Create Account (Level 1)' : 'Login (Level 1)'}
+              </button>
+            </form>
+          )}
         </>
       ) : (
         <div className="mt-2 space-y-1.5 text-xs text-pink-100 min-w-0">

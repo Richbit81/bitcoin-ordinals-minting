@@ -11,6 +11,7 @@ type PinkChatAuthContextType = {
   loading: boolean;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  walletLogin: (walletAddress: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   verifyWallet: (walletAddress: string, signature?: string) => Promise<void>;
@@ -82,6 +83,11 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     commitSession(session);
   }, [commitSession]);
 
+  const walletLogin = useCallback(async (walletAddress: string, displayName: string) => {
+    const session = await pinkChatApi.walletLogin(walletAddress, displayName);
+    commitSession(session);
+  }, [commitSession]);
+
   const logout = useCallback(async () => {
     if (token) await pinkChatApi.logout(token);
     commitSession(null);
@@ -135,12 +141,13 @@ export const PinkChatAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
     loading,
     register,
     login,
+    walletLogin,
     logout,
     refreshMe,
     verifyWallet,
     revalidateWallet,
     updateProfile,
-  }), [user, token, loading, register, login, logout, refreshMe, verifyWallet, revalidateWallet, updateProfile]);
+  }), [user, token, loading, register, login, walletLogin, logout, refreshMe, verifyWallet, revalidateWallet, updateProfile]);
 
   return <PinkChatAuthContext.Provider value={value}>{children}</PinkChatAuthContext.Provider>;
 };

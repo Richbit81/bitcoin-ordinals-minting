@@ -296,6 +296,46 @@ export const pinkChatApi = {
     }
   },
 
+  async walletLogin(walletAddress: string, displayName: string): Promise<PinkChatSession> {
+    try {
+      return await apiRequest<PinkChatSession>('/api/pinkchat/auth/wallet-login', {
+        method: 'POST',
+        body: JSON.stringify({ walletAddress, displayName }),
+      });
+    } catch (err) {
+      if (!isMockFallback(err)) throw err;
+      const state = readMock();
+      const existing = state.users.find((u) => u.walletAddress === walletAddress);
+      if (existing) {
+        const token = uid('tok');
+        state.sessions.unshift({ token, userId: existing.id, createdAt: nowIso() });
+        writeMock(state);
+        console.log(`[PinkChat] WALLET_LOGIN (mock) existing user="${existing.displayName}" wallet=${walletAddress}`);
+        return { token, user: existing };
+      }
+      const { owns, count } = await checkPinkPuppetOwnership(walletAddress);
+      const isAdmin = ADMIN_WALLETS.has(walletAddress);
+      const token = uid('tok');
+      const user = {
+        id: uid('usr'),
+        email: `wallet:${walletAddress}`,
+        password: '',
+        displayName: displayName.trim(),
+        level: (owns || isAdmin) ? 'level2' as const : 'level1' as const,
+        role: isAdmin ? 'admin' as const : 'member' as const,
+        walletAddress,
+        level2Active: owns || isAdmin,
+        lastVerifiedAt: nowIso(),
+        puppetCount: count,
+      };
+      state.users.unshift(user);
+      state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
+      writeMock(state);
+      console.log(`[PinkChat] WALLET_LOGIN (mock) new user="${user.displayName}" wallet=${walletAddress} puppets=${count} level=${user.level}`);
+      return { token, user };
+    }
+  },
+
   async login(email: string, password: string): Promise<PinkChatSession> {
     try {
       return await apiRequest<PinkChatSession>('/api/pinkchat/auth/login', {

@@ -223,6 +223,50 @@ export const registerChatUser = async (email: string, password: string, displayN
   return { token, user: toSafeUser(user) };
 };
 
+export const walletLoginUser = async (walletAddress: string, displayName?: string) => {
+  const addr = String(walletAddress || '').trim();
+  if (!addr) throw new Error('Wallet address required.');
+  const state = await readState();
+
+  const existing = state.users.find((u) => u.walletAddress === addr);
+  if (existing) {
+    const token = uid('pst');
+    state.sessions.unshift({ token, userId: existing.id, createdAt: nowIso() });
+    await writeState(state);
+    return { token, user: toSafeUser(existing) };
+  }
+
+  const trimmedName = String(displayName || '').trim();
+  if (!trimmedName) throw new Error('Display name required for new wallet accounts.');
+
+  const { owns: holder, count: puppetCount } = await checkPinkPuppetOwnership(addr);
+  const user: ChatUser = {
+    id: uid('usr'),
+    email: `wallet:${addr}`,
+    passwordHash: '',
+    displayName: trimmedName,
+    level: holder ? 'level2' : 'level1',
+    role: state.users.length === 0 ? 'admin' : 'member',
+    walletAddress: addr,
+    level2Active: holder,
+    puppetCount,
+    lastVerifiedAt: nowIso(),
+    createdAt: nowIso(),
+  };
+  const token = uid('pst');
+  state.users.unshift(user);
+  state.sessions.unshift({ token, userId: user.id, createdAt: nowIso() });
+  state.audit.push({
+    id: uid('audit'),
+    type: holder ? 'level_upgrade' : 'wallet_revalidate',
+    userId: user.id,
+    details: { walletAddress: addr, holder, puppetCount, reason: 'wallet_login_register' },
+    createdAt: nowIso(),
+  });
+  await writeState(state);
+  return { token, user: toSafeUser(user) };
+};
+
 export const loginChatUser = async (email: string, password: string) => {
   const state = await readState();
   const normalizedEmail = String(email || '').trim().toLowerCase();
