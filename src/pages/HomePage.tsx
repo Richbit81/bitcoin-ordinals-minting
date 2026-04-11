@@ -188,7 +188,7 @@ const ALL_NEWS_ITEMS = [
   { name: 'PinkPuppets', img: '/images/pinkpuppets-openpage.avif', link: 'https://openpage.fun/badges/9161ff5e-79a1-4376-b6b4-f7036b9903d6' },
   { name: 'SOSEvo', img: '/images/SOSEvo.jpg', route: '/marketplace?collection=sosevo', internal: true },
   { name: 'Tactical', img: '/images/Tactical.jpg', link: 'https://lunalauncher.io/#mint/richart-tactical-game' },
-  { name: 'THE BOX', img: '/images/Box.png', route: '/marketplace?collection=thebox', internal: true },
+  { name: 'THE BOX', img: '/images/Box.png', route: '/thebox', internal: true },
   { name: 'KRYPDROIDZ', img: '/images/kr0.png', link: 'https://www.soltrix.io/mint/krypdroidz-2863/286315fc12' },
   { name: 'NO_FUNC', img: '/images/NO_FUNC_87.png', link: 'https://ord-dropz.xyz/marketplace/listing_1767570381027' },
   { name: "Santa's Revenge", img: '/images/SantasRevenge.png', link: 'https://www.trio.xyz/collections/santas-revenge' },
