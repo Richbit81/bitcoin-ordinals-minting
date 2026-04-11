@@ -77,6 +77,7 @@ export const BitcoinMixtapePage: React.FC = () => {
 
   // Minting Handler – useCallback so the native listener always has the latest ref
   const handleMint = useCallback(async () => {
+    window.alert('MINT BUTTON CLICKED! handleMint() wurde aufgerufen.');
     if (mintInProgressRef.current) {
       console.log('[BitcoinMixtape] handleMint skipped – already in progress');
       return;
@@ -335,6 +336,12 @@ export const BitcoinMixtapePage: React.FC = () => {
                 <MintingProgress status={mintingStatus} />
               </div>
             )}
+
+            {/* Debug Status */}
+            <div className="mb-2 p-2 rounded bg-yellow-900/50 border border-yellow-600/50 text-yellow-300 text-xs font-mono">
+              Wallet: {walletState.connected ? `✅ ${walletState.walletType} (${walletState.accounts?.[0]?.address?.slice(0,10)}...)` : '❌ not connected'} | 
+              Button visible: ✅ | isMinting: {String(isMinting)}
+            </div>
 
             {/* Mint Button */}
             {!mintingStatus || mintingStatus.status === 'error' ? (
