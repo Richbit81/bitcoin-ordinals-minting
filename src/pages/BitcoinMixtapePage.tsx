@@ -77,7 +77,6 @@ export const BitcoinMixtapePage: React.FC = () => {
 
   // Minting Handler – useCallback so the native listener always has the latest ref
   const handleMint = useCallback(async () => {
-    window.alert('MINT BUTTON CLICKED! handleMint() wurde aufgerufen.');
     if (mintInProgressRef.current) {
       console.log('[BitcoinMixtape] handleMint skipped – already in progress');
       return;
