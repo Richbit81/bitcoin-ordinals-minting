@@ -812,10 +812,10 @@ export const sendBitcoinViaUnisat = async (
       throw new Error(`Invalid satoshi amount: ${amountInSats}. Must be a positive integer. Original amount: ${amount} BTC`);
     }
     
-    // WICHTIG: Prüfe ALLE UTXOs über alle Adressen für bessere Fehlermeldungen
-    // ⚠️ Dies ist nur informativ - UniSat kann automatisch von allen Adressen ziehen!
     try {
-      const allUtxos = await window.unisat!.getBitcoinUtxos();
+      const utxoPromise = window.unisat!.getBitcoinUtxos();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('UTXO check timeout')), 5000));
+      const allUtxos = await Promise.race([utxoPromise, timeoutPromise]) as any[];
       
       if (!Array.isArray(allUtxos)) {
         console.warn('[UniSat] ⚠️ getBitcoinUtxos() returned unexpected format:', typeof allUtxos);
@@ -842,11 +842,22 @@ export const sendBitcoinViaUnisat = async (
       console.warn('[UniSat] ℹ️ UniSat sendBitcoin() wird trotzdem versuchen, von verfügbaren Adressen zu ziehen');
     }
     
-    // WICHTIG: UniSat sendBitcoin erwartet den Betrag in SATOSHI, nicht BTC!
-    // Laut UniSat-Dokumentation: sendBitcoin(toAddress: string, satoshis: number)
     console.log('[UniSat] Calling sendBitcoin with satoshis:', { to, satoshis: amountInSats, addressLength: to.length, addressValid: to.length >= 26 });
-    
-    const result = await window.unisat.sendBitcoin(to, amountInSats);
+
+    if (typeof window.unisat.sendBitcoin !== 'function') {
+      throw new Error('UniSat sendBitcoin is not available. Please update your UniSat extension or disable conflicting wallet extensions and reload the page.');
+    }
+
+    let result: any;
+    try {
+      result = await window.unisat.sendBitcoin(to, amountInSats);
+    } catch (sendErr: any) {
+      console.error('[UniSat] sendBitcoin threw:', sendErr);
+      if (sendErr?.message?.includes('Cannot set properties of null')) {
+        throw new Error('UniSat Wallet popup could not open. This is a known UniSat extension issue. Please try: 1) Update UniSat to the latest version 2) Disable other wallet extensions 3) Reload the page');
+      }
+      throw sendErr;
+    }
     
     // Prüfe ob result ein String (txid) oder ein Objekt ist
     let txid: string;

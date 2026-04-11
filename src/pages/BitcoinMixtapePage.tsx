@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
+import { getOrdinalAddress } from '../utils/wallet';
 
 // Bitcoin Mixtape Konfiguration
 const MIXTAPE_CONFIG = {
@@ -73,12 +74,27 @@ export const BitcoinMixtapePage: React.FC = () => {
 
   // Minting Handler
   const handleMint = async () => {
+    console.log('[BitcoinMixtape] handleMint called', {
+      connected: walletState.connected,
+      walletType: walletState.walletType,
+      accountCount: walletState.accounts?.length,
+      accounts: walletState.accounts?.map(a => ({ address: a.address?.slice(0, 12) + '...', purpose: a.purpose })),
+    });
+
     if (!walletState.connected || !walletState.accounts[0]) {
+      console.log('[BitcoinMixtape] No wallet connected, showing connect modal');
       setShowWalletConnect(true);
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const userAddress = getOrdinalAddress(walletState.accounts);
+    console.log('[BitcoinMixtape] Using address for mint:', userAddress, '(walletType:', walletState.walletType, ')');
+
+    if (!userAddress) {
+      setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found. Please reconnect your wallet.' });
+      return;
+    }
+
     setIsMinting(true);
     setMintingStatus({
       progress: 0,
@@ -87,14 +103,20 @@ export const BitcoinMixtapePage: React.FC = () => {
     });
 
     try {
-      // Schritt 1: Vorbereitung
       setMintingStatus(prev => prev ? { 
         ...prev, 
         progress: 20, 
         message: 'Creating delegate inscription...' 
       } : null);
 
-      // Schritt 2: Delegate erstellen
+      console.log('[BitcoinMixtape] Calling createSingleDelegate...', {
+        originalId: MIXTAPE_CONFIG.originalInscriptionId,
+        address: userAddress,
+        feeRate: inscriptionFeeRate,
+        walletType: walletState.walletType || 'unisat',
+        price: MIXTAPE_CONFIG.priceInSats,
+      });
+
       const result = await createSingleDelegate(
         MIXTAPE_CONFIG.originalInscriptionId,
         MIXTAPE_CONFIG.name,
@@ -102,9 +124,10 @@ export const BitcoinMixtapePage: React.FC = () => {
         MIXTAPE_CONFIG.collection,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        'html', // Content Type für Mixtape - HTML mit iframe für interaktive 3D/Audio Inscription
+        'html',
         MIXTAPE_CONFIG.priceInSats
       );
+      console.log('[BitcoinMixtape] createSingleDelegate success:', result);
 
       setMintingStatus(prev => prev ? { 
         ...prev, 
