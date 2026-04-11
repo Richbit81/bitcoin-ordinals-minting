@@ -7,7 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
-import { getOrdinalAddress, getPaymentAddress } from '../utils/wallet';
+import { getOrdinalAddress } from '../utils/wallet';
 
 // Bitcoin Mixtape Konfiguration
 const MIXTAPE_CONFIG = {
@@ -97,8 +97,7 @@ export const BitcoinMixtapePage: React.FC = () => {
     }
 
     const userAddress = getOrdinalAddress(walletState.accounts);
-    const paymentAddr = getPaymentAddress(walletState.accounts);
-    addDebug(`📍 Ordinals: ${userAddress?.slice(0, 14)}... Payment: ${paymentAddr?.slice(0, 14)}...`);
+    addDebug(`📍 Adresse: ${userAddress?.slice(0, 14)}...`);
 
     if (!userAddress) {
       addDebug('❌ Keine Adresse gefunden!');
@@ -107,26 +106,34 @@ export const BitcoinMixtapePage: React.FC = () => {
       return;
     }
 
-    // UniSat + Taproot: sendBitcoin() sendet von der aktuell aktiven Adresse.
-    // Wenn nur Taproot aktiv ist und keine separate Payment-Adresse existiert,
-    // kann nicht von der Payment-Adresse (wo die Funds sind) gesendet werden.
-    if (walletState.walletType === 'unisat' && userAddress.startsWith('bc1p') && paymentAddr === userAddress) {
-      addDebug('⚠️ UniSat: Nur Taproot aktiv, keine Payment-Adresse!');
-      setMintingStatus({
-        progress: 0,
-        status: 'error',
-        message:
-          '⚠️ UniSat ist mit der Taproot-Adresse verbunden.\n\n' +
-          'Die Zahlung muss aber von deiner Payment-Adresse (Legacy/SegWit) kommen, wo dein BTC liegt.\n\n' +
-          '📋 SO GEHT\'S:\n' +
-          '1. Öffne UniSat Wallet → Settings → Address Type\n' +
-          '2. Wechsle zu "Native SegWit" oder "Legacy"\n' +
-          '3. Klicke oben auf "Connect Wallet" und verbinde erneut\n' +
-          '4. Dann Mint drücken\n\n' +
-          '✅ Deine Inscription geht trotzdem an deine Taproot-Adresse!'
-      });
-      mintInProgressRef.current = false;
-      return;
+    // UniSat: Prüfe Balance BEVOR wir die Inscription-Order erstellen
+    if (walletState.walletType === 'unisat' && window.unisat?.getBalance) {
+      try {
+        const bal = await window.unisat.getBalance();
+        const totalSats = bal?.total || 0;
+        const needed = (MIXTAPE_CONFIG.priceInSats || 0) + 5000; // Preis + geschätzte Inscription-Fees
+        addDebug(`💰 Balance: ${totalSats} sats (benötigt: ~${needed} sats)`);
+        if (totalSats < needed) {
+          addDebug('❌ Nicht genug BTC auf dieser Adresse!');
+          setMintingStatus({
+            progress: 0,
+            status: 'error',
+            message:
+              `Nicht genug BTC auf der aktuell verbundenen Adresse (${totalSats} sats vorhanden, ~${needed} sats benötigt).\n\n` +
+              'Dein BTC liegt wahrscheinlich auf einer anderen Adresse.\n\n' +
+              'So geht\'s:\n' +
+              '1. Öffne UniSat Wallet\n' +
+              '2. Wechsle zur Adresse mit Guthaben (z.B. Native SegWit)\n' +
+              '3. Verbinde erneut über "Connect Wallet"\n' +
+              '4. Dann Mint drücken\n\n' +
+              'Deine Inscription geht trotzdem an deine Taproot-Adresse!'
+          });
+          mintInProgressRef.current = false;
+          return;
+        }
+      } catch {
+        // Balance-Check fehlgeschlagen → trotzdem weitermachen
+      }
     }
 
     setIsMinting(true);

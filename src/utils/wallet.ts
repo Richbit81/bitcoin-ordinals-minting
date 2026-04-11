@@ -11,6 +11,7 @@ declare global {
         total: number;
         list: Array<{ inscriptionId: string; inscriptionNumber: number; address: string; outputValue: number; content: string; contentLength: number; contentType: string; timestamp: number; genesisTransaction: string; location: string; offset: number }>;
       }>;
+      getBalance: () => Promise<{ confirmed: number; unconfirmed: number; total: number }>;
       sendBitcoin: (to: string, amount: number) => Promise<string>;
       inscribeTransfer: (ticker: string, amount: string) => Promise<string>;
       signPsbt: (psbtHex: string, options?: { autoFinalized?: boolean }) => Promise<string>;
