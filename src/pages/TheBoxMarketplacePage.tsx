@@ -71,10 +71,10 @@ const BOX_CSS = `
   50% { text-shadow: 0 0 16px #f80, 0 0 32px #f807, 0 0 56px #f803, 0 0 80px #ff01; }
 }
 @keyframes boxTitleGlow {
-  0% { text-shadow: 0 0 8px #f80, 0 0 20px #f806, 0 0 40px #f803; filter: brightness(1); }
-  33% { text-shadow: 0 0 14px #f80, 0 0 30px #f80a, 0 0 60px #f805; filter: brightness(1.15); }
-  66% { text-shadow: 0 0 10px #fa0, 0 0 24px #f808, 0 0 50px #f804; filter: brightness(1.05); }
-  100% { text-shadow: 0 0 8px #f80, 0 0 20px #f806, 0 0 40px #f803; filter: brightness(1); }
+  0% { text-shadow: 0 0 12px #f80, 0 0 30px #f808, 0 0 60px #f804; filter: brightness(1); }
+  33% { text-shadow: 0 0 20px #fa0, 0 0 40px #f80c, 0 0 80px #f806; filter: brightness(1.2); }
+  66% { text-shadow: 0 0 16px #f90, 0 0 35px #f80a, 0 0 70px #f805; filter: brightness(1.1); }
+  100% { text-shadow: 0 0 12px #f80, 0 0 30px #f808, 0 0 60px #f804; filter: brightness(1); }
 }
 @keyframes boxBlink {
   0%, 100% { opacity: 1; }
@@ -95,6 +95,14 @@ const BOX_CSS = `
 @keyframes boxStatFlash {
   0%, 100% { background: #f8008; }
   50% { background: #f8015; }
+}
+@keyframes boxFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes boxSpin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
 }
 .box-card {
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
@@ -118,6 +126,172 @@ const BOX_CSS = `
   z-index: 5;
 }
 `;
+
+function IsometricBackground() {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const rafRef = React.useRef(0);
+  const mouseRef = React.useRef({ x: -1, y: -1 });
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { mouseRef.current = { x: -1, y: -1 }; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseleave', onLeave);
+
+    interface FloatingBox {
+      x: number; y: number; size: number; speed: number;
+      phase: number; rotSpeed: number; hue: number; opacity: number; drift: number;
+    }
+
+    const boxes: FloatingBox[] = [];
+    const COUNT = 35;
+    for (let i = 0; i < COUNT; i++) {
+      boxes.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: 12 + Math.random() * 30,
+        speed: 0.15 + Math.random() * 0.4,
+        phase: Math.random() * Math.PI * 2,
+        rotSpeed: 0.3 + Math.random() * 0.8,
+        hue: 20 + Math.random() * 30,
+        opacity: 0.08 + Math.random() * 0.18,
+        drift: (Math.random() - 0.5) * 0.3,
+      });
+    }
+
+    function drawIsoBox(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, hue: number, alpha: number, t: number) {
+      const wobble = Math.sin(t) * 0.15;
+      const a = s * (0.5 + wobble * 0.1);
+      const topY = cy - a * 0.8;
+      const botY = cy + a * 0.4;
+      const midY = cy - a * 0.2;
+
+      ctx.globalAlpha = alpha;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, topY);
+      ctx.lineTo(cx + a, midY);
+      ctx.lineTo(cx, midY + a * 0.6);
+      ctx.lineTo(cx - a, midY);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${hue}, 80%, 55%, ${alpha * 0.5})`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - a, midY);
+      ctx.lineTo(cx, midY + a * 0.6);
+      ctx.lineTo(cx, botY + a * 0.2);
+      ctx.lineTo(cx - a, botY - a * 0.4);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${hue}, 70%, 35%, ${alpha * 0.7})`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx + a, midY);
+      ctx.lineTo(cx, midY + a * 0.6);
+      ctx.lineTo(cx, botY + a * 0.2);
+      ctx.lineTo(cx + a, botY - a * 0.4);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${hue}, 75%, 45%, ${alpha * 0.6})`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx, topY);
+      ctx.lineTo(cx + a, midY);
+      ctx.lineTo(cx, midY + a * 0.6);
+      ctx.lineTo(cx - a, midY);
+      ctx.closePath();
+      ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 0.9})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - a, midY); ctx.lineTo(cx - a, botY - a * 0.4);
+      ctx.moveTo(cx + a, midY); ctx.lineTo(cx + a, botY - a * 0.4);
+      ctx.moveTo(cx, midY + a * 0.6); ctx.lineTo(cx, botY + a * 0.2);
+      ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 0.6})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+    }
+
+    const draw = (ts: number) => {
+      const t = ts * 0.001;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const hasMouse = mx >= 0 && my >= 0;
+
+      for (const b of boxes) {
+        b.y -= b.speed;
+        b.x += b.drift + Math.sin(t * 0.5 + b.phase) * 0.2;
+        if (b.y < -b.size * 2) { b.y = h + b.size * 2; b.x = Math.random() * w; }
+        if (b.x < -b.size * 2) b.x = w + b.size;
+        if (b.x > w + b.size * 2) b.x = -b.size;
+
+        let extraAlpha = 0;
+        if (hasMouse) {
+          const dx = b.x - mx, dy = b.y - my;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 250) extraAlpha = (1 - dist / 250) * 0.25;
+        }
+
+        drawIsoBox(ctx, b.x, b.y, b.size, b.hue, b.opacity + extraAlpha, t * b.rotSpeed + b.phase);
+      }
+
+      if (hasMouse) {
+        const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 200);
+        grad.addColorStop(0, 'hsla(30, 100%, 60%, 0.04)');
+        grad.addColorStop(0.5, 'hsla(25, 100%, 50%, 0.02)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(mx - 200, my - 200, 400, 400);
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }} />;
+}
+
+function IsometricBoxSVG({ size = 60, color = '#f80', className = '' }: { size?: number; color?: string; className?: string }) {
+  const h = color;
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" className={className} style={{ filter: `drop-shadow(0 0 8px ${h}80)` }}>
+      <polygon points="50,10 90,35 50,60 10,35" fill={`${h}30`} stroke={h} strokeWidth="1.5" />
+      <polygon points="10,35 50,60 50,90 10,65" fill={`${h}18`} stroke={h} strokeWidth="1" />
+      <polygon points="90,35 50,60 50,90 90,65" fill={`${h}22`} stroke={h} strokeWidth="1" />
+    </svg>
+  );
+}
 
 function BoxCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
   const isTop = position.startsWith('t');
@@ -348,8 +522,11 @@ export const TheBoxMarketplacePage: React.FC = () => {
     <div className="min-h-screen text-white relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at 50% 0%, #1a0f05 0%, #100a02 40%, #080400 100%)', fontFamily: "'Courier New', Courier, monospace" }}>
       <style>{BOX_CSS}</style>
 
-      <div className="absolute pointer-events-none" style={{ top: '10%', left: '5%', width: 400, height: 400, background: 'radial-gradient(circle, #f8008 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }} />
-      <div className="absolute pointer-events-none" style={{ top: '50%', right: '5%', width: 350, height: 350, background: 'radial-gradient(circle, #fa006 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }} />
+      <IsometricBackground />
+
+      <div className="absolute pointer-events-none" style={{ top: '5%', left: '8%', width: 500, height: 500, background: 'radial-gradient(circle, #f8006 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ top: '40%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, #fa005 0%, transparent 70%)', filter: 'blur(70px)', zIndex: 0 }} />
+      <div className="absolute pointer-events-none" style={{ bottom: '15%', left: '25%', width: 350, height: 350, background: 'radial-gradient(circle, #f60004 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 0 }} />
 
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-3 py-6">
 
@@ -359,27 +536,40 @@ export const TheBoxMarketplacePage: React.FC = () => {
           </button>
         </div>
 
-        <div className="mb-3 relative">
-          <div className="relative py-4 px-6">
-            <div className="text-center">
+        {/* ── ISOMETRIC TITLE SECTION ── */}
+        <div className="mb-6 relative py-8 px-6">
+          <div className="text-center flex flex-col items-center">
+            <div className="flex items-center justify-center gap-4 md:gap-8">
+              <IsometricBoxSVG size={70} color="#f80" className="hidden sm:block" />
               <div className="flex flex-col items-center">
-                <img
-                  src="/images/Box.png"
-                  alt="THE BOX"
-                  style={{
-                    width: 200,
-                    imageRendering: 'auto',
-                    filter: 'drop-shadow(0 0 12px #f80) drop-shadow(0 0 30px #f808) drop-shadow(0 0 60px #fa04)',
-                    animation: 'boxGlow 3s ease-in-out infinite',
-                  }}
-                />
-                <h2 className="mt-3 text-3xl md:text-4xl font-black uppercase" style={{ color: '#fff', letterSpacing: '0.35em', animation: 'boxTitleGlow 4s ease-in-out infinite' }}>THE BOX</h2>
+                <div className="flex items-center gap-3">
+                  <IsometricBoxSVG size={40} color="#fa0" className="sm:hidden" />
+                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase" style={{
+                    color: '#fff',
+                    letterSpacing: '0.2em',
+                    animation: 'boxTitleGlow 4s ease-in-out infinite',
+                    WebkitTextStroke: '1px rgba(255,136,0,0.3)',
+                  }}>THE BOX</h1>
+                  <IsometricBoxSVG size={40} color="#fa0" className="sm:hidden" />
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="h-px flex-1 min-w-[40px] max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
+                  <p className="text-[10px] md:text-xs uppercase tracking-[0.5em] font-bold" style={{ color: '#f80', textShadow: '0 0 10px #f804' }}>69 PIECE COLLECTION</p>
+                  <span className="h-px flex-1 min-w-[40px] max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
+                </div>
               </div>
-              <div className="mt-3 flex items-center justify-center gap-3">
-                <span className="h-px flex-1 max-w-[100px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
-                <p className="text-xs md:text-sm uppercase tracking-[0.4em] font-bold" style={{ color: '#f80', textShadow: '0 0 10px #f804' }}>69 PIECE COLLECTION</p>
-                <span className="h-px flex-1 max-w-[100px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
-              </div>
+              <IsometricBoxSVG size={70} color="#f80" className="hidden sm:block" />
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} style={{
+                  width: 6, height: 6,
+                  background: i === 2 ? '#f80' : '#f804',
+                  boxShadow: i === 2 ? '0 0 8px #f80' : 'none',
+                  transform: 'rotate(45deg)',
+                  animation: i === 2 ? 'boxFloat 2s ease-in-out infinite' : undefined,
+                }} />
+              ))}
             </div>
           </div>
         </div>
@@ -625,12 +815,12 @@ export const TheBoxMarketplacePage: React.FC = () => {
 
         <div className="mt-16 mb-6 text-center relative">
           <div className="h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #f803, #fa03, #0f03, #fa03, #f803, transparent)' }} />
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <span className="w-2 h-2" style={{ background: '#f80', boxShadow: '0 0 4px #f80', animation: 'boxBlink 3s steps(1) infinite' }} />
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <IsometricBoxSVG size={20} color="#f80" />
             <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#fff2' }}>THE BOX MARKETPLACE</p>
             <span className="text-[10px]" style={{ color: '#fff15' }}>·</span>
             <p className="text-[10px] uppercase tracking-[0.4em] font-bold" style={{ color: '#f8015' }}>POWERED BY RICHART.APP</p>
-            <span className="w-2 h-2" style={{ background: '#fa0', boxShadow: '0 0 4px #fa0', animation: 'boxBlink 3s 1.5s steps(1) infinite' }} />
+            <IsometricBoxSVG size={20} color="#fa0" />
           </div>
           <div className="mt-3 h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #f803, #fa03, #0f03, #fa03, #f803, transparent)' }} />
         </div>
