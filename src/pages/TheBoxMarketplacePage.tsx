@@ -640,11 +640,6 @@ export const TheBoxMarketplacePage: React.FC = () => {
                   }}>THE BOX</h1>
                   <IsometricBoxSVG size={40} color="#fa0" className="sm:hidden" />
                 </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="h-px flex-1 min-w-[40px] max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
-                  <p className="text-[10px] md:text-xs uppercase tracking-[0.5em] font-bold" style={{ color: '#f80', textShadow: '0 0 10px #f804' }}>69 PIECE COLLECTION</p>
-                  <span className="h-px flex-1 min-w-[40px] max-w-[120px]" style={{ background: 'linear-gradient(90deg, transparent, #f80, transparent)' }} />
-                </div>
               </div>
               <IsometricBoxSVG size={70} color="#f80" className="hidden sm:block" />
             </div>
