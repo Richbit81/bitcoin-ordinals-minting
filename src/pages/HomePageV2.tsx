@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
@@ -274,6 +274,11 @@ export const HomePageV2: React.FC = () => {
   const [showMempoolModal, setShowMempoolModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const displayedNewStuff = useMemo(() => {
+    const shuffled = [...ALL_NEW_STUFF].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 7);
+  }, []);
+
   return (
     <>
       <SynthLifeV2 />
@@ -433,7 +438,7 @@ export const HomePageV2: React.FC = () => {
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">New & Featured</h2>
           <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 sm:overflow-visible scrollbar-hide">
-            {ALL_NEW_STUFF.map((item) => (
+            {displayedNewStuff.map((item) => (
               <div
                 key={item.name}
                 onClick={() => navigate(item.route)}
