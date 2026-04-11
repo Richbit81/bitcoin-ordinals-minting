@@ -131,6 +131,7 @@ function IsometricBackground() {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const rafRef = React.useRef(0);
   const mouseRef = React.useRef({ x: -1, y: -1 });
+  const smoothMouseRef = React.useRef({ x: -1, y: -1 });
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -138,134 +139,221 @@ function IsometricBackground() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    let W = 0, H = 0;
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     window.addEventListener('resize', resize);
-
     const onMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
     const onLeave = () => { mouseRef.current = { x: -1, y: -1 }; };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseleave', onLeave);
 
-    interface FloatingBox {
-      x: number; y: number; size: number; speed: number;
-      phase: number; rotSpeed: number; hue: number; opacity: number; drift: number;
+    interface Cube {
+      gx: number; gz: number;
+      baseH: number; phase: number;
+      hue: number; sat: number; lum: number;
+    }
+    interface Spark {
+      x: number; y: number; vx: number; vy: number;
+      life: number; maxLife: number; hue: number; size: number;
     }
 
-    const boxes: FloatingBox[] = [];
-    const COUNT = 35;
-    for (let i = 0; i < COUNT; i++) {
-      boxes.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        size: 12 + Math.random() * 30,
-        speed: 0.15 + Math.random() * 0.4,
-        phase: Math.random() * Math.PI * 2,
-        rotSpeed: 0.3 + Math.random() * 0.8,
-        hue: 20 + Math.random() * 30,
-        opacity: 0.08 + Math.random() * 0.18,
-        drift: (Math.random() - 0.5) * 0.3,
-      });
+    const GRID = 14;
+    const HALF = Math.floor(GRID / 2);
+    const cubes: Cube[] = [];
+    for (let gx = -HALF; gx <= HALF; gx++) {
+      for (let gz = -HALF; gz <= HALF; gz++) {
+        const dist = Math.sqrt(gx * gx + gz * gz);
+        if (dist > HALF + 1) continue;
+        cubes.push({
+          gx, gz,
+          baseH: 4 + Math.random() * 18,
+          phase: Math.random() * Math.PI * 2,
+          hue: 18 + Math.random() * 28,
+          sat: 60 + Math.random() * 30,
+          lum: 30 + Math.random() * 25,
+        });
+      }
+    }
+    cubes.sort((a, b) => (a.gz - a.gx) - (b.gz - b.gx));
+
+    const sparks: Spark[] = [];
+    const MAX_SPARKS = 60;
+
+    function isoProject(gx: number, gy: number, gz: number, cx: number, cy: number, scale: number) {
+      const sx = (gx - gz) * scale * 0.866;
+      const sy = (gx + gz) * scale * 0.5 - gy * scale * 0.6;
+      return { x: cx + sx, y: cy + sy };
     }
 
-    function drawIsoBox(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, hue: number, alpha: number, t: number) {
-      const wobble = Math.sin(t) * 0.15;
-      const a = s * (0.5 + wobble * 0.1);
-      const topY = cy - a * 0.8;
-      const botY = cy + a * 0.4;
-      const midY = cy - a * 0.2;
+    function drawCube(
+      ctx: CanvasRenderingContext2D,
+      gx: number, gz: number, h: number,
+      cx: number, cy: number, scale: number,
+      hue: number, sat: number, lum: number, alpha: number, highlight: number
+    ) {
+      const s = scale;
+      const topLum = Math.min(90, lum + 20 + highlight * 25);
+      const leftLum = Math.max(8, lum - 12);
+      const rightLum = Math.max(8, lum - 4);
+      const topSat = Math.min(100, sat + highlight * 20);
+
+      const p0 = isoProject(gx, h, gz, cx, cy, s);
+      const p1 = isoProject(gx + 1, h, gz, cx, cy, s);
+      const p2 = isoProject(gx + 1, h, gz + 1, cx, cy, s);
+      const p3 = isoProject(gx, h, gz + 1, cx, cy, s);
+      const p4 = isoProject(gx, 0, gz + 1, cx, cy, s);
+      const p5 = isoProject(gx + 1, 0, gz + 1, cx, cy, s);
+      const p6 = isoProject(gx + 1, 0, gz, cx, cy, s);
 
       ctx.globalAlpha = alpha;
 
       ctx.beginPath();
-      ctx.moveTo(cx, topY);
-      ctx.lineTo(cx + a, midY);
-      ctx.lineTo(cx, midY + a * 0.6);
-      ctx.lineTo(cx - a, midY);
+      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+      ctx.lineTo(p5.x, p5.y); ctx.lineTo(p2.x, p2.y);
       ctx.closePath();
-      ctx.fillStyle = `hsla(${hue}, 80%, 55%, ${alpha * 0.5})`;
+      ctx.fillStyle = `hsla(${hue}, ${sat}%, ${leftLum}%, 1)`;
       ctx.fill();
 
       ctx.beginPath();
-      ctx.moveTo(cx - a, midY);
-      ctx.lineTo(cx, midY + a * 0.6);
-      ctx.lineTo(cx, botY + a * 0.2);
-      ctx.lineTo(cx - a, botY - a * 0.4);
+      ctx.moveTo(p2.x, p2.y); ctx.lineTo(p5.x, p5.y);
+      ctx.lineTo(p6.x, p6.y); ctx.lineTo(p1.x, p1.y);
       ctx.closePath();
-      ctx.fillStyle = `hsla(${hue}, 70%, 35%, ${alpha * 0.7})`;
+      ctx.fillStyle = `hsla(${hue}, ${sat}%, ${rightLum}%, 1)`;
       ctx.fill();
 
       ctx.beginPath();
-      ctx.moveTo(cx + a, midY);
-      ctx.lineTo(cx, midY + a * 0.6);
-      ctx.lineTo(cx, botY + a * 0.2);
-      ctx.lineTo(cx + a, botY - a * 0.4);
+      ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
       ctx.closePath();
-      ctx.fillStyle = `hsla(${hue}, 75%, 45%, ${alpha * 0.6})`;
+      ctx.fillStyle = `hsla(${hue}, ${topSat}%, ${topLum}%, 1)`;
       ctx.fill();
 
+      ctx.strokeStyle = `hsla(${hue}, 90%, ${Math.min(85, topLum + 15)}%, ${0.2 + highlight * 0.6})`;
+      ctx.lineWidth = 0.6 + highlight * 0.6;
       ctx.beginPath();
-      ctx.moveTo(cx, topY);
-      ctx.lineTo(cx + a, midY);
-      ctx.lineTo(cx, midY + a * 0.6);
-      ctx.lineTo(cx - a, midY);
-      ctx.closePath();
-      ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 0.9})`;
-      ctx.lineWidth = 0.8;
+      ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
+      ctx.closePath(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+      ctx.moveTo(p2.x, p2.y); ctx.lineTo(p5.x, p5.y);
+      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p6.x, p6.y);
       ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(cx - a, midY); ctx.lineTo(cx - a, botY - a * 0.4);
-      ctx.moveTo(cx + a, midY); ctx.lineTo(cx + a, botY - a * 0.4);
-      ctx.moveTo(cx, midY + a * 0.6); ctx.lineTo(cx, botY + a * 0.2);
-      ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 0.6})`;
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+      if (highlight > 0.2) {
+        ctx.shadowColor = `hsla(${hue}, 100%, 60%, ${highlight * 0.4})`;
+        ctx.shadowBlur = 12 * highlight;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
+        ctx.closePath();
+        ctx.fillStyle = `hsla(${hue}, 100%, 75%, ${highlight * 0.15})`;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
 
       ctx.globalAlpha = 1;
     }
 
     const draw = (ts: number) => {
       const t = ts * 0.001;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, W, H);
 
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
-      const hasMouse = mx >= 0 && my >= 0;
+      const sm = smoothMouseRef.current;
+      if (mx >= 0) {
+        sm.x = sm.x < 0 ? mx : sm.x + (mx - sm.x) * 0.06;
+        sm.y = sm.y < 0 ? my : sm.y + (my - sm.y) * 0.06;
+      } else { sm.x = -1; sm.y = -1; }
 
-      for (const b of boxes) {
-        b.y -= b.speed;
-        b.x += b.drift + Math.sin(t * 0.5 + b.phase) * 0.2;
-        if (b.y < -b.size * 2) { b.y = h + b.size * 2; b.x = Math.random() * w; }
-        if (b.x < -b.size * 2) b.x = w + b.size;
-        if (b.x > w + b.size * 2) b.x = -b.size;
+      const cx = W * 0.5;
+      const cy = H * 0.42;
+      const scale = Math.min(W, H) * 0.028;
 
-        let extraAlpha = 0;
-        if (hasMouse) {
-          const dx = b.x - mx, dy = b.y - my;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 250) extraAlpha = (1 - dist / 250) * 0.25;
+      const parallaxX = sm.x >= 0 ? (sm.x - W * 0.5) * 0.015 : Math.sin(t * 0.2) * 8;
+      const parallaxY = sm.y >= 0 ? (sm.y - H * 0.5) * 0.01 : Math.cos(t * 0.15) * 5;
+      const pcx = cx + parallaxX;
+      const pcy = cy + parallaxY;
+
+      const vGrad = ctx.createLinearGradient(0, 0, 0, H);
+      vGrad.addColorStop(0, 'rgba(26,15,5,0)');
+      vGrad.addColorStop(0.5, 'rgba(26,15,5,0)');
+      vGrad.addColorStop(1, 'rgba(255,136,0,0.03)');
+      ctx.fillStyle = vGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      for (const c of cubes) {
+        const wave1 = Math.sin(t * 0.8 + c.phase + c.gx * 0.3) * 0.5 + 0.5;
+        const wave2 = Math.sin(t * 0.5 + c.phase * 2 + c.gz * 0.25) * 0.5 + 0.5;
+        const wave3 = Math.sin(t * 1.2 + c.gx * 0.15 + c.gz * 0.15) * 0.5 + 0.5;
+        const h = c.baseH * (0.3 + wave1 * 0.5 + wave2 * 0.2 + wave3 * 0.1);
+
+        const dist = Math.sqrt(c.gx * c.gx + c.gz * c.gz);
+        const fade = Math.max(0, 1 - dist / (HALF + 1));
+        const alpha = fade * fade * (0.4 + wave1 * 0.3);
+
+        let highlight = 0;
+        if (sm.x >= 0) {
+          const topP = isoProject(c.gx + 0.5, h, c.gz + 0.5, pcx, pcy, scale);
+          const dx = topP.x - sm.x, dy = topP.y - sm.y;
+          const mDist = Math.sqrt(dx * dx + dy * dy);
+          highlight = Math.max(0, 1 - mDist / 200);
+          highlight *= highlight;
         }
 
-        drawIsoBox(ctx, b.x, b.y, b.size, b.hue, b.opacity + extraAlpha, t * b.rotSpeed + b.phase);
+        const dynHue = c.hue + Math.sin(t * 0.3 + c.phase) * 8;
+
+        drawCube(ctx, c.gx, c.gz, h, pcx, pcy, scale, dynHue, c.sat, c.lum, alpha, highlight);
+
+        if (highlight > 0.5 && Math.random() < 0.08) {
+          const topP = isoProject(c.gx + 0.5, h + 1, c.gz + 0.5, pcx, pcy, scale);
+          if (sparks.length < MAX_SPARKS) {
+            sparks.push({
+              x: topP.x + (Math.random() - 0.5) * 10,
+              y: topP.y,
+              vx: (Math.random() - 0.5) * 1.5,
+              vy: -1 - Math.random() * 2,
+              life: 1,
+              maxLife: 40 + Math.random() * 40,
+              hue: dynHue,
+              size: 1 + Math.random() * 2,
+            });
+          }
+        }
       }
 
-      if (hasMouse) {
-        const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 200);
-        grad.addColorStop(0, 'hsla(30, 100%, 60%, 0.04)');
-        grad.addColorStop(0.5, 'hsla(25, 100%, 50%, 0.02)');
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.x += s.vx; s.y += s.vy;
+        s.vy -= 0.01;
+        s.life += 1;
+        const progress = s.life / s.maxLife;
+        if (progress >= 1) { sparks.splice(i, 1); continue; }
+        const a = 1 - progress;
+        ctx.globalAlpha = a * 0.8;
+        ctx.shadowColor = `hsla(${s.hue}, 100%, 70%, ${a * 0.6})`;
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = `hsla(${s.hue}, 100%, ${65 + progress * 20}%, ${a})`;
+        ctx.fillRect(s.x - s.size * 0.5, s.y - s.size * 0.5, s.size * (1 - progress * 0.5), s.size * (1 - progress * 0.5));
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      if (sm.x >= 0) {
+        const grad = ctx.createRadialGradient(sm.x, sm.y, 0, sm.x, sm.y, 280);
+        grad.addColorStop(0, 'hsla(30, 100%, 60%, 0.06)');
+        grad.addColorStop(0.4, 'hsla(25, 100%, 50%, 0.025)');
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.fillRect(mx - 200, my - 200, 400, 400);
+        ctx.fillRect(sm.x - 280, sm.y - 280, 560, 560);
       }
 
       rafRef.current = requestAnimationFrame(draw);
