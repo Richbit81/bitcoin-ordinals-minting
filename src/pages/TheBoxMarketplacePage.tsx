@@ -646,7 +646,15 @@ export const TheBoxMarketplacePage: React.FC = () => {
                   <div className="absolute top-0 left-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase" style={{ background: '#ff0', color: '#000', boxShadow: '0 0 8px #ff04' }}>OWNED</div>
                 )}
                 <button onClick={() => setSelectedId(row.inscriptionId)} className="aspect-square w-full overflow-hidden text-left relative" style={{ background: '#000' }}>
-                  <img src={contentUrl} title={row.name} alt={row.name} className="h-full w-full object-contain relative z-[2]" loading="lazy" />
+                  <iframe
+                    src={contentUrl}
+                    title={row.name}
+                    className="w-full h-full border-0 relative z-[2] pointer-events-none"
+                    sandbox="allow-scripts allow-same-origin"
+                    loading="lazy"
+                    scrolling="no"
+                    style={{ overflow: 'hidden' }}
+                  />
                   <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 20px #00000080' }} />
                 </button>
                 <div className="p-2" style={{ borderTop: pxBorder(borderColor) }}>
@@ -684,7 +692,14 @@ export const TheBoxMarketplacePage: React.FC = () => {
               <div className="grid gap-0 md:grid-cols-2">
                 <div className="p-4">
                   <div className="aspect-square overflow-hidden cursor-pointer transition-all hover:shadow-[0_0_30px_#f803] relative" style={{ border: pxBorder('#f804'), background: '#000' }} onClick={() => setFullscreenImage({ url: `https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`, name: selected.name })}>
-                    <img src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`} alt={selected.name} className="h-full w-full object-contain relative z-[2]" />
+                    <iframe
+                      src={`https://ordinals.com/content/${encodeURIComponent(selected.inscriptionId)}`}
+                      title={selected.name}
+                      className="w-full h-full border-0 relative z-[2] pointer-events-none"
+                      sandbox="allow-scripts allow-same-origin"
+                      scrolling="no"
+                      style={{ overflow: 'hidden' }}
+                    />
                     <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 30px #00000060' }} />
                   </div>
                   <p className="mt-2 text-center text-[9px] uppercase tracking-wider" style={{ color: '#fff3' }}><span style={{ animation: 'boxBlink 2s steps(1) infinite' }}>▶</span> CLICK TO ENLARGE</p>
@@ -803,8 +818,14 @@ export const TheBoxMarketplacePage: React.FC = () => {
         {fullscreenImage && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'radial-gradient(circle, #000c 0%, #000f 100%)' }} onClick={() => setFullscreenImage(null)}>
             <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <div className="relative" style={{ animation: 'boxBorderPulse 4s ease-in-out infinite' }}>
-                <img src={fullscreenImage.url} alt={fullscreenImage.name} className="block" style={{ border: pxBorder('#f80'), width: 'min(85vmin, 700px)', height: 'min(85vmin, 700px)', objectFit: 'contain', background: '#000', boxShadow: '0 0 80px #f8015, 0 0 160px #fa008' }} />
+              <div className="relative" style={{ animation: 'boxBorderPulse 4s ease-in-out infinite', width: 'min(85vmin, 700px)', height: 'min(85vmin, 700px)' }}>
+                <iframe
+                  src={fullscreenImage.url}
+                  title={fullscreenImage.name}
+                  className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-same-origin"
+                  style={{ border: pxBorder('#f80'), background: '#000', boxShadow: '0 0 80px #f8015, 0 0 160px #fa008', display: 'block' }}
+                />
                 <BoxCorner position="tl" /><BoxCorner position="tr" /><BoxCorner position="bl" /><BoxCorner position="br" />
               </div>
               <p className="text-center text-lg font-black uppercase tracking-[0.2em] mt-4" style={{ color: '#f80', animation: 'boxGlow 3s ease-in-out infinite' }}>{fullscreenImage.name}</p>
