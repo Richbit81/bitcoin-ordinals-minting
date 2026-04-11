@@ -106,33 +106,32 @@ export const BitcoinMixtapePage: React.FC = () => {
       return;
     }
 
-    // UniSat: Prüfe Balance BEVOR wir die Inscription-Order erstellen
-    if (walletState.walletType === 'unisat' && window.unisat?.getBalance) {
+    // UniSat + Taproot aktiv: sendBitcoin() würde Inscription-UTXOs auf Taproot verwenden
+    // und damit Inscriptions zerstören! Payment MUSS von SegWit/Legacy kommen.
+    if (walletState.walletType === 'unisat') {
       try {
-        const bal = await window.unisat.getBalance();
-        const totalSats = bal?.total || 0;
-        const needed = (MIXTAPE_CONFIG.priceInSats || 0) + 5000; // Preis + geschätzte Inscription-Fees
-        addDebug(`💰 Balance: ${totalSats} sats (benötigt: ~${needed} sats)`);
-        if (totalSats < needed) {
-          addDebug('❌ Nicht genug BTC auf dieser Adresse!');
+        const accs = await window.unisat!.getAccounts();
+        const activeAddr = accs?.[0] || '';
+        if (activeAddr.startsWith('bc1p')) {
+          addDebug('🛑 Taproot aktiv → Inscription-Sats geschützt!');
           setMintingStatus({
             progress: 0,
             status: 'error',
             message:
-              `Nicht genug BTC auf der aktuell verbundenen Adresse (${totalSats} sats vorhanden, ~${needed} sats benötigt).\n\n` +
-              'Dein BTC liegt wahrscheinlich auf einer anderen Adresse.\n\n' +
-              'So geht\'s:\n' +
-              '1. Öffne UniSat Wallet\n' +
-              '2. Wechsle zur Adresse mit Guthaben (z.B. Native SegWit)\n' +
-              '3. Verbinde erneut über "Connect Wallet"\n' +
-              '4. Dann Mint drücken\n\n' +
-              'Deine Inscription geht trotzdem an deine Taproot-Adresse!'
+              '🛑 UniSat ist mit deiner Taproot-Adresse verbunden.\n\n' +
+              'Die Sats auf Taproot gehören zu deinen Inscriptions und dürfen NICHT für Zahlungen verwendet werden!\n\n' +
+              'Wechsle in UniSat den Adresstyp:\n' +
+              '1. Klicke auf das UniSat-Icon → Settings → Address Type\n' +
+              '2. Wähle "Native SegWit" (dort liegt dein BTC)\n' +
+              '3. Klicke hier auf "Connect Wallet" und verbinde erneut\n\n' +
+              '✅ Deine neue Inscription geht trotzdem automatisch an deine Taproot-Adresse!'
           });
           mintInProgressRef.current = false;
           return;
         }
+        addDebug(`💳 Payment von: ${activeAddr.slice(0, 14)}...`);
       } catch {
-        // Balance-Check fehlgeschlagen → trotzdem weitermachen
+        // Konnte aktive Adresse nicht prüfen → weitermachen
       }
     }
 
