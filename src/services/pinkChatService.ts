@@ -303,7 +303,8 @@ export const pinkChatApi = {
         body: JSON.stringify({ walletAddress, displayName }),
       });
     } catch (err) {
-      if (!isMockFallback(err)) throw err;
+      const isRouteNotFound = err instanceof Error && (err.message.includes('Cannot POST') || err.message.includes('404'));
+      if (!isMockFallback(err) && !isRouteNotFound) throw err;
       const state = readMock();
       const existing = state.users.find((u) => u.walletAddress === walletAddress);
       if (existing) {
