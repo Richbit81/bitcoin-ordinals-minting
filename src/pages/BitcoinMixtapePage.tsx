@@ -203,18 +203,22 @@ export const BitcoinMixtapePage: React.FC = () => {
     }
   }, [walletState, inscriptionFeeRate]);
 
-  // Native DOM click listener as fallback – UniSat's SES lockdown can break
-  // React's synthetic event delegation, so we attach directly to the DOM node.
+  // Global click debugger: logs what element was clicked anywhere on the page.
+  // This helps identify if clicks hit the iframe instead of the mint button.
   useEffect(() => {
-    const btn = mintButtonRef.current;
-    if (!btn) return;
-    const handler = () => {
-      console.log('[BitcoinMixtape] Native click handler fired');
-      handleMint();
+    const debugClick = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      const tag = el?.tagName;
+      const text = el?.textContent?.slice(0, 40);
+      const cls = el?.className?.toString?.()?.slice(0, 60);
+      console.log(`[ClickDebug] tag=${tag} text="${text}" class="${cls}"`);
+      if (tag === 'IFRAME') {
+        console.warn('[ClickDebug] ⚠️ Click landed on IFRAME, not on the Mint button!');
+      }
     };
-    btn.addEventListener('click', handler);
-    return () => btn.removeEventListener('click', handler);
-  }, [handleMint]);
+    document.addEventListener('click', debugClick, true);
+    return () => document.removeEventListener('click', debugClick, true);
+  }, []);
 
   // Video Intro Screen
   if (showVideo) {
