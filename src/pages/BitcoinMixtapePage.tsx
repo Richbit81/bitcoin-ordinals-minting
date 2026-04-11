@@ -38,6 +38,11 @@ export const BitcoinMixtapePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [mintCount, setMintCount] = useState<number>(0);
+  const [debugLines, setDebugLines] = useState<string[]>([]);
+  const addDebug = useCallback((msg: string) => {
+    const ts = new Date().toLocaleTimeString();
+    setDebugLines(prev => [...prev.slice(-9), `[${ts}] ${msg}`]);
+  }, []);
 
   // Lade Mint-Statistiken
   useEffect(() => {
@@ -78,54 +83,35 @@ export const BitcoinMixtapePage: React.FC = () => {
   // Minting Handler – useCallback so the native listener always has the latest ref
   const handleMint = useCallback(async () => {
     if (mintInProgressRef.current) {
-      console.log('[BitcoinMixtape] handleMint skipped – already in progress');
+      addDebug('⏳ Mint läuft bereits...');
       return;
     }
     mintInProgressRef.current = true;
-    console.log('[BitcoinMixtape] handleMint called', {
-      connected: walletState.connected,
-      walletType: walletState.walletType,
-      accountCount: walletState.accounts?.length,
-      accounts: walletState.accounts?.map(a => ({ address: a.address?.slice(0, 12) + '...', purpose: a.purpose })),
-    });
+    addDebug(`🟢 MINT BUTTON GEKLICKT! wallet=${walletState.walletType} connected=${walletState.connected}`);
 
     if (!walletState.connected || !walletState.accounts[0]) {
-      console.log('[BitcoinMixtape] No wallet connected, showing connect modal');
+      addDebug('❌ Kein Wallet verbunden → zeige Connect Dialog');
       setShowWalletConnect(true);
       mintInProgressRef.current = false;
       return;
     }
 
     const userAddress = getOrdinalAddress(walletState.accounts);
-    console.log('[BitcoinMixtape] Using address for mint:', userAddress, '(walletType:', walletState.walletType, ')');
+    addDebug(`📍 Adresse: ${userAddress?.slice(0, 14)}...`);
 
     if (!userAddress) {
+      addDebug('❌ Keine Adresse gefunden!');
       setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found. Please reconnect your wallet.' });
       mintInProgressRef.current = false;
       return;
     }
 
     setIsMinting(true);
-    setMintingStatus({
-      progress: 0,
-      status: 'processing',
-      message: 'Initiating mint...',
-    });
+    setMintingStatus({ progress: 0, status: 'processing', message: 'Initiating mint...' });
+    addDebug('📡 Rufe Backend API auf (createSingleDelegate)...');
 
     try {
-      setMintingStatus(prev => prev ? { 
-        ...prev, 
-        progress: 20, 
-        message: 'Creating delegate inscription...' 
-      } : null);
-
-      console.log('[BitcoinMixtape] Calling createSingleDelegate...', {
-        originalId: MIXTAPE_CONFIG.originalInscriptionId,
-        address: userAddress,
-        feeRate: inscriptionFeeRate,
-        walletType: walletState.walletType || 'unisat',
-        price: MIXTAPE_CONFIG.priceInSats,
-      });
+      setMintingStatus(prev => prev ? { ...prev, progress: 20, message: 'Creating delegate inscription...' } : null);
 
       const result = await createSingleDelegate(
         MIXTAPE_CONFIG.originalInscriptionId,
@@ -137,15 +123,10 @@ export const BitcoinMixtapePage: React.FC = () => {
         'html',
         MIXTAPE_CONFIG.priceInSats
       );
-      console.log('[BitcoinMixtape] createSingleDelegate success:', result);
+      addDebug(`✅ Delegate erstellt! txid=${result.txid?.slice(0, 12)}...`);
 
-      setMintingStatus(prev => prev ? { 
-        ...prev, 
-        progress: 70, 
-        message: 'Saving mint record...' 
-      } : null);
+      setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Saving mint record...' } : null);
 
-      // Schritt 3: Mint-Log speichern
       try {
         await fetch(`${API_URL}/api/mixtape/log`, {
           method: 'POST',
@@ -173,7 +154,6 @@ export const BitcoinMixtapePage: React.FC = () => {
         console.warn('[BitcoinMixtape] Could not add mint points:', pointsError);
       }
 
-      // Erfolg!
       setMintingStatus({
         progress: 100,
         status: 'success',
@@ -181,27 +161,19 @@ export const BitcoinMixtapePage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
         txid: result.txid,
       });
-
-      // Aktualisiere Mint-Count
+      addDebug('🎉 MINT ERFOLGREICH!');
       setMintCount(prev => prev + 1);
 
     } catch (error: any) {
-      console.error('[BitcoinMixtape] ❌ Minting error:', error);
-      console.error('[BitcoinMixtape] Error name:', error?.name);
-      console.error('[BitcoinMixtape] Error message:', error?.message);
-      console.error('[BitcoinMixtape] Error stack:', error?.stack);
+      console.error('[BitcoinMixtape] Minting error:', error);
       const msg = error?.message || 'Minting failed. Please try again.';
-      setMintingStatus({
-        progress: 0,
-        status: 'error',
-        message: msg,
-      });
+      addDebug(`❌ FEHLER: ${msg.slice(0, 80)}`);
+      setMintingStatus({ progress: 0, status: 'error', message: msg });
     } finally {
-      console.log('[BitcoinMixtape] handleMint finished (finally block)');
       setIsMinting(false);
       mintInProgressRef.current = false;
     }
-  }, [walletState, inscriptionFeeRate]);
+  }, [walletState, inscriptionFeeRate, addDebug]);
 
   // Global click debugger: logs what element was clicked anywhere on the page.
   // This helps identify if clicks hit the iframe instead of the mint button.
@@ -337,9 +309,11 @@ export const BitcoinMixtapePage: React.FC = () => {
             )}
 
             {/* Debug Status */}
-            <div className="mb-2 p-2 rounded bg-yellow-900/50 border border-yellow-600/50 text-yellow-300 text-xs font-mono">
-              Wallet: {walletState.connected ? `✅ ${walletState.walletType} (${walletState.accounts?.[0]?.address?.slice(0,10)}...)` : '❌ not connected'} | 
-              Button visible: ✅ | isMinting: {String(isMinting)}
+            <div className="mb-2 p-2 rounded bg-yellow-900/50 border border-yellow-600/50 text-yellow-300 text-xs font-mono space-y-0.5">
+              <div>Wallet: {walletState.connected ? `✅ ${walletState.walletType} (${walletState.accounts?.[0]?.address?.slice(0,10)}...)` : '❌ not connected'} | isMinting: {String(isMinting)}</div>
+              {debugLines.map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
             </div>
 
             {/* Mint Button */}

@@ -1,0 +1,33 @@
+---
+description: CRITICAL safety rule - always check for uncommitted local changes before any git push
+alwaysApply: true
+---
+
+# Git Push Safety - MANDATORY
+
+Before EVERY `git push` command, you MUST:
+
+1. Run `git status` to check for uncommitted local changes
+2. If there ARE uncommitted changes (modified/untracked files), STOP and warn the user
+3. Ask the user whether those changes should be committed first
+4. NEVER push if there are uncommitted local changes without explicit user approval
+
+This prevents Vercel/CI rebuilds from deploying an incomplete state that is missing local work.
+
+## Example workflow
+
+```
+# ALWAYS do this before pushing:
+git status
+
+# If output shows modified/untracked files:
+# -> STOP, warn user, ask if they should be committed first
+# -> Only push after user confirms the working tree state is acceptable
+
+# If output shows "nothing to commit, working tree clean":
+# -> Safe to push
+```
+
+## When committing specific files only
+
+If you are staging only specific files (e.g. `git add file1 file2`), you MUST still check if there are OTHER uncommitted changes that might be important. If there are, warn the user that those files will NOT be included in the deployment.
