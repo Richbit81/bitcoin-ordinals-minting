@@ -714,7 +714,7 @@ export const TheBoxMarketplacePage: React.FC = () => {
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
           {rows.map((row) => {
-            const thumbUrl = `https://ordinals.com/preview/${encodeURIComponent(row.inscriptionId)}`;
+            const contentUrl = `https://ordinals.com/content/${encodeURIComponent(row.inscriptionId)}`;
             const ownerAddr = ownerByInscription[row.inscriptionId] || (row.isOwnedByConnectedWallet && currentAddress ? currentAddress : row.listing?.seller || '');
             const isListed = !!row.listing;
             const borderColor = isListed ? '#0f0' : row.isOwnedByConnectedWallet ? '#ff0' : '#f802';
@@ -729,15 +729,27 @@ export const TheBoxMarketplacePage: React.FC = () => {
                   <div className="absolute top-0 left-0 z-10 px-2 py-0.5 text-[8px] font-black uppercase" style={{ background: '#ff0', color: '#000', boxShadow: '0 0 8px #ff04' }}>OWNED</div>
                 )}
                 <button onClick={() => setSelectedId(row.inscriptionId)} className="aspect-square w-full overflow-hidden text-left relative" style={{ background: '#000' }}>
-                  <iframe
-                    src={thumbUrl}
+                  <img
+                    src={contentUrl}
                     title={row.name}
-                    className="w-full h-full border-0 relative z-[2] pointer-events-none"
-                    sandbox="allow-scripts allow-same-origin"
+                    alt={row.name}
+                    className="h-full w-full object-contain relative z-[2]"
                     loading="lazy"
-                    scrolling="no"
-                    style={{ overflow: 'hidden' }}
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.style.display = 'none';
+                      const placeholder = img.parentElement?.querySelector('[data-placeholder]') as HTMLElement;
+                      if (placeholder) placeholder.style.display = 'flex';
+                    }}
                   />
+                  <div data-placeholder className="absolute inset-0 z-[2] items-center justify-center flex-col gap-1" style={{ display: 'none', background: 'linear-gradient(135deg, #1a0f05 0%, #0d0800 100%)' }}>
+                    <svg width="36" height="36" viewBox="0 0 100 100" style={{ filter: 'drop-shadow(0 0 6px #f8040)' }}>
+                      <polygon points="50,10 90,35 50,60 10,35" fill="#f8018" stroke="#f80" strokeWidth="1.5" />
+                      <polygon points="10,35 50,60 50,90 10,65" fill="#f800e" stroke="#f806" strokeWidth="1" />
+                      <polygon points="90,35 50,60 50,90 90,65" fill="#f8012" stroke="#f806" strokeWidth="1" />
+                    </svg>
+                    <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#f806' }}>3D MODEL</span>
+                  </div>
                   <div className="absolute inset-0 z-[3] pointer-events-none" style={{ boxShadow: 'inset 0 0 20px #00000080' }} />
                 </button>
                 <div className="p-2" style={{ borderTop: pxBorder(borderColor) }}>
