@@ -51,6 +51,9 @@ const EitoBittoMarketplacePage = lazy(() =>
 const OrdinalOdditiesMarketplacePage = lazy(() =>
   import('./pages/OrdinalOdditiesMarketplacePage').then((m) => ({ default: m.OrdinalOdditiesMarketplacePage }))
 );
+const TheBoxMarketplacePage = lazy(() =>
+  import('./pages/TheBoxMarketplacePage').then((m) => ({ default: m.TheBoxMarketplacePage }))
+);
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -111,6 +114,7 @@ function AppContent() {
           <Route path="/EitoBitto" element={<EitoBittoMarketplacePage />} />
           <Route path="/eitobitto" element={<Navigate to="/EitoBitto" replace />} />
           <Route path="/ordinaloddities" element={<OrdinalOdditiesMarketplacePage />} />
+          <Route path="/thebox" element={<TheBoxMarketplacePage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/marketplace/profile" element={<MarketplaceProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
