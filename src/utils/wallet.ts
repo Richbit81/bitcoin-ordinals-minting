@@ -850,9 +850,20 @@ export const sendBitcoinViaUnisat = async (
 
     let result: any;
     try {
-      result = await window.unisat.sendBitcoin(to, amountInSats);
+      const SEND_TIMEOUT_MS = 120_000;
+      const sendPromise = window.unisat.sendBitcoin(to, amountInSats);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('__UNISAT_SEND_TIMEOUT__')), SEND_TIMEOUT_MS)
+      );
+      result = await Promise.race([sendPromise, timeoutPromise]);
     } catch (sendErr: any) {
       console.error('[UniSat] sendBitcoin threw:', sendErr);
+      if (sendErr?.message === '__UNISAT_SEND_TIMEOUT__') {
+        throw new Error(
+          'UniSat Wallet did not respond within 2 minutes. The confirmation popup may have crashed silently. ' +
+          'Please try: 1) Update UniSat to the latest version 2) Disable other wallet extensions (e.g. MetaMask) 3) Reload the page and try again'
+        );
+      }
       if (sendErr?.message?.includes('Cannot set properties of null')) {
         throw new Error('UniSat Wallet popup could not open. This is a known UniSat extension issue. Please try: 1) Update UniSat to the latest version 2) Disable other wallet extensions 3) Reload the page');
       }

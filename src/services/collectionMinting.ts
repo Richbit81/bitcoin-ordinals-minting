@@ -5,6 +5,7 @@
 
 import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMultipleBitcoinPayments } from '../utils/wallet';
+import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
 
 const API_URL = getApiUrl();
@@ -118,16 +119,24 @@ img {
 
   console.log(`[CollectionMinting] ✅ HTML file created: ${htmlFile.name} (${htmlFile.size} bytes)`);
 
-  // Erstelle Inskription über UniSat API
-  const result = await createUnisatInscription({
-    file: htmlFile,
-    address: recipientAddress,
-    feeRate,
-    postage: 330,
-    delegateMetadata: JSON.stringify(delegateContent),
-  });
+  console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription...`);
+  let result;
+  try {
+    result = await createUnisatInscription({
+      file: htmlFile,
+      address: recipientAddress,
+      feeRate,
+      postage: 330,
+      delegateMetadata: JSON.stringify(delegateContent),
+    });
+    console.log(`[CollectionMinting] ✅ Step 1/3 done. orderId=${result.orderId}, payAddress=${result.payAddress}, amount=${result.amount}`);
+  } catch (apiErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 1/3 FAILED (createUnisatInscription):`, apiErr);
+    throw new Error(`Inscription API failed: ${apiErr?.message || apiErr}`);
+  }
 
   if (!result.payAddress || !result.amount) {
+    console.error(`[CollectionMinting] ❌ Missing payAddress or amount in API response:`, result);
     throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
   }
 
@@ -152,30 +161,35 @@ img {
   });
   console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
 
-  // Führe alle Zahlungen in einer Transaktion durch
+  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
   let paymentTxid: string | undefined;
 
-  if (payments.length === 1) {
-    if (walletType === 'unisat') {
-      paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
-    } else if (walletType === 'okx') {
-      paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
-    } else if (walletType === 'xverse') {
-      paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
+  try {
+    if (payments.length === 1) {
+      if (walletType === 'unisat') {
+        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
+      } else if (walletType === 'okx') {
+        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
+      } else if (walletType === 'xverse') {
+        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
+      } else {
+        throw new Error('Unsupported wallet type for payment.');
+      }
     } else {
-      throw new Error('Unsupported wallet type for payment.');
+      console.log(`[CollectionMinting] Paying ${payments.length} recipients:`);
+      payments.forEach((p, i) => {
+        console.log(`[CollectionMinting]   ${i + 1}. ${p.address}: ${p.amount.toFixed(8)} BTC (${(p.amount * 100000000).toFixed(0)} sats)`);
+      });
+      
+      if (!walletType) {
+        throw new Error('Unsupported wallet type for payment.');
+      }
+      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
     }
-  } else {
-    // Mehrere Zahlungen - verwende sendMultipleBitcoinPayments
-    console.log(`[CollectionMinting] Paying ${payments.length} recipients in one transaction:`);
-    payments.forEach((p, i) => {
-      console.log(`[CollectionMinting]   ${i + 1}. ${p.address}: ${p.amount.toFixed(8)} BTC (${(p.amount * 100000000).toFixed(0)} sats)`);
-    });
-    
-    if (!walletType) {
-      throw new Error('Unsupported wallet type for payment.');
-    }
-    paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
+    console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
+  } catch (payErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
+    throw payErr;
   }
 
   if (!paymentTxid) {

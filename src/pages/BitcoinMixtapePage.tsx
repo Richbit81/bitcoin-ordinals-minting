@@ -176,13 +176,18 @@ export const BitcoinMixtapePage: React.FC = () => {
       setMintCount(prev => prev + 1);
 
     } catch (error: any) {
-      console.error('[BitcoinMixtape] Minting error:', error);
+      console.error('[BitcoinMixtape] ❌ Minting error:', error);
+      console.error('[BitcoinMixtape] Error name:', error?.name);
+      console.error('[BitcoinMixtape] Error message:', error?.message);
+      console.error('[BitcoinMixtape] Error stack:', error?.stack);
+      const msg = error?.message || 'Minting failed. Please try again.';
       setMintingStatus({
         progress: 0,
         status: 'error',
-        message: error.message || 'Minting failed. Please try again.',
+        message: msg,
       });
     } finally {
+      console.log('[BitcoinMixtape] handleMint finished (finally block)');
       setIsMinting(false);
     }
   };
