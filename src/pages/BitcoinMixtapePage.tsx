@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
@@ -26,6 +26,7 @@ export const BitcoinMixtapePage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mintButtonRef = useRef<HTMLButtonElement>(null);
   
   // Video State
   const [showVideo, setShowVideo] = useState(true);
@@ -72,8 +73,15 @@ export const BitcoinMixtapePage: React.FC = () => {
     setShowVideo(false);
   };
 
-  // Minting Handler
-  const handleMint = async () => {
+  const mintInProgressRef = useRef(false);
+
+  // Minting Handler – useCallback so the native listener always has the latest ref
+  const handleMint = useCallback(async () => {
+    if (mintInProgressRef.current) {
+      console.log('[BitcoinMixtape] handleMint skipped – already in progress');
+      return;
+    }
+    mintInProgressRef.current = true;
     console.log('[BitcoinMixtape] handleMint called', {
       connected: walletState.connected,
       walletType: walletState.walletType,
@@ -84,6 +92,7 @@ export const BitcoinMixtapePage: React.FC = () => {
     if (!walletState.connected || !walletState.accounts[0]) {
       console.log('[BitcoinMixtape] No wallet connected, showing connect modal');
       setShowWalletConnect(true);
+      mintInProgressRef.current = false;
       return;
     }
 
@@ -92,6 +101,7 @@ export const BitcoinMixtapePage: React.FC = () => {
 
     if (!userAddress) {
       setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found. Please reconnect your wallet.' });
+      mintInProgressRef.current = false;
       return;
     }
 
@@ -189,8 +199,22 @@ export const BitcoinMixtapePage: React.FC = () => {
     } finally {
       console.log('[BitcoinMixtape] handleMint finished (finally block)');
       setIsMinting(false);
+      mintInProgressRef.current = false;
     }
-  };
+  }, [walletState, inscriptionFeeRate]);
+
+  // Native DOM click listener as fallback – UniSat's SES lockdown can break
+  // React's synthetic event delegation, so we attach directly to the DOM node.
+  useEffect(() => {
+    const btn = mintButtonRef.current;
+    if (!btn) return;
+    const handler = () => {
+      console.log('[BitcoinMixtape] Native click handler fired');
+      handleMint();
+    };
+    btn.addEventListener('click', handler);
+    return () => btn.removeEventListener('click', handler);
+  }, [handleMint]);
 
   // Video Intro Screen
   if (showVideo) {
@@ -312,6 +336,7 @@ export const BitcoinMixtapePage: React.FC = () => {
             {/* Mint Button */}
             {!mintingStatus || mintingStatus.status === 'error' ? (
               <button
+                ref={mintButtonRef}
                 onClick={handleMint}
                 disabled={isMinting}
                 className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-red-600/30"
