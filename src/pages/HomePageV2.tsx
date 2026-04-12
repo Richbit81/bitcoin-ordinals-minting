@@ -461,7 +461,7 @@ export const HomePageV2: React.FC = () => {
                       title={item.name}
                     />
                   ) : (
-                    <img src={item.thumb} alt={item.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
+                    <img src={item.thumb} alt={item.name} className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" loading="lazy" />
                   )}
                 </div>
                 <div className="px-2 py-2 text-center">
