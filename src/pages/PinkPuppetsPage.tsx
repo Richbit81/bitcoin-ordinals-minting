@@ -43,7 +43,7 @@ export const PinkPuppetsPage: React.FC = () => {
       {
         href: 'https://www.ord-x.com/item/Pink-Puppets',
         image: '/images/pinkpuppets-genesis.avif',
-        title: 'Mint Phase 2 is coming on Ord-x.com!',
+        title: 'Mint Phase 3 is coming on Ord-x.com!',
         subtitle: 'Prepare for the next PinkPuppets mint phase',
       },
     ],
