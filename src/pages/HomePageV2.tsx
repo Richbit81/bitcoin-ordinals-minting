@@ -454,7 +454,8 @@ export const HomePageV2: React.FC = () => {
                   {item.isIframe ? (
                     <iframe
                       src={item.thumb}
-                      className="w-full h-full pointer-events-none"
+                      className="pointer-events-none scale-[0.25] origin-top-left"
+                      style={{ width: '400%', height: '400%' }}
                       sandbox="allow-scripts allow-same-origin"
                       loading="lazy"
                       title={item.name}
