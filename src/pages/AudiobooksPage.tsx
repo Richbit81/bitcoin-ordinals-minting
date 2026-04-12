@@ -222,9 +222,6 @@ export const AudiobooksPage: React.FC = () => {
           <p className="text-red-500/60 font-mono text-xs tracking-[0.3em] uppercase">
             Ordinal Inscription Library &middot; TTS Engine &middot; v1.0
           </p>
-          <p className="text-gray-500 font-mono text-[10px] mt-1 tracking-widest">
-            // DYSTOPIAN PROTOCOL
-          </p>
         </div>
 
         {/* Main Content */}
