@@ -8,6 +8,7 @@ import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { addMintPoints } from '../services/pointsService';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
@@ -21,6 +22,7 @@ export const CollectionMintingPage: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   useEffect(() => {
     if (id) {
@@ -56,37 +58,12 @@ export const CollectionMintingPage: React.FC = () => {
       return;
     }
 
-    // WICHTIG: Für UniSat Wallet immer Taproot-Adresse (bc1p...) verwenden!
-
-
-    // Für Inskriptionen sollte immer eine Taproot-Adresse verwendet werden, nicht Legacy (1... oder 3...)
-
-
-    // WICHTIG: Inscription muss immer an die richtige Adresse gehen
-    // Beide Wallets: Suche nach Ordinals-Adresse (Taproot), fallback zur ersten Adresse
-    let userAddress = walletState.accounts[0].address;
-
-    // Suche nach Ordinals-Adresse (für beide Wallet-Typen)
-    const ordinalsAccount = walletState.accounts.find(acc => 
-      acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-    );
-    
-    if (ordinalsAccount) {
-      userAddress = ordinalsAccount.address;
-      console.log(`[CollectionMintingPage] ✅ ${walletState.walletType?.toUpperCase()} - Verwende Ordinals-Adresse (Taproot) für Inscription:`, userAddress);
-    } else {
-      const addressType = userAddress.startsWith('bc1p') ? 'Taproot' :
-                          userAddress.startsWith('bc1q') ? 'SegWit' :
-                          userAddress.startsWith('3') ? 'Nested SegWit' : 'Legacy';
-      console.warn(`[CollectionMintingPage] ⚠️ ${walletState.walletType?.toUpperCase()} - Keine Taproot-Adresse! Verwende ${addressType}:`, userAddress);
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ progress: 0, status: 'error', message: taprootError });
+      return;
     }
-    
-    // Zeige Payment-Adresse (falls vorhanden)
-    const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
-    if (paymentAccount) {
-      console.log(`[CollectionMintingPage] 💰 ${walletState.walletType?.toUpperCase()} - Payment kommt von:`, paymentAccount.address);
-    }
-    
+
     // Für Random Mint: Wähle zufälliges Item
     let itemToMint: CollectionItem | undefined;
     if (collection.mintType === 'random') {
@@ -486,6 +463,24 @@ export const CollectionMintingPage: React.FC = () => {
             {collection.price} BTC per item
           </p>
         </div>
+
+        {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+          <div className="max-w-md mx-auto mb-4 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+            <label className="block text-xs text-orange-300 mb-1 font-semibold">
+              Taproot-Adresse für Inscription-Empfang (bc1p...)
+            </label>
+            <input
+              type="text"
+              value={taprootOverride}
+              onChange={(e) => handleTaprootChange(e.target.value)}
+              placeholder="bc1p..."
+              className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+            />
+            <p className="text-[10px] text-gray-400 mt-1">
+              Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+            </p>
+          </div>
+        )}
 
         {/* Fee Rate Selector */}
         <div className="max-w-md mx-auto mb-8">

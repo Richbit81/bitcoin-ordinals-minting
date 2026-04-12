@@ -11,7 +11,8 @@ import {
   mintSlumsRandom,
   loadSlumsCollection,
 } from '../services/slumsMintService';
-import { getOrdinalAddress, getUnisatTaprootAddress } from '../utils/wallet';
+import { getOrdinalAddress } from '../utils/wallet';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { getApiUrl } from '../utils/apiUrl';
 
 const SLUMS_PRICE_SATS = 3000;
@@ -73,6 +74,7 @@ export const SlumsPage: React.FC = () => {
     imageUrl: string | null;
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   // Load comic font
   useEffect(() => {
@@ -256,28 +258,9 @@ export const SlumsPage: React.FC = () => {
       return;
     }
 
-    let userAddress = getOrdinalAddress(walletState.accounts);
-    if (walletState.walletType === 'unisat' && !userAddress.startsWith('bc1p')) {
-      try {
-        const unisatTaproot = await getUnisatTaprootAddress();
-        if (unisatTaproot) {
-          userAddress = unisatTaproot;
-        }
-      } catch {
-        // keep current address and let the explicit validation below handle feedback
-      }
-    }
-
-    if (!userAddress.startsWith('bc1p')) {
-      setMintingStatus({
-        packId: 'slums',
-        status: 'failed',
-        progress: 0,
-        error:
-          `Taproot address required for SLUMS minting.\n` +
-          `Detected address: ${userAddress || 'none'}\n\n` +
-          `Please switch UniSat to Taproot (bc1p) and reconnect.`,
-      });
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ packId: 'slums', status: 'failed', progress: 0, error: taprootError });
       return;
     }
 
@@ -594,6 +577,24 @@ export const SlumsPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+                  <div className="mb-3 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+                    <label className="block text-xs text-orange-300 mb-1 font-semibold">
+                      Taproot-Adresse für Inscription-Empfang (bc1p...)
+                    </label>
+                    <input
+                      type="text"
+                      value={taprootOverride}
+                      onChange={(e) => handleTaprootChange(e.target.value)}
+                      placeholder="bc1p..."
+                      className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+                    </p>
+                  </div>
+                )}
 
                 {/* Fee Rate */}
                 <div className="mb-3 mt-3">

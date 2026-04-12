@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
@@ -229,6 +230,7 @@ export const TechGamesPage: React.FC = () => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
   /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
@@ -304,31 +306,12 @@ export const TechGamesPage: React.FC = () => {
       return;
     }
 
-    // WICHTIG: Inscription muss immer an die richtige Adresse gehen
-    // Beide Wallets: Suche nach Ordinals-Adresse (Taproot), fallback zur ersten Adresse
-    let userAddress = walletState.accounts[0].address;
-    
-    // Suche nach Ordinals-Adresse (für beide Wallet-Typen)
-    const ordinalsAccount = walletState.accounts.find(acc => 
-      acc.purpose === 'ordinals' || acc.address.startsWith('bc1p')
-    );
-    
-    if (ordinalsAccount) {
-      userAddress = ordinalsAccount.address;
-      console.log(`[TechGamesPage] ✅ ${walletState.walletType?.toUpperCase()} - Verwende Ordinals-Adresse (Taproot) für Inscription:`, userAddress);
-    } else {
-      const addressType = userAddress.startsWith('bc1p') ? 'Taproot' :
-                          userAddress.startsWith('bc1q') ? 'SegWit' :
-                          userAddress.startsWith('3') ? 'Nested SegWit' : 'Legacy';
-      console.warn(`[TechGamesPage] ⚠️ ${walletState.walletType?.toUpperCase()} - Keine Taproot-Adresse! Verwende ${addressType}:`, userAddress);
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ status: 'error', progress: 0, message: taprootError });
+      return;
     }
-    
-    // Zeige Payment-Adresse (falls vorhanden)
-    const paymentAccount = walletState.accounts.find(acc => acc.purpose === 'payment');
-    if (paymentAccount) {
-      console.log(`[TechGamesPage] 💰 ${walletState.walletType?.toUpperCase()} - Payment kommt von:`, paymentAccount.address);
-    }
-    
+
     setMintingStatus({ status: 'in-progress', progress: 10, message: 'Starting minting process...' });
 
     try {
@@ -702,6 +685,25 @@ export const TechGamesPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* UniSat Taproot Eingabefeld */}
+      {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+        <div className="max-w-2xl mx-auto mt-8 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+          <label className="block text-xs text-orange-300 mb-1 font-semibold">
+            Taproot-Adresse für Inscription-Empfang (bc1p...)
+          </label>
+          <input
+            type="text"
+            value={taprootOverride}
+            onChange={(e) => handleTaprootChange(e.target.value)}
+            placeholder="bc1p..."
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">
+            Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+          </p>
+        </div>
+      )}
 
       {/* Fee Rate Selector - Jetzt unterhalb der Items */}
       <div className="max-w-2xl mx-auto mt-8">

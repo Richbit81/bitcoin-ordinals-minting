@@ -13,6 +13,7 @@ import {
   loadSmileCollection,
 } from '../services/smileMintService';
 import { getOrdinalAddress } from '../utils/wallet';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { getApiUrl } from '../utils/apiUrl';
 
 const SMILE_PRICE_SATS = 10000;
@@ -49,6 +50,7 @@ export const SmilePage: React.FC = () => {
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   // Build SVG for lightbox from collection data
   const openLightbox = useCallback((mint: { itemIndex: number; itemName: string; imageUrl: string | null }) => {
@@ -175,7 +177,11 @@ export const SmilePage: React.FC = () => {
       return;
     }
 
-    const userAddress = getOrdinalAddress(walletState.accounts);
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ packId: 'smile-a-bit', status: 'failed', progress: 0, error: taprootError });
+      return;
+    }
     console.log(`[SmilePage] Verwende Adresse: ${userAddress}`);
 
     setIsMinting(true);
@@ -383,6 +389,24 @@ export const SmilePage: React.FC = () => {
                   </p>
                 </div>
               </div>
+
+              {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+                <div className="mb-4 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+                  <label className="block text-xs text-orange-300 mb-1 font-semibold">
+                    Taproot-Adresse für Inscription-Empfang (bc1p...)
+                  </label>
+                  <input
+                    type="text"
+                    value={taprootOverride}
+                    onChange={(e) => handleTaprootChange(e.target.value)}
+                    placeholder="bc1p..."
+                    className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+                  </p>
+                </div>
+              )}
 
               {/* Fee Rate Selector */}
               <div className="mb-4">

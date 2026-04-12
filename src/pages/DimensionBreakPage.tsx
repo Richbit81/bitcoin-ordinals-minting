@@ -18,7 +18,8 @@ import {
   loadRecentMints as apiLoadRecentMints,
   DimensionBreakCollection,
 } from '../services/dimensionBreakMintService';
-import { getOrdinalAddress, getUnisatTaprootAddress } from '../utils/wallet';
+import { getOrdinalAddress } from '../utils/wallet';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const TOTAL_SUPPLY = 100;
 const LIMIT_PER_ADDRESS = 1;
@@ -557,6 +558,7 @@ export const DimensionBreakPage: React.FC = () => {
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [collectionData, setCollectionData] = useState<DimensionBreakCollection | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null);
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number | null;
     itemName: string;
@@ -670,21 +672,9 @@ export const DimensionBreakPage: React.FC = () => {
       return;
     }
 
-    let userAddress = getOrdinalAddress(walletState.accounts);
-    if (walletState.walletType === 'unisat' && !userAddress.startsWith('bc1p')) {
-      try {
-        const tap = await getUnisatTaprootAddress();
-        if (tap) userAddress = tap;
-      } catch { /* keep current */ }
-    }
-
-    if (!userAddress.startsWith('bc1p')) {
-      setMintingStatus({
-        packId: 'dimension-break',
-        status: 'failed',
-        progress: 0,
-        error: `Taproot address required (bc1p…).\nDetected: ${userAddress || 'none'}\n\nPlease switch to Taproot in UniSat and reconnect.`,
-      });
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ packId: 'dimension-break', status: 'failed', progress: 0, error: taprootError });
       return;
     }
 
@@ -901,6 +891,24 @@ export const DimensionBreakPage: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+                <div className="p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+                  <label className="block text-xs text-orange-300 mb-1 font-semibold">
+                    Taproot-Adresse für Inscription-Empfang (bc1p...)
+                  </label>
+                  <input
+                    type="text"
+                    value={taprootOverride}
+                    onChange={(e) => handleTaprootChange(e.target.value)}
+                    placeholder="bc1p..."
+                    className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+                  </p>
+                </div>
+              )}
 
               {/* Fee Rate */}
               <div>

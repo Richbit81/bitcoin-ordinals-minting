@@ -7,6 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 // Free Stuff Collection Items
 const FREE_ITEMS = [
@@ -58,6 +59,7 @@ export const FreeStuffPage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [previewItem, setPreviewItem] = useState<typeof FREE_ITEMS[0] | null>(null);
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   const handleMint = async (item: typeof FREE_ITEMS[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -65,7 +67,12 @@ export const FreeStuffPage: React.FC = () => {
       return;
     }
 
-    const userAddress = walletState.accounts[0].address;
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError) {
+      setMintingStatus({ progress: 0, status: 'error', message: taprootError });
+      return;
+    }
+
     setMintingItemId(item.id);
     setMintingStatus({
       progress: 0,
@@ -174,6 +181,24 @@ export const FreeStuffPage: React.FC = () => {
             Free mints — just pay the <span className="text-emerald-400 font-bold">network fee</span>
           </p>
         </div>
+
+        {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+          <div className="mb-4 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40 max-w-lg mx-auto">
+            <label className="block text-xs text-orange-300 mb-1 font-semibold">
+              Taproot-Adresse für Inscription-Empfang (bc1p...)
+            </label>
+            <input
+              type="text"
+              value={taprootOverride}
+              onChange={(e) => handleTaprootChange(e.target.value)}
+              placeholder="bc1p..."
+              className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+            />
+            <p className="text-[10px] text-gray-400 mt-1">
+              Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+            </p>
+          </div>
+        )}
 
         {/* Items Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto w-full">
