@@ -58,9 +58,9 @@ function MatrixRain() {
         if (brightness > 0.95) {
           ctx.fillStyle = '#ffffff';
         } else if (brightness > 0.8) {
-          ctx.fillStyle = '#00ff88';
+          ctx.fillStyle = '#ff4444';
         } else {
-          ctx.fillStyle = `rgba(0, 255, 100, ${0.15 + Math.random() * 0.25})`;
+          ctx.fillStyle = `rgba(255, 50, 30, ${0.15 + Math.random() * 0.25})`;
         }
 
         ctx.fillText(char, x, y);
@@ -163,13 +163,13 @@ export const AudiobooksPage: React.FC = () => {
   if (tryMode) {
     return (
       <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 bg-black/90 border-b border-emerald-500/30 backdrop-blur-sm">
-          <span className="text-emerald-400 font-mono text-sm tracking-widest uppercase">
+        <div className="flex items-center justify-between px-4 py-3 bg-black/90 border-b border-red-500/30 backdrop-blur-sm">
+          <span className="text-red-400 font-mono text-sm tracking-widest uppercase">
             RichReader // Preview Mode
           </span>
           <button
             onClick={() => setTryMode(false)}
-            className="px-4 py-1.5 border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 rounded font-mono text-sm transition-colors"
+            className="px-4 py-1.5 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded font-mono text-sm transition-colors"
           >
             EXIT
           </button>
@@ -194,7 +194,7 @@ export const AudiobooksPage: React.FC = () => {
         style={{
           zIndex: 1,
           background:
-            'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,100,0.015) 2px, rgba(0,255,100,0.015) 4px)',
+            'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,50,30,0.015) 2px, rgba(255,50,30,0.015) 4px)',
         }}
       />
 
@@ -203,7 +203,7 @@ export const AudiobooksPage: React.FC = () => {
         <div className="mb-6">
           <button
             onClick={() => navigate('/')}
-            className="text-gray-500 hover:text-emerald-400 flex items-center gap-2 transition-colors font-mono text-sm"
+            className="text-gray-500 hover:text-red-400 flex items-center gap-2 transition-colors font-mono text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -215,11 +215,11 @@ export const AudiobooksPage: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-2">
-            <span className="bg-gradient-to-r from-emerald-400 via-green-300 to-emerald-500 bg-clip-text text-transparent drop-shadow-lg">
+            <span className="bg-gradient-to-r from-red-500 via-red-400 to-red-600 bg-clip-text text-transparent drop-shadow-lg">
               RICHREADER
             </span>
           </h1>
-          <p className="text-emerald-500/60 font-mono text-xs tracking-[0.3em] uppercase">
+          <p className="text-red-500/60 font-mono text-xs tracking-[0.3em] uppercase">
             Ordinal Inscription Library &middot; TTS Engine &middot; v1.0
           </p>
           <p className="text-gray-500 font-mono text-[10px] mt-1 tracking-widest">
@@ -232,11 +232,11 @@ export const AudiobooksPage: React.FC = () => {
 
           {/* Left: Preview + Try */}
           <div className="w-full lg:w-1/2 flex flex-col gap-4">
-            <div className="rounded-xl overflow-hidden border border-emerald-500/20 bg-gray-950 shadow-2xl shadow-emerald-900/20 aspect-[4/3]">
+            <div className="rounded-xl overflow-hidden border border-red-500/20 bg-gray-950 shadow-2xl shadow-red-900/20 aspect-square">
               <iframe
                 src={`https://ordinals.com/content/${RICHREADER_CONFIG.inscriptionId}`}
                 title={RICHREADER_CONFIG.name}
-                className="w-full h-full border-0 pointer-events-none"
+                className="w-full h-full border-0"
                 sandbox="allow-scripts allow-same-origin"
                 loading="eager"
               />
@@ -244,14 +244,14 @@ export const AudiobooksPage: React.FC = () => {
 
             <button
               onClick={() => setTryMode(true)}
-              className="w-full py-3 rounded-lg font-mono text-sm tracking-wider border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400 transition-all"
+              className="w-full py-3 rounded-lg font-mono text-sm tracking-wider border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-400 transition-all"
             >
-              ▶ TRY RICHREADER
+              ▶ TRY RICHREADER (FULLSCREEN)
             </button>
 
             {/* Description */}
-            <div className="bg-gray-950/80 border border-emerald-500/10 rounded-xl p-6 backdrop-blur-sm">
-              <h3 className="text-emerald-400 font-mono text-sm tracking-wider mb-3 uppercase">
+            <div className="bg-gray-950/80 border border-red-500/10 rounded-xl p-6 backdrop-blur-sm">
+              <h3 className="text-red-400 font-mono text-sm tracking-wider mb-3 uppercase">
                 About RichReader
               </h3>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
@@ -267,9 +267,9 @@ export const AudiobooksPage: React.FC = () => {
                   { label: 'Multiple Voices', desc: 'Choose language and playback speed' },
                 ].map((f) => (
                   <div key={f.label} className="flex items-start gap-2">
-                    <span className="text-emerald-500 text-xs mt-0.5">▸</span>
+                    <span className="text-red-500 text-xs mt-0.5">▸</span>
                     <span className="text-sm">
-                      <span className="text-emerald-300 font-semibold">{f.label}</span>
+                      <span className="text-red-300 font-semibold">{f.label}</span>
                       <span className="text-gray-500"> — {f.desc}</span>
                     </span>
                   </div>
@@ -280,19 +280,19 @@ export const AudiobooksPage: React.FC = () => {
 
           {/* Right: Mint Panel */}
           <div className="w-full lg:w-5/12">
-            <div className="bg-gray-950/90 border border-emerald-500/20 rounded-xl p-6 backdrop-blur-sm shadow-2xl shadow-emerald-900/10 sticky top-8">
+            <div className="bg-gray-950/90 border border-red-500/20 rounded-xl p-6 backdrop-blur-sm shadow-2xl shadow-red-900/10 sticky top-8">
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-black tracking-tight text-white mb-1">
                   Mint RichReader
                 </h2>
-                <p className="text-emerald-500/60 font-mono text-[10px] tracking-widest uppercase">
+                <p className="text-red-500/60 font-mono text-[10px] tracking-widest uppercase">
                   Delegate Inscription
                 </p>
               </div>
 
               {/* Price */}
-              <div className="text-center mb-6 py-4 border-y border-emerald-500/10">
-                <p className="text-3xl font-black text-emerald-400">
+              <div className="text-center mb-6 py-4 border-y border-red-500/10">
+                <p className="text-3xl font-black text-red-500">
                   {RICHREADER_CONFIG.priceInSats.toLocaleString()} sats
                 </p>
                 <p className="text-xs text-gray-500 font-mono mt-1">
@@ -320,7 +320,7 @@ export const AudiobooksPage: React.FC = () => {
                 <button
                   onClick={handleMint}
                   disabled={isMinting}
-                  className="w-full py-4 rounded-lg font-bold text-lg transition-all bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/30 tracking-wide"
+                  className="w-full py-4 rounded-lg font-bold text-lg transition-all bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed shadow-lg shadow-red-900/30 tracking-wide"
                 >
                   {isMinting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -336,10 +336,10 @@ export const AudiobooksPage: React.FC = () => {
                 </button>
               ) : mintingStatus.status === 'success' ? (
                 <div className="text-center">
-                  <p className="text-emerald-400 font-bold mb-4">Mint Successful!</p>
+                  <p className="text-red-400 font-bold mb-4">Mint Successful!</p>
                   <button
                     onClick={() => setMintingStatus(null)}
-                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition-colors border border-emerald-500/20"
+                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition-colors border border-red-500/20"
                   >
                     Mint Another
                   </button>
@@ -353,7 +353,7 @@ export const AudiobooksPage: React.FC = () => {
               )}
 
               {/* Info Box */}
-              <div className="mt-6 p-4 rounded-lg border border-emerald-500/10 bg-black/40">
+              <div className="mt-6 p-4 rounded-lg border border-red-500/10 bg-black/40">
                 <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
                   Your RichReader delegate will be inscribed on Bitcoin and sent to your wallet.
                   It functions as a fully on-chain audiobook reader — loading books directly from the blockchain.
@@ -367,9 +367,9 @@ export const AudiobooksPage: React.FC = () => {
       {/* Wallet Connect Modal */}
       {showWalletConnect && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-black border border-emerald-500/40 rounded-xl max-w-md w-full shadow-2xl shadow-emerald-900/20">
-            <div className="flex justify-between items-center p-4 border-b border-emerald-500/20">
-              <h2 className="text-lg font-bold text-emerald-400 font-mono">Connect Wallet</h2>
+          <div className="bg-black border border-red-500/40 rounded-xl max-w-md w-full shadow-2xl shadow-red-900/20">
+            <div className="flex justify-between items-center p-4 border-b border-red-500/20">
+              <h2 className="text-lg font-bold text-red-400 font-mono">Connect Wallet</h2>
               <button onClick={() => setShowWalletConnect(false)} className="text-gray-500 hover:text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
