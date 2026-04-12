@@ -175,7 +175,7 @@ const ALL_NEW_STUFF = [
   { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
   { name: 'RICHRACER', thumb: 'https://ordinals.com/content/71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', route: '/tech-games?try=71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
-  { name: 'Pink Puppets', thumb: '/images/pinkpuppets-banner.png', route: '/pinkpuppets/marketplace', tag: 'FEATURED', tagColor: 'bg-pink-500' },
+  { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-pink-500' },
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
 ];
