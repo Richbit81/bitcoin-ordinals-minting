@@ -38,11 +38,6 @@ export const BitcoinMixtapePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [mintCount, setMintCount] = useState<number>(0);
-  const [debugLines, setDebugLines] = useState<string[]>([]);
-  const addDebug = useCallback((msg: string) => {
-    const ts = new Date().toLocaleTimeString();
-    setDebugLines(prev => [...prev.slice(-9), `[${ts}] ${msg}`]);
-  }, []);
   const [taprootOverride, setTaprootOverride] = useState<string>(
     () => localStorage.getItem('unisat_taproot_address') || ''
   );
@@ -85,23 +80,16 @@ export const BitcoinMixtapePage: React.FC = () => {
 
   // Minting Handler – useCallback so the native listener always has the latest ref
   const handleMint = useCallback(async () => {
-    if (mintInProgressRef.current) {
-      addDebug('⏳ Mint läuft bereits...');
-      return;
-    }
+    if (mintInProgressRef.current) return;
     mintInProgressRef.current = true;
-    addDebug(`🟢 MINT BUTTON GEKLICKT! wallet=${walletState.walletType} connected=${walletState.connected}`);
 
     if (!walletState.connected || !walletState.accounts[0]) {
-      addDebug('❌ Kein Wallet verbunden → zeige Connect Dialog');
       setShowWalletConnect(true);
       mintInProgressRef.current = false;
       return;
     }
 
-    // Receive-Adresse für die Inscription (muss Taproot bc1p... sein)
     let receiveAddress = getOrdinalAddress(walletState.accounts);
-    // UniSat: Wenn mit SegWit/Legacy verbunden, Taproot aus Override oder localStorage nehmen
     if (walletState.walletType === 'unisat' && !receiveAddress.startsWith('bc1p')) {
       const saved = taprootOverride || localStorage.getItem('unisat_taproot_address') || '';
       if (saved.startsWith('bc1p')) {
@@ -110,14 +98,12 @@ export const BitcoinMixtapePage: React.FC = () => {
     }
 
     if (!receiveAddress) {
-      addDebug('❌ Keine Adresse gefunden!');
       setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found.' });
       mintInProgressRef.current = false;
       return;
     }
 
     if (!receiveAddress.startsWith('bc1p')) {
-      addDebug('❌ Keine Taproot-Adresse für Inscription!');
       setMintingStatus({
         progress: 0, status: 'error',
         message: 'Bitte gib deine Taproot-Adresse (bc1p...) im Feld oberhalb des Mint-Buttons ein. Dort wird deine Inscription hingesendet.'
@@ -126,13 +112,11 @@ export const BitcoinMixtapePage: React.FC = () => {
       return;
     }
 
-    // UniSat: Prüfe ob Taproot AKTIV ist (→ Inscription-Sats in Gefahr!)
     if (walletState.walletType === 'unisat') {
       try {
         const accs = await window.unisat!.getAccounts();
         const activeAddr = accs?.[0] || '';
         if (activeAddr.startsWith('bc1p')) {
-          addDebug('🛑 Taproot aktiv → Zahlung würde Inscriptions zerstören!');
           setMintingStatus({
             progress: 0, status: 'error',
             message:
@@ -144,15 +128,11 @@ export const BitcoinMixtapePage: React.FC = () => {
           mintInProgressRef.current = false;
           return;
         }
-        addDebug(`💳 Payment: ${activeAddr.slice(0, 14)}... → Inscription: ${receiveAddress.slice(0, 14)}...`);
       } catch { /* weiter */ }
-    } else {
-      addDebug(`📍 Adresse: ${receiveAddress.slice(0, 14)}...`);
     }
 
     setIsMinting(true);
     setMintingStatus({ progress: 0, status: 'processing', message: 'Initiating mint...' });
-    addDebug('📡 Rufe Backend API auf (createSingleDelegate)...');
 
     try {
       setMintingStatus(prev => prev ? { ...prev, progress: 20, message: 'Creating delegate inscription...' } : null);
@@ -167,7 +147,6 @@ export const BitcoinMixtapePage: React.FC = () => {
         'html',
         MIXTAPE_CONFIG.priceInSats
       );
-      addDebug(`✅ Delegate erstellt! txid=${result.txid?.slice(0, 12)}...`);
 
       setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Saving mint record...' } : null);
 
@@ -205,36 +184,17 @@ export const BitcoinMixtapePage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
         txid: result.txid,
       });
-      addDebug('🎉 MINT ERFOLGREICH!');
       setMintCount(prev => prev + 1);
 
     } catch (error: any) {
       console.error('[BitcoinMixtape] Minting error:', error);
       const msg = error?.message || 'Minting failed. Please try again.';
-      addDebug(`❌ FEHLER: ${msg.slice(0, 80)}`);
       setMintingStatus({ progress: 0, status: 'error', message: msg });
     } finally {
       setIsMinting(false);
       mintInProgressRef.current = false;
     }
-  }, [walletState, inscriptionFeeRate, addDebug, taprootOverride]);
-
-  // Global click debugger: logs what element was clicked anywhere on the page.
-  // This helps identify if clicks hit the iframe instead of the mint button.
-  useEffect(() => {
-    const debugClick = (e: MouseEvent) => {
-      const el = e.target as HTMLElement;
-      const tag = el?.tagName;
-      const text = el?.textContent?.slice(0, 40);
-      const cls = el?.className?.toString?.()?.slice(0, 60);
-      console.log(`[ClickDebug] tag=${tag} text="${text}" class="${cls}"`);
-      if (tag === 'IFRAME') {
-        console.warn('[ClickDebug] ⚠️ Click landed on IFRAME, not on the Mint button!');
-      }
-    };
-    document.addEventListener('click', debugClick, true);
-    return () => document.removeEventListener('click', debugClick, true);
-  }, []);
+  }, [walletState, inscriptionFeeRate, taprootOverride]);
 
   // Video Intro Screen
   if (showVideo) {
@@ -351,14 +311,6 @@ export const BitcoinMixtapePage: React.FC = () => {
                 <MintingProgress status={mintingStatus} />
               </div>
             )}
-
-            {/* Debug Status */}
-            <div className="mb-2 p-2 rounded bg-yellow-900/50 border border-yellow-600/50 text-yellow-300 text-xs font-mono space-y-0.5">
-              <div>Wallet: {walletState.connected ? `✅ ${walletState.walletType} (${walletState.accounts?.[0]?.address?.slice(0,10)}...)` : '❌ not connected'} | isMinting: {String(isMinting)}</div>
-              {debugLines.map((line, i) => (
-                <div key={i}>{line}</div>
-              ))}
-            </div>
 
             {/* UniSat Taproot Receive Address */}
             {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (

@@ -138,6 +138,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     label: 'Books',
     items: [
       { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
+      { label: 'Audiobooks', route: '/audiobooks', img: `https://ordinals.com/content/1eb4cf686bc4163bf2c5a4cba592bf70ca17e489a025c0ccf7be3c80b22333b0i0`, isHtml: true },
     ],
   },
   {

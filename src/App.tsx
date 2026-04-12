@@ -54,6 +54,7 @@ const OrdinalOdditiesMarketplacePage = lazy(() =>
 const TheBoxMarketplacePage = lazy(() =>
   import('./pages/TheBoxMarketplacePage').then((m) => ({ default: m.TheBoxMarketplacePage }))
 );
+const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => ({ default: m.AudiobooksPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -85,6 +86,7 @@ function AppContent() {
           {/* NFT moved into /random-stuff */}
           <Route path="/free-stuff" element={<FreeStuffPage />} />
           <Route path="/books-onchain" element={<BooksOnchainPage />} />
+          <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />
           <Route path="/trade" element={<TradingPage />} />
