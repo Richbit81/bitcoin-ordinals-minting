@@ -178,6 +178,7 @@ const ALL_NEW_STUFF = [
   { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-pink-500' },
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  { name: 'Ninja', thumb: 'https://ordinals.com/content/5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0', route: '/tech-games?try=5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
