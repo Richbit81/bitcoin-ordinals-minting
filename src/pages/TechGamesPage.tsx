@@ -80,6 +80,15 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     isNew: true,
   },
   {
+    inscriptionId: '5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0',
+    name: 'Ninja - Stealth Mission',
+    description:
+      'Six ancient fortresses. Dozens of guards. One ninja. Slip past patrols, hug the darkness, and prove you were never there. Shadow Corridor -- a browser-based stealth game where patience is your deadliest weapon.',
+    price: 0,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: '94c91f823f145daf0200394433c1116781a7a669ba0b24a0d232f46838b37351i0',
     name: 'TACTICAL',
     description: 'Tactical is a turn-based tactical strategy game. Command an elite squad and complete missions against alien enemies.',
@@ -224,6 +233,7 @@ export const TechGamesPage: React.FC = () => {
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
+    '5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0': 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
