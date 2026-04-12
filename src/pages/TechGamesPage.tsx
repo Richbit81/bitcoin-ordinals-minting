@@ -229,7 +229,7 @@ export const TechGamesPage: React.FC = () => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
-  /** compact50 = 50% Fenster; minimalFullscreen = 80% Fenster + schlanker Viewer-Chrome (RICHRACER, Ninja, …) */
+  /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
@@ -762,16 +762,12 @@ export const TechGamesPage: React.FC = () => {
       {/* Item Detail Modal - Fullscreen */}
       {selectedItem && (
         <>
-        {(isCompact50Try || isMinimalFullscreenTry) && (
-          <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />
-        )}
+        {isCompact50Try && <div className="fixed inset-0 z-40 bg-black/80" onClick={() => setSelectedItem(null)} />}
         <div
           className={`fixed z-50 flex flex-col ${
             isCompact50Try
               ? 'inset-0 m-auto w-[50vw] h-[50vh] rounded-lg shadow-2xl shadow-red-900/50 overflow-hidden'
-              : isMinimalFullscreenTry
-                ? 'inset-0 m-auto w-[80vw] h-[80vh] max-h-[80dvh] rounded-xl shadow-2xl shadow-red-900/60 overflow-hidden'
-                : 'inset-0'
+              : 'inset-0'
           } bg-black`}
           onClick={() => setSelectedItem(null)}
         >
