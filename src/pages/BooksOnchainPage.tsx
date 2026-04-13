@@ -55,6 +55,15 @@ const BOOK_ITEMS = [
     description:
       'My Inventions is an autobiographical series of essays in which Nikola Tesla recounts his life, ideas, and scientific achievements. He describes his childhood, his remarkable memory and imagination, and the development of his inventions, especially in electricity and wireless energy. The book gives insight into his creative process, his vision for the future, and his struggles as an inventor. It is both a personal story and a reflection on innovation, genius, and perseverance.',
   },
+  {
+    id: 'brave-new-world',
+    name: 'Brave New World',
+    inscriptionId: '4a2d838dba141d2261957e1f809652b001486c1f8bbc0362262486472abf6d36i0',
+    author: 'Aldous Huxley',
+    priceInSats: 5000,
+    description:
+      'Brave New World by Aldous Huxley is a dystopian novel about a future society where people are controlled through technology, conditioning, and a happiness drug called soma. It explores the loss of individuality and freedom in a world focused on stability and pleasure.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
