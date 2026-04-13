@@ -81,7 +81,7 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     isNew: true,
   },
   {
-    inscriptionId: '5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0',
+    inscriptionId: '51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0',
     name: 'Ninja - Stealth Mission',
     description:
       'Six ancient fortresses. Dozens of guards. One ninja. Slip past patrols, hug the darkness, and prove you were never there. Shadow Corridor -- a browser-based stealth game where patience is your deadliest weapon.',
@@ -235,7 +235,7 @@ export const TechGamesPage: React.FC = () => {
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
-    '5cd25c07b761e98594442267dc6c5fb3844f59e4fbd31d23a22059ff51926d84i0': 'minimalFullscreen',
+    '51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0': 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
