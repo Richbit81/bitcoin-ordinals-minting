@@ -219,7 +219,7 @@ export const FreeStuffPage: React.FC = () => {
               <div className="relative mb-3 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
                 {(item as any).isHtml ? (
                   <iframe
-                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    src={item.id === 'runner' ? RUNNER_PREVIEW_IFRAME_SRC : `https://ordinals.com/content/${item.inscriptionId}`}
                     title={item.name}
                     className="w-full h-full rounded-lg pointer-events-none"
                     style={{ border: 'none', background: '#000' }}
