@@ -9,6 +9,7 @@ import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
+import { getApiUrl } from '../utils/apiUrl';
 
 /** Runner-Delegate: Vorschau wie im Katalog (ordin-delta), nicht rohe ordinals.com-URL */
 function isRunnerFreeMint(m: { itemName: string; originalInscriptionId?: string | null }): boolean {
@@ -24,14 +25,26 @@ function iframeSrcForFreeStuffMint(m: {
   return `https://ordinals.com/content/${m.inscriptionId}`;
 }
 
+/** Muss zum Original-Inscription-Typ passen — steuert Delegate-Mint (iframe vs img) und Vorschau. */
+type FreeStuffItem = {
+  id: string;
+  name: string;
+  inscriptionId: string;
+  priceInSats: number;
+  priceInBTC: number;
+  description?: string;
+  delegateContentType: 'html' | 'image';
+};
+
 // Free Stuff Collection Items
-const FREE_ITEMS = [
+const FREE_ITEMS: FreeStuffItem[] = [
   {
     id: 'shadowfire',
     name: 'Shadowfire',
     inscriptionId: '4a019b00eaed13dce49df0ba18d1f82c95a276ca09a4b16c6990336ae7bc189bi0',
     priceInSats: 0,
     priceInBTC: 0,
+    delegateContentType: 'image',
   },
   {
     id: '369',
@@ -39,6 +52,7 @@ const FREE_ITEMS = [
     inscriptionId: '5c5b7974b1774f773ccf79f486546d523e82ef162e3a08e771fe9bf39c047ef7i0',
     priceInSats: 0,
     priceInBTC: 0,
+    delegateContentType: 'image',
   },
   {
     id: 'galaxy-sling',
@@ -47,7 +61,7 @@ const FREE_ITEMS = [
     priceInSats: 0,
     priceInBTC: 0,
     description: 'A physics-based puzzle game where you sling a probe through space using gravitational fields. Aim for the target, but don\'t fly straight — curve your path around planets to score! Dodge red nebulae, collect pickups, use boosts for a burst of speed, and clear levels of increasing difficulty. Simple controls: drag to launch, click or tap mid-flight to boost. How far can you go?',
-    isHtml: true,
+    delegateContentType: 'html',
   },
   {
     id: 'interference',
@@ -56,7 +70,7 @@ const FREE_ITEMS = [
     priceInSats: 0,
     priceInBTC: 0,
     description: 'Interference whispers that reality shifts the moment you touch it—as if waves know when they are being seen. And when you look, the world decides again: not what is, but what is allowed to be.',
-    isHtml: true,
+    delegateContentType: 'html',
   },
   {
     id: 'runner',
@@ -66,14 +80,11 @@ const FREE_ITEMS = [
     priceInBTC: 0,
     description:
       'RUNNER — Generative noir cyberpunk 3D art on Ordinals: your inscription hash builds the scene; mempool vibes pick the pace. One runner, infinite moods.',
-    isHtml: true,
+    delegateContentType: 'html',
   },
 ];
 
 const COLLECTION_NAME = 'Free Stuff';
-
-// API URL
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
 type RecentFreeMint = {
   itemName: string;
@@ -90,15 +101,16 @@ export const FreeStuffPage: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [previewItem, setPreviewItem] = useState<typeof FREE_ITEMS[0] | null>(null);
+  const [previewItem, setPreviewItem] = useState<FreeStuffItem | null>(null);
   const [recentMints, setRecentMints] = useState<RecentFreeMint[]>([]);
   const [recentLightbox, setRecentLightbox] = useState<RecentFreeMint | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   const loadRecentMints = useCallback(async () => {
-    if (!API_URL) return;
+    const apiUrl = getApiUrl();
+    if (!apiUrl) return;
     try {
-      const res = await fetch(`${API_URL}/api/free-stuff/recent`);
+      const res = await fetch(`${apiUrl}/api/free-stuff/recent`);
       const data = res.ok ? await res.json() : { recent: [] };
       const raw = Array.isArray(data.recent) ? data.recent : [];
       const normalized: RecentFreeMint[] = raw
@@ -133,7 +145,7 @@ export const FreeStuffPage: React.FC = () => {
     void loadRecentMints();
   }, [loadRecentMints]);
 
-  const handleMint = async (item: typeof FREE_ITEMS[0]) => {
+  const handleMint = async (item: FreeStuffItem) => {
     if (!walletState.connected || !walletState.accounts[0]) {
       setShowWalletConnect(true);
       return;
@@ -166,7 +178,7 @@ export const FreeStuffPage: React.FC = () => {
         COLLECTION_NAME,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        'image',
+        item.id === 'runner' ? 'html' : item.delegateContentType,
         item.priceInSats
       );
 
@@ -178,18 +190,23 @@ export const FreeStuffPage: React.FC = () => {
 
       // Log mint
       try {
-        await fetch(`${API_URL}/api/free-stuff/log`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            walletAddress: userAddress,
-            inscriptionId: result.inscriptionId,
-            txid: result.txid,
-            originalInscriptionId: item.inscriptionId,
-            itemName: item.name,
-            priceInSats: item.priceInSats,
-          }),
-        });
+        const apiUrl = getApiUrl();
+        if (!apiUrl) {
+          console.warn('[FreeStuff] VITE_INSCRIPTION_API_URL / API-URL fehlt — Mint-Log wird nicht gespeichert.');
+        } else {
+          await fetch(`${apiUrl}/api/free-stuff/log`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              walletAddress: userAddress,
+              inscriptionId: result.inscriptionId,
+              txid: result.txid,
+              originalInscriptionId: item.inscriptionId,
+              itemName: item.name,
+              priceInSats: item.priceInSats,
+            }),
+          });
+        }
       } catch (logError) {
         console.warn('[FreeStuff] Could not save mint log:', logError);
       }
@@ -280,7 +297,7 @@ export const FreeStuffPage: React.FC = () => {
             <div key={item.id} className="bg-black/80 border-2 border-emerald-600/30 rounded-xl p-3 backdrop-blur-md hover:border-emerald-500 transition-all duration-300 group flex flex-col">
               {/* Preview */}
               <div className="relative mb-3 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
-                {(item as any).isHtml ? (
+                {item.delegateContentType === 'html' ? (
                   <iframe
                     src={item.id === 'runner' ? RUNNER_PREVIEW_IFRAME_SRC : `https://ordinals.com/content/${item.inscriptionId}`}
                     title={item.name}
@@ -309,12 +326,12 @@ export const FreeStuffPage: React.FC = () => {
               </div>
 
               {/* Description (if present) */}
-              {(item as any).description && (
-                <p className="text-[10px] text-gray-400 mb-2 leading-relaxed line-clamp-3">{(item as any).description}</p>
+              {item.description && (
+                <p className="text-[10px] text-gray-400 mb-2 leading-relaxed line-clamp-3">{item.description}</p>
               )}
 
               {/* Try First (HTML ordinals) */}
-              {(item as any).isHtml && (
+              {item.delegateContentType === 'html' && (
                 <button
                   onClick={() => setPreviewItem(item)}
                   className="block w-full py-2 mb-2 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg font-bold text-xs transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-600/20"

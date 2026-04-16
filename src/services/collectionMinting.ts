@@ -12,7 +12,7 @@ const API_URL = getApiUrl();
 
 /**
  * Erstellt eine einzelne Delegate-Inskription für ein Collection-Item
- * @param contentType - 'html' für HTML-Inskriptionen (iframe), 'image' für Bilder (img). Auto-detect wenn nicht angegeben.
+ * @param contentType - 'html' für HTML-Inskriptionen (iframe), 'image' für Bilder (img). Muss zum Original-Inhalt passen — HTML/Runner mit 'image' minten bricht interaktive Delegates. Auto-detect nur wenn nicht angegeben.
  * @param itemPrice - Preis des Items in sats (z.B. 2000 für TimeBIT, 10000 für TACTICAL). Wird an Admin-Adresse bezahlt.
  */
 export const createSingleDelegate = async (
@@ -32,6 +32,12 @@ export const createSingleDelegate = async (
     contentType = collectionName === 'Tech & Games' ? 'html' : 'image';
     console.log(`[CollectionMinting] Auto-detected contentType: ${contentType} (collection: ${collectionName})`);
   }
+
+  // Nur Free-Stuff-Runner: absolute Content-URL — relative `/content/…` brechen in ord.io/ord.link-Vorschau.
+  const delegateIframeSrc =
+    itemName === 'Runner' && collectionName === 'Free Stuff'
+      ? `https://ordinals.com/content/${originalInscriptionId}`
+      : `/content/${originalInscriptionId}`;
 
   // Erstelle HTML-Datei für Delegate-Inskription
   const delegateContent = {
@@ -75,7 +81,7 @@ iframe {
 </style>
 </head>
 <body>
-<iframe src="/content/${originalInscriptionId}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
+<iframe src="${ORDINALS_CONTENT(originalInscriptionId)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
 </body>
 </html>`
     : `<!DOCTYPE html>
