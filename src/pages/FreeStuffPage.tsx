@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
@@ -61,6 +61,12 @@ const COLLECTION_NAME = 'Free Stuff';
 // API URL
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
+type RecentFreeMint = {
+  itemName: string;
+  timestamp: string;
+  inscriptionId: string;
+};
+
 export const FreeStuffPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
@@ -70,7 +76,46 @@ export const FreeStuffPage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [previewItem, setPreviewItem] = useState<typeof FREE_ITEMS[0] | null>(null);
+  const [recentMints, setRecentMints] = useState<RecentFreeMint[]>([]);
+  const [recentLightbox, setRecentLightbox] = useState<{ inscriptionId: string; itemName: string } | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+
+  const loadRecentMints = useCallback(async () => {
+    if (!API_URL) return;
+    try {
+      const res = await fetch(`${API_URL}/api/free-stuff/recent`);
+      const data = res.ok ? await res.json() : { recent: [] };
+      const raw = Array.isArray(data.recent) ? data.recent : [];
+      const normalized: RecentFreeMint[] = raw
+        .map((m: any) => {
+          const id = m.inscriptionId ?? m.inscription_id;
+          if (!id || typeof id !== 'string') return null;
+          return {
+            inscriptionId: id,
+            itemName: String(m.itemName ?? m.item_name ?? 'Free Stuff'),
+            timestamp:
+              m.timestamp != null
+                ? typeof m.timestamp === 'number'
+                  ? new Date(m.timestamp).toISOString()
+                  : String(m.timestamp)
+                : '',
+          };
+        })
+        .filter((x): x is RecentFreeMint => x !== null);
+      normalized.sort((a, b) => {
+        const ta = new Date(a.timestamp).getTime();
+        const tb = new Date(b.timestamp).getTime();
+        return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+      });
+      setRecentMints(normalized.slice(0, 10));
+    } catch {
+      console.warn('[FreeStuff] Could not load recent mints');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRecentMints();
+  }, [loadRecentMints]);
 
   const handleMint = async (item: typeof FREE_ITEMS[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -151,6 +196,8 @@ export const FreeStuffPage: React.FC = () => {
         inscriptionIds: [result.inscriptionId],
         txid: result.txid,
       });
+
+      void loadRecentMints();
 
     } catch (error: any) {
       console.error('[FreeStuff] Minting error:', error);
@@ -326,12 +373,77 @@ export const FreeStuffPage: React.FC = () => {
           </div>
         )}
 
+        {/* Last mints (delegate inscriptions, max 10) */}
+        {recentMints.length > 0 && (
+          <div className="w-full mt-12 mb-6 max-w-6xl mx-auto">
+            <h3 className="text-center text-lg font-bold text-emerald-400 mb-4 tracking-wide">LAST MINTS</h3>
+            <div className="flex flex-wrap justify-center gap-3">
+              {recentMints.map((mint, i) => (
+                <div key={`${mint.inscriptionId}-${i}`} className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border-2 border-emerald-600/40 bg-black shadow-lg shadow-emerald-900/20 cursor-pointer transition-transform hover:scale-105 hover:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    onClick={() => setRecentLightbox({ inscriptionId: mint.inscriptionId, itemName: mint.itemName })}
+                    title={mint.itemName}
+                  >
+                    <iframe
+                      src={`https://ordinals.com/content/${mint.inscriptionId}`}
+                      title={mint.itemName}
+                      className="w-full h-full pointer-events-none border-0 bg-black"
+                      sandbox="allow-scripts allow-same-origin"
+                      loading="lazy"
+                    />
+                  </button>
+                  <p className="text-[9px] text-gray-500 mt-1.5 text-center max-w-[100px] truncate px-0.5">{mint.itemName}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="mt-12 text-center">
           <p className="text-gray-600 text-xs">
             Free delegate inscriptions • Only network fees apply
           </p>
         </div>
+
+        {/* Last mint — large preview */}
+        {recentLightbox && (
+          <div
+            className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 sm:p-8"
+            onClick={() => setRecentLightbox(null)}
+            role="presentation"
+          >
+            <div
+              className="relative w-full max-w-4xl max-h-[92vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Mint preview"
+            >
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h3 className="text-sm font-bold text-emerald-400 truncate pr-4">{recentLightbox.itemName}</h3>
+                <button
+                  type="button"
+                  onClick={() => setRecentLightbox(null)}
+                  className="shrink-0 text-gray-400 hover:text-white text-sm font-bold"
+                >
+                  ✕ Close
+                </button>
+              </div>
+              <div className="rounded-xl border-2 border-emerald-600/50 overflow-hidden bg-black flex-1 min-h-[min(85vh,85vw)] w-full aspect-square max-h-[min(85vh,85vw)] mx-auto">
+                <iframe
+                  src={`https://ordinals.com/content/${recentLightbox.inscriptionId}`}
+                  title={recentLightbox.itemName}
+                  className="w-full h-full border-0 bg-black"
+                  sandbox="allow-scripts allow-same-origin"
+                />
+              </div>
+              <p className="text-center text-gray-400 text-xs mt-3 truncate">{recentLightbox.inscriptionId}</p>
+            </div>
+          </div>
+        )}
 
         {/* Try First Preview Modal */}
         {previewItem && (() => {
