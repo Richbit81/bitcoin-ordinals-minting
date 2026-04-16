@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
-import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
+import { RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
 
 function SynthLifeV2() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -182,7 +182,7 @@ const ALL_NEW_STUFF = [
   { name: 'Ninja', thumb: 'https://ordinals.com/content/51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', route: '/tech-games?try=51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   {
     name: 'Runner',
-    thumb: `https://ordinals.com/content/${RUNNER_INSCRIPTION_ID}`,
+    thumb: RUNNER_PREVIEW_IFRAME_SRC,
     route: '/free-stuff',
     tag: 'NEW',
     tagColor: 'bg-red-600',

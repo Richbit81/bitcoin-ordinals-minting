@@ -8,7 +8,7 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
-import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
+import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
 
 // Free Stuff Collection Items
 const FREE_ITEMS = [
@@ -358,7 +358,7 @@ export const FreeStuffPage: React.FC = () => {
                   </button>
                 </div>
                 <iframe
-                  src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
+                  src={previewItem.id === 'runner' ? RUNNER_PREVIEW_IFRAME_SRC : `https://ordinals.com/content/${previewItem.inscriptionId}`}
                   title={previewItem.name}
                   className="w-full"
                   style={{ height: 'calc(100% - 40px)', border: 'none', background: '#000' }}
