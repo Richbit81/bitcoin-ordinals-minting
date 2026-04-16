@@ -10,6 +10,20 @@ import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
 
+/** Runner-Delegate: Vorschau wie im Katalog (ordin-delta), nicht rohe ordinals.com-URL */
+function isRunnerFreeMint(m: { itemName: string; originalInscriptionId?: string | null }): boolean {
+  return m.itemName === 'Runner' || m.originalInscriptionId === RUNNER_INSCRIPTION_ID;
+}
+
+function iframeSrcForFreeStuffMint(m: {
+  inscriptionId: string;
+  itemName: string;
+  originalInscriptionId?: string | null;
+}): string {
+  if (isRunnerFreeMint(m)) return RUNNER_PREVIEW_IFRAME_SRC;
+  return `https://ordinals.com/content/${m.inscriptionId}`;
+}
+
 // Free Stuff Collection Items
 const FREE_ITEMS = [
   {
@@ -65,6 +79,7 @@ type RecentFreeMint = {
   itemName: string;
   timestamp: string;
   inscriptionId: string;
+  originalInscriptionId?: string | null;
 };
 
 export const FreeStuffPage: React.FC = () => {
@@ -77,7 +92,7 @@ export const FreeStuffPage: React.FC = () => {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [previewItem, setPreviewItem] = useState<typeof FREE_ITEMS[0] | null>(null);
   const [recentMints, setRecentMints] = useState<RecentFreeMint[]>([]);
-  const [recentLightbox, setRecentLightbox] = useState<{ inscriptionId: string; itemName: string } | null>(null);
+  const [recentLightbox, setRecentLightbox] = useState<RecentFreeMint | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   const loadRecentMints = useCallback(async () => {
@@ -93,6 +108,7 @@ export const FreeStuffPage: React.FC = () => {
           return {
             inscriptionId: id,
             itemName: String(m.itemName ?? m.item_name ?? 'Free Stuff'),
+            originalInscriptionId: m.originalInscriptionId ?? m.original_inscription_id ?? null,
             timestamp:
               m.timestamp != null
                 ? typeof m.timestamp === 'number'
@@ -383,11 +399,11 @@ export const FreeStuffPage: React.FC = () => {
                   <button
                     type="button"
                     className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border-2 border-emerald-600/40 bg-black shadow-lg shadow-emerald-900/20 cursor-pointer transition-transform hover:scale-105 hover:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    onClick={() => setRecentLightbox({ inscriptionId: mint.inscriptionId, itemName: mint.itemName })}
+                    onClick={() => setRecentLightbox(mint)}
                     title={mint.itemName}
                   >
                     <iframe
-                      src={`https://ordinals.com/content/${mint.inscriptionId}`}
+                      src={iframeSrcForFreeStuffMint(mint)}
                       title={mint.itemName}
                       className="w-full h-full pointer-events-none border-0 bg-black"
                       sandbox="allow-scripts allow-same-origin"
@@ -434,13 +450,20 @@ export const FreeStuffPage: React.FC = () => {
               </div>
               <div className="rounded-xl border-2 border-emerald-600/50 overflow-hidden bg-black flex-1 min-h-[min(85vh,85vw)] w-full aspect-square max-h-[min(85vh,85vw)] mx-auto">
                 <iframe
-                  src={`https://ordinals.com/content/${recentLightbox.inscriptionId}`}
+                  src={iframeSrcForFreeStuffMint(recentLightbox)}
                   title={recentLightbox.itemName}
                   className="w-full h-full border-0 bg-black"
-                  sandbox="allow-scripts allow-same-origin"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
                 />
               </div>
-              <p className="text-center text-gray-400 text-xs mt-3 truncate">{recentLightbox.inscriptionId}</p>
+              <p className="text-center text-gray-500 text-[10px] mt-2 font-mono break-all px-2">
+                Delegate: {recentLightbox.inscriptionId}
+              </p>
+              {isRunnerFreeMint(recentLightbox) && (
+                <p className="text-center text-gray-600 text-[10px] mt-1 px-2">
+                  Vorschau wie auf ord.io (Proxy); deine Inscription ist die Delegate-ID oben.
+                </p>
+              )}
             </div>
           </div>
         )}
