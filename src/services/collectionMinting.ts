@@ -81,7 +81,7 @@ iframe {
 </style>
 </head>
 <body>
-<iframe src="${ORDINALS_CONTENT(originalInscriptionId)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
+<iframe src="${delegateIframeSrc}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
 </body>
 </html>`
     : `<!DOCTYPE html>
