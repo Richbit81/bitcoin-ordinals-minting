@@ -8,6 +8,7 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
+import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
 
 // Free Stuff Collection Items
 const FREE_ITEMS = [
@@ -41,6 +42,16 @@ const FREE_ITEMS = [
     priceInSats: 0,
     priceInBTC: 0,
     description: 'Interference whispers that reality shifts the moment you touch it—as if waves know when they are being seen. And when you look, the world decides again: not what is, but what is allowed to be.',
+    isHtml: true,
+  },
+  {
+    id: 'runner',
+    name: 'Runner',
+    inscriptionId: RUNNER_INSCRIPTION_ID,
+    priceInSats: 0,
+    priceInBTC: 0,
+    description:
+      'RUNNER — Generative noir cyberpunk 3D art on Ordinals: your inscription hash builds the scene; mempool vibes pick the pace. One runner, infinite moods.',
     isHtml: true,
   },
 ];

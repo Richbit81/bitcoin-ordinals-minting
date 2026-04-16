@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
+import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
 
 function SynthLifeV2() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -179,6 +180,14 @@ const ALL_NEW_STUFF = [
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Ninja', thumb: 'https://ordinals.com/content/51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', route: '/tech-games?try=51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  {
+    name: 'Runner',
+    thumb: `https://ordinals.com/content/${RUNNER_INSCRIPTION_ID}`,
+    route: '/free-stuff',
+    tag: 'NEW',
+    tagColor: 'bg-red-600',
+    isIframe: true,
+  },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
@@ -257,10 +266,15 @@ function DropdownMenu({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navi
                     else navigate(item.route);
                     setOpen(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
+                  className="w-full flex items-start gap-3 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-left"
                 >
                   <NavThumb item={item} />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium block">{item.label}</span>
+                    {item.description ? (
+                      <span className="text-[10px] text-gray-500 leading-snug line-clamp-4 mt-0.5 block">{item.description}</span>
+                    ) : null}
+                  </span>
                 </button>
               ))
             )}
@@ -525,10 +539,15 @@ function MobileMenuSection({ menu, navigate }: { menu: typeof NAV_MENUS[number];
                 if (item.external) window.open(item.route, '_blank', 'noopener');
                 else navigate(item.route);
               }}
-              className="w-full flex items-center gap-3 px-6 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-left"
+              className="w-full flex items-start gap-3 px-6 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-left"
             >
               <NavThumb item={item} size="h-7 w-7" />
-              <span>{item.label}</span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="text-gray-200 block">{item.label}</span>
+                {item.description ? (
+                  <span className="text-[10px] text-gray-500 leading-snug line-clamp-3 mt-0.5 block">{item.description}</span>
+                ) : null}
+              </span>
             </button>
           ))}
         </div>
