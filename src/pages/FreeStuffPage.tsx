@@ -8,22 +8,8 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
-import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
+import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
 import { getApiUrl } from '../utils/apiUrl';
-
-/** Runner-Delegate: Vorschau wie im Katalog (ordin-delta), nicht rohe ordinals.com-URL */
-function isRunnerFreeMint(m: { itemName: string; originalInscriptionId?: string | null }): boolean {
-  return m.itemName === 'Runner' || m.originalInscriptionId === RUNNER_INSCRIPTION_ID;
-}
-
-function iframeSrcForFreeStuffMint(m: {
-  inscriptionId: string;
-  itemName: string;
-  originalInscriptionId?: string | null;
-}): string {
-  if (isRunnerFreeMint(m)) return RUNNER_PREVIEW_IFRAME_SRC;
-  return `https://ordinals.com/content/${m.inscriptionId}`;
-}
 
 /** Muss zum Original-Inscription-Typ passen — steuert Delegate-Mint (iframe vs img) und Vorschau. */
 type FreeStuffItem = {
@@ -299,7 +285,7 @@ export const FreeStuffPage: React.FC = () => {
               <div className="relative mb-3 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
                 {item.delegateContentType === 'html' ? (
                   <iframe
-                    src={item.id === 'runner' ? RUNNER_PREVIEW_IFRAME_SRC : `https://ordinals.com/content/${item.inscriptionId}`}
+                    src={`https://ordinals.com/content/${item.inscriptionId}`}
                     title={item.name}
                     className="w-full h-full rounded-lg pointer-events-none"
                     style={{ border: 'none', background: '#000' }}
@@ -420,7 +406,7 @@ export const FreeStuffPage: React.FC = () => {
                     title={mint.itemName}
                   >
                     <iframe
-                      src={iframeSrcForFreeStuffMint(mint)}
+                      src={`https://ordinals.com/content/${mint.inscriptionId}`}
                       title={mint.itemName}
                       className="w-full h-full pointer-events-none border-0 bg-black"
                       sandbox="allow-scripts allow-same-origin"
@@ -467,7 +453,7 @@ export const FreeStuffPage: React.FC = () => {
               </div>
               <div className="rounded-xl border-2 border-emerald-600/50 overflow-hidden bg-black flex-1 min-h-[min(85vh,85vw)] w-full aspect-square max-h-[min(85vh,85vw)] mx-auto">
                 <iframe
-                  src={iframeSrcForFreeStuffMint(recentLightbox)}
+                  src={`https://ordinals.com/content/${recentLightbox.inscriptionId}`}
                   title={recentLightbox.itemName}
                   className="w-full h-full border-0 bg-black"
                   sandbox="allow-scripts allow-same-origin allow-popups"
@@ -476,11 +462,6 @@ export const FreeStuffPage: React.FC = () => {
               <p className="text-center text-gray-500 text-[10px] mt-2 font-mono break-all px-2">
                 Delegate: {recentLightbox.inscriptionId}
               </p>
-              {isRunnerFreeMint(recentLightbox) && (
-                <p className="text-center text-gray-600 text-[10px] mt-1 px-2">
-                  Vorschau wie auf ord.io (Proxy); deine Inscription ist die Delegate-ID oben.
-                </p>
-              )}
             </div>
           </div>
         )}
@@ -510,7 +491,7 @@ export const FreeStuffPage: React.FC = () => {
                   </button>
                 </div>
                 <iframe
-                  src={previewItem.id === 'runner' ? RUNNER_PREVIEW_IFRAME_SRC : `https://ordinals.com/content/${previewItem.inscriptionId}`}
+                  src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
                   title={previewItem.name}
                   className="w-full"
                   style={{ height: 'calc(100% - 40px)', border: 'none', background: '#000' }}

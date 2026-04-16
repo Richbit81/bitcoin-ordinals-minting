@@ -33,12 +33,6 @@ export const createSingleDelegate = async (
     console.log(`[CollectionMinting] Auto-detected contentType: ${contentType} (collection: ${collectionName})`);
   }
 
-  // Nur Free-Stuff-Runner: absolute Content-URL — relative `/content/…` brechen in ord.io/ord.link-Vorschau.
-  const delegateIframeSrc =
-    itemName === 'Runner' && collectionName === 'Free Stuff'
-      ? `https://ordinals.com/content/${originalInscriptionId}`
-      : `/content/${originalInscriptionId}`;
-
   // Erstelle HTML-Datei für Delegate-Inskription
   const delegateContent = {
     p: 'ord-20',
@@ -81,7 +75,7 @@ iframe {
 </style>
 </head>
 <body>
-<iframe src="${delegateIframeSrc}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
+<iframe src="/content/${originalInscriptionId}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen" allowfullscreen></iframe>
 </body>
 </html>`
     : `<!DOCTYPE html>
