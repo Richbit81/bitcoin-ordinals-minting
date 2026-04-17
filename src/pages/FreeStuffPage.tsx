@@ -5,7 +5,7 @@ import { WalletConnect } from '../components/WalletConnect';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
-import { createSingleDelegate } from '../services/collectionMinting';
+import { createSingleDelegate, createRunnerWrapperInscription } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
@@ -157,16 +157,25 @@ export const FreeStuffPage: React.FC = () => {
         message: `Creating delegate for "${item.name}"...`,
       } : null);
 
-      const result = await createSingleDelegate(
-        item.inscriptionId,
-        item.name,
-        userAddress,
-        COLLECTION_NAME,
-        inscriptionFeeRate,
-        walletState.walletType || 'unisat',
-        item.id === 'runner' ? 'html' : item.delegateContentType,
-        item.priceInSats
-      );
+      const result = item.id === 'runner'
+        ? await createRunnerWrapperInscription(
+            item.name,
+            userAddress,
+            COLLECTION_NAME,
+            inscriptionFeeRate,
+            walletState.walletType || 'unisat',
+            item.priceInSats
+          )
+        : await createSingleDelegate(
+            item.inscriptionId,
+            item.name,
+            userAddress,
+            COLLECTION_NAME,
+            inscriptionFeeRate,
+            walletState.walletType || 'unisat',
+            item.delegateContentType,
+            item.priceInSats
+          );
 
       setMintingStatus(prev => prev ? {
         ...prev,

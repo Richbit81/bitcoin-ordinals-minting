@@ -218,3 +218,113 @@ img {
   };
 };
 
+/**
+ * Runner-spezifischer Mint: schreibt bei jedem Mint dieselbe Wrapper-HTML-Datei ein.
+ * Kein Delegate — die Wrapper-Datei lädt zur Anzeige eine Basis-HTML-Inscription
+ * und nutzt die eigene Inscription-ID als Seed (`#inscription=…`).
+ */
+export const createRunnerWrapperInscription = async (
+  itemName: string,
+  recipientAddress: string,
+  collectionName: string,
+  feeRate: number,
+  walletType: 'unisat' | 'xverse' | 'okx' | null,
+  itemPrice?: number
+): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
+  console.log(`[CollectionMinting] Creating Runner wrapper inscription for ${itemName}`);
+
+  // Identische Wrapper-Datei bei jedem Mint — Seed wird zur Laufzeit aus eigener Inscription-ID gebildet.
+  const WRAPPER_HTML =
+    `<!doctype html><meta charset=utf-8><title>NR</title>` +
+    `<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}` +
+    `iframe{display:block;border:0;width:100%;height:100%}</style>` +
+    `<script>var b="13a0c3183a983b88c6f40a1d1845ac5817104fc45eca4a4f28bd05c9c38e765bi0",` +
+    `p=location.pathname.split("/").pop()||"",` +
+    `s=/^[0-9a-f]{64}i\\d+$/i.test(p)?p:("f-"+(Date.now()&0xffffff).toString(36));` +
+    `document.write('<iframe src="/content/'+b+'#inscription='+s+'\" allow=\"autoplay\"></iframe>')` +
+    `</script>\n`;
+
+  const htmlFile = new File(
+    [WRAPPER_HTML],
+    `${itemName.replace(/\s/g, '-')}-${Date.now()}.html`,
+    { type: 'text/html' }
+  );
+
+  console.log(`[CollectionMinting] ✅ Wrapper file created: ${htmlFile.name} (${htmlFile.size} bytes)`);
+
+  console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription...`);
+  let result;
+  try {
+    result = await createUnisatInscription({
+      file: htmlFile,
+      address: recipientAddress,
+      feeRate,
+      postage: 330,
+    });
+    console.log(`[CollectionMinting] ✅ Step 1/3 done. orderId=${result.orderId}, payAddress=${result.payAddress}, amount=${result.amount}`);
+  } catch (apiErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 1/3 FAILED (createUnisatInscription):`, apiErr);
+    throw new Error(`Inscription API failed: ${apiErr?.message || apiErr}`);
+  }
+
+  if (!result.payAddress || !result.amount) {
+    console.error(`[CollectionMinting] ❌ Missing payAddress or amount in API response:`, result);
+    throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
+  }
+
+  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
+  const payments: Array<{ address: string; amount: number }> = [];
+
+  if (itemPrice && itemPrice > 0) {
+    const itemPriceBTC = itemPrice / 100000000;
+    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC });
+    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
+  }
+
+  payments.push({ address: result.payAddress, amount: result.amount });
+  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
+
+  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
+  let paymentTxid: string | undefined;
+  try {
+    if (payments.length === 1) {
+      if (walletType === 'unisat') {
+        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
+      } else if (walletType === 'okx') {
+        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
+      } else if (walletType === 'xverse') {
+        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
+      } else {
+        throw new Error('Unsupported wallet type for payment.');
+      }
+    } else {
+      if (!walletType) throw new Error('Unsupported wallet type for payment.');
+      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
+    }
+    console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
+  } catch (payErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
+    throw payErr;
+  }
+
+  if (!paymentTxid) throw new Error('Payment transaction failed or returned no TXID.');
+
+  try {
+    await addMintPoints(recipientAddress, {
+      collection: collectionName,
+      itemName,
+      inscriptionId: result.inscriptionId,
+      txid: result.txid || result.orderId,
+      source: 'createRunnerWrapperInscription',
+    });
+  } catch (pointsError) {
+    console.warn('[CollectionMinting] Failed to add mint points:', pointsError);
+  }
+
+  return {
+    inscriptionId: result.inscriptionId,
+    txid: result.txid || result.orderId,
+    paymentTxid,
+  };
+};
+
