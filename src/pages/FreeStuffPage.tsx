@@ -8,7 +8,7 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate, createRunnerWrapperInscription } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
-import { RUNNER_INSCRIPTION_ID } from '../constants/runnerInscription';
+import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_INSCRIPTION_ID } from '../constants/runnerInscription';
 import { getApiUrl } from '../utils/apiUrl';
 
 /** Muss zum Original-Inscription-Typ passen — steuert Delegate-Mint (iframe vs img) und Vorschau. */
@@ -294,7 +294,7 @@ export const FreeStuffPage: React.FC = () => {
               <div className="relative mb-3 w-full rounded-lg overflow-hidden shadow-lg shadow-emerald-600/10 border border-emerald-600/20 bg-gray-900" style={{ aspectRatio: '1 / 1' }}>
                 {item.delegateContentType === 'html' ? (
                   <iframe
-                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    src={`https://ordinals.com/content/${item.id === 'runner' ? RUNNER_PREVIEW_INSCRIPTION_ID : item.inscriptionId}`}
                     title={item.name}
                     className="w-full h-full rounded-lg pointer-events-none"
                     style={{ border: 'none', background: '#000' }}
@@ -500,7 +500,7 @@ export const FreeStuffPage: React.FC = () => {
                   </button>
                 </div>
                 <iframe
-                  src={`https://ordinals.com/content/${previewItem.inscriptionId}`}
+                  src={`https://ordinals.com/content/${previewItem.id === 'runner' ? RUNNER_PREVIEW_INSCRIPTION_ID : previewItem.inscriptionId}`}
                   title={previewItem.name}
                   className="w-full"
                   style={{ height: 'calc(100% - 40px)', border: 'none', background: '#000' }}
