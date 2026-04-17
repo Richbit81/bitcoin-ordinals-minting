@@ -2,7 +2,7 @@
  * HTML-Inscription-ID für „Runner“ (Delegate-Quelle / Minting).
  */
 export const RUNNER_INSCRIPTION_ID =
-  'ad217d6827a62b29f721195279f9b5558466b30be3d2aede7b0582885b24bc42i0';
+  '0fc37d11bddb53aed359fd200ceef0acb923d87c0777a905f43d9d2db63e1a4bi0';
 
 /**
  * Nur für eingebettete Vorschau (iframe): ord.io kann nicht in fremden iframes geladen werden
