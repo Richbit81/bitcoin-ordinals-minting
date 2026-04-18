@@ -19,7 +19,9 @@ const viewers = new Set();
 let lastSource = null;
 let wakeLock = null;
 let refreshInterval = null;
-const AUTO_REFRESH_MS = 5 * 60 * 1000;
+let lastRefreshAt = 0;
+const REFRESH_WHEN_EMPTY_MS = 30 * 1000;
+const MIN_REFRESH_GAP_MS = 15 * 1000;
 
 function getOrCreateRoomId() {
   let id = localStorage.getItem('ordinal-stream-room-id');
@@ -82,6 +84,11 @@ async function reconnectRoom(reason) {
     log('Kein aktiver Stream — Reconnect übersprungen', 'info');
     return;
   }
+  const since = Date.now() - lastRefreshAt;
+  if (since < MIN_REFRESH_GAP_MS) {
+    return;
+  }
+  lastRefreshAt = Date.now();
   log(`Verbindung wird erneuert (${reason})`, 'info');
   if (room) {
     try { room.leave(); } catch (e) {}
@@ -112,9 +119,13 @@ async function releaseWakeLock() {
 
 function startAutoRefresh() {
   if (refreshInterval) clearInterval(refreshInterval);
+  lastRefreshAt = Date.now();
   refreshInterval = setInterval(() => {
-    if (currentStream && room) reconnectRoom('Auto-Refresh');
-  }, AUTO_REFRESH_MS);
+    if (!currentStream || !room) return;
+    if (viewers.size === 0) {
+      reconnectRoom('Auto-Refresh (kein Viewer)');
+    }
+  }, REFRESH_WHEN_EMPTY_MS);
 }
 
 function stopAutoRefresh() {
