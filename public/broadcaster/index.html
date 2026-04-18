@@ -195,7 +195,7 @@
           <button id="btn-reconnect" disabled>Verbindung erneuern</button>
           <button id="btn-restart" disabled>Stream neu starten</button>
           <button class="danger" id="btn-stop" disabled>Stream stoppen</button>
-          <p class="hint">"Verbindung erneuern" rejoint den P2P-Room ohne den Stream zu unterbrechen. Läuft automatisch alle 30 Sek wenn keine Viewer connected sind, sowie bei Tab-Wechsel. Aktive Viewer werden nicht gestört.</p>
+          <p class="hint">"Verbindung erneuern" forciert einen Reconnect (rejoint P2P-Room, Stream läuft weiter). Läuft automatisch alle 30 Sek wenn 0 Viewer connected sind. Aktive Viewer werden NIE gestört — auch nicht bei Tab-Wechsel.</p>
         </div>
       </div>
     </div>

@@ -79,9 +79,12 @@ function joinRoomWithStream(reason) {
   return true;
 }
 
-async function reconnectRoom(reason) {
+async function reconnectRoom(reason, opts = {}) {
   if (!currentStream) {
     log('Kein aktiver Stream — Reconnect übersprungen', 'info');
+    return;
+  }
+  if (!opts.force && viewers.size > 0) {
     return;
   }
   const since = Date.now() - lastRefreshAt;
@@ -227,13 +230,14 @@ document.getElementById('btn-camera').addEventListener('click', startCamera);
 
 document.getElementById('btn-stop').addEventListener('click', stopBroadcast);
 
-document.getElementById('btn-reconnect').addEventListener('click', () => reconnectRoom('manuell'));
+document.getElementById('btn-reconnect').addEventListener('click', () => reconnectRoom('manuell', { force: true }));
 
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && currentStream) {
     if (!wakeLock) await requestWakeLock();
-    log('Tab wieder sichtbar — Verbindung wird erneuert', 'info');
-    reconnectRoom('Tab-Wechsel');
+    if (viewers.size === 0) {
+      reconnectRoom('Tab-Wechsel');
+    }
   }
 });
 
