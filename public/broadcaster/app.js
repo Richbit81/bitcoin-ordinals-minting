@@ -17,6 +17,9 @@ let startTime = null;
 let viewerCount = 0;
 const viewers = new Set();
 let lastSource = null;
+let wakeLock = null;
+let refreshInterval = null;
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 function getOrCreateRoomId() {
   let id = localStorage.getItem('ordinal-stream-room-id');
@@ -48,29 +51,20 @@ function updateStatus() {
 }
 setInterval(updateStatus, 1000);
 
-async function startBroadcast(stream) {
-  if (room) {
-    log('Stream wird neu gestartet...', 'info');
-    stopBroadcast();
-  }
-
-  currentStream = stream;
-  document.getElementById('preview').srcObject = stream;
-
+function joinRoomWithStream(reason) {
   const roomId = getRoomId();
   if (!roomId) {
     log('Stream-ID fehlt! Bitte oben eingeben oder generieren.', 'err');
-    return;
+    return false;
   }
-  log('Verbinde mit BitTorrent-Trackern...', 'info');
-
+  log(`Trete Room bei (${reason})...`, 'info');
   room = joinRoom({ appId: APP_ID }, roomId);
 
   room.onPeerJoin(peerId => {
     viewers.add(peerId);
     viewerCount = viewers.size;
     log(`Viewer beigetreten: ${peerId.slice(0, 8)}...`, 'ok');
-    room.addStream(currentStream, peerId);
+    try { room.addStream(currentStream, peerId); } catch (e) { log('addStream fehlgeschlagen: ' + e.message, 'err'); }
   });
 
   room.onPeerLeave(peerId => {
@@ -79,18 +73,82 @@ async function startBroadcast(stream) {
     log(`Viewer verlassen: ${peerId.slice(0, 8)}...`, 'info');
   });
 
-  room.addStream(currentStream);
+  try { room.addStream(currentStream); } catch (e) { log('addStream global fehlgeschlagen: ' + e.message, 'err'); }
+  return true;
+}
+
+async function reconnectRoom(reason) {
+  if (!currentStream) {
+    log('Kein aktiver Stream — Reconnect übersprungen', 'info');
+    return;
+  }
+  log(`Verbindung wird erneuert (${reason})`, 'info');
+  if (room) {
+    try { room.leave(); } catch (e) {}
+    room = null;
+  }
+  viewers.clear();
+  viewerCount = 0;
+  joinRoomWithStream(reason);
+}
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    log('Wake-Lock aktiv (Tab wird nicht gedrosselt)', 'info');
+    wakeLock.addEventListener('release', () => { log('Wake-Lock freigegeben', 'info'); });
+  } catch (e) {
+    log('Wake-Lock nicht verfügbar: ' + e.message, 'info');
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+}
+
+function startAutoRefresh() {
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(() => {
+    if (currentStream && room) reconnectRoom('Auto-Refresh');
+  }, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+}
+
+async function startBroadcast(stream) {
+  if (room) {
+    log('Stream wird neu gestartet...', 'info');
+    stopBroadcast();
+  }
+
+  currentStream = stream;
+  document.getElementById('preview').srcObject = stream;
+  log('Verbinde mit BitTorrent-Trackern...', 'info');
+
+  if (!joinRoomWithStream('Start')) return;
 
   startTime = Date.now();
   document.getElementById('status-live').innerHTML = '<span class="status live">● LIVE</span>';
   document.getElementById('btn-stop').disabled = false;
   document.getElementById('btn-restart').disabled = false;
+  document.getElementById('btn-reconnect').disabled = false;
   log('Stream ist LIVE!', 'ok');
+
+  await requestWakeLock();
+  startAutoRefresh();
 }
 
 function stopBroadcast() {
+  stopAutoRefresh();
+  releaseWakeLock();
   if (room) {
-    room.leave();
+    try { room.leave(); } catch (e) {}
     room = null;
   }
   if (currentStream) {
@@ -100,6 +158,7 @@ function stopBroadcast() {
   document.getElementById('preview').srcObject = null;
   document.getElementById('status-live').innerHTML = '<span class="status idle">OFFLINE</span>';
   document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-reconnect').disabled = true;
   viewers.clear();
   viewerCount = 0;
   startTime = null;
@@ -156,6 +215,16 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
 document.getElementById('btn-camera').addEventListener('click', startCamera);
 
 document.getElementById('btn-stop').addEventListener('click', stopBroadcast);
+
+document.getElementById('btn-reconnect').addEventListener('click', () => reconnectRoom('manuell'));
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && currentStream) {
+    if (!wakeLock) await requestWakeLock();
+    log('Tab wieder sichtbar — Verbindung wird erneuert', 'info');
+    reconnectRoom('Tab-Wechsel');
+  }
+});
 
 document.getElementById('btn-restart').addEventListener('click', async () => {
   if (!lastSource) {
