@@ -1,0 +1,218 @@
+import { joinRoom } from 'https://esm.sh/trystero@0.20.0/torrent';
+
+const APP_ID = 'ordinal-stream-v1';
+const log = (msg, type = 'info') => {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'line ' + type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+};
+
+let room = null;
+let currentStream = null;
+let bytesSent = 0;
+let startTime = null;
+let viewerCount = 0;
+const viewers = new Set();
+let lastSource = null;
+
+function getOrCreateRoomId() {
+  let id = localStorage.getItem('ordinal-stream-room-id');
+  if (!id) {
+    id = 'stream-' + crypto.randomUUID();
+    localStorage.setItem('ordinal-stream-room-id', id);
+  }
+  return id;
+}
+
+function setRoomId(id) {
+  document.getElementById('room-id').value = id;
+}
+
+function getRoomId() {
+  return document.getElementById('room-id').value.trim();
+}
+
+function updateStatus() {
+  document.getElementById('stat-viewers').textContent = viewerCount;
+  document.getElementById('stat-bytes').textContent = (bytesSent / 1024 / 1024).toFixed(2) + ' MB';
+  if (startTime) {
+    const sec = Math.floor((Date.now() - startTime) / 1000);
+    const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    document.getElementById('stat-uptime').textContent = `${h}:${m}:${s}`;
+  }
+}
+setInterval(updateStatus, 1000);
+
+async function startBroadcast(stream) {
+  if (room) {
+    log('Stream wird neu gestartet...', 'info');
+    stopBroadcast();
+  }
+
+  currentStream = stream;
+  document.getElementById('preview').srcObject = stream;
+
+  const roomId = getRoomId();
+  if (!roomId) {
+    log('Stream-ID fehlt! Bitte oben eingeben oder generieren.', 'err');
+    return;
+  }
+  log('Verbinde mit BitTorrent-Trackern...', 'info');
+
+  room = joinRoom({ appId: APP_ID }, roomId);
+
+  room.onPeerJoin(peerId => {
+    viewers.add(peerId);
+    viewerCount = viewers.size;
+    log(`Viewer beigetreten: ${peerId.slice(0, 8)}...`, 'ok');
+    room.addStream(currentStream, peerId);
+  });
+
+  room.onPeerLeave(peerId => {
+    viewers.delete(peerId);
+    viewerCount = viewers.size;
+    log(`Viewer verlassen: ${peerId.slice(0, 8)}...`, 'info');
+  });
+
+  room.addStream(currentStream);
+
+  startTime = Date.now();
+  document.getElementById('status-live').innerHTML = '<span class="status live">● LIVE</span>';
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('btn-restart').disabled = false;
+  log('Stream ist LIVE!', 'ok');
+}
+
+function stopBroadcast() {
+  if (room) {
+    room.leave();
+    room = null;
+  }
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  document.getElementById('preview').srcObject = null;
+  document.getElementById('status-live').innerHTML = '<span class="status idle">OFFLINE</span>';
+  document.getElementById('btn-stop').disabled = true;
+  viewers.clear();
+  viewerCount = 0;
+  startTime = null;
+  log('Stream gestoppt' + (lastSource ? ' (Klick "Stream neu starten" für Restart)' : ''), 'info');
+}
+
+async function startScreen() {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30 } },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    log('Bildschirm-Capture gestartet', 'ok');
+    lastSource = { type: 'screen' };
+    await startBroadcast(stream);
+  } catch (e) {
+    log('Bildschirm-Capture fehlgeschlagen: ' + e.message, 'err');
+  }
+}
+
+async function startFile(file) {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.src = url;
+  video.loop = true;
+  video.muted = false;
+  video.crossOrigin = 'anonymous';
+  await video.play();
+  const stream = video.captureStream();
+  log(`Datei geladen: ${file.name}`, 'ok');
+  lastSource = { type: 'file', file, video };
+  await startBroadcast(stream);
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    log('Kamera + Mikro aktiviert', 'ok');
+    lastSource = { type: 'camera' };
+    await startBroadcast(stream);
+  } catch (e) {
+    log('Kamera-Zugriff fehlgeschlagen: ' + e.message, 'err');
+  }
+}
+
+document.getElementById('btn-screen').addEventListener('click', startScreen);
+
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await startFile(file);
+});
+
+document.getElementById('btn-camera').addEventListener('click', startCamera);
+
+document.getElementById('btn-stop').addEventListener('click', stopBroadcast);
+
+document.getElementById('btn-restart').addEventListener('click', async () => {
+  if (!lastSource) {
+    log('Keine Quelle bekannt – bitte oben neu wählen', 'err');
+    return;
+  }
+  log('Neustart mit letzter Quelle (' + lastSource.type + ')', 'info');
+  if (lastSource.type === 'screen') {
+    await startScreen();
+  } else if (lastSource.type === 'file') {
+    await startFile(lastSource.file);
+  } else if (lastSource.type === 'camera') {
+    await startCamera();
+  }
+});
+
+document.getElementById('btn-copy-id').addEventListener('click', () => {
+  navigator.clipboard.writeText(getRoomId());
+  log('Stream-ID kopiert', 'ok');
+});
+
+document.getElementById('btn-new-id').addEventListener('click', () => {
+  if (!confirm('Neue Stream-ID generieren? Alle bestehenden Viewer-Inscriptions verlieren den Zugang!')) return;
+  localStorage.removeItem('ordinal-stream-room-id');
+  setRoomId(getOrCreateRoomId());
+  log('Neue Stream-ID generiert', 'info');
+});
+
+document.getElementById('btn-save-id').addEventListener('click', () => {
+  const id = getRoomId();
+  if (!id) { log('Stream-ID darf nicht leer sein', 'err'); return; }
+  if (!id.startsWith('stream-')) {
+    if (!confirm('Die ID beginnt nicht mit "stream-". Trotzdem speichern? (Achtung: muss exakt mit der ID in der Inscription übereinstimmen!)')) return;
+  }
+  localStorage.setItem('ordinal-stream-room-id', id);
+  log('Stream-ID gespeichert: ' + id, 'ok');
+  if (room) {
+    log('Stream läuft mit alter ID weiter. Bitte stoppen und neu starten, um die neue ID zu nutzen.', 'info');
+  }
+});
+
+document.getElementById('room-id').addEventListener('blur', () => {
+  const stored = localStorage.getItem('ordinal-stream-room-id');
+  if (getRoomId() !== stored) {
+    log('Achtung: ID geändert aber nicht gespeichert! Klick "Speichern".', 'info');
+  }
+});
+
+document.querySelectorAll('.source-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.source-tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.source-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`.source-panel[data-panel="${btn.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+setRoomId(getOrCreateRoomId());
+log('Broadcaster bereit', 'ok');
+log('Wähle eine Stream-Quelle, um zu starten', 'info');

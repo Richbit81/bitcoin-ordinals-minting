@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title></title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #000;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #app { display: none; }
+  body.unlocked { overflow: auto; }
+  body.unlocked #app { display: block; padding: 24px; min-height: 100vh; }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #f7931a, #ffce6b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sub { color: #8b949e; margin-bottom: 24px; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+  }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 16px; margin-bottom: 12px; color: #f0f6fc; }
+  label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  input:focus, select:focus { outline: none; border-color: #f7931a; }
+  button {
+    background: #f7931a;
+    color: #000;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+  button.danger { background: #da3633; color: #fff; }
+  video {
+    width: 100%;
+    background: #000;
+    border-radius: 8px;
+    aspect-ratio: 16/9;
+  }
+  .status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .status.live { background: #da3633; color: #fff; }
+  .status.idle { background: #30363d; color: #8b949e; }
+  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; font-size: 13px; }
+  .stat:last-child { border-bottom: none; }
+  .stat span:last-child { color: #f7931a; font-weight: 600; }
+  .room-id {
+    font-family: "SF Mono", Consolas, monospace;
+    background: #0d1117;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    word-break: break-all;
+    border: 1px solid #30363d;
+    color: #f7931a;
+  }
+  .log {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 11px;
+    max-height: 180px;
+    overflow-y: auto;
+    color: #8b949e;
+  }
+  .log .line { margin-bottom: 2px; }
+  .log .ok { color: #3fb950; }
+  .log .err { color: #f85149; }
+  .log .info { color: #58a6ff; }
+  .source-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .source-tabs button {
+    background: #21262d;
+    color: #8b949e;
+    flex: 1;
+    margin: 0;
+    border: 1px solid #30363d;
+  }
+  .source-tabs button.active { background: #f7931a; color: #000; border-color: #f7931a; }
+  .source-panel { display: none; }
+  .source-panel.active { display: block; }
+  .hint { font-size: 12px; color: #8b949e; margin-top: 8px; line-height: 1.5; }
+  code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-family: "SF Mono", Consolas, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="container">
+    <h1>Ordinal Stream Broadcaster</h1>
+    <p class="sub">Sende einen Live-Stream an alle, die deine Inscription oder einen Delegate davon öffnen.</p>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Stream-Quelle</h2>
+          <div class="source-tabs">
+            <button data-tab="screen" class="active">Bildschirm / Tab</button>
+            <button data-tab="file">Lokale Videodatei</button>
+            <button data-tab="camera">Webcam</button>
+          </div>
+
+          <div class="source-panel active" data-panel="screen">
+            <p class="hint">Zum Streamen eines YouTube-Videos: Klick "Bildschirm wählen", wähle den Browser-Tab aus, in dem YouTube läuft, und aktiviere <strong>"Audio des Tabs teilen"</strong> (nur in Chrome/Edge).</p>
+            <button id="btn-screen">Bildschirm wählen</button>
+          </div>
+
+          <div class="source-panel" data-panel="file">
+            <p class="hint">Wähle eine lokale Videodatei (MP4, WebM, MOV). Sie wird direkt von deinem PC an alle Viewer gestreamt.</p>
+            <input type="file" id="file-input" accept="video/*">
+          </div>
+
+          <div class="source-panel" data-panel="camera">
+            <p class="hint">Sende deine Webcam und dein Mikrofon live an alle Viewer.</p>
+            <button id="btn-camera">Kamera + Mikro starten</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Vorschau</h2>
+          <video id="preview" autoplay muted playsinline></video>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Status</h2>
+          <div class="stat"><span>Stream</span><span id="status-live"><span class="status idle">OFFLINE</span></span></div>
+          <div class="stat"><span>Verbundene Viewer</span><span id="stat-viewers">0</span></div>
+          <div class="stat"><span>Gesendete Daten</span><span id="stat-bytes">0 MB</span></div>
+          <div class="stat"><span>Uptime</span><span id="stat-uptime">00:00:00</span></div>
+        </div>
+
+        <div class="card">
+          <h2>Stream-ID (Room)</h2>
+          <p class="hint">Diese ID muss in deine Viewer-Inscription eingebaut werden. Halte sie geheim oder veröffentliche sie nur an deine Käufer. Du kannst eine bestehende ID hier einfügen, um sie weiter zu verwenden.</p>
+          <input type="text" id="room-id" placeholder="stream-..." spellcheck="false" style="font-family: 'SF Mono', Consolas, monospace; font-size: 12px; color: #f7931a;">
+          <button class="secondary" id="btn-copy-id" style="margin-top: 8px;">Kopieren</button>
+          <button class="secondary" id="btn-new-id" style="margin-top: 8px;">Neue ID</button>
+          <button class="secondary" id="btn-save-id" style="margin-top: 8px;">Speichern</button>
+        </div>
+
+        <div class="card">
+          <h2>Log</h2>
+          <div class="log" id="log"></div>
+        </div>
+
+        <div class="card">
+          <h2>Aktionen</h2>
+          <button id="btn-restart" disabled>Stream neu starten</button>
+          <button class="danger" id="btn-stop" disabled>Stream stoppen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PASSWORD = 'stream';
+  var buf = '';
+  var unlocked = false;
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    document.removeEventListener('keydown', keyHandler);
+    document.body.classList.add('unlocked');
+    var s = document.createElement('script');
+    s.type = 'module';
+    s.src = './app.js';
+    document.body.appendChild(s);
+  }
+
+  function keyHandler(e) {
+    if (e.key && e.key.length === 1) {
+      buf = (buf + e.key.toLowerCase()).slice(-PASSWORD.length);
+      if (buf === PASSWORD) unlock();
+    }
+  }
+
+  document.addEventListener('keydown', keyHandler);
+})();
+</script>
+</body>
+</html>

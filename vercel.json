@@ -77,6 +77,10 @@
       "destination": "/palindrom-table/$1"
     },
     {
+      "source": "/broadcaster/(.*)",
+      "destination": "/broadcaster/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
