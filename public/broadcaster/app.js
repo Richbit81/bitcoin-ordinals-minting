@@ -120,20 +120,8 @@ async function releaseWakeLock() {
   }
 }
 
-function startAutoRefresh() {
-  if (refreshInterval) clearInterval(refreshInterval);
-  lastRefreshAt = Date.now();
-  refreshInterval = setInterval(() => {
-    if (!currentStream || !room) return;
-    if (viewers.size === 0) {
-      reconnectRoom('Auto-Refresh (kein Viewer)');
-    }
-  }, REFRESH_WHEN_EMPTY_MS);
-}
-
-function stopAutoRefresh() {
-  if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
-}
+function startAutoRefresh() {}
+function stopAutoRefresh() {}
 
 async function startBroadcast(stream) {
   if (room) {
@@ -233,11 +221,8 @@ document.getElementById('btn-stop').addEventListener('click', stopBroadcast);
 document.getElementById('btn-reconnect').addEventListener('click', () => reconnectRoom('manuell', { force: true }));
 
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && currentStream) {
-    if (!wakeLock) await requestWakeLock();
-    if (viewers.size === 0) {
-      reconnectRoom('Tab-Wechsel');
-    }
+  if (document.visibilityState === 'visible' && currentStream && !wakeLock) {
+    await requestWakeLock();
   }
 });
 
