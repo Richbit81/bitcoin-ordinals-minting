@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Game Viewer (Test)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#000;color:#fff;font:14px system-ui,-apple-system,sans-serif;overflow:hidden;height:100%;width:100%;touch-action:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain;background:#000;cursor:crosshair}
+  #overlay{position:fixed;top:0;left:0;right:0;padding:10px 14px;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent);font-size:12px;display:flex;gap:14px;align-items:center;pointer-events:none;z-index:10}
+  #overlay .dot{width:8px;height:8px;border-radius:50%;background:#666}
+  #overlay.live .dot{background:#4ade80;box-shadow:0 0 12px #4ade80}
+  #overlay .grow{flex:1}
+  #overlay button{pointer-events:auto;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+  #overlay button:hover{background:rgba(255,255,255,.2)}
+  #join{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;z-index:20;flex-direction:column;gap:14px;padding:20px}
+  #join h1{font-size:22px;margin:0 0 4px;font-weight:600}
+  #join p{margin:0;color:#8b94a8;font-size:12px;text-align:center;max-width:360px;line-height:1.5}
+  #join input{width:280px;max-width:90vw;padding:10px 12px;background:#1c2230;border:1px solid #262d3d;border-radius:8px;color:#fff;font:inherit;text-align:center;font-family:ui-monospace,monospace}
+  #join button{padding:10px 22px;background:#ef4444;border:0;border-radius:8px;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  #status{position:fixed;bottom:10px;left:14px;font-size:11px;color:#8b94a8;z-index:11}
+  #touchpad{position:fixed;bottom:0;left:0;right:0;height:120px;display:none;background:rgba(0,0,0,.4);z-index:5;pointer-events:auto;touch-action:none}
+  body.mobile #touchpad{display:block}
+</style>
+</head>
+<body>
+
+<div id="join">
+  <h1>Game Viewer</h1>
+  <p>Verbinde dich mit der Game-Bridge. Stream-ID muss exakt mit der ID im Broadcaster übereinstimmen.</p>
+  <input type="text" id="room-input" placeholder="game-XXXXXXXX">
+  <button id="btn-connect">Verbinden</button>
+  <p style="margin-top:14px;font-size:10px">
+    URL-Param <code>?id=...</code> joined automatisch
+  </p>
+</div>
+
+<div id="overlay" class="">
+  <span class="dot"></span>
+  <span id="ovl-state">disconnected</span>
+  <span id="ovl-room"></span>
+  <span class="grow"></span>
+  <button id="btn-fullscreen">⛶ Fullscreen</button>
+  <button id="btn-pointerlock">🎯 Maus-Lock</button>
+  <button id="btn-leave">✕</button>
+</div>
+
+<div id="wrap">
+  <video id="video" autoplay playsinline></video>
+</div>
+
+<div id="touchpad"></div>
+<div id="status"></div>
+
+<script type="module">
+import { joinRoom } from 'https://esm.sh/trystero@0.20.0/torrent';
+
+const APP_ID = 'ordinal-stream-game-v1';
+const $ = (id) => document.getElementById(id);
+const setStatus = (s) => { $('status').textContent = s; };
+
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) document.body.classList.add('mobile');
+
+const params = new URLSearchParams(location.search);
+const urlId = params.get('id') || params.get('room');
+if (urlId) { $('room-input').value = urlId; setTimeout(() => $('btn-connect').click(), 300); }
+else $('room-input').value = localStorage.getItem('game-viewer-last-room') || '';
+
+let room, sendInput, video = $('video');
+
+$('btn-connect').addEventListener('click', () => {
+  const id = $('room-input').value.trim();
+  if (!id) return alert('Stream-ID fehlt');
+  localStorage.setItem('game-viewer-last-room', id);
+  $('join').style.display = 'none';
+  $('ovl-room').textContent = id;
+  connect(id);
+});
+
+function connect(roomId) {
+  setStatus('Verbinde mit BitTorrent-Trackern…');
+  room = joinRoom({ appId: APP_ID }, roomId);
+  const [sIn] = room.makeAction('in');
+  const [, getBack] = room.makeAction('sb');
+  sendInput = sIn;
+
+  room.onPeerJoin(p => { setStatus('Broadcaster gefunden: ' + p.slice(0,8) + '…'); $('overlay').classList.add('live'); $('ovl-state').textContent='live'; });
+  room.onPeerLeave(p => { setStatus('Broadcaster offline'); $('overlay').classList.remove('live'); $('ovl-state').textContent='disconnected'; });
+
+  room.onPeerStream((stream) => {
+    setStatus('Stream empfangen: ' + stream.getVideoTracks().length + 'v / ' + stream.getAudioTracks().length + 'a');
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  });
+
+  getBack((data) => {
+    if (data?.type === 'hello') setStatus(`Game ${data.canvas.w}x${data.canvas.h}`);
+  });
+}
+
+function getNorm(e) {
+  const r = video.getBoundingClientRect();
+  const vw = video.videoWidth || r.width;
+  const vh = video.videoHeight || r.height;
+  const scale = Math.min(r.width / vw, r.height / vh);
+  const dispW = vw * scale, dispH = vh * scale;
+  const offX = (r.width - dispW) / 2, offY = (r.height - dispH) / 2;
+  const x = (e.clientX - r.left - offX) / dispW;
+  const y = (e.clientY - r.top - offY) / dispH;
+  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+}
+
+function send(d) { if (sendInput) sendInput(d); }
+
+video.addEventListener('mousemove', e => {
+  const n = getNorm(e);
+  send({ t:'mm', x:n.x, y:n.y, dx:e.movementX||0, dy:e.movementY||0 });
+});
+video.addEventListener('mousedown', e => { e.preventDefault(); const n = getNorm(e); send({ t:'md', x:n.x, y:n.y, b:e.button }); });
+video.addEventListener('mouseup',   e => { e.preventDefault(); const n = getNorm(e); send({ t:'mu', x:n.x, y:n.y, b:e.button }); });
+video.addEventListener('contextmenu', e => e.preventDefault());
+video.addEventListener('wheel', e => { e.preventDefault(); send({ t:'wh', dx:e.deltaX, dy:e.deltaY }); }, { passive: false });
+
+window.addEventListener('keydown', e => { if (document.activeElement?.tagName==='INPUT') return; e.preventDefault(); send({ t:'kd', k:e.key, c:e.code, kc:e.keyCode, ctrl:e.ctrlKey, shift:e.shiftKey, alt:e.altKey }); });
+window.addEventListener('keyup',   e => { if (document.activeElement?.tagName==='INPUT') return; e.preventDefault(); send({ t:'ku', k:e.key, c:e.code, kc:e.keyCode, ctrl:e.ctrlKey, shift:e.shiftKey, alt:e.altKey }); });
+
+const tpad = $('touchpad');
+function touchData(e, target) {
+  const r = target.getBoundingClientRect();
+  return Array.from(e.touches).map(t => ({
+    x: Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)),
+    y: Math.max(0, Math.min(1, (t.clientY - r.top)  / r.height)),
+  }));
+}
+['touchstart','touchmove','touchend'].forEach(type => {
+  const code = { touchstart:'ts', touchmove:'tm', touchend:'te' }[type];
+  video.addEventListener(type, e => { e.preventDefault(); send({ t: code, touches: touchData(e, video) }); }, { passive:false });
+  tpad.addEventListener(type,  e => { e.preventDefault(); send({ t: code, touches: touchData(e, tpad)  }); }, { passive:false });
+});
+
+$('btn-fullscreen').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+});
+$('btn-pointerlock').addEventListener('click', () => video.requestPointerLock?.());
+$('btn-leave').addEventListener('click', () => location.reload());
+</script>
+
+</body>
+</html>

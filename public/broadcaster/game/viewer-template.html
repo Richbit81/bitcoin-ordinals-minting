@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Game</title>
+<style>*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;padding:0;background:#000;color:#fff;font:13px system-ui,sans-serif;overflow:hidden;height:100%;width:100%;touch-action:none}#v{width:100%;height:100%;object-fit:contain;background:#000;cursor:crosshair}#o{position:fixed;top:0;left:0;right:0;padding:8px 12px;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent);font-size:11px;display:flex;gap:10px;align-items:center;z-index:10;opacity:.6;transition:.2s}#o:hover{opacity:1}.d{width:7px;height:7px;border-radius:50%;background:#666}.live .d{background:#4ade80;box-shadow:0 0 10px #4ade80}.g{flex:1}#o button{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer}#o button:hover{background:rgba(255,255,255,.2)}#s{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;z-index:20;flex-direction:column;gap:10px;font-size:12px;color:#8b94a8}#s .b{width:60px;height:60px;border:3px solid #262d3d;border-top-color:#ef4444;border-radius:50%;animation:r 1s linear infinite}@keyframes r{to{transform:rotate(360deg)}}</style>
+</head><body>
+
+<div id="s"><div class="b"></div><div id="sm">connecting…</div></div>
+
+<div id="o"><span class="d"></span><span id="ost">…</span><span class="g"></span><button id="bf">⛶</button><button id="bp">🎯</button></div>
+
+<video id="v" autoplay playsinline></video>
+
+<script type="module">
+// ROOM_ID: in deinem Broadcaster (richart.app/broadcaster/game/) ablesen + hier eintragen
+const ROOM_ID = 'REPLACE_WITH_YOUR_STREAM_ID';
+
+// Trystero v0.20 von einer inscribed Lib laden, sonst Fallback auf esm.sh
+// HINWEIS: Beim Inscriben die ID einer auf Bitcoin inscribed Trystero-Build eintragen.
+// Wenn Trystero nicht inscribed verfügbar ist, lasse den esm.sh-Fallback drin.
+const TRYSTERO_INSCRIPTION_ID = ''; // z.B. 'e2b52d6d3f543a8683e7721e1da9cb7b68597dfc733c6391c61642ab3222f492i0'
+
+const APP_ID = 'ordinal-stream-game-v1';
+const trysteroUrl = TRYSTERO_INSCRIPTION_ID
+  ? '/content/' + TRYSTERO_INSCRIPTION_ID
+  : 'https://esm.sh/trystero@0.20.0/torrent';
+
+const { joinRoom } = await import(trysteroUrl);
+
+const $ = id => document.getElementById(id);
+const v = $('v'), o = $('o'), s = $('s'), sm = $('sm'), ost = $('ost');
+
+const room = joinRoom({ appId: APP_ID }, ROOM_ID);
+const [sIn] = room.makeAction('in');
+const [, gBack] = room.makeAction('sb');
+
+room.onPeerJoin(p => { ost.textContent = 'live'; o.classList.add('live'); sm.textContent = 'connected'; });
+room.onPeerLeave(() => { ost.textContent = 'broadcaster offline'; o.classList.remove('live'); s.style.display='flex'; sm.textContent='warte auf broadcaster…'; });
+
+room.onPeerStream(stream => {
+  v.srcObject = stream;
+  v.play().catch(()=>{});
+  s.style.display = 'none';
+});
+
+gBack(d => { if (d?.type === 'hello') ost.textContent = `live ${d.canvas.w}x${d.canvas.h}`; });
+
+function getNorm(e){
+  const r=v.getBoundingClientRect();
+  const vw=v.videoWidth||r.width, vh=v.videoHeight||r.height;
+  const sc=Math.min(r.width/vw,r.height/vh);
+  const dw=vw*sc, dh=vh*sc, ox=(r.width-dw)/2, oy=(r.height-dh)/2;
+  const x=(e.clientX-r.left-ox)/dw, y=(e.clientY-r.top-oy)/dh;
+  return {x:Math.max(0,Math.min(1,x)), y:Math.max(0,Math.min(1,y))};
+}
+const send = d => sIn(d);
+
+v.addEventListener('mousemove', e => { const n=getNorm(e); send({t:'mm',x:n.x,y:n.y,dx:e.movementX||0,dy:e.movementY||0}); });
+v.addEventListener('mousedown', e => { e.preventDefault(); const n=getNorm(e); send({t:'md',x:n.x,y:n.y,b:e.button}); });
+v.addEventListener('mouseup',   e => { e.preventDefault(); const n=getNorm(e); send({t:'mu',x:n.x,y:n.y,b:e.button}); });
+v.addEventListener('contextmenu', e => e.preventDefault());
+v.addEventListener('wheel', e => { e.preventDefault(); send({t:'wh',dx:e.deltaX,dy:e.deltaY}); }, { passive:false });
+
+addEventListener('keydown', e => { e.preventDefault(); send({t:'kd',k:e.key,c:e.code,kc:e.keyCode,ctrl:e.ctrlKey,shift:e.shiftKey,alt:e.altKey}); });
+addEventListener('keyup',   e => { e.preventDefault(); send({t:'ku',k:e.key,c:e.code,kc:e.keyCode,ctrl:e.ctrlKey,shift:e.shiftKey,alt:e.altKey}); });
+
+['touchstart','touchmove','touchend'].forEach(type => {
+  const code = { touchstart:'ts', touchmove:'tm', touchend:'te' }[type];
+  v.addEventListener(type, e => {
+    e.preventDefault();
+    const r = v.getBoundingClientRect();
+    const touches = Array.from(e.touches).map(t => ({
+      x: Math.max(0, Math.min(1, (t.clientX-r.left)/r.width)),
+      y: Math.max(0, Math.min(1, (t.clientY-r.top)/r.height)),
+    }));
+    send({t:code, touches});
+  }, { passive:false });
+});
+
+$('bf').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
+$('bp').addEventListener('click', () => v.requestPointerLock?.());
+</script>
+</body></html>

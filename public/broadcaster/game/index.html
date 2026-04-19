@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Bridge — Ordinal Stream</title>
+<style>
+  :root { --bg:#0b0d12; --panel:#141821; --panel-2:#1c2230; --border:#262d3d; --fg:#e6e9ef; --mut:#8b94a8; --accent:#ef4444; --accent-2:#f87171; --ok:#4ade80; --err:#f87171; --warn:#fbbf24; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; min-height:100vh; }
+  header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--border); }
+  .brand { font-weight:600; font-size:16px; color:var(--accent-2); }
+  .brand-dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent); margin-right:8px; vertical-align:middle; box-shadow:0 0 12px var(--accent); }
+  main { max-width:1280px; margin:0 auto; padding:20px; display:grid; gap:20px; grid-template-columns: 1fr 380px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:14px; color:var(--mut); text-transform:uppercase; letter-spacing:.5px; font-weight:600; }
+  label { display:block; font-size:12px; color:var(--mut); margin-bottom:4px; }
+  input[type=text], select { width:100%; padding:8px 10px; background:var(--panel-2); border:1px solid var(--border); border-radius:6px; color:var(--fg); font:inherit; }
+  input[type=text]:focus, select:focus { outline:none; border-color:var(--accent-2); }
+  .row { display:flex; gap:8px; margin-bottom:10px; }
+  .row > * { flex:1; }
+  button { padding:9px 14px; background:var(--accent); border:0; border-radius:6px; color:#fff; font:inherit; font-weight:600; cursor:pointer; transition:.15s; }
+  button:hover { background:var(--accent-2); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--fg); }
+  button.ghost:hover { border-color:var(--accent-2); color:var(--accent-2); }
+  .status { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.5px; }
+  .status.live { background:rgba(74,222,128,.15); color:var(--ok); }
+  .status.idle { background:rgba(139,148,168,.15); color:var(--mut); }
+  .stats { display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:12px; }
+  .stat { background:var(--panel-2); border-radius:6px; padding:8px 10px; }
+  .stat .k { font-size:10px; color:var(--mut); text-transform:uppercase; }
+  .stat .v { font-size:16px; font-weight:600; margin-top:2px; }
+  #log { background:var(--panel-2); border-radius:6px; padding:10px; height:160px; overflow-y:auto; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size:11px; line-height:1.5; }
+  #log .line { white-space: pre-wrap; }
+  #log .ok { color: var(--ok); }
+  #log .err { color: var(--err); }
+  #log .warn { color: var(--warn); }
+  #game-wrap { background:#000; border:1px solid var(--border); border-radius:10px; overflow:hidden; aspect-ratio: 16/9; position: relative; }
+  #game-frame { width:100%; height:100%; border:0; display:block; }
+  .placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:14px; flex-direction:column; gap:8px; pointer-events:none; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:10px; background:var(--panel-2); color:var(--mut); margin-left:6px; }
+  .help { font-size:11px; color:var(--mut); margin-top:6px; line-height:1.5; }
+  code { background:var(--panel-2); padding:1px 6px; border-radius:4px; font-size:11px; }
+  hr { border:0; border-top:1px solid var(--border); margin:14px 0; }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand"><span class="brand-dot"></span>Game Bridge</span>
+  <span class="badge">streamt ein Browser-Game an Inscription-Viewer (P2P, bidirektional)</span>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>Game</h2>
+      <div class="row">
+        <div style="flex:3">
+          <label>Game-URL (same-origin auf richart.app)</label>
+          <input type="text" id="game-url" value="/catwar-game/" placeholder="/catwar-game/ oder /catwar-game-3rdperson-new/">
+        </div>
+        <div style="flex:0 0 auto; align-self:flex-end">
+          <button id="btn-load">Game laden</button>
+        </div>
+      </div>
+      <div class="help">
+        Muss auf <code>richart.app</code> gehostet sein, sonst kann die Bridge keine Inputs ins Iframe dispatchen (Cross-Origin-Blockade).
+        Vorhandene Builds: <code>/catwar-game/</code>, <code>/catwar-game-3rdperson-new/</code>.
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Vorschau</h2>
+      <div id="game-wrap">
+        <iframe id="game-frame" src="about:blank" allow="autoplay; fullscreen; gamepad; pointer-lock"></iframe>
+        <div id="placeholder" class="placeholder">
+          <div>Kein Game geladen</div>
+          <div style="font-size:11px">Klick „Game laden", warte bis Unity-Loading-Bar fertig ist, dann „Stream starten".</div>
+        </div>
+      </div>
+      <div class="help">
+        Capture läuft direkt vom <code>&lt;canvas&gt;</code> via <code>captureStream(60)</code> — kein Screen-Share-Popup.
+      </div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>Status</h2>
+      <div><span id="status-live"><span class="status idle">OFFLINE</span></span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Viewer</div><div class="v" id="stat-viewers">0</div></div>
+        <div class="stat"><div class="k">Uptime</div><div class="v" id="stat-uptime">00:00:00</div></div>
+        <div class="stat"><div class="k">Inputs/s</div><div class="v" id="stat-ips">0</div></div>
+        <div class="stat"><div class="k">Frames</div><div class="v" id="stat-fps">0</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Stream-ID (Room)</h2>
+      <input type="text" id="room-id" placeholder="game-XXXXXXXX">
+      <div class="row" style="margin-top:8px">
+        <button class="ghost" id="btn-copy-id">Kopieren</button>
+        <button class="ghost" id="btn-new-id">Neue ID</button>
+        <button class="ghost" id="btn-save-id">Speichern</button>
+      </div>
+      <div class="help">Diese ID muss in deine Viewer-Inscription eingebaut werden. Beide Seiten müssen dieselbe ID nutzen.</div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Bridge</h2>
+      <div class="row">
+        <button id="btn-start" disabled>▶ Stream starten</button>
+        <button class="ghost" id="btn-stop" disabled>■ Stop</button>
+      </div>
+      <hr>
+      <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:12px; color:var(--fg)">
+        <input type="checkbox" id="opt-audio" checked>
+        Tab-Audio mitsenden (öffnet Bildschirm-Picker — wähle den Game-Tab)
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:12px; color:var(--fg); margin-top:6px">
+        <input type="checkbox" id="opt-allow-input" checked>
+        Viewer-Inputs an das Game weiterleiten
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:12px; color:var(--fg); margin-top:6px">
+        <input type="checkbox" id="opt-keep-awake" checked>
+        Wake-Lock (Tab nicht drosseln)
+      </label>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </aside>
+</main>
+
+<script type="module" src="./bridge.js"></script>
+</body>
+</html>
