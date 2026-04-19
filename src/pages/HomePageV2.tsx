@@ -171,6 +171,7 @@ const ALL_NEWS = [
 ];
 
 const ALL_NEW_STUFF = [
+  { name: 'EXIT PROTOCOL', thumb: 'https://ordinals.com/content/b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', route: '/tech-games?try=b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Eito Bitto', thumb: '/eito-bitto-logo.png', route: '/EitoBitto', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
   { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },

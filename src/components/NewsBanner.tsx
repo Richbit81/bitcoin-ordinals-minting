@@ -128,6 +128,14 @@ const NEWS_ITEMS: NewsItem[] = [
     link: 'https://lunalauncher.io/#mint/richart-tactical-game',
   },
   {
+    id: 'exit-protocol',
+    title: 'EXIT PROTOCOL',
+    description: 'New HTML game — try it now in fullscreen',
+    image: 'https://ordinals.com/content/b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0',
+    link: '/tech-games?try=b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0',
+    isInternal: true,
+  },
+  {
     id: 'thebox',
     title: 'Check out THE BOX space. Every Day on X',
     description: 'Check out in RichArt Marketplace',

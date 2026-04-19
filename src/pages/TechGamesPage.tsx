@@ -27,6 +27,15 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: 'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0',
+    name: 'EXIT PROTOCOL',
+    description:
+      'EXIT PROTOCOL is a browser-based HTML game. Best experienced in fullscreen — hit "Test Now" to launch. Mint coming soon.',
+    price: 0,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: 'e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
     name: 'SLOW FIRE',
     description: 'SLOW FIRE is a browser-based first-person shooter inspired by SUPERHOT. Time only moves when you move — plan every step, dodge bullets in slow motion, and eliminate waves of enemies across 20 hand-crafted levels. Pick up fallen weapons for ammo, switch between pistols, knives, swords, bats, machine guns, and grenades. Features minimalist red-and-white visuals, procedural audio, and a synthwave background score. Must be played in fullscreen for proper mouse control. The game uses edge-of-screen detection for camera movement, so windowed mode will break the controls.',
@@ -236,6 +245,7 @@ export const TechGamesPage: React.FC = () => {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
     '51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0': 'minimalFullscreen',
+    'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0': 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
