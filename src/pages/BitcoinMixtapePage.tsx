@@ -42,10 +42,28 @@ export const BitcoinMixtapePage: React.FC = () => {
     () => localStorage.getItem('unisat_taproot_address') || ''
   );
 
+  // Try Fullscreen State
+  const [showTryFullscreen, setShowTryFullscreen] = useState(false);
+
   // Lade Mint-Statistiken
   useEffect(() => {
     loadMintStats();
   }, []);
+
+  // ESC schließt Fullscreen-Try
+  useEffect(() => {
+    if (!showTryFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowTryFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showTryFullscreen]);
 
   const loadMintStats = async () => {
     try {
@@ -275,7 +293,7 @@ export const BitcoinMixtapePage: React.FC = () => {
           <div className="bg-black/80 border-2 border-red-600 rounded-xl p-8 max-w-lg w-full backdrop-blur-md">
             {/* Mixtape Preview - Echte Inscription */}
             <div className="flex flex-col items-center mb-8">
-              <div className="relative mb-6 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 pointer-events-none">
+              <div className="relative mb-4 w-full max-w-sm aspect-square rounded-lg overflow-hidden shadow-2xl shadow-red-600/30 border border-red-600/30 pointer-events-none">
                 <iframe
                   src={`https://ordinals.com/content/${MIXTAPE_CONFIG.originalInscriptionId}`}
                   title={MIXTAPE_CONFIG.name}
@@ -285,7 +303,20 @@ export const BitcoinMixtapePage: React.FC = () => {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              
+
+              {/* Try in Fullscreen */}
+              <button
+                type="button"
+                onClick={() => setShowTryFullscreen(true)}
+                className="mb-6 inline-flex items-center gap-2 px-5 py-2 rounded-lg border border-red-600/60 bg-black/60 hover:bg-red-600/20 hover:border-red-500 text-red-400 hover:text-red-300 text-sm font-semibold transition-all backdrop-blur-sm"
+                title="Try Bitcoin Mix Tape in fullscreen"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
+                </svg>
+                Try in Fullscreen
+              </button>
+
               {/* Price Display */}
               <div className="text-center">
                 <p className="text-3xl font-bold text-red-600 mb-1">
@@ -460,6 +491,34 @@ export const BitcoinMixtapePage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Try Fullscreen Modal */}
+        {showTryFullscreen && (
+          <div className="fixed inset-0 z-[60] bg-black">
+            <iframe
+              src={`https://ordinals.com/content/${MIXTAPE_CONFIG.originalInscriptionId}`}
+              title={`${MIXTAPE_CONFIG.name} — Fullscreen`}
+              className="w-full h-full border-0 bg-black"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-pointer-lock allow-fullscreen"
+              allow="autoplay; fullscreen; accelerometer; gyroscope; magnetometer"
+              referrerPolicy="no-referrer"
+            />
+            <button
+              type="button"
+              onClick={() => setShowTryFullscreen(false)}
+              aria-label="Close fullscreen"
+              className="absolute top-4 right-4 z-[61] w-11 h-11 flex items-center justify-center rounded-full bg-black/70 hover:bg-black/90 border border-white/30 hover:border-red-500 text-white transition-all backdrop-blur-sm"
+              title="Close (Esc)"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="absolute bottom-4 left-4 z-[61] text-white/60 text-xs select-none pointer-events-none">
+              {MIXTAPE_CONFIG.name} — Press Esc to exit
+            </div>
+          </div>
+        )}
 
         {/* Wallet Connect Modal */}
         {showWalletConnect && (
