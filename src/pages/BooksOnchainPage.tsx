@@ -64,6 +64,15 @@ const BOOK_ITEMS = [
     description:
       'Brave New World by Aldous Huxley is a dystopian novel about a future society where people are controlled through technology, conditioning, and a happiness drug called soma. It explores the loss of individuality and freedom in a world focused on stability and pleasure.',
   },
+  {
+    id: 'fahrenheit-451',
+    name: 'Fahrenheit 451',
+    inscriptionId: '6869b0c29206fdfc4cd5866571f073dd43903867120dc02368cd268ba18c69d4i0',
+    author: 'Ray Bradbury',
+    priceInSats: 5000,
+    description:
+      'Fahrenheit 451 is a dystopian novel by Ray Bradbury about a future society where books are banned and firemen burn them. The story follows Guy Montag, a fireman who begins to question the system and the value of knowledge. As he discovers the power of books and free thinking, he rebels against censorship and control.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
