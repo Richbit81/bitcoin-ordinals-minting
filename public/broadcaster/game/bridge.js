@@ -62,12 +62,16 @@ setInterval(() => {
 }, 1000);
 
 async function loadGame() {
-  const url = ($('game-url').value || '/catwar-game/').trim();
-  if (!url.startsWith('/')) {
+  const rawUrl = ($('game-url').value || '/catwar-game/').trim();
+  if (!rawUrl.startsWith('/')) {
     log('Game-URL muss mit "/" beginnen (same-origin auf richart.app erforderlich)', 'err');
     return;
   }
-  log(`Lade Game: ${url}`, 'info');
+  // We always load the game through the host wrapper (host.html). The wrapper
+  // forces preserveDrawingBuffer:true on every WebGL context so canvas.captureStream()
+  // produces real frames instead of black ones (Unity defaults to false for perf).
+  const url = '/broadcaster/game/host.html?game=' + encodeURIComponent(rawUrl);
+  log(`Lade Game über Host-Wrapper: ${rawUrl}`, 'info');
   $('placeholder').style.display = 'flex';
   $('placeholder').innerHTML = '<div>Lade…</div>';
 
