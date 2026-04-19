@@ -67,46 +67,59 @@
   fitCanvas();
 
   // Auto-detect Unity build files by parsing the game's index.html.
-  // This avoids hardcoding 'deployneu4.*' so other games (like
-  // /catwar-game-3rdperson-new/) work with the same host page.
+  // Works for standard Unity WebGL templates that look like:
+  //   var buildUrl = "Build";
+  //   var loaderUrl = buildUrl + "/something.loader.js";
+  //   var config = {
+  //     dataUrl: buildUrl + "/something.data.unityweb",
+  //     frameworkUrl: buildUrl + "/something.framework.js.unityweb",
+  //     codeUrl: buildUrl + "/something.wasm.unityweb",
+  //     ...
+  //   };
   async function detectBuildConfig(base) {
     setMsg('Detecting build…');
     const r = await fetch(base + 'index.html');
     if (!r.ok) throw new Error('index.html ' + r.status);
     const html = await r.text();
 
-    // Try to parse the original config object literal
-    const grab = (key) => {
-      const m = html.match(new RegExp(key + '\\s*:\\s*[^,\\n]+', 'i'));
-      if (!m) return null;
-      const v = m[0].split(/[:=]/).slice(1).join(':').trim();
-      return v.replace(/^["']/, '').replace(/["'],?\s*$/, '');
-    };
-    const buildUrl = grab('var\\s+buildUrl') || 'Build';
-    const dataUrl = grab('dataUrl');
-    const frameworkUrl = grab('frameworkUrl');
-    const codeUrl = grab('codeUrl');
-    const loaderMatch = html.match(/loaderUrl\s*=\s*[^;]+/);
-    let loaderUrl = null;
-    if (loaderMatch) {
-      loaderUrl = loaderMatch[0].split('=').slice(1).join('=').trim();
-      loaderUrl = loaderUrl.replace(/buildUrl\s*\+\s*["']\/?/, buildUrl + '/').replace(/^["']/, '').replace(/["'].*$/, '');
-    }
+    const buildUrlMatch = html.match(/var\s+buildUrl\s*=\s*["']([^"']+)["']/);
+    const buildUrl = buildUrlMatch ? buildUrlMatch[1] : 'Build';
+    const buildBase = base + buildUrl.replace(/^\/+|\/+$/g, '') + '/';
 
-    const resolve = (u) => {
-      if (!u) return null;
-      // Replace 'buildUrl + "/x"' style with actual buildUrl
-      u = u.replace(/buildUrl\s*\+\s*["']\/?/, buildUrl + '/').replace(/["'].*$/, '');
-      return u.startsWith('http') ? u : (base + u);
+    // grab(label): tries two patterns:
+    //   1) label : <ident> + "/filename"   (Unity's default template)
+    //   2) label : "Build/filename"        (some custom templates)
+    // Returns the resolved absolute URL, or null if not found.
+    const grab = (label) => {
+      const reConcat = new RegExp(label + '\\s*[:=]\\s*[a-zA-Z_$][\\w$]*\\s*\\+\\s*["\']/?([^"\']+)["\']', 'i');
+      const m1 = html.match(reConcat);
+      if (m1) return buildBase + m1[1].replace(/^\/+/, '');
+      const rePlain = new RegExp(label + '\\s*[:=]\\s*["\']([^"\']+)["\']', 'i');
+      const m2 = html.match(rePlain);
+      if (m2) {
+        const v = m2[1];
+        if (v.startsWith('http')) return v;
+        if (v.startsWith('/')) return v;
+        return base + v.replace(/^\/+/, '');
+      }
+      return null;
     };
 
-    return {
-      loaderUrl: resolve(loaderUrl) || (base + buildUrl + '/deployneu4.loader.js'),
-      dataUrl: resolve(dataUrl),
-      frameworkUrl: resolve(frameworkUrl),
-      codeUrl: resolve(codeUrl),
+    const cfg = {
+      loaderUrl: grab('loaderUrl'),
+      dataUrl: grab('dataUrl'),
+      frameworkUrl: grab('frameworkUrl'),
+      codeUrl: grab('codeUrl'),
       streamingAssetsUrl: base + 'StreamingAssets',
     };
+
+    if (!cfg.loaderUrl) throw new Error('Could not detect loaderUrl in ' + base + 'index.html');
+    if (!cfg.dataUrl)   throw new Error('Could not detect dataUrl in '   + base + 'index.html');
+    if (!cfg.frameworkUrl) throw new Error('Could not detect frameworkUrl');
+    if (!cfg.codeUrl)   throw new Error('Could not detect codeUrl');
+
+    console.log('[host] detected Unity config', cfg);
+    return cfg;
   }
 
   async function loadGame() {
