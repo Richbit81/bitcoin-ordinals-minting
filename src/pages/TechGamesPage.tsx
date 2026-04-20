@@ -27,6 +27,15 @@ interface TechGameItem {
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
   {
+    inscriptionId: '4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0',
+    name: 'Stellar Command',
+    description:
+      'Turn-based space strategy. Command a remote outpost, build energy reactors, hangars, labs and turrets, research new tech and manufacture warships. Recruit pilots and deploy your fleet on hex-grid tactical missions with fog of war across a procedurally generated galaxy. 12 structure types, 10+ ship classes, equipment crafting and a black market. Best played in fullscreen.',
+    price: 0,
+    category: 'game',
+    isNew: true,
+  },
+  {
     inscriptionId: 'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0',
     name: 'EXIT PROTOCOL',
     description:
@@ -246,6 +255,7 @@ export const TechGamesPage: React.FC = () => {
     '71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0': 'minimalFullscreen',
     '51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0': 'minimalFullscreen',
     'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0': 'minimalFullscreen',
+    '4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0': 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;

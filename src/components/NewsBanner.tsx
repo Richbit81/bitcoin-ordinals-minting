@@ -136,6 +136,14 @@ const NEWS_ITEMS: NewsItem[] = [
     isInternal: true,
   },
   {
+    id: 'stellar-command',
+    title: 'Stellar Command',
+    description: 'Turn-based space strategy — build, research, deploy. Test in fullscreen.',
+    image: 'https://ordinals.com/content/4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0',
+    link: '/tech-games?try=4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0',
+    isInternal: true,
+  },
+  {
     id: 'thebox',
     title: 'Check out THE BOX space. Every Day on X',
     description: 'Check out in RichArt Marketplace',
