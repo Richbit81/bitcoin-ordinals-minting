@@ -17,13 +17,31 @@ export const TESSERACT_PARENT_INSCRIPTION_ID =
 export const TESSERACT_EDITION_LIMIT = 999;
 
 /**
- * Bytegenauer Wrapper-HTML-Inhalt (577 Bytes, UTF-8, ASCII-only) — wird bei
- * jedem Tesseract-Mint identisch eingeschrieben. Eindeutigkeit kommt allein
- * durch die vom Protokoll vergebene Inscription-ID, aus der die Engine im
- * Parent ihren deterministischen Seed ableitet (FNV-1a der ID).
+ * Bytegenauer Wrapper-HTML-Inhalt (547 Bytes, UTF-8, ASCII-only) — wird bei
+ * jedem Tesseract-Mint identisch eingeschrieben. Eindeutigkeit entsteht zur
+ * Laufzeit: das inline-Script liest die eigene Inscription-ID aus
+ * `location.pathname` und reicht sie der Engine via `#inscription=<id>` an
+ * den iframe weiter.
  *
- * WICHTIG: Inhalt nicht modifizieren — Bytes müssen exakt 577 ergeben,
- * sonst weicht das Asset von der ursprünglichen Spezifikation ab.
+ * Diese Hash-Methode hat in der Tesseract-Engine **höchste Priorität** vor
+ * `parent`, `top`, `referrer` und der Self-Fallback-Logik. Sie funktioniert
+ * deshalb auch dann zuverlässig, wenn der Mint in einem doppelt verschachtelten
+ * iframe (z. B. ord.io / richart.app-Preview) angezeigt wird, wo
+ * cross-origin-Zugriffe auf parent/top blockiert wären.
+ *
+ * Die VORIGE Variante (`<iframe src="/content/PARENT">` ohne Hash) erzeugte
+ * für jeden Mint denselben Cube, weil die Engine im iframe nur die Parent-URL
+ * sah und auf den Parent-ID-Self-Fallback zurückfiel. Dieser Wrapper behebt
+ * das, ohne den Engine-Code im Parent zu verändern.
+ *
+ * WICHTIG: Bytes müssen exakt 547 ergeben — Runtime-Guard im Mint-Service
+ * verweigert sonst das Inscriben.
  */
 // eslint-disable-next-line max-len
-export const TESSERACT_WRAPPER_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>TESSERACT</title><style>body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#000}</style></head><body><iframe src="/content/${TESSERACT_PARENT_INSCRIPTION_ID}" referrerpolicy="unsafe-url" allow="autoplay; fullscreen" loading="eager" title="Tesseract"></iframe></body></html>`;
+export const TESSERACT_WRAPPER_HTML = `<!doctype html><meta charset=utf-8><title>TESSERACT</title><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#000}</style><script>var b="${TESSERACT_PARENT_INSCRIPTION_ID}",p=location.pathname.split("/").pop()||"",s=/^[0-9a-f]{64}i\\d+$/i.test(p)?p:b;document.write('<iframe src="/content/'+b+'#inscription='+s+'" referrerpolicy="unsafe-url" allow="autoplay; fullscreen" title="Tesseract"></iframe>')</script>`;
+
+/**
+ * Erwartete Byte-Länge des Wrappers (UTF-8, ASCII-only). Wird vom Mint-Service
+ * gegen die Konstante geprüft, um versehentliche Modifikationen zu verhindern.
+ */
+export const TESSERACT_WRAPPER_BYTES = 547;

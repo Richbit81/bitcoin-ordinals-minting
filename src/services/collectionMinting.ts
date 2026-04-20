@@ -7,7 +7,7 @@ import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMultipleBitcoinPayments } from '../utils/wallet';
 import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
-import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID } from '../constants/tesseractInscription';
+import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_WRAPPER_BYTES } from '../constants/tesseractInscription';
 
 const API_URL = getApiUrl();
 
@@ -345,9 +345,11 @@ export const createTesseractWrapperInscription = async (
 ): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
   console.log(`[CollectionMinting] Creating Tesseract wrapper inscription for ${itemName}`);
 
-  if (TESSERACT_WRAPPER_HTML.length !== 577) {
+  // ASCII-only Wrapper: byteLength === string length. Byte-genauer Guard
+  // gegen versehentliche Modifikationen (z. B. CRLF, Smart-Quotes etc.).
+  if (TESSERACT_WRAPPER_HTML.length !== TESSERACT_WRAPPER_BYTES) {
     console.error(
-      `[CollectionMinting] ❌ Tesseract wrapper byte length mismatch: ${TESSERACT_WRAPPER_HTML.length} (expected 577)`
+      `[CollectionMinting] ❌ Tesseract wrapper byte length mismatch: ${TESSERACT_WRAPPER_HTML.length} (expected ${TESSERACT_WRAPPER_BYTES})`
     );
     throw new Error('Tesseract wrapper HTML byte length mismatch — refusing to mint corrupted asset.');
   }
