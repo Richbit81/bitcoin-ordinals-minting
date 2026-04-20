@@ -144,6 +144,14 @@ const NEWS_ITEMS: NewsItem[] = [
     isInternal: true,
   },
   {
+    id: 'tesseract',
+    title: 'TESSERACT',
+    description: 'Generative 4D hypercube — every mint a unique seed. Live mempool drives the chaos. 5 000 sats.',
+    image: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0',
+    link: '/tech-games?try=1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0',
+    isInternal: true,
+  },
+  {
     id: 'thebox',
     title: 'Check out THE BOX space. Every Day on X',
     description: 'Check out in RichArt Marketplace',

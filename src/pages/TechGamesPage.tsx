@@ -5,9 +5,10 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
-import { createSingleDelegate } from '../services/collectionMinting';
+import { createSingleDelegate, createTesseractWrapperInscription } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
+import { TESSERACT_PARENT_INSCRIPTION_ID } from '../constants/tesseractInscription';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
@@ -26,6 +27,27 @@ interface TechGameItem {
 }
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
+  {
+    inscriptionId: TESSERACT_PARENT_INSCRIPTION_ID,
+    name: 'TESSERACT',
+    description:
+      'TESSERACT — Generative 4D Hypercube. A self-contained, single-HTML Bitcoin Ordinal that renders a real 4D tesseract (16 vertices, 32 edges) projected through 4D→3D→2D in pure Canvas2D. The inscription ID seeds every visual and audio trait — palette, rotation profile, glitch intensity, background style (19 variants), and a multi-voice generative Web Audio synth (drone, bass, bell sequencer, chord progression). Live mempool fees from mempool.space drive a chaos parameter (more fees = more jitter, chromatic aberration, slicing, lightning, red tint). New blocks fire a screen-wide pulse and a sub-bass hit. Same seed always renders the same hypercube; every minted child gets its own ID and therefore its own unique variant. Touch/mouse: 1 finger = 3D rotation, 2 fingers = 4D rotation, pinch/wheel = zoom. Press T for the trait tester. No external dependencies, no fonts, no images — works offline.',
+    price: 5000,
+    category: 'tool',
+    isNew: true,
+    specs: [
+      'Real 4D hypercube (16 vertices, 32 edges) projected 4D→3D→2D',
+      'Pure Canvas2D, no WebGL, no external dependencies',
+      'Inscription-ID hashed (FNV-1a) into a deterministic seed',
+      '19 background style variants + dynamic colour palettes',
+      'Multi-voice Web Audio synth: drone, bass, bell sequencer, chord progression',
+      'Live mempool.space WebSocket feed maps fees → visual chaos',
+      'New-block pulse + sub-bass hit',
+      'Touch / mouse / pinch / wheel controls + trait tester (press T)',
+      'Recursive children: each mint gets its own ID and unique variant',
+      'Offline-capable, single self-contained HTML',
+    ],
+  },
   {
     inscriptionId: '4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0',
     name: 'Stellar Command',
@@ -256,6 +278,7 @@ export const TechGamesPage: React.FC = () => {
     '51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0': 'minimalFullscreen',
     'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0': 'minimalFullscreen',
     '4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0': 'minimalFullscreen',
+    [TESSERACT_PARENT_INSCRIPTION_ID]: 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
@@ -335,18 +358,34 @@ export const TechGamesPage: React.FC = () => {
     setMintingStatus({ status: 'in-progress', progress: 10, message: 'Starting minting process...' });
 
     try {
-      setMintingStatus(prev => prev ? { ...prev, progress: 30, message: 'Creating delegate inscription...' } : null);
-      
-      const result = await createSingleDelegate(
-        item.inscriptionId,
-        item.name,
-        userAddress,
-        'Tech & Games',
-        inscriptionFeeRate,
-        walletState.walletType || 'unisat',
-        'html', // Tech & Games Inskriptionen sind HTML-Inskriptionen (interaktive Spiele/Tools)
-        item.price // Item-Preis in sats (z.B. 2000 für TimeBIT, 10000 für TACTICAL)
-      );
+      const isTesseract = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
+      setMintingStatus(prev => prev ? {
+        ...prev,
+        progress: 30,
+        message: isTesseract
+          ? 'Creating Tesseract wrapper inscription...'
+          : 'Creating delegate inscription...',
+      } : null);
+
+      const result = isTesseract
+        ? await createTesseractWrapperInscription(
+            item.name,
+            userAddress,
+            'Tech & Games',
+            inscriptionFeeRate,
+            walletState.walletType || 'unisat',
+            item.price
+          )
+        : await createSingleDelegate(
+            item.inscriptionId,
+            item.name,
+            userAddress,
+            'Tech & Games',
+            inscriptionFeeRate,
+            walletState.walletType || 'unisat',
+            'html', // Tech & Games Inskriptionen sind HTML-Inskriptionen (interaktive Spiele/Tools)
+            item.price // Item-Preis in sats (z.B. 2000 für TimeBIT, 10000 für TACTICAL)
+          );
 
       setMintingStatus({
         progress: 100,
