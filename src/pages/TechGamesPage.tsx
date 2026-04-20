@@ -8,7 +8,7 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate, createTesseractWrapperInscription } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
-import { TESSERACT_PARENT_INSCRIPTION_ID } from '../constants/tesseractInscription';
+import { TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_EDITION_LIMIT } from '../constants/tesseractInscription';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
@@ -270,7 +270,31 @@ export const TechGamesPage: React.FC = () => {
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
+  const [tesseractMintCount, setTesseractMintCount] = useState<number | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+
+  // Lädt die aktuell geminteten Tesseract-Editions vom Backend.
+  // 404 (älterer Backend-Stand) wird stillschweigend ignoriert — der
+  // Edition-Counter wird dann einfach ausgeblendet.
+  const loadTesseractCount = React.useCallback(async () => {
+    if (!API_URL) return;
+    try {
+      const res = await fetch(
+        `${API_URL}/api/techgames/count-by-original?originalInscriptionId=${TESSERACT_PARENT_INSCRIPTION_ID}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data?.count === 'number') {
+        setTesseractMintCount(data.count);
+      }
+    } catch {
+      /* offline / endpoint not deployed yet → silently ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTesseractCount();
+  }, [loadTesseractCount]);
   /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
@@ -355,10 +379,19 @@ export const TechGamesPage: React.FC = () => {
       return;
     }
 
+    const isTesseract = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
+    if (isTesseract && tesseractMintCount !== null && tesseractMintCount >= TESSERACT_EDITION_LIMIT) {
+      setMintingStatus({
+        status: 'error',
+        progress: 0,
+        message: `TESSERACT is sold out — all ${TESSERACT_EDITION_LIMIT} editions have been minted.`,
+      });
+      return;
+    }
+
     setMintingStatus({ status: 'in-progress', progress: 10, message: 'Starting minting process...' });
 
     try {
-      const isTesseract = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
       setMintingStatus(prev => prev ? {
         ...prev,
         progress: 30,
@@ -425,6 +458,13 @@ export const TechGamesPage: React.FC = () => {
         console.log('[TechGames] ✅ Added 10 mint points');
       } catch (pointsError) {
         console.warn('[TechGames] ⚠️ Failed to add mint points:', pointsError);
+      }
+
+      if (isTesseract) {
+        // Optimistic local bump so the user immediately sees the new count,
+        // then re-sync from backend (which is the source of truth).
+        setTesseractMintCount((prev) => (typeof prev === 'number' ? prev + 1 : prev));
+        loadTesseractCount();
       }
     } catch (err: any) {
       console.error('Minting error:', err);
@@ -707,6 +747,16 @@ export const TechGamesPage: React.FC = () => {
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-1">Price: {formatPrice(item.price)}</p>
                 <p className="text-sm text-gray-400">+ inscription fees</p>
+                {item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID && tesseractMintCount !== null && (
+                  <p className="text-[11px] text-purple-300 font-mono mt-1">
+                    Edition {Math.min(tesseractMintCount + 1, TESSERACT_EDITION_LIMIT)} / {TESSERACT_EDITION_LIMIT}
+                    {tesseractMintCount >= TESSERACT_EDITION_LIMIT && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-red-700 text-white text-[10px] font-semibold">
+                        SOLD OUT
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             ) : item.mintable ? (
               <div className="mb-4">
@@ -718,13 +768,28 @@ export const TechGamesPage: React.FC = () => {
             <div className="mt-auto space-y-2">
               {(item.price > 0 || item.mintable) ? (
                 <>
-                  <button
-                    onClick={() => handleMint(item)}
-                    disabled={mintingStatus?.status === 'in-progress'}
-                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all duration-300 text-sm font-semibold hover:shadow-lg hover:shadow-red-600/30 hover:scale-[1.02]"
-                  >
-                    {mintingStatus?.status === 'in-progress' ? 'Minting...' : item.price === 0 ? '🎯 Mint Free' : '🎯 Mint Now'}
-                  </button>
+                  {(() => {
+                    const isTesseractItem = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
+                    const isSoldOut = isTesseractItem
+                      && tesseractMintCount !== null
+                      && tesseractMintCount >= TESSERACT_EDITION_LIMIT;
+                    const isMintingInProgress = mintingStatus?.status === 'in-progress';
+                    return (
+                      <button
+                        onClick={() => handleMint(item)}
+                        disabled={isMintingInProgress || isSoldOut}
+                        className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-all duration-300 text-sm font-semibold hover:shadow-lg hover:shadow-red-600/30 hover:scale-[1.02]"
+                      >
+                        {isSoldOut
+                          ? '✋ Sold Out'
+                          : isMintingInProgress
+                            ? 'Minting...'
+                            : item.price === 0
+                              ? '🎯 Mint Free'
+                              : '🎯 Mint Now'}
+                      </button>
+                    );
+                  })()}
                   <button
                     onClick={() => setSelectedItem(item)}
                     className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-300 text-xs font-medium text-gray-300"

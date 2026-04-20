@@ -7,7 +7,7 @@ import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMultipleBitcoinPayments } from '../utils/wallet';
 import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
-import { TESSERACT_WRAPPER_HTML } from '../constants/tesseractInscription';
+import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID } from '../constants/tesseractInscription';
 
 const API_URL = getApiUrl();
 
@@ -360,7 +360,7 @@ export const createTesseractWrapperInscription = async (
 
   console.log(`[CollectionMinting] ✅ Tesseract wrapper file: ${htmlFile.name} (${htmlFile.size} bytes)`);
 
-  console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription...`);
+  console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription with parent=${TESSERACT_PARENT_INSCRIPTION_ID}…`);
   let result;
   try {
     result = await createUnisatInscription({
@@ -368,6 +368,10 @@ export const createTesseractWrapperInscription = async (
       address: recipientAddress,
       feeRate,
       postage: 330,
+      // Parent-Provenance: das Backend hat einen Graceful-Fallback und
+      // wiederholt den Call ohne Parent, falls UniSat den Same-Author-
+      // Constraint enforced. Damit blockiert keine Provenance-Politik den Mint.
+      parentInscriptionId: TESSERACT_PARENT_INSCRIPTION_ID,
     });
     console.log(`[CollectionMinting] ✅ Step 1/3 done. orderId=${result.orderId}, payAddress=${result.payAddress}, amount=${result.amount}`);
   } catch (apiErr: any) {

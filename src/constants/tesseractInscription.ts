@@ -7,6 +7,16 @@ export const TESSERACT_PARENT_INSCRIPTION_ID =
   '1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0';
 
 /**
+ * Maximale Auflage der Tesseract-Edition. Wird vom Frontend gegen
+ * /api/techgames/count-by-original geprüft; bei Erreichen wird der
+ * Mint-Button deaktiviert und ein Sold-Out-State angezeigt.
+ *
+ * Der Wert kann jederzeit angehoben werden — der On-Chain-State bleibt
+ * davon unberührt.
+ */
+export const TESSERACT_EDITION_LIMIT = 999;
+
+/**
  * Bytegenauer Wrapper-HTML-Inhalt (577 Bytes, UTF-8, ASCII-only) — wird bei
  * jedem Tesseract-Mint identisch eingeschrieben. Eindeutigkeit kommt allein
  * durch die vom Protokoll vergebene Inscription-ID, aus der die Engine im
