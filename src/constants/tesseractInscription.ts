@@ -17,52 +17,31 @@ export const TESSERACT_PARENT_INSCRIPTION_ID =
 export const TESSERACT_EDITION_LIMIT = 999;
 
 /**
- * Eigene Mirror-Domain für die mempool.space-API (HTTPS + WebSocket).
- * Wird vom Wrapper als Fallback verwendet, falls mempool.space beim Boot
- * der Inscription nicht erreichbar ist (z. B. bei Ausfall, Sanktionen,
- * regionalen Sperren). Der Mirror selbst spricht primär mempool.space und
- * fällt intern auf blockstream.info zurück (siehe tesseract-mirror Repo).
+ * Bytegenauer Wrapper-HTML-Inhalt (547 Bytes, UTF-8, ASCII-only) — wird bei
+ * jedem Tesseract-Mint identisch eingeschrieben. Eindeutigkeit entsteht zur
+ * Laufzeit: das inline-Script liest die eigene Inscription-ID aus
+ * `location.pathname` und reicht sie der Engine via `#inscription=<id>` an
+ * den iframe weiter.
  *
- * WICHTIG: Diese Subdomain ist Teil des on-chain inscribten Wrappers und
- * kann nach dem ersten Mint NICHT mehr geändert werden. Hosting-Wechsel
- * erfolgen ausschließlich über DNS (CNAME). Niemals durch eine Vendor-URL
- * ersetzen.
- */
-export const TESSERACT_MIRROR_HOST = 'mempool.richart.app';
-
-/**
- * Bytegenauer Wrapper-HTML-Inhalt (1002 Bytes, UTF-8, ASCII-only) — wird bei
- * jedem Tesseract-Mint identisch eingeschrieben. Der Wrapper macht drei Dinge:
+ * Diese Hash-Methode hat in der Tesseract-Engine **höchste Priorität** vor
+ * `parent`, `top`, `referrer` und der Self-Fallback-Logik. Sie funktioniert
+ * deshalb auch dann zuverlässig, wenn der Mint in einem doppelt verschachtelten
+ * iframe (z. B. ord.io / richart.app-Preview) angezeigt wird, wo
+ * cross-origin-Zugriffe auf parent/top blockiert wären.
  *
- *   1. **Eindeutigkeit:** Liest die eigene Inscription-ID aus
- *      `location.pathname` und reicht sie der Engine via
- *      `#inscription=<id>` weiter (höchste Priorität in der Engine vor
- *      parent/top/referrer/self-Fallback).
+ * Die VORIGE Variante (`<iframe src="/content/PARENT">` ohne Hash) erzeugte
+ * für jeden Mint denselben Cube, weil die Engine im iframe nur die Parent-URL
+ * sah und auf den Parent-ID-Self-Fallback zurückfiel. Dieser Wrapper behebt
+ * das, ohne den Engine-Code im Parent zu verändern.
  *
- *   2. **Mempool-Failover:** Versucht beim Boot 2.5 s lang einen
- *      WebSocket-Connect zu `wss://mempool.space/api/v1/ws`. Klappt das,
- *      wird die Engine unverändert ausgeführt (Original direkt). Klappt es
- *      NICHT, werden im Engine-HTML alle Vorkommen von `mempool.space`
- *      durch den Mirror ersetzt (HTTPS + WSS) — der Tesseract bleibt also
- *      live, auch wenn mempool.space wegfällt.
- *
- *   3. **Engine-Hosting via Blob:** Die Engine-HTML wird per `fetch` aus
- *      `/content/<PARENT>` gelesen und über eine `Blob`-URL ins iframe
- *      gerendert. Da Blob-URLs den Origin des Erzeugers erben
- *      (`blob:https://ordinals.com/...`), funktionieren die rekursiven
- *      ord-Endpoints (`/r/blockheight`, `/r/...`) und die CSP weiterhin
- *      so wie beim direkten /content/-Aufruf.
- *
- * WICHTIG: Bytes müssen exakt 1002 ergeben — Runtime-Guard im Mint-Service
- * verweigert sonst das Inscriben. Jede Änderung am Wrapper-Inhalt ist
- * IRREVERSIBEL für bereits geprägte Editionen, weil jede Edition den dann
- * gültigen Wrapper-Bytestring bytegenau on-chain speichert.
+ * WICHTIG: Bytes müssen exakt 547 ergeben — Runtime-Guard im Mint-Service
+ * verweigert sonst das Inscriben.
  */
 // eslint-disable-next-line max-len
-export const TESSERACT_WRAPPER_HTML = `<!doctype html><meta charset=utf-8><title>TESSERACT</title><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#000}</style><body><script>(async()=>{var P="${TESSERACT_PARENT_INSCRIPTION_ID}",M="${TESSERACT_MIRROR_HOST}",p=location.pathname.split("/").pop()||"",c=/^[0-9a-f]{64}i\\d+$/i.test(p)?p:P,o=await new Promise(r=>{try{var w=new WebSocket("wss://mempool.space/api/v1/ws"),t=setTimeout(()=>{try{w.close()}catch(e){}r(0)},2500);w.onopen=()=>{clearTimeout(t);try{w.close()}catch(e){}r(1)};w.onerror=()=>{clearTimeout(t);r(0)}}catch(e){r(0)}}),h=await(await fetch("/content/"+P)).text();if(!o)h=h.split("mempool.space").join(M);var f=document.createElement("iframe");f.src=URL.createObjectURL(new Blob([h],{type:"text/html"}))+"#inscription="+c;f.referrerPolicy="unsafe-url";f.allow="autoplay; fullscreen";f.title="Tesseract";document.body.appendChild(f)})()</script>`;
+export const TESSERACT_WRAPPER_HTML = `<!doctype html><meta charset=utf-8><title>TESSERACT</title><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#000}</style><script>var b="${TESSERACT_PARENT_INSCRIPTION_ID}",p=location.pathname.split("/").pop()||"",s=/^[0-9a-f]{64}i\\d+$/i.test(p)?p:b;document.write('<iframe src="/content/'+b+'#inscription='+s+'" referrerpolicy="unsafe-url" allow="autoplay; fullscreen" title="Tesseract"></iframe>')</script>`;
 
 /**
  * Erwartete Byte-Länge des Wrappers (UTF-8, ASCII-only). Wird vom Mint-Service
  * gegen die Konstante geprüft, um versehentliche Modifikationen zu verhindern.
  */
-export const TESSERACT_WRAPPER_BYTES = 1002;
+export const TESSERACT_WRAPPER_BYTES = 547;
