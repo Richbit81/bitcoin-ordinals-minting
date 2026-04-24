@@ -372,6 +372,24 @@ export const TechGamesPage: React.FC = () => {
     }
   }, [searchParams]);
 
+  // ?filter=game|music|tool|all aus der URL übernehmen, damit Header-Dropdown
+  // (Games / Music / Tools) den passenden Tab direkt aktiviert.
+  useEffect(() => {
+    const raw = (searchParams.get('filter') || '').toLowerCase();
+    const map: Record<string, 'all' | Category> = {
+      all: 'all',
+      game: 'game',
+      games: 'game',
+      music: 'music',
+      tool: 'tool',
+      tools: 'tool',
+    };
+    const next = map[raw];
+    if (next && next !== activeFilter) {
+      setActiveFilter(next);
+    }
+  }, [searchParams]);
+
   // ESC-Taste Handler für Fullscreen-Modal und Performance-Optimierung
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
