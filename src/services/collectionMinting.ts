@@ -8,7 +8,7 @@ import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMult
 import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
 import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_WRAPPER_BYTES } from '../constants/tesseractInscription';
-import { SIGNAL_WRAPPER_HTML, SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_WRAPPER_BYTES } from '../constants/signalInscription';
+import { buildSignalWrapper, SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_WRAPPER_BYTES, SIGNAL_EDITION_LIMIT } from '../constants/signalInscription';
 
 const API_URL = getApiUrl();
 
@@ -444,11 +444,17 @@ export const createTesseractWrapperInscription = async (
 };
 
 /**
- * SIGNAL-spezifischer Mint: schreibt bei jedem Mint die identischen 236 Bytes
- * der `signal-child.min.html` Wrapper-Datei ein. Kein Delegate — der Wrapper
- * lädt die SIGNAL-Engine via <script src="/content/<engineId>"> und nutzt die
- * eigene (vom Protokoll vergebene) Inscription-ID als deterministischen
- * FNV-1a-Seed (siehe extractInscriptionId in der Engine).
+ * SIGNAL-spezifischer Mint: baut pro Mint einen byte-stabilen
+ * `signal-child.min.html` Wrapper mit eingebetteten <meta>-Tags
+ * (collection / edition / provenance) und schreibt ihn ein. Kein Delegate
+ * — der Wrapper lädt die SIGNAL-Engine via <script src="/content/<engineId>">
+ * und nutzt die eigene (vom Protokoll vergebene) Inscription-ID als
+ * deterministischen FNV-1a-Seed (siehe extractInscriptionId in der Engine).
+ *
+ * Edition-Nummer wird vom Frontend basierend auf dem aktuellen
+ * `count-by-original`-Stand vergeben (`signalMintCount + 1`). Bei
+ * gleichzeitigen Mints kann es zu Kollisionen kommen — für eine echte
+ * Reservierung müsste der Backend-Endpoint atomic increment liefern.
  *
  * Bewusst KEIN parentInscriptionId: SIGNAL ist über recursive endpoints
  * verkettet, nicht über ord-protocol-Provenance.
@@ -459,24 +465,33 @@ export const createSignalWrapperInscription = async (
   collectionName: string,
   feeRate: number,
   walletType: 'unisat' | 'xverse' | 'okx' | null,
-  itemPrice?: number
+  itemPrice: number | undefined,
+  editionNumber: number
 ): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
-  console.log(`[CollectionMinting] Creating SIGNAL wrapper inscription for ${itemName}`);
+  console.log(`[CollectionMinting] Creating SIGNAL wrapper inscription for ${itemName} (edition #${editionNumber})`);
 
-  if (SIGNAL_WRAPPER_HTML.length !== SIGNAL_WRAPPER_BYTES) {
+  if (!Number.isInteger(editionNumber) || editionNumber < 1 || editionNumber > SIGNAL_EDITION_LIMIT) {
+    throw new Error(
+      `SIGNAL editionNumber out of range: ${editionNumber} (expected 1..${SIGNAL_EDITION_LIMIT})`
+    );
+  }
+
+  const wrapperHtml = buildSignalWrapper(editionNumber);
+
+  if (wrapperHtml.length !== SIGNAL_WRAPPER_BYTES) {
     console.error(
-      `[CollectionMinting] ❌ SIGNAL wrapper byte length mismatch: ${SIGNAL_WRAPPER_HTML.length} (expected ${SIGNAL_WRAPPER_BYTES})`
+      `[CollectionMinting] ❌ SIGNAL wrapper byte length mismatch: ${wrapperHtml.length} (expected ${SIGNAL_WRAPPER_BYTES})`
     );
     throw new Error('SIGNAL wrapper HTML byte length mismatch — refusing to mint corrupted asset.');
   }
 
   const htmlFile = new File(
-    [SIGNAL_WRAPPER_HTML],
+    [wrapperHtml],
     `signal-child.min.html`,
     { type: 'text/html;charset=utf-8' }
   );
 
-  console.log(`[CollectionMinting] ✅ SIGNAL wrapper file: ${htmlFile.name} (${htmlFile.size} bytes)`);
+  console.log(`[CollectionMinting] ✅ SIGNAL wrapper file: ${htmlFile.name} (${htmlFile.size} bytes, edition #${editionNumber})`);
   console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription (engine=${SIGNAL_ENGINE_INSCRIPTION_ID})…`);
 
   let result;

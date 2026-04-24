@@ -479,7 +479,11 @@ export const TechGamesPage: React.FC = () => {
             'Tech & Games',
             inscriptionFeeRate,
             walletState.walletType || 'unisat',
-            item.price
+            item.price,
+            // Edition-Nummer = aktueller Counter + 1. Race-Condition bei
+            // gleichzeitigen Mints akzeptiert (kein server-side reservation
+            // bisher); Fallback auf 1, falls der Counter noch nicht geladen ist.
+            (signalMintCount ?? 0) + 1
           )
         : await createSingleDelegate(
             item.inscriptionId,
