@@ -5,10 +5,11 @@ import { FeeRateSelector } from '../components/FeeRateSelector';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
-import { createSingleDelegate, createTesseractWrapperInscription } from '../services/collectionMinting';
+import { createSingleDelegate, createTesseractWrapperInscription, createSignalWrapperInscription } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_EDITION_LIMIT } from '../constants/tesseractInscription';
+import { SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_EDITION_LIMIT, SIGNAL_PREVIEW_SRCDOC } from '../constants/signalInscription';
 
 const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
 
@@ -24,6 +25,11 @@ interface TechGameItem {
   specs?: string[]; // Für Specs (z.B. SEQUENCER)
   features?: string[]; // Für Features (z.B. TACTICAL)
   mintable?: boolean; // true = mintbar auch bei price 0 (nur Fees)
+  /** Optionales Inline-HTML für die Card-/Try-Modal-Vorschau. Wird
+   *  bevorzugt vor dem Standard-iframe-src verwendet. Notwendig für
+   *  Items, deren `inscriptionId` keine vollständige HTML-Inscription
+   *  ist (z. B. SIGNAL-Engine als application/javascript). */
+  previewSrcDoc?: string;
 }
 
 const TECH_GAMES_ITEMS: TechGameItem[] = [
@@ -46,6 +52,28 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
       'Touch / mouse / pinch / wheel controls + trait tester (press T)',
       'Recursive children: each mint gets its own ID and unique variant',
       'Offline-capable, single self-contained HTML',
+    ],
+  },
+  {
+    inscriptionId: SIGNAL_ENGINE_INSCRIPTION_ID,
+    previewSrcDoc: SIGNAL_PREVIEW_SRCDOC,
+    name: 'SIGNAL',
+    description:
+      'SIGNAL — Generative Geometric System. A recursive Bitcoin Ordinal that renders deterministic poster-grade artwork seeded by the mint inscription ID. Bauhaus meets cyberpunk: wireframe geometry, oscilloscope waves, halftone dot matrices, ASCII rain, topographic contours, concentric rings, glitched typography and a technical HUD — composed live in pure Canvas2D. The engine reads its own on-chain context via recursive endpoints (block height, sat number, sat rarity) and remixes the seed accordingly: rare / epic / legendary / mythic sats trigger exclusive palettes (emerald, amethyst, gold, crimson) and rarity-themed hero words. Four presets (MAXIMAL, MINIMAL, OSCILL, INSCRIPT). Hidden HUD with H, regenerate / save / typo / grid / preset / pause keyboard controls. Each minted child references the shared engine inscription, so per-mint payload is only ~236 bytes — cheap, deterministic, and forever on-chain.',
+    price: 5000,
+    category: 'tool',
+    isNew: true,
+    specs: [
+      'Recursive engine: each mint loads the shared SIGNAL engine via /content/<engineId>',
+      'Per-mint payload only ~236 bytes (cheap, byte-identical wrappers)',
+      'Inscription-ID hashed (FNV-1a) into a deterministic seed',
+      'Pure Canvas2D, no WebGL, no external assets, fully offline-capable',
+      'Block-aware: reads /r/inscription + /r/sat for block height, sat number and rarity',
+      'Rarity overlay: rare → emerald, epic → amethyst, legendary → gold, mythic → crimson',
+      'Modular layers: geometry, waves, dots, topography, rings, ASCII rain, hash number, typography, HUD',
+      'Four presets — MAXIMAL / MINIMAL / OSCILL / INSCRIPT',
+      'Hidden HUD by default, toggle with H. Keyboard: R/S/SPACE/G/T/P',
+      'Edition limited to 1000 wrapper inscriptions',
     ],
   },
   {
@@ -271,6 +299,7 @@ export const TechGamesPage: React.FC = () => {
   const [expandedSpecs, setExpandedSpecs] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
   const [tesseractMintCount, setTesseractMintCount] = useState<number | null>(null);
+  const [signalMintCount, setSignalMintCount] = useState<number | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
 
   // Lädt die aktuell geminteten Tesseract-Editions vom Backend.
@@ -295,6 +324,28 @@ export const TechGamesPage: React.FC = () => {
   useEffect(() => {
     loadTesseractCount();
   }, [loadTesseractCount]);
+
+  // Mirror der Tesseract-Counter-Logik für SIGNAL. Stillschweigender Fallback,
+  // falls der Backend-Endpoint noch nicht deployed ist.
+  const loadSignalCount = React.useCallback(async () => {
+    if (!API_URL) return;
+    try {
+      const res = await fetch(
+        `${API_URL}/api/techgames/count-by-original?originalInscriptionId=${SIGNAL_ENGINE_INSCRIPTION_ID}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data?.count === 'number') {
+        setSignalMintCount(data.count);
+      }
+    } catch {
+      /* offline / endpoint not deployed yet → silently ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSignalCount();
+  }, [loadSignalCount]);
   /** compact50 = kleines Fenster; minimalFullscreen = volles Viewport wie schlanker Viewer (z. B. RICHRACER / ord.io) */
   const TRY_MODAL_LAYOUT: Record<string, 'compact50' | 'minimalFullscreen'> = {
     '0fcad509999f78055b734d66fbf208e5238de6bdd30827636df70e81a47c163di0': 'minimalFullscreen',
@@ -303,6 +354,7 @@ export const TechGamesPage: React.FC = () => {
     'b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0': 'minimalFullscreen',
     '4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0': 'minimalFullscreen',
     [TESSERACT_PARENT_INSCRIPTION_ID]: 'minimalFullscreen',
+    [SIGNAL_ENGINE_INSCRIPTION_ID]: 'minimalFullscreen',
   };
   const filteredItems = activeFilter === 'all' ? TECH_GAMES_ITEMS : TECH_GAMES_ITEMS.filter(i => i.category === activeFilter);
   const tryModalLayout = selectedItem ? TRY_MODAL_LAYOUT[selectedItem.inscriptionId] : undefined;
@@ -380,11 +432,20 @@ export const TechGamesPage: React.FC = () => {
     }
 
     const isTesseract = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
+    const isSignal    = item.inscriptionId === SIGNAL_ENGINE_INSCRIPTION_ID;
     if (isTesseract && tesseractMintCount !== null && tesseractMintCount >= TESSERACT_EDITION_LIMIT) {
       setMintingStatus({
         status: 'error',
         progress: 0,
         message: `TESSERACT is sold out — all ${TESSERACT_EDITION_LIMIT} editions have been minted.`,
+      });
+      return;
+    }
+    if (isSignal && signalMintCount !== null && signalMintCount >= SIGNAL_EDITION_LIMIT) {
+      setMintingStatus({
+        status: 'error',
+        progress: 0,
+        message: `SIGNAL is sold out — all ${SIGNAL_EDITION_LIMIT} editions have been minted.`,
       });
       return;
     }
@@ -397,11 +458,22 @@ export const TechGamesPage: React.FC = () => {
         progress: 30,
         message: isTesseract
           ? 'Creating Tesseract wrapper inscription...'
-          : 'Creating delegate inscription...',
+          : isSignal
+            ? 'Creating SIGNAL wrapper inscription...'
+            : 'Creating delegate inscription...',
       } : null);
 
       const result = isTesseract
         ? await createTesseractWrapperInscription(
+            item.name,
+            userAddress,
+            'Tech & Games',
+            inscriptionFeeRate,
+            walletState.walletType || 'unisat',
+            item.price
+          )
+        : isSignal
+        ? await createSignalWrapperInscription(
             item.name,
             userAddress,
             'Tech & Games',
@@ -646,7 +718,9 @@ export const TechGamesPage: React.FC = () => {
                     </div>
                   )}
                   <iframe
-                    src={`https://ordinals.com/content/${item.inscriptionId}`}
+                    {...(item.previewSrcDoc
+                      ? { srcDoc: item.previewSrcDoc }
+                      : { src: `https://ordinals.com/content/${item.inscriptionId}` })}
                     className={`w-full h-full border-0 ${loadingItems.has(item.inscriptionId) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
                     title={item.name}
                     sandbox="allow-scripts allow-same-origin"
@@ -757,6 +831,16 @@ export const TechGamesPage: React.FC = () => {
                     )}
                   </p>
                 )}
+                {item.inscriptionId === SIGNAL_ENGINE_INSCRIPTION_ID && signalMintCount !== null && (
+                  <p className="text-[11px] text-pink-300 font-mono mt-1">
+                    Edition {Math.min(signalMintCount + 1, SIGNAL_EDITION_LIMIT)} / {SIGNAL_EDITION_LIMIT}
+                    {signalMintCount >= SIGNAL_EDITION_LIMIT && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-red-700 text-white text-[10px] font-semibold">
+                        SOLD OUT
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             ) : item.mintable ? (
               <div className="mb-4">
@@ -770,9 +854,13 @@ export const TechGamesPage: React.FC = () => {
                 <>
                   {(() => {
                     const isTesseractItem = item.inscriptionId === TESSERACT_PARENT_INSCRIPTION_ID;
-                    const isSoldOut = isTesseractItem
-                      && tesseractMintCount !== null
-                      && tesseractMintCount >= TESSERACT_EDITION_LIMIT;
+                    const isSignalItem    = item.inscriptionId === SIGNAL_ENGINE_INSCRIPTION_ID;
+                    const isSoldOut = (isTesseractItem
+                        && tesseractMintCount !== null
+                        && tesseractMintCount >= TESSERACT_EDITION_LIMIT)
+                      || (isSignalItem
+                        && signalMintCount !== null
+                        && signalMintCount >= SIGNAL_EDITION_LIMIT);
                     const isMintingInProgress = mintingStatus?.status === 'in-progress';
                     return (
                       <button
@@ -933,7 +1021,9 @@ export const TechGamesPage: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
-              src={`https://ordinals.com/content/${selectedItem.inscriptionId}`}
+              {...(selectedItem.previewSrcDoc
+                ? { srcDoc: selectedItem.previewSrcDoc }
+                : { src: `https://ordinals.com/content/${selectedItem.inscriptionId}` })}
               className="w-full h-full border-0 absolute inset-0"
               title={selectedItem.name}
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-fullscreen"

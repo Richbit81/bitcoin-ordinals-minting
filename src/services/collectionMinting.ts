@@ -8,6 +8,7 @@ import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMult
 import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
 import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_WRAPPER_BYTES } from '../constants/tesseractInscription';
+import { SIGNAL_WRAPPER_HTML, SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_WRAPPER_BYTES } from '../constants/signalInscription';
 
 const API_URL = getApiUrl();
 
@@ -430,6 +431,117 @@ export const createTesseractWrapperInscription = async (
       inscriptionId: result.inscriptionId,
       txid: result.txid || result.orderId,
       source: 'createTesseractWrapperInscription',
+    });
+  } catch (pointsError) {
+    console.warn('[CollectionMinting] Failed to add mint points:', pointsError);
+  }
+
+  return {
+    inscriptionId: result.inscriptionId,
+    txid: result.txid || result.orderId,
+    paymentTxid,
+  };
+};
+
+/**
+ * SIGNAL-spezifischer Mint: schreibt bei jedem Mint die identischen 236 Bytes
+ * der `signal-child.min.html` Wrapper-Datei ein. Kein Delegate — der Wrapper
+ * lädt die SIGNAL-Engine via <script src="/content/<engineId>"> und nutzt die
+ * eigene (vom Protokoll vergebene) Inscription-ID als deterministischen
+ * FNV-1a-Seed (siehe extractInscriptionId in der Engine).
+ *
+ * Bewusst KEIN parentInscriptionId: SIGNAL ist über recursive endpoints
+ * verkettet, nicht über ord-protocol-Provenance.
+ */
+export const createSignalWrapperInscription = async (
+  itemName: string,
+  recipientAddress: string,
+  collectionName: string,
+  feeRate: number,
+  walletType: 'unisat' | 'xverse' | 'okx' | null,
+  itemPrice?: number
+): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
+  console.log(`[CollectionMinting] Creating SIGNAL wrapper inscription for ${itemName}`);
+
+  if (SIGNAL_WRAPPER_HTML.length !== SIGNAL_WRAPPER_BYTES) {
+    console.error(
+      `[CollectionMinting] ❌ SIGNAL wrapper byte length mismatch: ${SIGNAL_WRAPPER_HTML.length} (expected ${SIGNAL_WRAPPER_BYTES})`
+    );
+    throw new Error('SIGNAL wrapper HTML byte length mismatch — refusing to mint corrupted asset.');
+  }
+
+  const htmlFile = new File(
+    [SIGNAL_WRAPPER_HTML],
+    `signal-child.min.html`,
+    { type: 'text/html;charset=utf-8' }
+  );
+
+  console.log(`[CollectionMinting] ✅ SIGNAL wrapper file: ${htmlFile.name} (${htmlFile.size} bytes)`);
+  console.log(`[CollectionMinting] 📡 Step 1/3: Calling backend API createUnisatInscription (engine=${SIGNAL_ENGINE_INSCRIPTION_ID})…`);
+
+  let result;
+  try {
+    result = await createUnisatInscription({
+      file: htmlFile,
+      address: recipientAddress,
+      feeRate,
+      postage: 330,
+    });
+    console.log(`[CollectionMinting] ✅ Step 1/3 done. orderId=${result.orderId}, payAddress=${result.payAddress}, amount=${result.amount}`);
+  } catch (apiErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 1/3 FAILED (createUnisatInscription):`, apiErr);
+    throw new Error(`Inscription API failed: ${apiErr?.message || apiErr}`);
+  }
+
+  if (!result.payAddress || !result.amount) {
+    console.error(`[CollectionMinting] ❌ Missing payAddress or amount in API response:`, result);
+    throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
+  }
+
+  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
+  const payments: Array<{ address: string; amount: number }> = [];
+
+  if (itemPrice && itemPrice > 0) {
+    const itemPriceBTC = itemPrice / 100000000;
+    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC });
+    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
+  }
+
+  payments.push({ address: result.payAddress, amount: result.amount });
+  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
+
+  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
+  let paymentTxid: string | undefined;
+  try {
+    if (payments.length === 1) {
+      if (walletType === 'unisat') {
+        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
+      } else if (walletType === 'okx') {
+        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
+      } else if (walletType === 'xverse') {
+        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
+      } else {
+        throw new Error('Unsupported wallet type for payment.');
+      }
+    } else {
+      if (!walletType) throw new Error('Unsupported wallet type for payment.');
+      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
+    }
+    console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
+  } catch (payErr: any) {
+    console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
+    throw payErr;
+  }
+
+  if (!paymentTxid) throw new Error('Payment transaction failed or returned no TXID.');
+
+  try {
+    await addMintPoints(recipientAddress, {
+      collection: collectionName,
+      itemName,
+      inscriptionId: result.inscriptionId,
+      txid: result.txid || result.orderId,
+      source: 'createSignalWrapperInscription',
     });
   } catch (pointsError) {
     console.warn('[CollectionMinting] Failed to add mint points:', pointsError);
