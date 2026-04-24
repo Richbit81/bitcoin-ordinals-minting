@@ -130,9 +130,9 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     label: 'Tech & Games',
     items: [
       { label: 'All Items', route: '/tech-games', img: '/images/techgames-logo.gif' },
-      { label: 'Games', route: '/tech-games?filter=game', img: '/images/techgames-logo.gif' },
-      { label: 'Music', route: '/tech-games?filter=music', img: '/images/techgames-logo.gif' },
-      { label: 'Tools', route: '/tech-games?filter=tool', img: '/images/techgames-logo.gif' },
+      { label: 'Games', route: '/tech-games?filter=game', img: '/images/nav-games.png' },
+      { label: 'Music', route: '/tech-games?filter=music', img: '/images/nav-music.png' },
+      { label: 'Tools', route: '/tech-games?filter=tool', img: '/images/nav-tools.png' },
     ],
   },
   {
