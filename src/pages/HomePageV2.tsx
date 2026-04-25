@@ -172,6 +172,11 @@ const ALL_NEWS = [
 
 const ALL_NEW_STUFF = [
   { name: 'TESSERACT', thumb: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', route: '/tech-games?try=1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
+  // SIGNAL: thumb points at Edition #1's full HTML wrapper (the engine
+  // alone is application/javascript and won't render in an iframe), the
+  // route's ?try= uses the engine ID since that's what TECH_GAMES_ITEMS
+  // identifies the SIGNAL item by.
+  { name: 'SIGNAL', thumb: 'https://ordinals.com/content/71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0', route: '/tech-games?try=af23cd3c031cc6eabc5f2850925c21b65e5b4e89f84a2279ca244db3facd0b9bi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Stellar Command', thumb: 'https://ordinals.com/content/4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0', route: '/tech-games?try=4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'EXIT PROTOCOL', thumb: 'https://ordinals.com/content/b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', route: '/tech-games?try=b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
