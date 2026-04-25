@@ -28,7 +28,7 @@ export const SIGNAL_EDITION_LIMIT = 1000;
  * eingeschrieben wird.
  */
 export const SIGNAL_MARKETPLACE_INSCRIPTION_ID =
-  '6cf707bbbfedbceb00f5afb0200570e9fe4c715b99c036fba16a4729beff2d14i0';
+  'e2627b8fd577a75a82de2a58f9e2583247bb38bdf66fb6dfb223683b72bef94bi0';
 
 /**
  * Sat-Pointer, auf dem die SIGNAL-Hashlist lebt. Jede neue Version der
