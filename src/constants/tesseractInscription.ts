@@ -52,8 +52,11 @@ const padEdition = (n: number): string => String(n).padStart(4, '0');
  * bleibt über alle Editionen identisch.
  *
  * Im Unterschied zum vorigen Wrapper (547 Bytes, reine iframe-Hülle) ist
- * dieser marketplace-aware: er rendert ein on-tap einblendbares MP-Panel
- * unten am Bildschirmrand mit Direktlink zur on-chain Marketplace.
+ * dieser marketplace-aware: er rendert eine sichtbare cyan-pulsierende
+ * "◆ MP"-Pill in der unteren rechten Ecke, die nach kurzer Intro-Phase
+ * (6 s) auf einen subtilen Hint herunterdimmt. Hover/Touch holt sie
+ * zurück, Click slidet das eigentliche Marketplace-Panel rein (URL,
+ * COPY, OPEN-Link). Auto-Hide nach 5 s ohne Interaktion.
  */
 const TESSERACT_WRAPPER_TEMPLATE = `<!doctype html>
 <meta charset=utf-8>
@@ -65,29 +68,53 @@ const TESSERACT_WRAPPER_TEMPLATE = `<!doctype html>
 <style>
   html,body{margin:0;height:100%;background:#000;overflow:hidden}
   iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
-  /* Transparent edge-zone above the iframe.  Catches taps near the
-     bottom of the viewport without showing any UI -- when the user
-     taps it, the marketplace panel slides in.  Pointer-events go to
-     the iframe everywhere else, so the WebGL scene stays fully
-     interactive. */
-  #mpz{position:fixed;left:0;right:0;bottom:0;height:28px;z-index:50;
-       background:transparent;cursor:pointer}
-  /* Floating marketplace panel.  Slides up from bottom-center, hides
-     after a few seconds of no interaction.  Iframe-safe: shows the
-     URL inline so the user can copy it even when popups are blocked. */
-  #mpx{position:fixed;left:50%;bottom:14px;z-index:99;
-       transform:translate(-50%,8px);
+  /* Visible MP trigger.  Sits in the bottom-right corner above the
+     iframe so it's always tappable even though the iframe eats every
+     other click.  Cyan pulsing pill -- subtle but unmistakable. */
+  #mpz{position:fixed;right:14px;bottom:14px;z-index:60;
+       padding:7px 11px;cursor:pointer;
+       font:9px/1 ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;
+       letter-spacing:.22em;color:#00ffd5;font-weight:700;
+       background:rgba(3,3,8,.70);border:1px solid rgba(0,255,213,.55);
+       border-radius:3px;backdrop-filter:blur(6px);
+       -webkit-backdrop-filter:blur(6px);
+       text-shadow:0 0 8px rgba(0,255,213,.55);
+       box-shadow:0 0 14px rgba(0,255,213,.20),0 0 28px rgba(255,0,170,.10);
+       text-transform:uppercase;user-select:none;
+       animation:mpz-pulse 2.4s ease-in-out infinite;
+       transition:opacity .25s,transform .15s,background .15s,box-shadow .15s}
+  #mpz:hover,#mpz.dim:hover{opacity:1;background:rgba(0,255,213,.18);
+       box-shadow:0 0 18px rgba(0,255,213,.45),0 0 36px rgba(255,0,170,.18)}
+  #mpz:active{transform:scale(.96)}
+  #mpz::before{content:'\\25CF';margin-right:6px;color:#ff00aa;
+       text-shadow:0 0 6px rgba(255,0,170,.65);font-size:7px;
+       vertical-align:middle;animation:mpz-blink 1.4s steps(2) infinite}
+  /* dim state -- fades to a subtle hint after a few seconds of idle. */
+  #mpz.dim{opacity:.12;animation:none;
+       box-shadow:0 0 8px rgba(0,255,213,.10);
+       transition:opacity 1.2s ease, box-shadow .6s}
+  #mpz.gone{opacity:0;pointer-events:none}
+  @keyframes mpz-pulse{
+    0%,100%{box-shadow:0 0 14px rgba(0,255,213,.20),0 0 28px rgba(255,0,170,.10)}
+    50%{box-shadow:0 0 22px rgba(0,255,213,.45),0 0 44px rgba(255,0,170,.20)}}
+  @keyframes mpz-blink{50%{opacity:.25}}
+  /* Floating marketplace panel.  Slides up from bottom-right above the
+     trigger.  Auto-hides after a few seconds of no interaction.
+     Iframe-safe: shows the URL inline so the user can copy it even
+     when popups / target=_blank are blocked. */
+  #mpx{position:fixed;right:14px;bottom:14px;z-index:99;
+       transform:translateY(8px);
        display:flex;align-items:center;gap:8px;padding:8px 11px;
        background:rgba(3,3,8,.86);border:1px solid #00ffd5;border-radius:3px;
        backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
        box-shadow:0 0 18px rgba(0,255,213,.18),0 0 36px rgba(255,0,170,.10);
        font:10px/1 ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;
        color:#e8fff7;letter-spacing:.14em;text-transform:uppercase;
-       max-width:calc(100vw - 24px);box-sizing:border-box;
+       max-width:calc(100vw - 28px);box-sizing:border-box;
        opacity:0;visibility:hidden;pointer-events:none;
        transition:opacity .22s,transform .22s,visibility 0s linear .22s}
   #mpx.on{opacity:1;visibility:visible;pointer-events:auto;
-       transform:translate(-50%,0);
+       transform:translateY(0);
        transition:opacity .22s,transform .22s,visibility 0s}
   #mpx b{color:#00ffd5;letter-spacing:.20em;font-weight:400;
        text-shadow:0 0 8px rgba(0,255,213,.55)}
@@ -106,16 +133,6 @@ const TESSERACT_WRAPPER_TEMPLATE = `<!doctype html>
   #mpx button:hover{background:rgba(0,255,213,.10)}
   #mpx .x{color:#aaa;border-color:rgba(255,255,255,.18);padding:5px 7px}
   @keyframes mpb{50%{opacity:.25}}
-  /* Tiny edge hint -- a barely-visible cyan line at the very bottom
-     edge that pulses gently, so users have a faint visual cue that
-     something is interactive down there. */
-  #mph{position:fixed;left:50%;bottom:6px;width:36px;height:2px;
-       transform:translateX(-50%);z-index:49;pointer-events:none;
-       background:#00ffd5;border-radius:2px;opacity:.35;
-       box-shadow:0 0 8px rgba(0,255,213,.65);
-       animation:mph 2.6s ease-in-out infinite}
-  #mph.gone{opacity:0;transition:opacity .4s}
-  @keyframes mph{0%,100%{opacity:.18}50%{opacity:.55}}
 </style>
 <body>
 <script>
@@ -124,8 +141,7 @@ var b="${TESSERACT_PARENT_INSCRIPTION_ID}",
     s=/^[0-9a-f]{64}i\\d+$/i.test(p)?p:b;
 document.write('<iframe src="/content/'+b+'#inscription='+s+'" referrerpolicy="unsafe-url" allow="autoplay; fullscreen" title="Tesseract"></iframe>');
 </script>
-<div id=mpz title="Marketplace"></div>
-<div id=mph></div>
+<div id=mpz title="Open marketplace">&#9670; MP</div>
 <div id=mpx>
   <b>TESSERACT&nbsp;MP</b>
   <input id=mpu readonly value="https://ordinals.com/content/${TESSERACT_MARKETPLACE_INSCRIPTION_ID}">
@@ -135,20 +151,41 @@ document.write('<iframe src="/content/'+b+'#inscription='+s+'" referrerpolicy="u
 </div>
 <script>
 (function(){
-  var z=document.getElementById('mpz'),h=document.getElementById('mph'),
+  var z=document.getElementById('mpz'),
       p=document.getElementById('mpx'),u=document.getElementById('mpu'),
       c=document.getElementById('mpc'),o=document.getElementById('mpo'),
-      x=document.getElementById('mpx_'),t=0,HIDE=4500;
-  function show(){p.classList.add('on');h.classList.add('gone');clearTimeout(t);t=setTimeout(hide,HIDE)}
-  function hide(){p.classList.remove('on');h.classList.remove('gone');clearTimeout(t)}
-  function poke(){if(p.classList.contains('on')){clearTimeout(t);t=setTimeout(hide,HIDE)}}
+      x=document.getElementById('mpx_'),
+      t=0,    /* panel auto-hide timer */
+      dt=0,   /* trigger pill dim timer */
+      HIDE=5000,         /* panel idle timeout */
+      INTRO=6000,        /* pill stays full-bright on load */
+      DIM_AFTER=4500;    /* pill dims after this much idle */
+  function show(){p.classList.add('on');z.classList.add('gone');
+                  clearTimeout(t);t=setTimeout(hide,HIDE)}
+  function hide(){p.classList.remove('on');z.classList.remove('gone');
+                  clearTimeout(t);bumpPill()}
+  function poke(){if(p.classList.contains('on')){
+                    clearTimeout(t);t=setTimeout(hide,HIDE)}}
+  /* Pill idle/dim management.  Show full-bright, then fade after
+     idle.  Any hover/touch on the pill brings it back. */
+  function bumpPill(){
+    z.classList.remove('dim');
+    clearTimeout(dt);
+    dt=setTimeout(function(){z.classList.add('dim')},DIM_AFTER);
+  }
+  function dimNow(){clearTimeout(dt);z.classList.add('dim')}
+  z.addEventListener('mouseenter',bumpPill);
+  z.addEventListener('mousemove',bumpPill);
+  z.addEventListener('touchstart',bumpPill,{passive:true});
+  z.addEventListener('mouseleave',function(){
+    clearTimeout(dt);dt=setTimeout(dimNow,1500);
+  });
+  /* Initial intro -- keep pill bright for a longer first window so
+     the user actually notices it before it fades to ambient. */
+  clearTimeout(dt);dt=setTimeout(dimNow,INTRO);
   z.addEventListener('click',function(e){e.stopPropagation();show()});
   z.addEventListener('touchstart',function(e){e.stopPropagation();show()},{passive:true});
   ['mousemove','keydown','touchstart','click'].forEach(function(ev){p.addEventListener(ev,poke)});
-  document.addEventListener('click',function(e){
-    if(p.contains(e.target)||z.contains(e.target))return;
-    if(p.classList.contains('on'))hide();
-  },true);
   u.addEventListener('focus',function(){u.select()});
   u.addEventListener('click',function(){u.select()});
   c.addEventListener('click',async function(e){
