@@ -7,7 +7,12 @@ import { createUnisatInscription } from './unisatService';
 import { sendBitcoinViaUnisat, sendBitcoinViaXverse, sendBitcoinViaOKX, sendMultipleBitcoinPayments } from '../utils/wallet';
 import { addMintPoints } from './pointsService';
 import { getApiUrl } from '../utils/apiUrl';
-import { TESSERACT_WRAPPER_HTML, TESSERACT_PARENT_INSCRIPTION_ID, TESSERACT_WRAPPER_BYTES } from '../constants/tesseractInscription';
+import {
+  buildTesseractWrapper,
+  TESSERACT_PARENT_INSCRIPTION_ID,
+  TESSERACT_WRAPPER_BYTES,
+  TESSERACT_EDITION_LIMIT,
+} from '../constants/tesseractInscription';
 import { buildSignalWrapper, SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_WRAPPER_BYTES, SIGNAL_EDITION_LIMIT } from '../constants/signalInscription';
 
 const API_URL = getApiUrl();
@@ -331,10 +336,14 @@ export const createRunnerWrapperInscription = async (
 };
 
 /**
- * Tesseract-spezifischer Mint: schreibt bei jedem Mint die identischen 577 Bytes
- * der `tesseract-child.min.html` Wrapper-Datei ein. Kein Delegate — der Wrapper
- * lädt die Tesseract-Engine aus der Parent-Inscription und nutzt die eigene
+ * Tesseract-spezifischer Mint: schreibt bei jedem Mint einen marketplace-aware
+ * Wrapper ein, der die Edition-Nummer als HTML-Metadata trägt und ein on-tap
+ * einblendbares Marketplace-Panel enthält. Kein Delegate — der Wrapper lädt
+ * die Tesseract-Engine aus der Parent-Inscription und nutzt die eigene
  * (vom Protokoll vergebene) Inscription-ID als deterministischen Seed (FNV-1a).
+ *
+ * `editionNumber` wird auf 4-stellig zero-padded in den `<meta name="edition">`
+ * Tag gesetzt — Byte-Länge bleibt deshalb über alle Editionen identisch.
  */
 export const createTesseractWrapperInscription = async (
   itemName: string,
@@ -342,21 +351,30 @@ export const createTesseractWrapperInscription = async (
   collectionName: string,
   feeRate: number,
   walletType: 'unisat' | 'xverse' | 'okx' | null,
-  itemPrice?: number
+  itemPrice?: number,
+  editionNumber: number = 0
 ): Promise<{ inscriptionId: string; txid: string; paymentTxid?: string }> => {
-  console.log(`[CollectionMinting] Creating Tesseract wrapper inscription for ${itemName}`);
+  console.log(`[CollectionMinting] Creating Tesseract wrapper inscription for ${itemName} (edition #${editionNumber})`);
+
+  if (!Number.isInteger(editionNumber) || editionNumber < 0 || editionNumber > TESSERACT_EDITION_LIMIT) {
+    throw new Error(
+      `[CollectionMinting] Invalid Tesseract editionNumber=${editionNumber} (must be 0..${TESSERACT_EDITION_LIMIT})`
+    );
+  }
+
+  const wrapperHtml = buildTesseractWrapper(editionNumber);
 
   // ASCII-only Wrapper: byteLength === string length. Byte-genauer Guard
   // gegen versehentliche Modifikationen (z. B. CRLF, Smart-Quotes etc.).
-  if (TESSERACT_WRAPPER_HTML.length !== TESSERACT_WRAPPER_BYTES) {
+  if (wrapperHtml.length !== TESSERACT_WRAPPER_BYTES) {
     console.error(
-      `[CollectionMinting] ❌ Tesseract wrapper byte length mismatch: ${TESSERACT_WRAPPER_HTML.length} (expected ${TESSERACT_WRAPPER_BYTES})`
+      `[CollectionMinting] ❌ Tesseract wrapper byte length mismatch: ${wrapperHtml.length} (expected ${TESSERACT_WRAPPER_BYTES})`
     );
     throw new Error('Tesseract wrapper HTML byte length mismatch — refusing to mint corrupted asset.');
   }
 
   const htmlFile = new File(
-    [TESSERACT_WRAPPER_HTML],
+    [wrapperHtml],
     `tesseract-child.min.html`,
     { type: 'text/html;charset=utf-8' }
   );

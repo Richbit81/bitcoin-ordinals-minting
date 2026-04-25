@@ -14,6 +14,7 @@ import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
 import { sanitizeSvg } from '../utils/sanitize';
 import { buildSignalHashlist, downloadSignalHashlist, parseInscriptionIdList } from '../services/signalHashlist';
+import { buildTesseractHashlist, downloadTesseractHashlist } from '../services/tesseractHashlist';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -1799,6 +1800,33 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   }, [signalHashlistExtras]);
   const signalHashlistExtrasParsed = parseInscriptionIdList(signalHashlistExtras);
 
+  // TESSERACT hashlist build state — purely additive, mirrors the SIGNAL
+  // pattern. Pre-seeded with the six IDs from the existing hashlist-v1.json
+  // so the first build automatically includes the manually-tracked early
+  // mints even before any admin opens this textarea.
+  const [tesseractHashlistBusy, setTesseractHashlistBusy] = useState(false);
+  const [tesseractHashlistStatus, setTesseractHashlistStatus] = useState('');
+  const TESSERACT_HASHLIST_EXTRAS_KEY = 'admin.tesseractHashlist.extras.v1';
+  const TESSERACT_HASHLIST_EXTRAS_DEFAULT = [
+    '38d34771fab32ed316663c86754964ecba97404c586ec3991454db9e79733e1bi0',
+    'a8ec198bbc5758ffcd139ea49d40be66068159764661a2d76c019776cc7fa328i0',
+    '5a5fe0e1a2afc70da117abe84eaa5e2f9237410b6a3c32731995d1c1c40cc6a2i0',
+    'ead29970758f57f573f111471a983c402d12b53b66272857d729dbe07dc5a1fci0',
+    '5a2f3a0e078b02477ed55215c35f92273f3dd832e0dedae6adcaf1497cc9548ei0',
+    'aed67c75e54da7a75ff23416441af81b9f97551fe027f549d6b358461937a983i0',
+  ].join('\n');
+  const [tesseractHashlistExtras, setTesseractHashlistExtras] = useState<string>(() => {
+    try {
+      const stored = window.localStorage.getItem(TESSERACT_HASHLIST_EXTRAS_KEY);
+      if (stored !== null) return stored;
+    } catch {/* localStorage unavailable */}
+    return TESSERACT_HASHLIST_EXTRAS_DEFAULT;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(TESSERACT_HASHLIST_EXTRAS_KEY, tesseractHashlistExtras); } catch {/* ignore */}
+  }, [tesseractHashlistExtras]);
+  const tesseractHashlistExtrasParsed = parseInscriptionIdList(tesseractHashlistExtras);
+
   const parseWhitelistResponse = (data: any): { supportsCount: boolean; entries: Array<{ address: string; count: number }> } => {
     const entries = Array.isArray(data?.entries)
       ? data.entries
@@ -2772,6 +2800,71 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                 spellCheck={false}
                 placeholder="One inscription id per line (e.g. abc...defi0). Whitespace and commas are allowed."
                 className="w-full bg-gray-900 border border-pink-700/40 rounded px-2 py-1 font-mono text-[10px] text-pink-100 placeholder-gray-600 outline-none focus:border-pink-500"
+              />
+            </div>
+            {/* TESSERACT hashlist — same UX as SIGNAL, separate state.
+                Additive: independent button + textarea, no shared logic
+                with SIGNAL so neither collection can break the other. */}
+            <button
+              onClick={async () => {
+                if (tesseractHashlistBusy) return;
+                setTesseractHashlistBusy(true);
+                setTesseractHashlistStatus('Loading mint logs...');
+                try {
+                  const report = await buildTesseractHashlist(
+                    adminAddress,
+                    (done, total) => {
+                      setTesseractHashlistStatus(`Fetching on-chain metadata ${done}/${total}...`);
+                    },
+                    { extraFinalIds: tesseractHashlistExtrasParsed }
+                  );
+                  downloadTesseractHashlist(report.hashlist);
+                  const failureNote =
+                    report.enrichmentFailures.length > 0
+                      ? ` · ${report.enrichmentFailures.length} enrichment failure(s)`
+                      : '';
+                  const pendingNote =
+                    report.unresolvedPending > 0
+                      ? ` · ${report.unresolvedPending} still pending`
+                      : '';
+                  const forcedNote =
+                    report.forcedExtras > 0 ? ` · +${report.forcedExtras} forced` : '';
+                  setTesseractHashlistStatus(
+                    `✅ Downloaded · ${report.hashlist.items.length} items` +
+                      forcedNote +
+                      pendingNote +
+                      failureNote
+                  );
+                } catch (err: any) {
+                  console.error('[AdminPanel] TESSERACT hashlist build failed:', err);
+                  setTesseractHashlistStatus(`❌ ${err?.message || err}`);
+                } finally {
+                  setTesseractHashlistBusy(false);
+                }
+              }}
+              disabled={tesseractHashlistBusy}
+              className="px-3 sm:px-4 py-2 bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 rounded text-xs sm:text-sm font-semibold"
+              title="Builds and downloads the TESSERACT marketplace hashlist (definitive inscription IDs + numbers + sats), reconstructed from persistent mint logs."
+            >
+              {tesseractHashlistBusy ? '⏳ Building TESSERACT Hashlist...' : '📥 TESSERACT Hashlist'}
+            </button>
+            {tesseractHashlistStatus && (
+              <div className="w-full text-xs text-cyan-300 mt-1">{tesseractHashlistStatus}</div>
+            )}
+            <div className="w-full mt-2">
+              <label className="block text-xs text-cyan-300 mb-1">
+                Force-include final inscription IDs ({tesseractHashlistExtrasParsed.length} valid)
+                <span className="text-gray-500 ml-2">
+                  — for mints whose pending→final mapping is stuck on the backend. Persisted locally.
+                </span>
+              </label>
+              <textarea
+                value={tesseractHashlistExtras}
+                onChange={(e) => setTesseractHashlistExtras(e.target.value)}
+                rows={4}
+                spellCheck={false}
+                placeholder="One inscription id per line (e.g. abc...defi0). Whitespace and commas are allowed."
+                className="w-full bg-gray-900 border border-cyan-700/40 rounded px-2 py-1 font-mono text-[10px] text-cyan-100 placeholder-gray-600 outline-none focus:border-cyan-500"
               />
             </div>
           </>
