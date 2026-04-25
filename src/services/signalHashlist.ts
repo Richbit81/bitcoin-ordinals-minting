@@ -44,7 +44,25 @@ export interface SignalHashlistBuildReport {
   signalCandidates: number;
   resolvedFinalIds: number;
   unresolvedPending: number;
+  forcedExtras: number;
   enrichmentFailures: string[];
+}
+
+export interface BuildSignalHashlistOptions {
+  /**
+   * Manuell vom Admin gepflegte Final-Inscription-IDs, die zusätzlich zu
+   * den aus den Logs aufgelösten IDs in die Hashlist aufgenommen werden.
+   *
+   * Sinnvoll wenn das Backend-pending→final-Mapping noch nicht aktualisiert
+   * ist (UniSat braucht manchmal lange für die Bestätigung), wir aber
+   * bereits wissen welche Final-ID rauskam. Diese IDs durchlaufen dieselbe
+   * Chain-Enrichment + Sort-Pipeline wie auto-aufgelöste IDs — die finale
+   * Edition-Reihenfolge bleibt also durchgängig nach inscription-number.
+   *
+   * Ungültige Einträge (kein 64-hex + iN Pattern) werden stillschweigend
+   * verworfen. Duplikate (case-insensitive) werden zusammengefasst.
+   */
+  extraFinalIds?: string[];
 }
 
 const ORDINAL_INSCRIPTION_ID_RE = /^[0-9a-f]{64}i\d+$/i;
@@ -123,16 +141,32 @@ const enrichWithChainData = async (
 };
 
 /**
+ * Parst eine freie Eingabe (Textarea, Komma, Whitespace, Newlines) in
+ * eine Liste eindeutiger valider Inscription-IDs (lowercased).
+ */
+export const parseInscriptionIdList = (raw: string): string[] => {
+  const set = new Set<string>();
+  for (const token of String(raw || '').split(/[\s,]+/)) {
+    const id = token.trim().toLowerCase();
+    if (id && isFinalInscriptionId(id)) set.add(id);
+  }
+  return [...set];
+};
+
+/**
  * Hauptfunktion: baut die aktuelle SIGNAL-Hashlist.
  *
  * @param adminAddress  Wallet-Adresse mit Admin-Rechten — wird vom
  *                      Backend für `/api/admin/logs/all` gefordert.
  * @param onProgress    Optionaler Callback für UI-Spinner während der
  *                      sequentiellen ord-Recursive-Calls.
+ * @param options       Optional: extraFinalIds zum manuellen Force-Include
+ *                      (siehe BuildSignalHashlistOptions).
  */
 export const buildSignalHashlist = async (
   adminAddress: string,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  options: BuildSignalHashlistOptions = {}
 ): Promise<SignalHashlistBuildReport> => {
   const API_URL = getApiUrl();
 
@@ -156,7 +190,7 @@ export const buildSignalHashlist = async (
   const candidates = techLogs.filter(isSignalLogEntry);
 
   // Pro Log-Entry primären Inscription-ID extrahieren + ggf. resolven.
-  const finalIds = new Map<string, any>(); // finalId -> first matching log entry
+  const finalIds = new Map<string, any>(); // finalIdLower -> origin info (just for debugging)
   let unresolvedPending = 0;
 
   for (const log of candidates) {
@@ -175,7 +209,19 @@ export const buildSignalHashlist = async (
       unresolvedPending += 1;
       continue;
     }
-    if (!finalIds.has(resolved.toLowerCase())) finalIds.set(resolved.toLowerCase(), { ...log, inscriptionId: resolved });
+    if (!finalIds.has(resolved.toLowerCase())) finalIds.set(resolved.toLowerCase(), { source: 'log' });
+  }
+
+  // Force-include: manuell vom Admin gepflegte IDs hinzufügen, die noch
+  // nicht in den Logs aufgelöst sind. Wenn die ID bereits aus Logs kam,
+  // zählt sie nicht als "extra".
+  let forcedExtras = 0;
+  for (const id of options.extraFinalIds || []) {
+    const lower = id.trim().toLowerCase();
+    if (!isFinalInscriptionId(lower)) continue;
+    if (finalIds.has(lower)) continue;
+    finalIds.set(lower, { source: 'manual' });
+    forcedExtras += 1;
   }
 
   const idList = [...finalIds.keys()];
@@ -206,7 +252,8 @@ export const buildSignalHashlist = async (
     totalLogsScanned: techLogs.length,
     signalCandidates: candidates.length,
     resolvedFinalIds: items.length,
-    unresolvedPending,
+    unresolvedPending: Math.max(0, unresolvedPending - forcedExtras),
+    forcedExtras,
     enrichmentFailures: failures,
   };
 };

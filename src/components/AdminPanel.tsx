@@ -13,7 +13,7 @@ import { getWalletInscriptions, WalletInscription } from '../services/collection
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
 import { sanitizeSvg } from '../utils/sanitize';
-import { buildSignalHashlist, downloadSignalHashlist } from '../services/signalHashlist';
+import { buildSignalHashlist, downloadSignalHashlist, parseInscriptionIdList } from '../services/signalHashlist';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -1774,6 +1774,30 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   // existing state; used by the "📥 SIGNAL Hashlist" button below.
   const [signalHashlistBusy, setSignalHashlistBusy] = useState(false);
   const [signalHashlistStatus, setSignalHashlistStatus] = useState('');
+  // Force-include extra final inscription IDs (one per line / whitespace
+  // separated). Persists in localStorage so the admin doesn't have to
+  // re-paste known stuck IDs across sessions. Pre-seeded with the five
+  // IDs the admin reported on 2026-04-25 so the first build right after
+  // this change picks them up automatically.
+  const SIGNAL_HASHLIST_EXTRAS_KEY = 'admin.signalHashlist.extras.v1';
+  const SIGNAL_HASHLIST_EXTRAS_DEFAULT = [
+    '04b0ef0c03f1c25cd691a36bb31d913a4adb2e575213d966bdb18100ff68d9b5i0',
+    '258928429a6ca6c79d850922b60b1a172a8f7db007115620d9ecf093e390d46di0',
+    '7b585198f8987834a5048d512bb3b8f67834df94da5f2caebd39c66cfa9ca7aci0',
+    'e0b57e464faa967de6fa6c06a01650aa44ebaca0e4fbc9960dac8b7be0f40cdfi0',
+    '71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0',
+  ].join('\n');
+  const [signalHashlistExtras, setSignalHashlistExtras] = useState<string>(() => {
+    try {
+      const stored = window.localStorage.getItem(SIGNAL_HASHLIST_EXTRAS_KEY);
+      if (stored !== null) return stored;
+    } catch {/* localStorage unavailable */}
+    return SIGNAL_HASHLIST_EXTRAS_DEFAULT;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(SIGNAL_HASHLIST_EXTRAS_KEY, signalHashlistExtras); } catch {/* ignore */}
+  }, [signalHashlistExtras]);
+  const signalHashlistExtrasParsed = parseInscriptionIdList(signalHashlistExtras);
 
   const parseWhitelistResponse = (data: any): { supportsCount: boolean; entries: Array<{ address: string; count: number }> } => {
     const entries = Array.isArray(data?.entries)
@@ -2694,9 +2718,13 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                 setSignalHashlistBusy(true);
                 setSignalHashlistStatus('Loading mint logs...');
                 try {
-                  const report = await buildSignalHashlist(adminAddress, (done, total) => {
-                    setSignalHashlistStatus(`Fetching on-chain metadata ${done}/${total}...`);
-                  });
+                  const report = await buildSignalHashlist(
+                    adminAddress,
+                    (done, total) => {
+                      setSignalHashlistStatus(`Fetching on-chain metadata ${done}/${total}...`);
+                    },
+                    { extraFinalIds: signalHashlistExtrasParsed }
+                  );
                   downloadSignalHashlist(report.hashlist);
                   const failureNote =
                     report.enrichmentFailures.length > 0
@@ -2706,8 +2734,13 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                     report.unresolvedPending > 0
                       ? ` · ${report.unresolvedPending} still pending`
                       : '';
+                  const forcedNote =
+                    report.forcedExtras > 0 ? ` · +${report.forcedExtras} forced` : '';
                   setSignalHashlistStatus(
-                    `✅ Downloaded · ${report.hashlist.items.length} items` + pendingNote + failureNote
+                    `✅ Downloaded · ${report.hashlist.items.length} items` +
+                      forcedNote +
+                      pendingNote +
+                      failureNote
                   );
                 } catch (err: any) {
                   console.error('[AdminPanel] SIGNAL hashlist build failed:', err);
@@ -2725,6 +2758,22 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             {signalHashlistStatus && (
               <div className="w-full text-xs text-pink-300 mt-1">{signalHashlistStatus}</div>
             )}
+            <div className="w-full mt-2">
+              <label className="block text-xs text-pink-300 mb-1">
+                Force-include final inscription IDs ({signalHashlistExtrasParsed.length} valid)
+                <span className="text-gray-500 ml-2">
+                  — for mints whose pending→final mapping is stuck on the backend. Persisted locally.
+                </span>
+              </label>
+              <textarea
+                value={signalHashlistExtras}
+                onChange={(e) => setSignalHashlistExtras(e.target.value)}
+                rows={4}
+                spellCheck={false}
+                placeholder="One inscription id per line (e.g. abc...defi0). Whitespace and commas are allowed."
+                className="w-full bg-gray-900 border border-pink-700/40 rounded px-2 py-1 font-mono text-[10px] text-pink-100 placeholder-gray-600 outline-none focus:border-pink-500"
+              />
+            </div>
           </>
         )}
         <button
