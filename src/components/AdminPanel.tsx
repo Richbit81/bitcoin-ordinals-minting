@@ -1777,9 +1777,13 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [signalHashlistStatus, setSignalHashlistStatus] = useState('');
   // Force-include extra final inscription IDs (one per line / whitespace
   // separated). Persists in localStorage so the admin doesn't have to
-  // re-paste known stuck IDs across sessions. Pre-seeded with the five
-  // IDs the admin reported on 2026-04-25 so the first build right after
-  // this change picks them up automatically.
+  // re-paste known stuck IDs across sessions.
+  //
+  // Loading rule: localStorage is the user's own edits and ALWAYS wins.
+  // On top of that, any IDs in SIGNAL_HASHLIST_EXTRAS_DEFAULT that the
+  // user doesn't already have get auto-merged in (deduplicated) — that
+  // way new default IDs we ship in code automatically show up even for
+  // admins whose textarea was populated by an earlier session.
   const SIGNAL_HASHLIST_EXTRAS_KEY = 'admin.signalHashlist.extras.v1';
   const SIGNAL_HASHLIST_EXTRAS_DEFAULT = [
     '04b0ef0c03f1c25cd691a36bb31d913a4adb2e575213d966bdb18100ff68d9b5i0',
@@ -1787,13 +1791,25 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     '7b585198f8987834a5048d512bb3b8f67834df94da5f2caebd39c66cfa9ca7aci0',
     'e0b57e464faa967de6fa6c06a01650aa44ebaca0e4fbc9960dac8b7be0f40cdfi0',
     '71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0',
-  ].join('\n');
+    'ab1fec4cf90ce8056abe1d711442220c7914a21d5801ddb6f4ebadc1e19e8f16i0',
+    '21b709fd08a2629de1d906f6f2ad5ff12f0f15ab0c412815bd7b0e1ba58449dci0',
+  ];
+  const mergeWithDefaults = (storedRaw: string | null): string => {
+    const stored = storedRaw ?? '';
+    const have = new Set(parseInscriptionIdList(stored));
+    const missingDefaults = SIGNAL_HASHLIST_EXTRAS_DEFAULT.filter(
+      (id) => !have.has(id.toLowerCase())
+    );
+    if (missingDefaults.length === 0) return stored || SIGNAL_HASHLIST_EXTRAS_DEFAULT.join('\n');
+    if (!stored.trim()) return [...SIGNAL_HASHLIST_EXTRAS_DEFAULT].join('\n');
+    const sep = stored.endsWith('\n') ? '' : '\n';
+    return stored + sep + missingDefaults.join('\n');
+  };
   const [signalHashlistExtras, setSignalHashlistExtras] = useState<string>(() => {
     try {
-      const stored = window.localStorage.getItem(SIGNAL_HASHLIST_EXTRAS_KEY);
-      if (stored !== null) return stored;
+      return mergeWithDefaults(window.localStorage.getItem(SIGNAL_HASHLIST_EXTRAS_KEY));
     } catch {/* localStorage unavailable */}
-    return SIGNAL_HASHLIST_EXTRAS_DEFAULT;
+    return SIGNAL_HASHLIST_EXTRAS_DEFAULT.join('\n');
   });
   useEffect(() => {
     try { window.localStorage.setItem(SIGNAL_HASHLIST_EXTRAS_KEY, signalHashlistExtras); } catch {/* ignore */}
@@ -1815,10 +1831,21 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
     '5a2f3a0e078b02477ed55215c35f92273f3dd832e0dedae6adcaf1497cc9548ei0',
     'aed67c75e54da7a75ff23416441af81b9f97551fe027f549d6b358461937a983i0',
   ].join('\n');
+  // Same merge-with-defaults behaviour as the SIGNAL textarea — see the
+  // longer comment up there for the rationale.
+  const mergeTesseractWithDefaults = (storedRaw: string | null): string => {
+    const stored = storedRaw ?? '';
+    const have = new Set(parseInscriptionIdList(stored));
+    const defaults = TESSERACT_HASHLIST_EXTRAS_DEFAULT.split('\n');
+    const missingDefaults = defaults.filter((id) => !have.has(id.toLowerCase()));
+    if (missingDefaults.length === 0) return stored || TESSERACT_HASHLIST_EXTRAS_DEFAULT;
+    if (!stored.trim()) return TESSERACT_HASHLIST_EXTRAS_DEFAULT;
+    const sep = stored.endsWith('\n') ? '' : '\n';
+    return stored + sep + missingDefaults.join('\n');
+  };
   const [tesseractHashlistExtras, setTesseractHashlistExtras] = useState<string>(() => {
     try {
-      const stored = window.localStorage.getItem(TESSERACT_HASHLIST_EXTRAS_KEY);
-      if (stored !== null) return stored;
+      return mergeTesseractWithDefaults(window.localStorage.getItem(TESSERACT_HASHLIST_EXTRAS_KEY));
     } catch {/* localStorage unavailable */}
     return TESSERACT_HASHLIST_EXTRAS_DEFAULT;
   });
