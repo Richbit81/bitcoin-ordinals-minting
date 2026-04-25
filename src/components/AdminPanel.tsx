@@ -13,6 +13,7 @@ import { getWalletInscriptions, WalletInscription } from '../services/collection
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
 import { sanitizeSvg } from '../utils/sanitize';
+import { buildSignalHashlist, downloadSignalHashlist } from '../services/signalHashlist';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -1769,6 +1770,10 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
   const [retroPointsBusy, setRetroPointsBusy] = useState(false);
   const [retroPointsSummary, setRetroPointsSummary] = useState('');
   const badCatsWhitelistImportRef = useRef<HTMLInputElement>(null);
+  // SIGNAL hashlist build state — purely additive, does not touch any
+  // existing state; used by the "📥 SIGNAL Hashlist" button below.
+  const [signalHashlistBusy, setSignalHashlistBusy] = useState(false);
+  const [signalHashlistStatus, setSignalHashlistStatus] = useState('');
 
   const parseWhitelistResponse = (data: any): { supportsCount: boolean; entries: Array<{ address: string; count: number }> } => {
     const entries = Array.isArray(data?.entries)
@@ -2679,6 +2684,47 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
             >
               🔄 Hashlist Sync
             </button>
+          </>
+        )}
+        {activeLogTab === 'techAndGames' && (
+          <>
+            <button
+              onClick={async () => {
+                if (signalHashlistBusy) return;
+                setSignalHashlistBusy(true);
+                setSignalHashlistStatus('Loading mint logs...');
+                try {
+                  const report = await buildSignalHashlist(adminAddress, (done, total) => {
+                    setSignalHashlistStatus(`Fetching on-chain metadata ${done}/${total}...`);
+                  });
+                  downloadSignalHashlist(report.hashlist);
+                  const failureNote =
+                    report.enrichmentFailures.length > 0
+                      ? ` · ${report.enrichmentFailures.length} enrichment failure(s)`
+                      : '';
+                  const pendingNote =
+                    report.unresolvedPending > 0
+                      ? ` · ${report.unresolvedPending} still pending`
+                      : '';
+                  setSignalHashlistStatus(
+                    `✅ Downloaded · ${report.hashlist.items.length} items` + pendingNote + failureNote
+                  );
+                } catch (err: any) {
+                  console.error('[AdminPanel] SIGNAL hashlist build failed:', err);
+                  setSignalHashlistStatus(`❌ ${err?.message || err}`);
+                } finally {
+                  setSignalHashlistBusy(false);
+                }
+              }}
+              disabled={signalHashlistBusy}
+              className="px-3 sm:px-4 py-2 bg-pink-700 hover:bg-pink-600 disabled:opacity-50 rounded text-xs sm:text-sm font-semibold"
+              title="Builds and downloads the SIGNAL marketplace hashlist (definitive inscription IDs + numbers + sats), reconstructed from persistent mint logs."
+            >
+              {signalHashlistBusy ? '⏳ Building SIGNAL Hashlist...' : '📥 SIGNAL Hashlist'}
+            </button>
+            {signalHashlistStatus && (
+              <div className="w-full text-xs text-pink-300 mt-1">{signalHashlistStatus}</div>
+            )}
           </>
         )}
         <button
