@@ -353,9 +353,9 @@ export const HomePageV2: React.FC = () => {
       {
         name: 'SLUMS',
         desc: 'Recursive on-chain collection — fully generative, fully on Bitcoin.',
-        src: 'https://ordinals.com/content/8e26e5823d7fc3cd092b605feec7d1e7ce6e8908ca320d702a75f6160a552a89i0',
+        src: '/images/slums-spotlight.png',
         route: '/slums',
-        isHtml: true,
+        isHtml: false,
         tag: 'COLLECTION',
         tagColor: 'bg-purple-600',
         mintLive: false,
