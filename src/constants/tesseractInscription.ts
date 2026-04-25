@@ -24,7 +24,7 @@ export const TESSERACT_EDITION_LIMIT = 999;
  * eingeschrieben wird.
  */
 export const TESSERACT_MARKETPLACE_INSCRIPTION_ID =
-  '62cbf4f512b054c78eefa08a18e3816089da20a81ae508bcc1f98c4b2e26ded8i0';
+  '918c258a61b8eb7c00ee5b04f3e0637377dd7cd8ec4035d087d109cda68072d6i0';
 
 /**
  * Sat-Pointer, auf dem die TESSERACT-Hashlist lebt. Jede neue Version der
