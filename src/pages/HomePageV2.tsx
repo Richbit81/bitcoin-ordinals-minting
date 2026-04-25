@@ -303,6 +303,67 @@ export const HomePageV2: React.FC = () => {
     return shuffled.slice(0, 7);
   }, []);
 
+  // Spotlight: erste zwei Slots sind fix (Bad Cats + Bitcoin Mixtape),
+  // der dritte rotiert per Page-Load durch einen kleinen Pool. Pro Render
+  // wird genau ein Eintrag zufällig gepickt — gleiche Mechanik wie beim
+  // displayedNewStuff oben (useMemo mit leerer Dep-Liste = stabil pro
+  // Render-Tree, neuer Pick beim nächsten Mount).
+  const spotlightThirdSlot = useMemo(() => {
+    const pool = [
+      {
+        name: 'SLOW FIRE',
+        desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
+        src: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
+        route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
+        isHtml: true,
+        tag: 'GAME',
+        tagColor: 'bg-red-600',
+        mintLive: false,
+      },
+      {
+        name: 'Pink Puppets',
+        desc: 'Quirky on-chain pixel companions. Recursive Ordinals art collection with its own marketplace.',
+        src: '/images/pinkpuppets-openpage.avif',
+        route: '/pinkpuppets',
+        isHtml: false,
+        tag: 'FEATURED',
+        tagColor: 'bg-pink-500',
+        mintLive: false,
+      },
+      {
+        name: 'SIGNAL',
+        desc: 'Generative geometric art system. Bauhaus meets cyberpunk — every mint is a unique on-chain composition.',
+        src: 'https://ordinals.com/content/71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0',
+        route: '/tech-games?try=af23cd3c031cc6eabc5f2850925c21b65e5b4e89f84a2279ca244db3facd0b9bi0',
+        isHtml: true,
+        tag: 'NEW',
+        tagColor: 'bg-red-600',
+        mintLive: true,
+      },
+      {
+        name: 'Runner',
+        desc: 'Pixel-perfect endless runner inscribed on Bitcoin. One inscription, infinite playthroughs.',
+        src: RUNNER_PREVIEW_IFRAME_SRC,
+        route: '/free-stuff',
+        isHtml: true,
+        tag: 'FREE MINT',
+        tagColor: 'bg-green-500',
+        mintLive: false,
+      },
+      {
+        name: 'SLUMS',
+        desc: 'Recursive on-chain collection — fully generative, fully on Bitcoin.',
+        src: 'https://ordinals.com/content/8e26e5823d7fc3cd092b605feec7d1e7ce6e8908ca320d702a75f6160a552a89i0',
+        route: '/slums',
+        isHtml: true,
+        tag: 'COLLECTION',
+        tagColor: 'bg-purple-600',
+        mintLive: false,
+      },
+    ];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, []);
+
   return (
     <>
       <SynthLifeV2 />
@@ -404,16 +465,7 @@ export const HomePageV2: React.FC = () => {
                 tagColor: 'bg-amber-600',
                 mintLive: true,
               },
-              {
-                name: 'SLOW FIRE',
-                desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
-                src: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
-                route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0',
-                isHtml: true,
-                tag: 'GAME',
-                tagColor: 'bg-red-600',
-                mintLive: false,
-              },
+              spotlightThirdSlot,
             ].map((item) => (
               <div
                 key={item.name}
