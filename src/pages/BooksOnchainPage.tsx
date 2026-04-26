@@ -73,6 +73,15 @@ const BOOK_ITEMS = [
     description:
       'Fahrenheit 451 is a dystopian novel by Ray Bradbury about a future society where books are banned and firemen burn them. The story follows Guy Montag, a fireman who begins to question the system and the value of knowledge. As he discovers the power of books and free thinking, he rebels against censorship and control.',
   },
+  {
+    id: 'alice-in-wonderland',
+    name: 'Alice in Wonderland',
+    inscriptionId: '9af566c7ca1c941242f9b69091cce4553f08458aa5bb8dfe337071349cfe1252i0',
+    author: 'Lewis Carroll',
+    priceInSats: 5000,
+    description:
+      'Alice’s Adventures in Wonderland by Lewis Carroll is one of the most beloved and imaginative stories ever written. When a curious young girl follows a white rabbit down a rabbit hole, she tumbles into a dreamlike world where logic bends, time misbehaves, and nothing is quite what it seems.\n\nAlong the way she meets the Cheshire Cat, the Mad Hatter, the March Hare, the Caterpillar, and the fearsome Queen of Hearts — each stranger than the last. Through wordplay, riddles, and surreal encounters, Carroll crafted a tale that feels like a dream and reads like a puzzle.\n\nBeneath the whimsy lies a sharp reflection on identity, growing up, and the strange rules adults invent. More than a children’s book, Wonderland is a timeless invitation to question reality and embrace the absurd.\n\nA story this iconic deserves permanence. 110% on-chain — preserved in the blockchain, so Wonderland can never fade.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
