@@ -98,6 +98,7 @@ function SynthLifeV2() {
 function VegasBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
+  const mouseRef = useRef({ x: -9999, y: -9999 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -109,18 +110,20 @@ function VegasBackground() {
     const GLYPH_SET = ['♦', '♠', '♣', '♥', '★', '7', '$', '♦', '★'];
     type Particle = { x: number; y: number; r: number; hue: 'pink' | 'gold'; s: number; phase: number };
     type Glyph = { x: number; y: number; vy: number; size: number; char: string; hue: 'pink' | 'gold' | 'white'; rot: number; vr: number; alpha: number };
+    type Coin = { x: number; y: number; vy: number; vx: number; size: number; rot: number; vr: number; alpha: number };
     let particles: Particle[] = [];
     let glyphs: Glyph[] = [];
+    let coins: Coin[] = [];
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = 1;
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = W * dpr; canvas.height = H * dpr;
       canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const pCount = Math.min(140, Math.floor((W * H) / 16000));
+      const pCount = Math.min(90, Math.floor((W * H) / 24000));
       particles = Array.from({ length: pCount }, () => ({
         x: Math.random() * W,
         y: Math.random() * H,
@@ -129,7 +132,7 @@ function VegasBackground() {
         s: rand(0.05, 0.25),
         phase: Math.random() * Math.PI * 2,
       }));
-      const gCount = Math.min(22, Math.floor((W * H) / 90000));
+      const gCount = Math.min(16, Math.floor((W * H) / 120000));
       glyphs = Array.from({ length: gCount }, () => ({
         x: Math.random() * W,
         y: Math.random() * H,
@@ -140,6 +143,17 @@ function VegasBackground() {
         rot: rand(-0.15, 0.15),
         vr: rand(-0.002, 0.002),
         alpha: rand(0.05, 0.18),
+      }));
+      const cCount = Math.min(18, Math.max(10, Math.floor((W * H) / 85000)));
+      coins = Array.from({ length: cCount }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vy: rand(0.4, 1.2),
+        vx: rand(-0.2, 0.2),
+        size: rand(22, 52),
+        rot: rand(-0.25, 0.25),
+        vr: rand(-0.012, 0.012),
+        alpha: rand(0.35, 0.7),
       }));
     };
 
@@ -191,19 +205,17 @@ function VegasBackground() {
         if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
         const blink = 0.55 + 0.45 * Math.sin(p.phase);
         const [R, G, B] = p.hue === 'gold' ? [255, 210, 74] : [255, 90, 170];
-        ctx.fillStyle = `rgba(${R},${G},${B},${0.5 * blink})`;
+        ctx.fillStyle = `rgba(${R},${G},${B},${0.55 * blink})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = `rgba(${R},${G},${B},${0.15 * blink})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
 
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       for (const g of glyphs) {
         g.y += g.vy;
         g.rot += g.vr;
@@ -212,16 +224,58 @@ function VegasBackground() {
         ctx.translate(g.x, g.y);
         ctx.rotate(g.rot);
         ctx.font = `bold ${g.size}px 'Bebas Neue','Oswald','Impact',sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         const color =
           g.hue === 'gold' ? 'rgba(255,210,74,' :
           g.hue === 'pink' ? 'rgba(255,60,170,' :
                              'rgba(255,240,240,';
-        ctx.shadowColor = color + '0.8)';
-        ctx.shadowBlur = 18;
         ctx.fillStyle = color + g.alpha.toFixed(3) + ')';
         ctx.fillText(g.char, 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      const MOUSE_R = 180;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const c of coins) {
+        let nearBoost = 0;
+        if (mx > -1000) {
+          const dx = mx - c.x;
+          const dy = my - c.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < MOUSE_R * MOUSE_R) {
+            const d = Math.sqrt(d2) + 0.01;
+            const k = 1 - d / MOUSE_R;
+            c.vx += (dx / d) * k * 0.12;
+            c.vy += k * 0.25;
+            nearBoost = k;
+          }
+        }
+        c.vx *= 0.985;
+        if (c.vy > 3.2) c.vy = 3.2; else if (c.vy < 0.2) c.vy = 0.2;
+        c.y += c.vy;
+        c.x += c.vx + Math.sin((c.y + c.x) * 0.003) * 0.25;
+        c.rot += c.vr;
+        if (c.y > H + 60) { c.y = -60; c.x = Math.random() * W; c.vx = rand(-0.2, 0.2); c.vy = rand(0.4, 1.2); }
+        if (c.x < -40) c.x = W + 40;
+        else if (c.x > W + 40) c.x = -40;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.rot);
+        const a = c.alpha + nearBoost * 0.4;
+        const aClamped = a > 1 ? 1 : a;
+        ctx.font = `900 ${(c.size * 1.25) | 0}px system-ui,-apple-system,'Segoe UI','Arial Unicode MS',sans-serif`;
+        ctx.fillStyle = `rgba(247,147,26,${(aClamped * 0.25).toFixed(3)})`;
+        ctx.fillText('₿', 0, 0);
+        ctx.font = `900 ${c.size | 0}px system-ui,-apple-system,'Segoe UI','Arial Unicode MS',sans-serif`;
+        ctx.fillStyle = `rgba(247,147,26,${aClamped.toFixed(3)})`;
+        ctx.fillText('₿', 0, 0);
+        ctx.fillStyle = `rgba(255,235,180,${(aClamped * 0.6).toFixed(3)})`;
+        ctx.fillText('₿', 0, 0);
         ctx.restore();
       }
       ctx.restore();
@@ -235,12 +289,19 @@ function VegasBackground() {
       rafRef.current = requestAnimationFrame(draw);
     };
 
+    const handleMove = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
+    const handleLeave = () => { mouseRef.current = { x: -9999, y: -9999 }; };
+
     resize();
     rafRef.current = requestAnimationFrame(draw);
     window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseleave', handleLeave);
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseleave', handleLeave);
     };
   }, []);
 
