@@ -4,6 +4,8 @@ import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
 import { RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
 
+const VEGAS_MODE = true;
+
 function SynthLifeV2() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -9999, y: -9999 });
@@ -87,6 +89,158 @@ function SynthLifeV2() {
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseleave', handleLeave);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
+}
+
+function VegasBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let W = 0, H = 0;
+    const GLYPH_SET = ['♦', '♠', '♣', '♥', '★', '7', '$', '♦', '★'];
+    type Particle = { x: number; y: number; r: number; hue: 'pink' | 'gold'; s: number; phase: number };
+    type Glyph = { x: number; y: number; vy: number; size: number; char: string; hue: 'pink' | 'gold' | 'white'; rot: number; vr: number; alpha: number };
+    let particles: Particle[] = [];
+    let glyphs: Glyph[] = [];
+
+    const rand = (a: number, b: number) => a + Math.random() * (b - a);
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const pCount = Math.min(140, Math.floor((W * H) / 16000));
+      particles = Array.from({ length: pCount }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: rand(0.8, 2.4),
+        hue: Math.random() < 0.3 ? 'gold' : 'pink',
+        s: rand(0.05, 0.25),
+        phase: Math.random() * Math.PI * 2,
+      }));
+      const gCount = Math.min(22, Math.floor((W * H) / 90000));
+      glyphs = Array.from({ length: gCount }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vy: -rand(0.08, 0.35),
+        size: rand(18, 46),
+        char: GLYPH_SET[Math.floor(Math.random() * GLYPH_SET.length)],
+        hue: (['pink', 'gold', 'white'] as const)[Math.floor(Math.random() * 3)],
+        rot: rand(-0.15, 0.15),
+        vr: rand(-0.002, 0.002),
+        alpha: rand(0.05, 0.18),
+      }));
+    };
+
+    const draw = (time: number) => {
+      const t = time * 0.001;
+
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#180312');
+      bg.addColorStop(0.5, '#0b0209');
+      bg.addColorStop(1, '#000000');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < 2; i++) {
+        const baseX = i === 0 ? W * 0.2 : W * 0.8;
+        const baseY = H + 40;
+        const sweep = Math.sin(t * (i === 0 ? 0.35 : -0.42) + i) * 0.7;
+        const angle = (i === 0 ? -Math.PI / 2.2 : -Math.PI / 1.8) + sweep * 0.5;
+        const len = Math.hypot(W, H) * 1.1;
+        const tipX = baseX + Math.cos(angle) * len;
+        const tipY = baseY + Math.sin(angle) * len;
+        const grad = ctx.createLinearGradient(baseX, baseY, tipX, tipY);
+        const color = i === 0 ? [255, 45, 149] : [255, 210, 74];
+        grad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0.00)`);
+        grad.addColorStop(0.35, `rgba(${color[0]},${color[1]},${color[2]},0.14)`);
+        grad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0.00)`);
+        const nx = Math.cos(angle + Math.PI / 2);
+        const ny = Math.sin(angle + Math.PI / 2);
+        const spread = 220;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(baseX - nx * 40, baseY - ny * 40);
+        ctx.lineTo(baseX + nx * 40, baseY + ny * 40);
+        ctx.lineTo(tipX + nx * spread, tipY + ny * spread);
+        ctx.lineTo(tipX - nx * spread, tipY - ny * spread);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const p of particles) {
+        p.phase += 0.03;
+        p.y -= p.s;
+        p.x += Math.sin(p.phase * 0.5) * 0.15;
+        if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+        const blink = 0.55 + 0.45 * Math.sin(p.phase);
+        const [R, G, B] = p.hue === 'gold' ? [255, 210, 74] : [255, 90, 170];
+        ctx.fillStyle = `rgba(${R},${G},${B},${0.5 * blink})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(${R},${G},${B},${0.15 * blink})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const g of glyphs) {
+        g.y += g.vy;
+        g.rot += g.vr;
+        if (g.y < -80) { g.y = H + 80; g.x = Math.random() * W; }
+        ctx.save();
+        ctx.translate(g.x, g.y);
+        ctx.rotate(g.rot);
+        ctx.font = `bold ${g.size}px 'Bebas Neue','Oswald','Impact',sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const color =
+          g.hue === 'gold' ? 'rgba(255,210,74,' :
+          g.hue === 'pink' ? 'rgba(255,60,170,' :
+                             'rgba(255,240,240,';
+        ctx.shadowColor = color + '0.8)';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = color + g.alpha.toFixed(3) + ')';
+        ctx.fillText(g.char, 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+
+      const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.7)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, W, H);
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    resize();
+    rafRef.current = requestAnimationFrame(draw);
+    window.addEventListener('resize', resize);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('resize', resize);
     };
   }, []);
 
@@ -361,12 +515,13 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
     ];
-    return pool[Math.floor(Math.random() * pool.length)];
+    const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
+    return filtered[Math.floor(Math.random() * filtered.length)];
   }, []);
 
   return (
     <>
-      <SynthLifeV2 />
+      {VEGAS_MODE ? <VegasBackground /> : <SynthLifeV2 />}
       <div className="relative z-10 min-h-screen flex flex-col">
 
         {/* Top Bar */}
@@ -386,6 +541,19 @@ export const HomePageV2: React.FC = () => {
               {NAV_MENUS.map((menu) => (
                 <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
               ))}
+              {VEGAS_MODE && (
+                <span
+                  className="ml-2 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full animate-pulse"
+                  style={{
+                    background: 'linear-gradient(90deg, #ff2d95, #ffd24a)',
+                    color: '#120108',
+                    textShadow: 'none',
+                    boxShadow: '0 0 10px rgba(255,45,149,0.6), 0 0 20px rgba(255,210,74,0.4)',
+                  }}
+                >
+                  ★ Vegas Week
+                </span>
+              )}
             </nav>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -425,20 +593,22 @@ export const HomePageV2: React.FC = () => {
         </div>
 
         {/* Hero */}
-        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
-          <h1
-            className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
-            style={{
-              fontFamily: "'Press Start 2P', cursive",
-              textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
-            }}
-          >
-            richart<span className="text-red-500">.</span>app
-          </h1>
-          <p className="mt-4 text-sm text-gray-400 max-w-md mx-auto">
-            Bitcoin Ordinals — Collections, Marketplace, Games & Tools
-          </p>
-        </div>
+        {VEGAS_MODE ? <VegasHero /> : (
+          <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
+            <h1
+              className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
+              style={{
+                fontFamily: "'Press Start 2P', cursive",
+                textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
+              }}
+            >
+              richart<span className="text-red-500">.</span>app
+            </h1>
+            <p className="mt-4 text-sm text-gray-400 max-w-md mx-auto">
+              Bitcoin Ordinals — Collections, Marketplace, Games & Tools
+            </p>
+          </div>
+        )}
 
         {/* Spotlight Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
@@ -455,16 +625,27 @@ export const HomePageV2: React.FC = () => {
                 tagColor: 'bg-purple-600',
                 mintLive: true,
               },
-              {
-                name: 'Bitcoin Mixtape',
-                desc: 'A fully on-chain music experience. Listen, collect and inscribe beats on Bitcoin.',
-                src: '/mixtape.png',
-                route: '/bitcoin-mixtape',
-                isHtml: false,
-                tag: 'MUSIC',
-                tagColor: 'bg-amber-600',
-                mintLive: true,
-              },
+              VEGAS_MODE
+                ? {
+                    name: 'Pink Puppets',
+                    desc: 'Quirky on-chain pixel companions. Recursive Ordinals art collection with its own marketplace.',
+                    src: '/images/pinkpuppets-openpage.avif',
+                    route: '/pinkpuppets',
+                    isHtml: false,
+                    tag: 'VEGAS PICK',
+                    tagColor: 'bg-pink-500',
+                    mintLive: false,
+                  }
+                : {
+                    name: 'Bitcoin Mixtape',
+                    desc: 'A fully on-chain music experience. Listen, collect and inscribe beats on Bitcoin.',
+                    src: '/mixtape.png',
+                    route: '/bitcoin-mixtape',
+                    isHtml: false,
+                    tag: 'MUSIC',
+                    tagColor: 'bg-amber-600',
+                    mintLive: true,
+                  },
               spotlightThirdSlot,
             ].map((item) => (
               <div
@@ -578,6 +759,123 @@ export const HomePageV2: React.FC = () => {
     </>
   );
 };
+
+function VegasHero() {
+  return (
+    <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-12 flex flex-col items-center">
+      <style>{`
+        @keyframes vegasMarquee {
+          0%, 100% { opacity: 1; box-shadow: 0 0 8px #ffd24a, 0 0 16px #ffd24a; }
+          50% { opacity: 0.25; box-shadow: 0 0 2px #ffd24a; }
+        }
+        @keyframes vegasFlicker {
+          0%, 100% { text-shadow:
+              0 0 3px rgba(255,45,149,0.8),
+              0 0 8px rgba(255,45,149,0.5),
+              0 0 18px rgba(255,210,74,0.25); }
+          4% { text-shadow: 0 0 2px rgba(255,45,149,0.6); }
+          6% { text-shadow:
+              0 0 3px rgba(255,45,149,0.8),
+              0 0 8px rgba(255,45,149,0.5),
+              0 0 18px rgba(255,210,74,0.25); }
+          50% { text-shadow:
+              0 0 4px rgba(255,45,149,0.85),
+              0 0 10px rgba(255,45,149,0.55),
+              0 0 22px rgba(255,210,74,0.3); }
+          52% { text-shadow: 0 0 2px rgba(255,210,74,0.4); }
+          54% { text-shadow:
+              0 0 3px rgba(255,45,149,0.8),
+              0 0 8px rgba(255,45,149,0.5),
+              0 0 18px rgba(255,210,74,0.25); }
+        }
+        @keyframes vegasSpin { to { transform: rotate(360deg); } }
+        .vegas-bulb {
+          width: 10px; height: 10px; border-radius: 9999px;
+          background: radial-gradient(circle at 35% 30%, #fff8d6 0%, #ffd24a 40%, #b37f10 100%);
+          animation: vegasMarquee 1.1s ease-in-out infinite;
+        }
+      `}</style>
+
+      <div
+        className="relative w-full max-w-4xl rounded-3xl px-6 sm:px-10 py-10 sm:py-14 text-center"
+        style={{
+          background:
+            'radial-gradient(ellipse at top, rgba(255,45,149,0.18) 0%, rgba(120,20,80,0.08) 40%, rgba(0,0,0,0) 70%), linear-gradient(180deg, rgba(20,6,18,0.85), rgba(0,0,0,0.9))',
+          border: '1px solid rgba(255,210,74,0.35)',
+          boxShadow:
+            '0 0 40px rgba(255,45,149,0.25), inset 0 0 60px rgba(255,210,74,0.08)',
+        }}
+      >
+        {Array.from({ length: 20 }).map((_, i) => (
+          <span
+            key={`t-${i}`}
+            className="vegas-bulb absolute"
+            style={{ top: -5, left: `${(i / 19) * 100}%`, transform: 'translateX(-50%)', animationDelay: `${(i % 5) * 0.18}s` }}
+          />
+        ))}
+        {Array.from({ length: 20 }).map((_, i) => (
+          <span
+            key={`b-${i}`}
+            className="vegas-bulb absolute"
+            style={{ bottom: -5, left: `${(i / 19) * 100}%`, transform: 'translateX(-50%)', animationDelay: `${((i + 2) % 5) * 0.18}s` }}
+          />
+        ))}
+        {Array.from({ length: 10 }).map((_, i) => (
+          <span
+            key={`l-${i}`}
+            className="vegas-bulb absolute"
+            style={{ left: -5, top: `${(i / 9) * 100}%`, transform: 'translateY(-50%)', animationDelay: `${((i + 1) % 5) * 0.18}s` }}
+          />
+        ))}
+        {Array.from({ length: 10 }).map((_, i) => (
+          <span
+            key={`r-${i}`}
+            className="vegas-bulb absolute"
+            style={{ right: -5, top: `${(i / 9) * 100}%`, transform: 'translateY(-50%)', animationDelay: `${((i + 3) % 5) * 0.18}s` }}
+          />
+        ))}
+
+        <div
+          className="text-[10px] sm:text-xs font-extrabold tracking-[0.5em] uppercase"
+          style={{
+            color: '#ffd24a',
+            textShadow: '0 0 8px rgba(255,210,74,0.8), 0 0 18px rgba(255,210,74,0.4)',
+            letterSpacing: '0.5em',
+          }}
+        >
+          ★ welcome to fabulous ★
+        </div>
+
+        <h1
+          className="mt-3 text-5xl sm:text-7xl md:text-8xl font-black leading-[0.95]"
+          style={{
+            fontFamily: "'Bebas Neue', 'Oswald', 'Impact', sans-serif",
+            letterSpacing: '0.04em',
+            color: '#fff',
+            transform: 'skewY(-3deg)',
+            animation: 'vegasFlicker 4s infinite',
+          }}
+        >
+          <span style={{ color: '#ff2d95' }}>VIVA</span>{' '}
+          <span style={{ color: '#ffd24a' }}>LAS</span>{' '}
+          <span style={{ color: '#ff2d95' }}>VEGAS</span>
+        </h1>
+
+        <div className="mt-5 flex items-center justify-center gap-3 text-xs sm:text-sm font-bold uppercase tracking-[0.25em]"
+          style={{ color: '#ffd24a' }}>
+          <span style={{ display: 'inline-block', animation: 'vegasSpin 6s linear infinite' }}>✦</span>
+          <span>pinkpuppets go to vegas</span>
+          <span style={{ display: 'inline-block', animation: 'vegasSpin 6s linear infinite reverse' }}>✦</span>
+        </div>
+
+        <p className="mt-4 text-sm text-pink-100/70 max-w-lg mx-auto">
+          Limited-time special week — neon lights, big wins, pure Bitcoin.
+          Collections, Marketplace, Games &amp; Tools.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function MobileMenuSection({ menu, navigate }: { menu: typeof NAV_MENUS[number]; navigate: (path: string) => void }) {
   const [open, setOpen] = useState(false);
