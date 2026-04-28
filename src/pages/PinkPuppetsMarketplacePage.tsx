@@ -408,7 +408,6 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   const [selectedDetailError, setSelectedDetailError] = React.useState<string | null>(null);
   const [ordApiData, setOrdApiData] = React.useState<Record<string, any> | null>(null);
   const [fullscreenImage, setFullscreenImage] = React.useState<{ url: string; name: string } | null>(null);
-  const resolvingOwnerIdsRef = React.useRef<Set<string>>(new Set());
   const scoreModel = React.useMemo(() => buildPinkPuppetScoreModel(), []);
   const itemIndexById = React.useMemo(() => {
     const map = new Map<string, number>();
@@ -427,19 +426,33 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
       limit: 400,
     }).catch(() => []);
     const next: ListingsMap = {};
+    const ownerSeed: Record<string, string> = {};
     for (const row of rows) {
       const inscriptionId = String(row?.inscription_id || '').trim();
       if (!inscriptionId) continue;
+      const seller = String(row?.seller_address || '').trim();
       next[inscriptionId] = {
         id: String(row?.id || `${inscriptionId}-listing`),
         inscriptionId,
-        seller: String(row?.seller_address || '').trim(),
+        seller,
         priceSats: Math.max(0, Number(row?.price_sats || 0)),
         listedAt: new Date(String(row?.created_at || '')).getTime() || Date.now(),
         signedPsbtBase64: String(row?.signed_psbt_base64 || '').trim() || undefined,
       };
+      if (seller) ownerSeed[inscriptionId] = seller;
     }
     setListings(next);
+    if (Object.keys(ownerSeed).length) {
+      setOwnerByInscription((prev) => {
+        let merged = prev;
+        for (const [id, addr] of Object.entries(ownerSeed)) {
+          if (merged[id]) continue;
+          if (merged === prev) merged = { ...prev };
+          merged[id] = addr;
+        }
+        return merged;
+      });
+    }
   }, []);
 
   React.useEffect(() => {
@@ -447,12 +460,31 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   }, [loadMarketplaceListings]);
 
   const resolveOwnerAddress = React.useCallback(async (inscriptionId: string): Promise<string> => {
+    const cacheKey = `pp_owner:${inscriptionId}`;
+    const TTL_MS = 10 * 60 * 1000;
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as { addr: string; t: number };
+        if (parsed?.addr && Date.now() - Number(parsed.t || 0) < TTL_MS) {
+          return parsed.addr;
+        }
+      }
+    } catch {}
     const detail = await getMarketplaceInscriptionDetail(inscriptionId);
     const ownerFromMarketplace = String(detail?.marketplaceInscription?.owner_address || '').trim();
     const ownerFromChain = String(
       detail?.chainInfo?.ownerAddress || detail?.chainInfo?.owner_address || detail?.chainInfo?.address || ''
     ).trim();
-    return ownerFromMarketplace || ownerFromChain;
+    const owner = ownerFromMarketplace || ownerFromChain;
+    if (owner) {
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(cacheKey, JSON.stringify({ addr: owner, t: Date.now() }));
+        }
+      } catch {}
+    }
+    return owner;
   }, []);
 
   React.useEffect(() => {
@@ -473,7 +505,20 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
         for (const id of allWalletIds) {
           if (hashlistIdSet.has(id)) nextOwned.add(id);
         }
-        if (!cancelled) setOwnedIds(nextOwned);
+        if (!cancelled) {
+          setOwnedIds(nextOwned);
+          if (currentAddress && nextOwned.size) {
+            setOwnerByInscription((prev) => {
+              let merged = prev;
+              for (const id of nextOwned) {
+                if (merged[id]) continue;
+                if (merged === prev) merged = { ...prev };
+                merged[id] = currentAddress;
+              }
+              return merged;
+            });
+          }
+        }
       } catch (err: any) {
         if (!cancelled) setOwnershipError(err?.message || 'Could not load wallet puppets');
       } finally {
@@ -603,48 +648,10 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     return filtered;
   }, [itemFilter, itemIndexById, listings, myOnly, ownedIds, rarityFilter, scoreModel, search, sortMode, traitFilter]);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    const missingIds = rows
-      .map((row) => row.inscriptionId)
-      .filter((id) => !ownerByInscription[id] && !resolvingOwnerIdsRef.current.has(id));
-    if (missingIds.length === 0) return;
-
-    const run = async () => {
-      const batchSize = 4;
-      for (let i = 0; i < missingIds.length && !cancelled; i += batchSize) {
-        const batch = missingIds.slice(i, i + batchSize);
-        batch.forEach((id) => resolvingOwnerIdsRef.current.add(id));
-        const results = await Promise.all(
-          batch.map(async (id) => {
-            try {
-              const owner = await resolveOwnerAddress(id);
-              return { id, owner };
-            } catch {
-              return { id, owner: '' };
-            } finally {
-              resolvingOwnerIdsRef.current.delete(id);
-            }
-          })
-        );
-        if (cancelled) return;
-        setOwnerByInscription((prev) => {
-          let next = prev;
-          for (const row of results) {
-            if (!row.owner || next[row.id]) continue;
-            if (next === prev) next = { ...prev };
-            next[row.id] = row.owner;
-          }
-          return next;
-        });
-      }
-    };
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ownerByInscription, resolveOwnerAddress, rows]);
+  // Owner-Resolution läuft jetzt lazy: gelistete Items werden aus listings.seller
+  // pre-seeded, eigene Items aus currentAddress, und alle restlichen erst beim
+  // Klick in den Detail-Modal (siehe selectedId useEffect oben). Spart >95 % der
+  // UniSat-Indexer-Calls.
 
   const activeListingsCount = rows.filter((row) => !!row.listing).length;
   const floor = rows.reduce((min, row) => {
