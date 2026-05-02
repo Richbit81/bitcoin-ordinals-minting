@@ -411,8 +411,8 @@ const ALL_NEW_STUFF = [
     tagColor: 'bg-red-600',
     isIframe: true,
   },
-  { name: 'Neuro Drift', thumb: '/images/neuro-drift.png', route: 'https://ord-dropz.xyz/games/listing_1777326819798', tag: 'FRIENDS', tagColor: 'bg-cyan-500', external: true },
-  { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'FRIENDS', tagColor: 'bg-cyan-500', external: true },
+  { name: 'Neuro Drift', thumb: '/images/neuro-drift.png', route: 'https://ord-dropz.xyz/games/listing_1777326819798', tag: 'OrdDropz', tagColor: 'bg-cyan-500', external: true },
+  { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'OrdDropz', tagColor: 'bg-cyan-500', external: true },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
