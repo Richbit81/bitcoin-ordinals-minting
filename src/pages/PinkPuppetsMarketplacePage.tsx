@@ -62,6 +62,11 @@ const RARE_SAT_SYMBOLS: Record<string, string> = {
 const truncId = (a: string) => a ? `${a.slice(0, 10)}...` : '-';
 
 const formatSats = (value: number) => new Intl.NumberFormat('en-US').format(Math.max(0, Math.floor(value)));
+const formatBtc = (sats: number) => {
+  const btc = Math.max(0, Math.floor(sats || 0)) / SATS_PER_BTC;
+  const str = btc.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 8 });
+  return `${str} BTC`;
+};
 const shortAddress = (value: string) => (value.length > 14 ? `${value.slice(0, 7)}...${value.slice(-5)}` : value || '-');
 const formatDateTime = (value?: number) => {
   if (!value) return '-';
@@ -796,7 +801,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
         <div className="mb-6 flex flex-wrap gap-2 text-xs md:text-sm">
           <span className="rounded-full border border-pink-300/60 bg-black/35 px-3 py-1">Items: <b>{rows.length}</b></span>
           <span className="rounded-full border border-pink-300/60 bg-black/35 px-3 py-1">Listed: <b>{activeListingsCount}</b></span>
-          <span className="rounded-full border border-pink-300/60 bg-black/35 px-3 py-1">Floor: <b>{floor > 0 ? `${formatSats(floor)} sats` : '-'}</b></span>
+          <span className="rounded-full border border-pink-300/60 bg-black/35 px-3 py-1">Floor: <b>{floor > 0 ? formatBtc(floor) : '-'}</b></span>
           <button
             onClick={() => setMyOnly((v) => !v)}
             className={`rounded-full border px-3 py-1 font-semibold ${myOnly ? 'border-pink-200 bg-pink-500/30 text-pink-50' : 'border-pink-300/60 bg-black/35 text-pink-100'}`}
@@ -946,7 +951,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                 <div className="mt-2 text-[10px]">
                   {row.listing ? (
                     <div className="rounded-md border border-pink-300/50 bg-pink-900/20 p-2">
-                      <div className="flex justify-between"><span>Price</span><b>{formatSats(row.listing.priceSats)} sats</b></div>
+                      <div className="flex justify-between"><span>Price</span><b>{formatBtc(row.listing.priceSats)}</b></div>
                       <div className="flex justify-between"><span>Seller</span><span>{shortAddress(row.listing.seller)}</span></div>
                     </div>
                   ) : (
@@ -1031,7 +1036,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                       </div>
                       <div className="flex justify-between gap-3">
                         <span className="text-pink-200/70">Price</span>
-                        <span>{selected.listing ? `${formatSats(selected.listing.priceSats)} sats` : '-'}</span>
+                        <span>{selected.listing ? formatBtc(selected.listing.priceSats) : '-'}</span>
                       </div>
                       <div className="flex justify-between gap-3">
                         <span className="text-pink-200/70">Listed At</span>
@@ -1107,7 +1112,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                     <div className="space-y-2 rounded-lg border border-pink-300/50 bg-black/30 p-3 text-sm">
                       {selected.listing ? (
                         <>
-                          <p>Listed at <b>{formatSats(selected.listing.priceSats)} sats</b></p>
+                          <p>Listed at <b>{formatBtc(selected.listing.priceSats)}</b></p>
                           <p className="text-xs text-pink-200/70">Seller: {shortAddress(selected.listing.seller)}</p>
                           {normalizeAddress(selected.listing.seller) === walletAddrNorm ? (
                             <button disabled={busyListingId === selected.listing.id} onClick={handleDelist} className="w-full rounded border-2 border-black bg-pink-300 px-3 py-2 text-xs font-bold text-black disabled:opacity-60">Delist</button>
