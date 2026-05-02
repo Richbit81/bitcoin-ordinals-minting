@@ -411,6 +411,8 @@ const ALL_NEW_STUFF = [
     tagColor: 'bg-red-600',
     isIframe: true,
   },
+  { name: 'Neuro Drift', thumb: '/images/neuro-drift.png', route: 'https://ord-dropz.xyz/games/listing_1777326819798', tag: 'FRIENDS', tagColor: 'bg-cyan-500', external: true },
+  { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'FRIENDS', tagColor: 'bg-cyan-500', external: true },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
@@ -759,7 +761,13 @@ export const HomePageV2: React.FC = () => {
             {displayedNewStuff.map((item) => (
               <div
                 key={item.name}
-                onClick={() => navigate(item.route)}
+                onClick={() => {
+                  if ((item as { external?: boolean }).external) {
+                    window.open(item.route, '_blank', 'noopener,noreferrer');
+                  } else {
+                    navigate(item.route);
+                  }
+                }}
                 className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden min-w-[140px] sm:min-w-0"
               >
                 <div className="aspect-square relative overflow-hidden bg-black">
