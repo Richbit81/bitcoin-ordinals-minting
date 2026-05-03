@@ -1,15 +1,14 @@
 import { joinRoom } from 'https://esm.sh/trystero@0.20.0/torrent';
 
 const APP_ID = 'ordinal-stream-v1';
-// MUST match the trackers bundled inside the viewer inscriptions, otherwise
-// broadcaster and viewer connect to different tracker pools and never see
-// each other. Old viewer inscriptions (e.g. ...bee5i0) ship with this exact
-// list (minus tracker.files.fm:7073, which is permanently down and only
-// causes connection errors in the log).
+// Tracker-Stack: Eigener Relay an api.richart.app (primär, voll unter unserer
+// Kontrolle) plus zwei der zuverlässigsten public WebTorrent-Tracker als
+// Fallback / Bridge zu Alt-Inscriptions, die noch die public Tracker hartcodiert
+// haben.
 const RELAY_URLS = [
+  'wss://api.richart.app/tracker',
   'wss://tracker.webtorrent.dev',
   'wss://tracker.openwebtorrent.com',
-  'wss://tracker.btorrent.xyz',
 ];
 const log = (msg, type = 'info') => {
   const el = document.getElementById('log');
