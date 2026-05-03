@@ -22,6 +22,11 @@ const log = (msg, type = 'info') => {
 
 let room = null;
 let currentStream = null;
+// rootStream ist ein persistenter MediaStream-Container, der für trystero die
+// stabile Stream-Identität liefert. Wir tauschen darin nur die Tracks aus —
+// die Stream-Referenz bleibt gleich, damit trysteros interner senderMap-Lookup
+// (keyed by MediaStream) bei Mehrfach-Swaps weiterhin funktioniert.
+let rootStream = null;
 let bytesSent = 0;
 let startTime = null;
 let viewerCount = 0;
@@ -76,7 +81,7 @@ function joinRoomWithStream(reason) {
     viewers.add(peerId);
     viewerCount = viewers.size;
     log(`Viewer beigetreten: ${peerId.slice(0, 8)}...`, 'ok');
-    try { room.addStream(currentStream, peerId); } catch (e) { log('addStream fehlgeschlagen: ' + e.message, 'err'); }
+    try { room.addStream(rootStream, peerId); } catch (e) { log('addStream fehlgeschlagen: ' + e.message, 'err'); }
   });
 
   room.onPeerLeave(peerId => {
@@ -85,7 +90,7 @@ function joinRoomWithStream(reason) {
     log(`Viewer verlassen: ${peerId.slice(0, 8)}...`, 'info');
   });
 
-  try { room.addStream(currentStream); } catch (e) { log('addStream global fehlgeschlagen: ' + e.message, 'err'); }
+  try { room.addStream(rootStream); } catch (e) { log('addStream global fehlgeschlagen: ' + e.message, 'err'); }
   return true;
 }
 
@@ -138,7 +143,12 @@ function swapStreamLive(newStream) {
   // WebRTC-PeerConnection neu aufzubauen. Viewer behalten ihre Verbindung,
   // sehen einfach nahtlos die neue Quelle. Funktioniert via
   // RTCRtpSender.replaceTrack() — keine Renegotiation, kein neuer SDP-Offer.
-  if (!room || !currentStream) return false;
+  //
+  // Wichtig: rootStream wird IMMER als Stream-Argument an trystero übergeben,
+  // damit der senderMap-Lookup über alle Swaps hinweg funktioniert. Wir
+  // synchronisieren die Tracks im rootStream danach, damit neue Peers die
+  // aktuelle Track-Liste bekommen.
+  if (!room || !currentStream || !rootStream) return false;
 
   const oldVideo = currentStream.getVideoTracks()[0];
   const newVideo = newStream.getVideoTracks()[0];
@@ -147,26 +157,35 @@ function swapStreamLive(newStream) {
 
   try {
     if (oldVideo && newVideo) {
-      room.replaceTrack(oldVideo, newVideo, currentStream);
+      room.replaceTrack(oldVideo, newVideo, rootStream);
+      try { rootStream.removeTrack(oldVideo); } catch (e) {}
+      try { rootStream.addTrack(newVideo); } catch (e) {}
     } else if (oldVideo && !newVideo) {
-      room.removeTrack(oldVideo, currentStream);
+      room.removeTrack(oldVideo, rootStream);
+      try { rootStream.removeTrack(oldVideo); } catch (e) {}
     } else if (!oldVideo && newVideo) {
-      room.addTrack(newVideo, currentStream);
+      room.addTrack(newVideo, rootStream);
+      try { rootStream.addTrack(newVideo); } catch (e) {}
     }
 
     if (oldAudio && newAudio) {
-      room.replaceTrack(oldAudio, newAudio, currentStream);
+      room.replaceTrack(oldAudio, newAudio, rootStream);
+      try { rootStream.removeTrack(oldAudio); } catch (e) {}
+      try { rootStream.addTrack(newAudio); } catch (e) {}
     } else if (oldAudio && !newAudio) {
-      room.removeTrack(oldAudio, currentStream);
+      room.removeTrack(oldAudio, rootStream);
+      try { rootStream.removeTrack(oldAudio); } catch (e) {}
     } else if (!oldAudio && newAudio) {
-      room.addTrack(newAudio, currentStream);
+      room.addTrack(newAudio, rootStream);
+      try { rootStream.addTrack(newAudio); } catch (e) {}
     }
   } catch (e) {
     log('Track-Swap fehlgeschlagen: ' + e.message + ' — fallback auf Reconnect', 'err');
     return false;
   }
 
-  // Alte Tracks stoppen (sonst läuft die alte Capture im Hintergrund weiter)
+  // Alte Capture-Tracks stoppen (sonst läuft die alte Capture im Hintergrund
+  // weiter und der Browser zeigt weiter "Du teilst dieses Tab")
   currentStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
 
   currentStream = newStream;
@@ -187,7 +206,7 @@ function attachStreamEndedHandler(stream) {
 }
 
 async function startBroadcast(stream) {
-  if (room && currentStream) {
+  if (room && currentStream && rootStream) {
     // Live-Switch ohne Reconnect — Viewer bleiben verbunden
     if (swapStreamLive(stream)) {
       log('Quelle live gewechselt — Viewer behalten Verbindung', 'ok');
@@ -199,6 +218,11 @@ async function startBroadcast(stream) {
   }
 
   currentStream = stream;
+  // Persistenten rootStream-Container anlegen, der über alle Swaps hinweg
+  // dieselbe MediaStream-Identität für trysteros senderMap behält.
+  rootStream = new MediaStream();
+  stream.getTracks().forEach(t => { try { rootStream.addTrack(t); } catch (e) {} });
+
   document.getElementById('preview').srcObject = stream;
   attachStreamEndedHandler(stream);
   log('Verbinde mit BitTorrent-Trackern...', 'info');
@@ -226,6 +250,10 @@ function stopBroadcast() {
   if (currentStream) {
     currentStream.getTracks().forEach(t => t.stop());
     currentStream = null;
+  }
+  if (rootStream) {
+    rootStream.getTracks().forEach(t => { try { rootStream.removeTrack(t); } catch (e) {} });
+    rootStream = null;
   }
   document.getElementById('preview').srcObject = null;
   document.getElementById('status-live').innerHTML = '<span class="status idle">OFFLINE</span>';
