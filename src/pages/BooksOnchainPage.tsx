@@ -82,6 +82,15 @@ const BOOK_ITEMS = [
     description:
       'Alice’s Adventures in Wonderland by Lewis Carroll is one of the most beloved and imaginative stories ever written. When a curious young girl follows a white rabbit down a rabbit hole, she tumbles into a dreamlike world where logic bends, time misbehaves, and nothing is quite what it seems.\n\nAlong the way she meets the Cheshire Cat, the Mad Hatter, the March Hare, the Caterpillar, and the fearsome Queen of Hearts — each stranger than the last. Through wordplay, riddles, and surreal encounters, Carroll crafted a tale that feels like a dream and reads like a puzzle.\n\nBeneath the whimsy lies a sharp reflection on identity, growing up, and the strange rules adults invent. More than a children’s book, Wonderland is a timeless invitation to question reality and embrace the absurd.\n\nA story this iconic deserves permanence. 110% on-chain — preserved in the blockchain, so Wonderland can never fade.',
   },
+  {
+    id: 'the-machine-stops',
+    name: 'The Machine Stops',
+    inscriptionId: 'e6bbdbfe518ae6b33e3e4d86bf9bb6f461c704b709bf7a2a1315957d209e8556i0',
+    author: 'E. M. Forster',
+    priceInSats: 5000,
+    description:
+      'The Machine Stops by E. M. Forster, published in 1909, is one of the most prophetic short stories ever written. It imagines a future where humanity lives underground in isolated cells, every need supplied by an omnipotent global Machine. People communicate only through screens, never meet face to face, and have come to worship the Machine that sustains them.\n\nWhen Kuno, a young man who still longs for the surface and direct human contact, tries to convince his mother Vashti that something is deeply wrong, the cracks in the system begin to show. As the Machine slowly falters, the civilization built upon it faces the unthinkable: a world without it.\n\nMore than a century before the internet, video calls, and algorithmic dependence, Forster anticipated a society shaped by technology, comfort, and the quiet erosion of being human. A haunting parable about progress, isolation, and what we forfeit when we let machines think — and live — for us.\n\nA visionary text this timeless deserves permanence. 110% on-chain — preserved in the blockchain, so the warning never fades.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
