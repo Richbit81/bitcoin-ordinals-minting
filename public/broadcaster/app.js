@@ -1,12 +1,13 @@
 import { joinRoom } from 'https://esm.sh/trystero@0.20.0/torrent';
 
 const APP_ID = 'ordinal-stream-v1';
-// Tracker-Stack: Eigener Relay an api.richart.app (primär, voll unter unserer
-// Kontrolle) plus zwei der zuverlässigsten public WebTorrent-Tracker als
-// Fallback / Bridge zu Alt-Inscriptions, die noch die public Tracker hartcodiert
-// haben.
+// Tracker-Stack: Eigener Relay direkt am Railway-Origin (primär, voll unter
+// unserer Kontrolle, persistente WebSockets). api.richart.app geht über Vercel
+// und Vercel killt WS-Upgrades, daher direkt auf Railway zeigen.
+// Plus zwei der zuverlässigsten public WebTorrent-Tracker als Fallback /
+// Bridge zu Alt-Inscriptions, die noch die public Tracker hartcodiert haben.
 const RELAY_URLS = [
-  'wss://api.richart.app/tracker',
+  'wss://bitcoin-ordinals-backend-production.up.railway.app/tracker',
   'wss://tracker.webtorrent.dev',
   'wss://tracker.openwebtorrent.com',
 ];
