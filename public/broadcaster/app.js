@@ -1,6 +1,16 @@
 import { joinRoom } from 'https://esm.sh/trystero@0.20.0/torrent';
 
 const APP_ID = 'ordinal-stream-v1';
+// MUST match the trackers bundled inside the viewer inscriptions, otherwise
+// broadcaster and viewer connect to different tracker pools and never see
+// each other. Old viewer inscriptions (e.g. ...bee5i0) ship with this exact
+// list (minus tracker.files.fm:7073, which is permanently down and only
+// causes connection errors in the log).
+const RELAY_URLS = [
+  'wss://tracker.webtorrent.dev',
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.btorrent.xyz',
+];
 const log = (msg, type = 'info') => {
   const el = document.getElementById('log');
   const line = document.createElement('div');
@@ -60,7 +70,7 @@ function joinRoomWithStream(reason) {
     return false;
   }
   log(`Trete Room bei (${reason})...`, 'info');
-  room = joinRoom({ appId: APP_ID }, roomId);
+  room = joinRoom({ appId: APP_ID, relayUrls: RELAY_URLS }, roomId);
 
   room.onPeerJoin(peerId => {
     viewers.add(peerId);
