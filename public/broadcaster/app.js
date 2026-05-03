@@ -133,14 +133,74 @@ async function releaseWakeLock() {
 function startAutoRefresh() {}
 function stopAutoRefresh() {}
 
+function swapStreamLive(newStream) {
+  // Tauscht Video- (und ggf. Audio-)Tracks im laufenden Room aus, ohne den
+  // WebRTC-PeerConnection neu aufzubauen. Viewer behalten ihre Verbindung,
+  // sehen einfach nahtlos die neue Quelle. Funktioniert via
+  // RTCRtpSender.replaceTrack() — keine Renegotiation, kein neuer SDP-Offer.
+  if (!room || !currentStream) return false;
+
+  const oldVideo = currentStream.getVideoTracks()[0];
+  const newVideo = newStream.getVideoTracks()[0];
+  const oldAudio = currentStream.getAudioTracks()[0];
+  const newAudio = newStream.getAudioTracks()[0];
+
+  try {
+    if (oldVideo && newVideo) {
+      room.replaceTrack(oldVideo, newVideo, currentStream);
+    } else if (oldVideo && !newVideo) {
+      room.removeTrack(oldVideo, currentStream);
+    } else if (!oldVideo && newVideo) {
+      room.addTrack(newVideo, currentStream);
+    }
+
+    if (oldAudio && newAudio) {
+      room.replaceTrack(oldAudio, newAudio, currentStream);
+    } else if (oldAudio && !newAudio) {
+      room.removeTrack(oldAudio, currentStream);
+    } else if (!oldAudio && newAudio) {
+      room.addTrack(newAudio, currentStream);
+    }
+  } catch (e) {
+    log('Track-Swap fehlgeschlagen: ' + e.message + ' — fallback auf Reconnect', 'err');
+    return false;
+  }
+
+  // Alte Tracks stoppen (sonst läuft die alte Capture im Hintergrund weiter)
+  currentStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+
+  currentStream = newStream;
+  document.getElementById('preview').srcObject = newStream;
+  attachStreamEndedHandler(newStream);
+  return true;
+}
+
+function attachStreamEndedHandler(stream) {
+  // Wenn der User die Capture per Browser-Button beendet, kommt 'ended' am Track
+  const v = stream.getVideoTracks()[0];
+  if (v) v.onended = () => {
+    if (currentStream === stream) {
+      log('Quelle wurde extern beendet (Browser-Button) — Stream stoppt', 'info');
+      stopBroadcast();
+    }
+  };
+}
+
 async function startBroadcast(stream) {
-  if (room) {
+  if (room && currentStream) {
+    // Live-Switch ohne Reconnect — Viewer bleiben verbunden
+    if (swapStreamLive(stream)) {
+      log('Quelle live gewechselt — Viewer behalten Verbindung', 'ok');
+      return;
+    }
+    // Fallback: Swap fehlgeschlagen → harter Restart
     log('Stream wird neu gestartet...', 'info');
     stopBroadcast();
   }
 
   currentStream = stream;
   document.getElementById('preview').srcObject = stream;
+  attachStreamEndedHandler(stream);
   log('Verbinde mit BitTorrent-Trackern...', 'info');
 
   if (!joinRoomWithStream('Start')) return;
