@@ -349,6 +349,26 @@ export const EitoBittoMarketplacePage: React.FC = () => {
   const paymentAddress = getPaymentAddress(walletState.accounts || []) || currentAddress;
   const walletAddrNorm = normalizeAddress(currentAddress);
 
+  // Public-Key Helper — siehe PinkPuppetsMarketplacePage. ordinalsPublicKey
+  // ist KRITISCH fuer das Listing: ohne sellerPublicKey faellt das Backend
+  // auf einen Fallback zurueck der den getweakten taproot_output_key als
+  // tapInternalKey setzt; daraus resultierende Schnorr-Sig wird beim Buy
+  // on-chain abgelehnt ("mempool-script-verify-flag-failed").
+  const readPubKeyFromAccount = (entry: any): string => {
+    if (!entry || typeof entry !== 'object') return '';
+    const candidates = [entry.publicKey, entry.publicKeyHex, entry.pubKey, entry.pubkey, entry.public_key, entry.paymentPublicKey, entry.paymentPublicKeyHex, entry.paymentPubkey, entry.ordinalsPublicKey, entry.addressPublicKey, entry.btcPublicKey, entry?.keys?.payment?.publicKey, entry?.keys?.payment?.publicKeyHex, entry?.keys?.ordinals?.publicKey, entry?.account?.publicKey];
+    for (const c of candidates) { const v = String(c || '').trim(); if (v) return v; }
+    return '';
+  };
+  const ordinalsPublicKey = React.useMemo(() => {
+    const accs = walletState.accounts || [];
+    const byPurpose = accs.find((a: any) => String(a?.purpose || '').toLowerCase() === 'ordinals');
+    const fromPurpose = readPubKeyFromAccount(byPurpose);
+    if (fromPurpose) return fromPurpose;
+    const byAddress = accs.find((a: any) => String(a?.address || '').trim() === String(currentAddress || '').trim());
+    return readPubKeyFromAccount(byAddress);
+  }, [walletState.accounts, currentAddress]);
+
   const loadMarketplaceListings = React.useCallback(async () => {
     const rows = await getMarketplaceListings({ status: 'active', collectionSlug: EITO_BITTO_SLUG, limit: 400 }).catch(() => []);
     const next: ListingsMap = {};
@@ -487,7 +507,7 @@ export const EitoBittoMarketplacePage: React.FC = () => {
         const price = Number(listPrice);
         if (!Number.isFinite(price) || price <= 0) throw new Error('Price must be > 0');
         setActionError(null); setActionMessage(null); setBusyListingId(selected.inscriptionId);
-        const prepared = await prepareMarketplaceListingPsbt({ inscriptionId: selected.inscriptionId, collectionSlug: EITO_BITTO_SLUG, sellerAddress: currentAddress, sellerPaymentAddress: paymentAddress || currentAddress, buyerReceiveAddress: currentAddress, priceSats: Math.floor(price) });
+        const prepared = await prepareMarketplaceListingPsbt({ inscriptionId: selected.inscriptionId, collectionSlug: EITO_BITTO_SLUG, sellerAddress: currentAddress, sellerPaymentAddress: paymentAddress || currentAddress, sellerPublicKey: ordinalsPublicKey || undefined, buyerReceiveAddress: currentAddress, priceSats: Math.floor(price) });
         if (!prepared?.psbtBase64 || !prepared?.listingId) throw new Error('Invalid PSBT payload');
         const signed = await signPSBT(prepared.psbtBase64, walletState.walletType, false, prepared.ownerAddress || currentAddress, 0x82);
         const isHex = /^[0-9a-fA-F]+$/.test(String(signed || '').trim());
@@ -509,19 +529,26 @@ export const EitoBittoMarketplacePage: React.FC = () => {
     })();
   };
 
-  const handleBuy = () => {
+  // targetListing optional: aus Grid wird die Listing direkt mitgegeben,
+  // aus dem Detail-Modal faellt es auf selected?.listing zurueck.
+  const handleBuy = (targetListing?: { id: string; seller: string }) => {
     void (async () => {
+      const listing = targetListing || selected?.listing || null;
       try {
-        if (!selected?.listing || !walletAddrNorm) throw new Error('No listing selected');
+        if (!listing || !walletAddrNorm) throw new Error('No listing selected');
         if (!walletState.walletType) throw new Error('Connect wallet first');
-        if (normalizeAddress(selected.listing.seller) === walletAddrNorm) throw new Error('Cannot buy your own listing');
-        setActionError(null); setActionMessage(null); setBusyListingId(selected.listing.id);
-        const prepared = await prepareMarketplacePurchaseAdvanced({ listingId: selected.listing.id, buyerAddress: currentAddress, fundingAddress: paymentAddress || currentAddress, fundingAddressCandidates: Array.from(new Set([currentAddress, paymentAddress].filter(Boolean))) });
+        if (normalizeAddress(listing.seller) === walletAddrNorm) throw new Error('Cannot buy your own listing');
+        setActionError(null); setActionMessage(null); setBusyListingId(listing.id);
+        const prepared = await prepareMarketplacePurchaseAdvanced({ listingId: listing.id, buyerAddress: currentAddress, fundingAddress: paymentAddress || currentAddress, fundingAddressCandidates: Array.from(new Set([currentAddress, paymentAddress].filter(Boolean))) });
         const signed = await signPSBT(prepared.fundedPsbtBase64, walletState.walletType, false, currentAddress, undefined, Array.isArray(prepared.funding?.buyerSigningIndexes) ? prepared.funding.buyerSigningIndexes : undefined);
         const isHex = /^[0-9a-fA-F]+$/.test(String(signed || '').trim());
-        await completeMarketplacePurchaseAdvanced({ listingId: selected.listing.id, buyerAddress: currentAddress, signedPsbtHex: isHex ? signed : undefined, signedPsbtBase64: isHex ? undefined : signed });
+        await completeMarketplacePurchaseAdvanced({ listingId: listing.id, buyerAddress: currentAddress, signedPsbtHex: isHex ? signed : undefined, signedPsbtBase64: isHex ? undefined : signed });
         setActionMessage('PURCHASE COMPLETED'); await loadMarketplaceListings();
-      } catch (err: any) { setActionError(err?.message || 'Buy failed'); } finally { setBusyListingId(null); }
+      } catch (err: any) {
+        const msg = err?.message || 'Buy failed';
+        setActionError(msg);
+        if (typeof window !== 'undefined' && targetListing) window.alert(`Buy failed: ${msg}`);
+      } finally { setBusyListingId(null); }
     })();
   };
 
@@ -666,9 +693,21 @@ export const EitoBittoMarketplacePage: React.FC = () => {
                     <span className="text-[7px]" style={{ color: '#fff3' }}>{ownerAddr ? shortAddress(ownerAddr) : '---'}</span>
                   </div>
                   {isListed ? (
-                    <div className="mt-2 px-2 py-1.5 text-center" style={{ border: pxBorder('#0f06'), background: 'linear-gradient(180deg, #0f00f 0%, #0f008 100%)' }}>
-                      <span className="text-[10px] font-black" style={{ color: '#0f0', animation: 'pxPriceGlow 2s ease-in-out infinite' }}>₿ {formatSats(row.listing!.priceSats)} SAT</span>
-                    </div>
+                    <>
+                      <div className="mt-2 px-2 py-1.5 text-center" style={{ border: pxBorder('#0f06'), background: 'linear-gradient(180deg, #0f00f 0%, #0f008 100%)' }}>
+                        <span className="text-[10px] font-black" style={{ color: '#0f0', animation: 'pxPriceGlow 2s ease-in-out infinite' }}>₿ {formatSats(row.listing!.priceSats)} SAT</span>
+                      </div>
+                      {walletState.connected && walletAddrNorm && normalizeAddress(row.listing!.seller) !== walletAddrNorm && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleBuy(row.listing!); }}
+                          disabled={busyListingId === row.listing!.id}
+                          className="mt-1.5 w-full py-1.5 text-[10px] font-black uppercase tracking-wider disabled:opacity-40 transition-all hover:shadow-[0_0_18px_#0f06]"
+                          style={{ border: pxBorder('#0f0'), color: '#000', background: 'linear-gradient(180deg, #0f0 0%, #0c0 100%)', boxShadow: '0 0 12px #0f04' }}
+                        >
+                          {busyListingId === row.listing!.id ? '…' : '⚡ BUY NOW'}
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <div className="mt-2 px-2 py-1.5 text-center text-[9px] font-bold uppercase" style={{ border: pxBorder('#fff08'), color: '#fff15' }}>○ NOT LISTED</div>
                   )}
