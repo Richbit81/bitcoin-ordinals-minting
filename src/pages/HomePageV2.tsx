@@ -4,7 +4,7 @@ import { MempoolFeesBanner } from '../components/MempoolFeesBanner';
 import { MempoolDetailsModal } from '../components/MempoolDetailsModal';
 import { RUNNER_PREVIEW_IFRAME_SRC } from '../constants/runnerInscription';
 
-const VEGAS_MODE = true;
+const VEGAS_MODE = false;
 
 function SynthLifeV2() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
