@@ -765,15 +765,35 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     })();
   };
 
-  const handleBuy = () => {
+  const handleBuy = (targetListing?: PuppetListing) => {
     void (async () => {
+      // Wenn der Aufrufer keine Listing uebergibt, fallen wir auf die im
+      // Detail-Modal ausgewaehlte zurueck. So kann derselbe Handler aus dem
+      // Grid (mit explizitem Listing) und aus dem Detail (ohne Argument) genutzt
+      // werden.
+      const listing = targetListing || selected?.listing || null;
       try {
-        if (!selected?.listing || !walletAddrNorm) throw new Error('No listing selected');
-        if (!walletState.walletType) throw new Error('Connect wallet first');
-        if (normalizeAddress(selected.listing.seller) === walletAddrNorm) throw new Error('Cannot buy your own listing');
+        console.log('[PinkPuppets][buy] click', {
+          listingId: listing?.id,
+          walletType: walletState.walletType,
+          connected: walletState.connected,
+          currentAddress,
+          paymentAddress,
+        });
+        if (!walletState.connected || !walletState.walletType || !walletAddrNorm) {
+          // Sichtbares Sofort-Feedback, falls Wallet nicht verbunden ist —
+          // sonst meldet sich der UI-Banner unsichtbar oben am Listing-Header.
+          if (typeof window !== 'undefined') {
+            window.alert('Please connect your wallet first to buy.');
+          }
+          throw new Error('Connect wallet first');
+        }
+        if (!listing) throw new Error('No listing selected');
+        if (normalizeAddress(listing.seller) === walletAddrNorm) throw new Error('Cannot buy your own listing');
+        if (!listing.signedPsbtBase64) throw new Error('Legacy listing without PSBT data. Seller must relist.');
         setActionError(null);
         setActionMessage(null);
-        setBusyListingId(selected.listing.id);
+        setBusyListingId(listing.id);
 
         // Funding-Adresse: bc1q/bc1p bevorzugen vor 3... (gleiche Logik wie
         // Haupt-Marketplace). UniSat liefert oft eine separate bc1q payment-
@@ -808,8 +828,15 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
           )
         );
 
+        console.log('[PinkPuppets][buy] preparing', {
+          preferredFunding,
+          fundingCandidates,
+          hasPaymentPublicKey: !!paymentPublicKey,
+          publicKeyCandidatesCount: publicKeyCandidates.length,
+        });
+
         const prepared = await prepareMarketplacePurchaseAdvanced({
-          listingId: selected.listing.id,
+          listingId: listing.id,
           buyerAddress: currentAddress,
           fundingAddress: preferredFunding,
           fundingAddressCandidates: fundingCandidates,
@@ -826,6 +853,11 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
           ? prepared.funding.buyerSigningIndexes
           : undefined;
 
+        console.log('[PinkPuppets][buy] requesting wallet signature', {
+          signingAddress,
+          buyerSigningIndexes,
+        });
+
         const signed = await signPSBT(
           prepared.fundedPsbtBase64,
           walletState.walletType,
@@ -835,15 +867,25 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
           buyerSigningIndexes
         );
 
+        console.log('[PinkPuppets][buy] signed, completing purchase');
+
         await completeMarketplacePurchaseAdvanced({
-          listingId: selected.listing.id,
+          listingId: listing.id,
           buyerAddress: currentAddress,
           signedPsbtBase64: signed,
         });
         setActionMessage('Purchase completed via wallet signature.');
         await loadMarketplaceListings();
       } catch (err: any) {
-        setActionError(err?.message || 'Buy failed');
+        console.error('[PinkPuppets][buy] failed', err);
+        const msg = err?.message || 'Buy failed';
+        setActionError(msg);
+        // Zusaetzlicher Sichtbarkeits-Boost: aus dem Grid heraus sieht man die
+        // Banner-Meldung weit oben evtl. nicht — kurzer Alert macht klar, dass
+        // ueberhaupt etwas passiert ist.
+        if (typeof window !== 'undefined' && targetListing) {
+          window.alert(`Buy failed: ${msg}`);
+        }
       } finally {
         setBusyListingId(null);
       }
@@ -1028,6 +1070,30 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                     <div className="rounded-md border border-pink-300/50 bg-pink-900/20 p-2">
                       <div className="flex justify-between"><span>Price</span><b>{formatBtc(row.listing.priceSats)}</b></div>
                       <div className="flex justify-between"><span>Seller</span><span>{shortAddress(row.listing.seller)}</span></div>
+                      {(() => {
+                        const isOwn = walletAddrNorm && normalizeAddress(row.listing.seller) === walletAddrNorm;
+                        const busy = busyListingId === row.listing.id;
+                        if (!walletState.connected) {
+                          return (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); window.alert('Please connect your wallet first to buy.'); }}
+                              className="mt-2 w-full rounded border-2 border-black bg-[#ff4fcf]/70 px-2 py-1.5 text-[10px] font-bold text-black"
+                            >Connect to Buy</button>
+                          );
+                        }
+                        if (isOwn) {
+                          return (
+                            <div className="mt-2 rounded border border-pink-300/40 bg-black/30 px-2 py-1 text-center text-[10px] text-pink-200/80">Your listing</div>
+                          );
+                        }
+                        return (
+                          <button
+                            disabled={busy}
+                            onClick={(e) => { e.stopPropagation(); handleBuy(row.listing!); }}
+                            className="mt-2 w-full rounded border-2 border-black bg-[#ff4fcf] px-2 py-1.5 text-[10px] font-bold text-black hover:bg-[#ff7fdc] disabled:opacity-60"
+                          >{busy ? 'Buying…' : 'Buy Now'}</button>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="rounded-md border border-pink-300/30 bg-black/30 p-2 text-pink-200/70">Not listed</div>
@@ -1192,7 +1258,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
                           {normalizeAddress(selected.listing.seller) === walletAddrNorm ? (
                             <button disabled={busyListingId === selected.listing.id} onClick={handleDelist} className="w-full rounded border-2 border-black bg-pink-300 px-3 py-2 text-xs font-bold text-black disabled:opacity-60">Delist</button>
                           ) : (
-                            <button disabled={busyListingId === selected.listing.id} onClick={handleBuy} className="w-full rounded border-2 border-black bg-[#ff4fcf] px-3 py-2 text-xs font-bold text-black disabled:opacity-60">Buy Now</button>
+                            <button disabled={busyListingId === selected.listing.id} onClick={() => handleBuy(selected.listing!)} className="w-full rounded border-2 border-black bg-[#ff4fcf] px-3 py-2 text-xs font-bold text-black disabled:opacity-60">Buy Now</button>
                           )}
                         </>
                       ) : (
