@@ -11,7 +11,47 @@ import {
   prepareMarketplaceListingPsbt,
   prepareMarketplacePurchaseAdvanced,
 } from '../services/marketplaceService';
-import { getOrdinalAddress, getPaymentAddress, getWalletInscriptionIds, signPSBT } from '../utils/wallet';
+import { connectXverse, getOrdinalAddress, getPaymentAddress, getWalletInscriptionIds, signPSBT } from '../utils/wallet';
+
+// Xverse / sats-connect Address-Response Normalisierung — die Bibliothek
+// liefert je nach Methode unterschiedliche Wrapper-Formen.
+const extractXverseAddressRows = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.result)) return payload.result;
+  if (Array.isArray(payload?.addresses)) return payload.addresses;
+  if (Array.isArray(payload?.addressses)) return payload.addressses;
+  if (Array.isArray(payload?.result?.addresses)) return payload.result.addresses;
+  if (Array.isArray(payload?.result?.addressses)) return payload.result.addressses;
+  if (Array.isArray(payload?.data?.addresses)) return payload.data.addresses;
+  if (Array.isArray(payload?.data?.addressses)) return payload.data.addressses;
+  return [];
+};
+const extractXverseProviderAccounts = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.accounts)) return payload.accounts;
+  if (Array.isArray(payload?.result?.accounts)) return payload.result.accounts;
+  if (Array.isArray(payload?.result)) return payload.result;
+  if (Array.isArray(payload?.data?.accounts)) return payload.data.accounts;
+  return [];
+};
+const readWalletRedeemScriptFromAccount = (entry: any): string => {
+  if (!entry || typeof entry !== 'object') return '';
+  const candidates = [
+    entry.redeemScript,
+    entry.redeem_script,
+    entry.paymentRedeemScript,
+    entry?.keys?.payment?.redeemScript,
+    entry?.keys?.ordinals?.redeemScript,
+    entry?.payment?.redeemScript,
+  ];
+  for (const value of candidates) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/^0x/i, '');
+    if (normalized && /^[0-9a-f]+$/i.test(normalized) && normalized.length % 2 === 0) return normalized;
+  }
+  return '';
+};
 
 type PuppetListing = {
   id: string;
@@ -428,16 +468,23 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   // das ist fuer UniSat (P2WPKH bc1q) zwingend, damit das Backend den PSBT
   // mit korrekten witnessUtxo-Feldern bauen kann.
   const readPubKeyFromAccount = (entry: any): string => {
-    if (!entry) return '';
+    if (!entry || typeof entry !== 'object') return '';
     const candidates = [
       entry.publicKey,
-      entry.public_key,
       entry.publicKeyHex,
-      entry.publicKey?.hex,
-      entry.pubkey,
       entry.pubKey,
+      entry.pubkey,
+      entry.public_key,
       entry.paymentPublicKey,
       entry.paymentPublicKeyHex,
+      entry.paymentPubkey,
+      entry.ordinalsPublicKey,
+      entry.addressPublicKey,
+      entry.btcPublicKey,
+      entry?.keys?.payment?.publicKey,
+      entry?.keys?.payment?.publicKeyHex,
+      entry?.keys?.ordinals?.publicKey,
+      entry?.account?.publicKey,
     ];
     for (const c of candidates) {
       const v = String(c || '').trim();
@@ -795,54 +842,210 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
         setActionMessage(null);
         setBusyListingId(listing.id);
 
-        // Funding-Adresse: bc1q/bc1p bevorzugen vor 3... (gleiche Logik wie
-        // Haupt-Marketplace). UniSat liefert oft eine separate bc1q payment-
-        // Adresse — die muss zum Signieren der Buyer-Inputs benutzt werden,
-        // nicht die Taproot-Ordinals-Adresse.
+        // Resolved-State, der von Xverse-Resolution-Schritten ueberschrieben werden kann.
+        let resolvedBuyerAddress = currentAddress;
+        let resolvedFundingAddress = paymentAddress || currentAddress;
+        let resolvedFundingPublicKey = paymentPublicKey;
+        const fundingPublicKeyCandidates = new Set<string>();
+        const fundingRedeemScriptCandidates = new Set<string>();
+        const addPubKey = (v: string) => { const n = String(v || '').trim(); if (n) fundingPublicKeyCandidates.add(n); };
+        const addRedeem = (v: string) => {
+          const n = String(v || '').trim().toLowerCase().replace(/^0x/i, '');
+          if (n && /^[0-9a-f]+$/i.test(n) && n.length % 2 === 0) fundingRedeemScriptCandidates.add(n);
+        };
+        addPubKey(paymentPublicKey);
+        for (const acc of walletState.accounts || []) {
+          addPubKey(readPubKeyFromAccount(acc));
+          addRedeem(readWalletRedeemScriptFromAccount(acc));
+        }
+
+        // Xverse: sats-connect liefert Payment- und Ordinals-Adresse mit
+        // Public-Keys. Ohne diesen Schritt fehlt fuer P2SH-Payment-Adressen
+        // (3...) der publicKey im walletState, und das Backend kann den PSBT
+        // dann nicht signierbar bauen.
+        const applyXverseRows = (rows: any[]) => {
+          const list = Array.isArray(rows) ? rows : [];
+          for (const row of list) {
+            addPubKey(readPubKeyFromAccount(row));
+            addRedeem(readWalletRedeemScriptFromAccount(row));
+          }
+          const ordinalsEntry =
+            list.find((a: any) => String(a?.purpose || '').toLowerCase() === 'ordinals') ||
+            list.find((a: any) => String(a?.address || '').trim().toLowerCase().startsWith('bc1p'));
+          const fetchedBuyerAddress = String(ordinalsEntry?.address || '').trim();
+          if (fetchedBuyerAddress) resolvedBuyerAddress = fetchedBuyerAddress;
+          const paymentEntry =
+            list.find((a: any) => String(a?.purpose || '').toLowerCase() === 'payment') ||
+            list.find((a: any) => String(a?.addressType || '').toLowerCase() === 'p2sh') ||
+            list.find((a: any) => String(a?.addressType || '').toLowerCase() === 'p2wpkh') ||
+            list.find((a: any) => String(a?.address || '').trim() === String(paymentAddress || '').trim()) ||
+            list.find((a: any) => !String(a?.address || '').trim().toLowerCase().startsWith('bc1p'));
+          const fetchedPaymentAddress = String(paymentEntry?.address || '').trim();
+          const fetchedPubKey = readPubKeyFromAccount(paymentEntry);
+          if (fetchedPaymentAddress) resolvedFundingAddress = fetchedPaymentAddress;
+          if (fetchedPubKey) {
+            resolvedFundingPublicKey = fetchedPubKey;
+            addPubKey(fetchedPubKey);
+          }
+        };
+
+        if (walletState.walletType === 'xverse') {
+          try {
+            const satsConnect: any = await import('sats-connect');
+            if (satsConnect?.request) {
+              try {
+                const addressesResponse = await satsConnect.request('getAddresses', {
+                  purposes: ['payment', 'ordinals'],
+                  message: 'Resolve payment key for marketplace purchase',
+                });
+                if (addressesResponse?.status === 'success') {
+                  applyXverseRows(extractXverseAddressRows(addressesResponse));
+                }
+              } catch {
+                // Faellt unten auf wallet_getAccount zurueck
+              }
+              try {
+                const accountResponse = await satsConnect.request('wallet_getAccount', null);
+                if (accountResponse?.status === 'success') {
+                  applyXverseRows(extractXverseAddressRows(accountResponse));
+                }
+              } catch { /* ignore */ }
+              const stillMissingP2shPubkey =
+                String(resolvedFundingAddress || '').startsWith('3') &&
+                !String(resolvedFundingPublicKey || '').trim();
+              if (stillMissingP2shPubkey) {
+                try {
+                  const reconnectResponse = await satsConnect.request('wallet_connect', {
+                    addresses: ['payment', 'ordinals'],
+                    message: 'Marketplace purchase requires payment public key',
+                  });
+                  if (reconnectResponse?.status === 'success') {
+                    applyXverseRows(extractXverseAddressRows(reconnectResponse));
+                  }
+                } catch { /* ignore */ }
+              }
+            }
+            const xverseProvider: any = (window as any)?.XverseProviders?.Bitcoin;
+            if (xverseProvider?.request) {
+              const probes: Array<{ method: string; params?: any }> = [
+                { method: 'getAccounts', params: { purposes: ['payment', 'ordinals'] } },
+                { method: 'getAccounts' },
+              ];
+              for (const probe of probes) {
+                try {
+                  const response = await xverseProvider.request(probe.method, probe.params);
+                  const accs = extractXverseProviderAccounts(response);
+                  if (accs.length) { applyXverseRows(accs); break; }
+                } catch { /* continue */ }
+              }
+            }
+            const stillNeedsReconnect =
+              String(resolvedFundingAddress || '').startsWith('3') &&
+              !String(resolvedFundingPublicKey || '').trim();
+            if (stillNeedsReconnect) {
+              try {
+                const refreshed = await connectXverse();
+                applyXverseRows(refreshed as any[]);
+              } catch { /* ignore */ }
+            }
+          } catch (xerr) {
+            console.warn('[PinkPuppets][buy] xverse resolve failed (continuing with wallet-state)', xerr);
+          }
+        }
+
+        // Funding-Adresse: bc1q/bc1p bevorzugen vor 3... (UniSat-Standard).
         const fundingCandidates = Array.from(
           new Set(
             [
+              resolvedBuyerAddress,
               currentAddress,
-              paymentAddress,
               ...(walletState.accounts || []).map((acc: any) => String(acc?.address || '').trim()),
+              resolvedFundingAddress,
+              paymentAddress,
             ]
               .map((a) => String(a || '').trim())
               .filter(Boolean)
           )
         );
+        // Bei Xverse muss der vom Resolver ermittelte Payment-Account bevorzugt
+        // werden — sonst landet die Buyer-Signatur auf der falschen Adresse.
         const preferredFunding =
-          fundingCandidates.find((a) => /^bc1[qp]/i.test(a)) ||
-          paymentAddress ||
-          currentAddress;
+          walletState.walletType === 'xverse' && resolvedFundingAddress
+            ? resolvedFundingAddress
+            : (fundingCandidates.find((a) => /^bc1[qp]/i.test(a)) ||
+               resolvedFundingAddress ||
+               paymentAddress ||
+               currentAddress);
 
-        // Public-Key Kandidaten fuer alle bekannten Wallet-Accounts sammeln,
-        // damit das Backend den passenden fuer die Funding-Adresse waehlen kann.
+        if (walletState.walletType === 'xverse' && String(preferredFunding || '').startsWith('3') && !resolvedFundingPublicKey) {
+          throw new Error(
+            'Xverse liefert keinen Payment-Public-Key fuer die 3... Adresse. Bitte andere Wallet-Extensions deaktivieren, Xverse neu verbinden und erneut versuchen.'
+          );
+        }
+
         const publicKeyCandidates = Array.from(
           new Set(
-            [
-              paymentPublicKey,
-              ...(walletState.accounts || []).map((acc: any) => readPubKeyFromAccount(acc)),
-            ]
+            [resolvedFundingPublicKey, ...Array.from(fundingPublicKeyCandidates)]
               .map((k) => String(k || '').trim())
               .filter(Boolean)
           )
         );
+        const redeemScriptCandidates = Array.from(fundingRedeemScriptCandidates);
 
         console.log('[PinkPuppets][buy] preparing', {
+          walletType: walletState.walletType,
+          resolvedBuyerAddress,
+          resolvedFundingAddress,
           preferredFunding,
           fundingCandidates,
-          hasPaymentPublicKey: !!paymentPublicKey,
+          hasResolvedFundingPubKey: !!resolvedFundingPublicKey,
           publicKeyCandidatesCount: publicKeyCandidates.length,
+          redeemScriptCandidatesCount: redeemScriptCandidates.length,
         });
 
-        const prepared = await prepareMarketplacePurchaseAdvanced({
-          listingId: listing.id,
-          buyerAddress: currentAddress,
-          fundingAddress: preferredFunding,
-          fundingAddressCandidates: fundingCandidates,
-          fundingPublicKey: paymentPublicKey || publicKeyCandidates[0] || undefined,
-          fundingPublicKeys: publicKeyCandidates,
-        });
+        let prepared;
+        try {
+          prepared = await prepareMarketplacePurchaseAdvanced({
+            listingId: listing.id,
+            buyerAddress: resolvedBuyerAddress || currentAddress,
+            fundingAddress: preferredFunding,
+            fundingAddressCandidates: fundingCandidates,
+            fundingPublicKey: resolvedFundingPublicKey || publicKeyCandidates[0] || undefined,
+            fundingPublicKeys: publicKeyCandidates,
+            fundingRedeemScripts: redeemScriptCandidates,
+          });
+        } catch (prepErr: any) {
+          // Xverse-Spezialfall: P2SH (3...) Funding hat keinen signierbaren
+          // Redeem-Script — dann auf bc1... Buyer-Adresse als Funding zurueck-
+          // fallen, sofern verfuegbar.
+          const prepMsg = String(prepErr?.message || '');
+          const hasP2shRedeemFailure =
+            prepMsg.includes('"p2shMissingRedeem"') ||
+            prepMsg.toLowerCase().includes('redeemscript could not be derived');
+          const canFallback =
+            walletState.walletType === 'xverse' &&
+            String(preferredFunding || '').startsWith('3') &&
+            /^bc1[qp]/i.test(String(resolvedBuyerAddress || ''));
+          if (hasP2shRedeemFailure && canFallback) {
+            console.warn('[PinkPuppets][buy] P2SH redeem missing — fallback auf bc1... Buyer-Adresse als Funding');
+            const fallbackFunding = String(resolvedBuyerAddress || '').trim();
+            try {
+              prepared = await prepareMarketplacePurchaseAdvanced({
+                listingId: listing.id,
+                buyerAddress: resolvedBuyerAddress || currentAddress,
+                fundingAddress: fallbackFunding,
+                fundingAddressCandidates: fundingCandidates,
+                fundingPublicKey: resolvedFundingPublicKey || publicKeyCandidates[0] || undefined,
+                fundingPublicKeys: publicKeyCandidates,
+                fundingRedeemScripts: redeemScriptCandidates,
+              });
+            } catch {
+              throw prepErr;
+            }
+          } else {
+            throw prepErr;
+          }
+        }
 
         // Signing-Adresse vom Backend bevorzugen — das ist die Adresse zu der
         // die Inputs gehoeren, die signiert werden muessen. Fallback auf die
@@ -871,7 +1074,7 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
 
         await completeMarketplacePurchaseAdvanced({
           listingId: listing.id,
-          buyerAddress: currentAddress,
+          buyerAddress: resolvedBuyerAddress || currentAddress,
           signedPsbtBase64: signed,
         });
         setActionMessage('Purchase completed via wallet signature.');
