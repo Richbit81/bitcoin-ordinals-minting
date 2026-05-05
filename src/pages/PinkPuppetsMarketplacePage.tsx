@@ -424,6 +424,36 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
   const paymentAddress = getPaymentAddress(walletState.accounts || []) || currentAddress;
   const walletAddrNorm = normalizeAddress(currentAddress);
 
+  // Public-Key fuer die Funding-/Payment-Adresse aus walletState extrahieren —
+  // das ist fuer UniSat (P2WPKH bc1q) zwingend, damit das Backend den PSBT
+  // mit korrekten witnessUtxo-Feldern bauen kann.
+  const readPubKeyFromAccount = (entry: any): string => {
+    if (!entry) return '';
+    const candidates = [
+      entry.publicKey,
+      entry.public_key,
+      entry.publicKeyHex,
+      entry.publicKey?.hex,
+      entry.pubkey,
+      entry.pubKey,
+      entry.paymentPublicKey,
+      entry.paymentPublicKeyHex,
+    ];
+    for (const c of candidates) {
+      const v = String(c || '').trim();
+      if (v) return v;
+    }
+    return '';
+  };
+  const paymentPublicKey = React.useMemo(() => {
+    const rows = walletState.accounts || [];
+    const byPurpose = rows.find((acc: any) => String(acc?.purpose || '').toLowerCase() === 'payment');
+    const fromPurpose = readPubKeyFromAccount(byPurpose);
+    if (fromPurpose) return fromPurpose;
+    const byAddress = rows.find((acc: any) => String(acc?.address || '').trim() === String(paymentAddress || '').trim());
+    return readPubKeyFromAccount(byAddress);
+  }, [walletState.accounts, paymentAddress]);
+
   const loadMarketplaceListings = React.useCallback(async () => {
     const rows = await getMarketplaceListings({
       status: 'active',
@@ -744,26 +774,71 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
         setActionError(null);
         setActionMessage(null);
         setBusyListingId(selected.listing.id);
+
+        // Funding-Adresse: bc1q/bc1p bevorzugen vor 3... (gleiche Logik wie
+        // Haupt-Marketplace). UniSat liefert oft eine separate bc1q payment-
+        // Adresse — die muss zum Signieren der Buyer-Inputs benutzt werden,
+        // nicht die Taproot-Ordinals-Adresse.
+        const fundingCandidates = Array.from(
+          new Set(
+            [
+              currentAddress,
+              paymentAddress,
+              ...(walletState.accounts || []).map((acc: any) => String(acc?.address || '').trim()),
+            ]
+              .map((a) => String(a || '').trim())
+              .filter(Boolean)
+          )
+        );
+        const preferredFunding =
+          fundingCandidates.find((a) => /^bc1[qp]/i.test(a)) ||
+          paymentAddress ||
+          currentAddress;
+
+        // Public-Key Kandidaten fuer alle bekannten Wallet-Accounts sammeln,
+        // damit das Backend den passenden fuer die Funding-Adresse waehlen kann.
+        const publicKeyCandidates = Array.from(
+          new Set(
+            [
+              paymentPublicKey,
+              ...(walletState.accounts || []).map((acc: any) => readPubKeyFromAccount(acc)),
+            ]
+              .map((k) => String(k || '').trim())
+              .filter(Boolean)
+          )
+        );
+
         const prepared = await prepareMarketplacePurchaseAdvanced({
           listingId: selected.listing.id,
           buyerAddress: currentAddress,
-          fundingAddress: paymentAddress || currentAddress,
-          fundingAddressCandidates: Array.from(new Set([currentAddress, paymentAddress].filter(Boolean))),
+          fundingAddress: preferredFunding,
+          fundingAddressCandidates: fundingCandidates,
+          fundingPublicKey: paymentPublicKey || publicKeyCandidates[0] || undefined,
+          fundingPublicKeys: publicKeyCandidates,
         });
+
+        // Signing-Adresse vom Backend bevorzugen — das ist die Adresse zu der
+        // die Inputs gehoeren, die signiert werden muessen. Fallback auf die
+        // bevorzugte Funding-Adresse.
+        const backendSigningAddress = String(prepared?.funding?.signingAddress || '').trim();
+        const signingAddress = backendSigningAddress || preferredFunding || currentAddress;
+        const buyerSigningIndexes = Array.isArray(prepared?.funding?.buyerSigningIndexes)
+          ? prepared.funding.buyerSigningIndexes
+          : undefined;
+
         const signed = await signPSBT(
           prepared.fundedPsbtBase64,
           walletState.walletType,
           false,
-          currentAddress,
+          signingAddress,
           undefined,
-          Array.isArray(prepared.funding?.buyerSigningIndexes) ? prepared.funding.buyerSigningIndexes : undefined
+          buyerSigningIndexes
         );
-        const signedIsHex = /^[0-9a-fA-F]+$/.test(String(signed || '').trim());
+
         await completeMarketplacePurchaseAdvanced({
           listingId: selected.listing.id,
           buyerAddress: currentAddress,
-          signedPsbtHex: signedIsHex ? signed : undefined,
-          signedPsbtBase64: signedIsHex ? undefined : signed,
+          signedPsbtBase64: signed,
         });
         setActionMessage('Purchase completed via wallet signature.');
         await loadMarketplaceListings();
