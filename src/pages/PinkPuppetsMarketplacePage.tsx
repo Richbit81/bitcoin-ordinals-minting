@@ -501,6 +501,22 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
     return readPubKeyFromAccount(byAddress);
   }, [walletState.accounts, paymentAddress]);
 
+  // Public-Key fuer die Ordinals-/Taproot-Adresse (bc1p...). Wird beim Listing
+  // als sellerPublicKey ans Backend uebergeben, damit die Backend-PSBT die
+  // korrekte tapInternalKey (raw internal pubkey, x-only) eintragen kann.
+  // Ohne diesen Key faellt das Backend auf einen Fallback zurueck, der den
+  // getweakten taproot_output_key statt der echten tapInternalKey setzt —
+  // resultierende Schnorr-Signaturen werden on-chain als ungueltig abgelehnt
+  // ("mempool-script-verify-flag-failed (Invalid Schnorr signature)").
+  const ordinalsPublicKey = React.useMemo(() => {
+    const rows = walletState.accounts || [];
+    const byPurpose = rows.find((acc: any) => String(acc?.purpose || '').toLowerCase() === 'ordinals');
+    const fromPurpose = readPubKeyFromAccount(byPurpose);
+    if (fromPurpose) return fromPurpose;
+    const byAddress = rows.find((acc: any) => String(acc?.address || '').trim() === String(currentAddress || '').trim());
+    return readPubKeyFromAccount(byAddress);
+  }, [walletState.accounts, currentAddress]);
+
   const loadMarketplaceListings = React.useCallback(async () => {
     const rows = await getMarketplaceListings({
       status: 'active',
@@ -763,6 +779,11 @@ export const PinkPuppetsMarketplacePage: React.FC = () => {
           collectionSlug: PINK_PUPPETS_SLUG,
           sellerAddress: currentAddress,
           sellerPaymentAddress: paymentAddress || currentAddress,
+          // KRITISCH: ordinalsPublicKey muss mitgegeben werden, sonst setzt
+          // das Backend den getweakten taproot_output_key als tapInternalKey
+          // und die Wallet produziert eine on-chain ungueltige Schnorr-Sig
+          // (Buyer-Broadcast scheitert mit "Invalid Schnorr signature, input 0").
+          sellerPublicKey: ordinalsPublicKey || undefined,
           buyerReceiveAddress: currentAddress,
           priceSats: Math.floor(price),
         });
