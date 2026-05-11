@@ -91,6 +91,15 @@ const BOOK_ITEMS = [
     description:
       'The Machine Stops by E. M. Forster, published in 1909, is one of the most prophetic short stories ever written. It imagines a future where humanity lives underground in isolated cells, every need supplied by an omnipotent global Machine. People communicate only through screens, never meet face to face, and have come to worship the Machine that sustains them.\n\nWhen Kuno, a young man who still longs for the surface and direct human contact, tries to convince his mother Vashti that something is deeply wrong, the cracks in the system begin to show. As the Machine slowly falters, the civilization built upon it faces the unthinkable: a world without it.\n\nMore than a century before the internet, video calls, and algorithmic dependence, Forster anticipated a society shaped by technology, comfort, and the quiet erosion of being human. A haunting parable about progress, isolation, and what we forfeit when we let machines think — and live — for us.\n\nA visionary text this timeless deserves permanence. 110% on-chain — preserved in the blockchain, so the warning never fades.',
   },
+  {
+    id: 'flatland',
+    name: 'Flatland',
+    inscriptionId: '9757db415c885c194330116d3ea4ee88f41bc766d98f0fa04a0b4e8da6f46fcei0',
+    author: 'Edwin A. Abbott',
+    priceInSats: 5000,
+    description:
+      'Flatland takes place in a two-dimensional world where geometric shapes represent people. The narrator — a square — discovers the existence of a third dimension and begins questioning the limits of reality. The book combines mathematics, philosophy, social satire, and early science fiction in a remarkably original way',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
