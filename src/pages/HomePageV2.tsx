@@ -400,8 +400,8 @@ const ALL_NEW_STUFF = [
   { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
   { name: 'RICHRACER', thumb: 'https://ordinals.com/content/71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', route: '/tech-games?try=71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-pink-500' },
-  // TEMP: Pink Puppets Slot Promo — aus ALL_NEW_STUFF löschen wenn vorbei
-  { name: 'Pink Puppets Slot', thumb: '/pinkpuppets-slot/index.html?embed=1', route: '/pinkpuppets', tag: 'SLOT', tagColor: 'bg-fuchsia-600', isIframe: true },
+  // TEMP: Pink Pass / Slot Promo — aus ALL_NEW_STUFF löschen wenn vorbei
+  { name: 'Pink Pass', thumb: '/pinkpasshires.png', route: '/pinkpuppets', tag: 'SLOT', tagColor: 'bg-fuchsia-600' },
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Ninja', thumb: 'https://ordinals.com/content/51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', route: '/tech-games?try=51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
@@ -519,7 +519,7 @@ export const HomePageV2: React.FC = () => {
 
   const displayedNewStuff = useMemo(() => {
     // TEMP: Slot-Promo immer mit in den ersten 7 — Zeile + Filter entfernen wenn Promo endet
-    const PINNED_NEW_STUFF_NAME = 'Pink Puppets Slot';
+    const PINNED_NEW_STUFF_NAME = 'Pink Pass';
     const pinned = ALL_NEW_STUFF.filter((i) => i.name === PINNED_NEW_STUFF_NAME);
     const rest = ALL_NEW_STUFF.filter((i) => i.name !== PINNED_NEW_STUFF_NAME);
     const shuffled = [...rest].sort(() => Math.random() - 0.5);
@@ -554,11 +554,11 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
       {
-        name: 'Pink Puppets Slot',
-        desc: 'On-chain 3D slot machine — complimentary spins for holders. Tap through to Pink Puppets.',
-        src: '/pinkpuppets-slot/index.html?embed=1',
+        name: 'Pink Pass',
+        desc: 'Spin for the PINK Pass — complimentary spins for holders. Tap through to Pink Puppets.',
+        src: '/pinkpasshires.png',
         route: '/pinkpuppets',
-        isHtml: true,
+        isHtml: false,
         tag: 'SLOT',
         tagColor: 'bg-fuchsia-600',
         mintLive: false,
