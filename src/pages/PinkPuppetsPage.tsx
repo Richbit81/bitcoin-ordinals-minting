@@ -8,12 +8,11 @@ import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
 import { PinkPuppetsSlotSection } from '../components/PinkPuppetsSlotSection';
 
+/** Embedded via react-tweet — gewünschte Reihenfolge (3. Link zuerst) */
 const FALLBACK_TWEETS = [
-  '2041180097626157365',
-  '2039902984558043314',
-  '2039676195684700171',
-  '2039519039580676112',
-  '2038477591343243423',
+  '2050719758841262128', // https://x.com/PinkPuppets_/status/2050719758841262128
+  '2053553147071934796', // https://x.com/PinkPuppets_/status/2053553147071934796
+  '2053656947745026341', // https://x.com/PinkPuppets_/status/2053656947745026341
 ];
 
 export const PinkPuppetsPage: React.FC = () => {
@@ -24,13 +23,19 @@ export const PinkPuppetsPage: React.FC = () => {
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch('/api/twitter-feed?user=PinkPuppets_&limit=5')
+    fetch('/api/twitter-feed?user=PinkPuppets_&limit=10')
       .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && data.ids?.length) setTweetIds(data.ids);
+      .then((data: { ids?: string[] }) => {
+        if (cancelled) return;
+        const fromApi = Array.isArray(data.ids) ? data.ids.filter(Boolean) : [];
+        if (!fromApi.length) return;
+        const rest = fromApi.filter((id) => !FALLBACK_TWEETS.includes(id));
+        setTweetIds([...FALLBACK_TWEETS, ...rest]);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const promoBanners = React.useMemo(
@@ -97,6 +102,11 @@ export const PinkPuppetsPage: React.FC = () => {
           </div>
 
           <PinkPuppetsSlotSection />
+
+          <div
+            className="mb-5 mt-2 h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent"
+            aria-hidden
+          />
 
           {/* Main layout: 3 equal columns, fixed height so chat matches */}
           <div className="grid gap-3 grid-cols-1 md:grid-cols-3 md:h-[calc(100vh-300px)]">

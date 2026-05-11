@@ -26,29 +26,32 @@
     canvas { display: block; }
     canvas.lever-grab { cursor: grab; }
     canvas.lever-drag { cursor: grabbing; }
+    html.pp-slot-embed #info { display: none !important; }
+    html.pp-slot-embed #status { display: none !important; }
+    html.pp-slot-embed,
+    html.pp-slot-embed body {
+      background: transparent !important;
+    }
     #fx-canvas {
       position: fixed; inset: 0; pointer-events: none; z-index: 4;
     }
 
-    /* Gewinn-Bild-Overlay: nur Bild + Weiter, ohne Rahmen */
+    /* Gewinn: kein dunkles Vollflächenfeld — nur Bild + Weiter, Bild größer mit weißem Glow */
     .win-overlay {
       position: fixed; inset: 0; z-index: 48;
       display: flex; align-items: center; justify-content: center;
-      padding: 16px;
+      padding: min(24px, 4vw);
       pointer-events: none; opacity: 0; visibility: hidden;
       transition: opacity 0.35s ease, visibility 0.35s;
+      background: transparent;
     }
     .win-overlay.is-visible {
       pointer-events: auto; opacity: 1; visibility: visible;
     }
-    .win-overlay-backdrop {
-      position: absolute; inset: 0;
-      background: rgba(8, 10, 18, 0.82);
-      backdrop-filter: blur(6px);
-    }
     .win-card-wrap {
       position: relative; z-index: 1;
-      max-width: min(440px, 94vw);
+      max-width: min(640px, 96vw);
+      pointer-events: auto;
     }
     .win-card {
       transform: scale(0.92);
@@ -66,9 +69,15 @@
     }
     .win-card img {
       display: block; width: 100%; height: auto;
-      border-radius: 0;
-      box-shadow: none;
+      max-height: min(62vh, 520px);
+      object-fit: contain;
+      border-radius: 14px;
       vertical-align: top;
+      box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.95),
+        0 0 28px 10px rgba(255, 255, 255, 0.65),
+        0 0 56px 22px rgba(255, 240, 255, 0.45),
+        0 0 80px 36px rgba(255, 182, 220, 0.35);
     }
     .win-dismiss {
       display: block; width: 100%; margin-top: 14px;
@@ -101,7 +110,6 @@
   <canvas id="fx-canvas" aria-hidden="true"></canvas>
 
   <div id="win-overlay" class="win-overlay" aria-hidden="true">
-    <div class="win-overlay-backdrop" id="win-overlay-backdrop"></div>
     <div class="win-card-wrap">
       <div class="win-card">
         <img id="win-prize-img" src="" alt="Gewinn" width="800" height="600" />
@@ -120,6 +128,9 @@
     const urlParams = new URLSearchParams(location.search);
     /** Parent page triggers spins via postMessage (wallet/API); disable local random spins */
     const EMBED_PARENT = urlParams.get('embed') === '1';
+    if (EMBED_PARENT) {
+      document.documentElement.classList.add('pp-slot-embed');
+    }
 
     /** Hebel: Zug nach unten erhöht leverPull01 (0…1), Loslassen über Schwelle → Spin */
     const LEVER_MAX_PULL_RAD = 1.08;
@@ -357,7 +368,11 @@
     const spinBtn = document.getElementById('spin');
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1f2e);
+    if (EMBED_PARENT) {
+      scene.background = null;
+    } else {
+      scene.background = new THREE.Color(0x1a1f2e);
+    }
 
     const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 500);
     camera.position.set(1.8, 0.85, 2.4);
@@ -365,6 +380,9 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(innerWidth, innerHeight);
+    if (EMBED_PARENT) {
+      renderer.setClearColor(0x000000, 0);
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.88;
@@ -857,7 +875,6 @@
     const winOverlay = document.getElementById('win-overlay');
     const winPrizeImg = document.getElementById('win-prize-img');
     const winDismiss = document.getElementById('win-dismiss');
-    const winBackdrop = document.getElementById('win-overlay-backdrop');
 
     if (winPrizeImg) winPrizeImg.src = WIN_PRIZE_IMAGE_URL;
 
@@ -877,15 +894,31 @@
     }
 
     if (winDismiss) winDismiss.addEventListener('click', hideJackpotWinOverlay);
-    if (winBackdrop) winBackdrop.addEventListener('click', hideJackpotWinOverlay);
+    /* Backdrop entfernt: Klick auf freie Fläche (Overlay-Hintergrund) schließt wie zuvor */
+    if (winOverlay) {
+      winOverlay.addEventListener('click', (e) => {
+        if (e.target === winOverlay) hideJackpotWinOverlay();
+      });
+    }
     addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && winOverlay?.classList.contains('is-visible')) hideJackpotWinOverlay();
     });
 
+    function notifyParentSpinAnimDone(spinId) {
+      if (!EMBED_PARENT) return;
+      try {
+        window.parent.postMessage(
+          { type: 'PP_SLOT_ANIM_DONE', spinId: typeof spinId === 'string' ? spinId : '' },
+          '*'
+        );
+      } catch (_) {}
+    }
+
     /**
-     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string }} opts
+     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string; spinId?: string }} opts
      */
     function spinReels(opts = {}) {
+      const spinIdForParent = typeof opts.spinId === 'string' ? opts.spinId : '';
       const skipLeverAnim = opts.skipLeverAnim === true;
       const presetTargets =
         Array.isArray(opts.targets) && opts.targets.length === 3 ? opts.targets : null;
@@ -991,6 +1024,8 @@
           } else {
             statusEl.textContent = 'Stop (je Walze): ' + formatStopIndicesDisplay(shown);
           }
+
+          notifyParentSpinAnimDone(spinIdForParent);
         }
       }
       requestAnimationFrame(frame);
@@ -1002,9 +1037,10 @@
       if (!d || d.type !== 'PP_SLOT_RUN') return;
       if (!Array.isArray(d.targets) || d.targets.length !== 3) return;
       spinReels({
-        skipLeverAnim: false,
+        skipLeverAnim: d.skipLeverAnim === true,
         targets: d.targets,
         winImageUrl: d.winImageUrl || '',
+        spinId: typeof d.spinId === 'string' ? d.spinId : '',
       });
     });
 
@@ -1111,8 +1147,6 @@
 
         if (EMBED_PARENT) {
           spinBtn.style.display = 'none';
-          statusEl.textContent =
-            'Verbunden — Spin über die Schaltfläche auf richart.app (Wallet).';
         } else {
           spinBtn.addEventListener('click', () => spinReels({ skipLeverAnim: false }));
         }
@@ -1177,8 +1211,14 @@
           updateLeverCursorClass();
 
           if (leverPull01 >= LEVER_SPIN_THRESHOLD_PULL && !spinning) {
-            if (!EMBED_PARENT) spinReels({ skipLeverAnim: true });
-            else releaseLeverSpring();
+            if (!EMBED_PARENT) {
+              spinReels({ skipLeverAnim: true });
+            } else {
+              try {
+                window.parent.postMessage({ type: 'PP_SLOT_HEL_REQUEST' }, '*');
+              } catch (_) {}
+              releaseLeverSpring();
+            }
           } else {
             releaseLeverSpring();
           }
@@ -1193,7 +1233,21 @@
       (err) => {
         console.error(err);
         const msg = String(err?.message || err || '');
-        if (msg.includes('404') || msg.includes('File not found')) {
+        const lower = msg.toLowerCase();
+        const looksMissing =
+          lower.includes('404') ||
+          lower.includes('not found') ||
+          lower.includes('file not found') ||
+          lower.includes('failed to fetch') ||
+          lower.includes('networkerror') ||
+          lower.includes('load failed') ||
+          lower.includes('unexpected token');
+        if (looksMissing && EMBED_PARENT) {
+          statusEl.innerHTML =
+            '<strong>cambler.glb fehlt oder nicht erreichbar.</strong><br>' +
+            'Lege die Datei nach <code>public/pinkpuppets-slot/cambler.glb</code> im Minting-Projekt und starte den Dev-Server neu. ' +
+            'Test: <code>http://localhost:3008/pinkpuppets-slot/cambler.glb</code> muss laden (nicht <code>file://</code> öffnen).';
+        } else if (msg.includes('404') || msg.includes('File not found')) {
           statusEl.innerHTML =
             '<strong>404 — cambler.glb fehlt am Server-Wurzelverzeichnis.</strong><br>' +
             'Der Python-Server muss im <strong>gleichen Ordner</strong> laufen wie <code>slot_machine.html</code> und <code>cambler.glb</code>.<br>' +
@@ -1201,8 +1255,9 @@
             '<code>python -m http.server 5050</code> → dann ' +
             '<code>http://localhost:5050/slot_machine.html</code>';
         } else {
-          statusEl.textContent =
-            'Laden fehlgeschlagen. Seite nur per http://localhost/… öffnen (nicht file://).';
+          statusEl.textContent = EMBED_PARENT
+            ? 'Modell konnte nicht geladen werden. Dev-Server nutzen (z. B. Vite auf :3008), nicht file://. Prüfe ob cambler.glb unter /pinkpuppets-slot/ liegt.'
+            : 'Laden fehlgeschlagen. Seite nur per http://localhost/… öffnen (nicht file://).';
         }
       }
     );

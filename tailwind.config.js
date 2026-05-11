@@ -9,6 +9,15 @@ export default {
       colors: {
         bitcoin: '#f7931a',
       },
+      keyframes: {
+        slotFloat: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+      },
+      animation: {
+        'slot-float': 'slotFloat 6s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
