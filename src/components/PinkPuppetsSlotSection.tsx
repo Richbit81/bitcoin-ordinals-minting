@@ -524,8 +524,29 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       )}
 
       {connected && lastSpin && prizeRevealReady && (
-        <div className="space-y-2 rounded-xl border border-green-400/40 bg-green-950/30 p-3">
-          <p className="text-xs font-bold text-green-100">Result: {lastSpin.displayName}</p>
+        <div
+          className={`space-y-2 rounded-xl border p-3 ${
+            lastSpin.prize === 'pink_pass'
+              ? 'border-green-400/40 bg-green-950/30'
+              : lastSpin.prize === 'pink_block'
+                ? 'border-pink-400/35 bg-black/35'
+                : 'border-white/15 bg-black/40'
+          }`}
+        >
+          <p
+            className={`text-xs font-bold ${
+              lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
+            }`}
+          >
+            Result: {lastSpin.displayName}
+            {lastSpin.prize !== 'pink_pass' && (
+              <span className="mt-1 block font-normal text-pink-200/75">
+                {lastSpin.prize === 'pink_block'
+                  ? 'No PINK Pass prize — ornamental delegate only.'
+                  : 'No win / soft-launch — only Smile until real prizes go live.'}
+              </span>
+            )}
+          </p>
           <img
             src={lastSpin.prizePreviewUrl}
             alt={lastSpin.displayName}

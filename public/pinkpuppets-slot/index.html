@@ -186,7 +186,7 @@
       if (a !== b || b !== c) return '';
       if (a === 0) return 'pink_pass';
       if (a === 1) return 'pink_block';
-      if (a === 2) return 'smile';
+      if (a === 2 || a === 3) return 'smile';
       return '';
     }
 
@@ -1037,35 +1037,38 @@
 
           hideJackpotWinOverlay();
 
-          /** Server-Ergebnis hat Vorrang — nicht nur „drei gleiche“ im GLB (sonst wirkt jedes Triple wie Jackpot). */
-          const apiTier = prizeKind || inferPrizeKindFromTargets(targets);
-
-          if (apiTier === 'pink_pass') {
-            statusEl.innerHTML =
-              '<strong>Jackpot!</strong> PINK Pass — Stop ' +
-              formatStopIndicesDisplay([s0, s1, s2]) +
-              '.';
-            playTripleStopCoins();
-            if (winPrizeImg) {
-              winPrizeImg.src = winImageUrl || WIN_PRIZE_IMAGE_URL;
-            }
-            showJackpotWinOverlay();
-          } else if (apiTier === 'pink_block') {
-            statusEl.innerHTML =
-              '<strong>Pink Block</strong> — kein PINK Pass. Stop ' +
-              formatStopIndicesDisplay([s0, s1, s2]) +
-              '.';
-            playSmallWinChime();
-            if (winPrizeImg) {
-              winPrizeImg.src = winImageUrl || BLOCK_PREVIEW_URL;
-            }
-          } else if (apiTier === 'smile') {
-            statusEl.innerHTML =
-              '<strong>Smile</strong> — <span style="opacity:.85">kein PINK Pass / kein Sondergewinn.</span> Stop ' +
-              formatStopIndicesDisplay([s0, s1, s2]) +
-              '.';
-            if (winPrizeImg) {
-              winPrizeImg.src = winImageUrl || SMILE_PREVIEW_URL;
+          /** richart embed: nur Server-`prize`/`targets` — nie GLB-Triple als Jackpot (Test-Falle). */
+          if (presetTargets) {
+            const tier =
+              prizeKind ||
+              inferPrizeKindFromTargets(targets) ||
+              'smile';
+            if (tier === 'pink_pass') {
+              statusEl.innerHTML =
+                '<strong>PINK Pass</strong> — Gewinn. Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              playTripleStopCoins();
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || WIN_PRIZE_IMAGE_URL;
+              }
+              showJackpotWinOverlay();
+            } else if (tier === 'pink_block') {
+              statusEl.innerHTML =
+                '<strong>Pink Block</strong> — kein PINK Pass (Ornamental). Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || BLOCK_PREVIEW_URL;
+              }
+            } else {
+              statusEl.innerHTML =
+                '<strong>Kein Gewinn</strong> — Smile / Soft-Launch. <span style="opacity:.85">Kein PINK Pass.</span> Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || SMILE_PREVIEW_URL;
+              }
             }
           } else if (tripleIndex) {
             const vis = inferPrizeKindFromTargets(shown);
@@ -1090,7 +1093,7 @@
               }
             } else {
               statusEl.innerHTML =
-                '<strong>Smile</strong> — <span style="opacity:.85">kein PINK Pass.</span> Stop ' +
+                '<strong>Smile</strong> — kein PINK Pass. Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               if (winPrizeImg) {
