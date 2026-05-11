@@ -132,6 +132,23 @@
       document.documentElement.classList.add('pp-slot-embed');
     }
 
+    /** Parent-iframe postMessage: www / apex derselbe Host, sonst kommt kein PP_SLOT_RUN an. */
+    function ppSlotOriginsMatch(origin) {
+      if (origin === window.location.origin) return true;
+      try {
+        const a = new URL(origin);
+        const p = new URL(window.location.href);
+        const strip = (h) => h.replace(/^www\./i, '');
+        return (
+          a.protocol === p.protocol &&
+          strip(a.hostname) === strip(p.hostname) &&
+          a.port === p.port
+        );
+      } catch (e) {
+        return false;
+      }
+    }
+
     /** Hebel: Zug nach unten erhöht leverPull01 (0…1), Loslassen über Schwelle → Spin */
     const LEVER_MAX_PULL_RAD = 1.08;
     const LEVER_SPIN_THRESHOLD_PULL = 0.45;
@@ -1018,11 +1035,43 @@
             !tripleIndex &&
             (s0 === s1 || s1 === s2 || s0 === s2);
 
-          if (tripleIndex) {
-            hideJackpotWinOverlay();
-            if (prizeKind === 'pink_pass') {
+          hideJackpotWinOverlay();
+
+          /** Server-Ergebnis hat Vorrang — nicht nur „drei gleiche“ im GLB (sonst wirkt jedes Triple wie Jackpot). */
+          const apiTier = prizeKind || inferPrizeKindFromTargets(targets);
+
+          if (apiTier === 'pink_pass') {
+            statusEl.innerHTML =
+              '<strong>Jackpot!</strong> PINK Pass — Stop ' +
+              formatStopIndicesDisplay([s0, s1, s2]) +
+              '.';
+            playTripleStopCoins();
+            if (winPrizeImg) {
+              winPrizeImg.src = winImageUrl || WIN_PRIZE_IMAGE_URL;
+            }
+            showJackpotWinOverlay();
+          } else if (apiTier === 'pink_block') {
+            statusEl.innerHTML =
+              '<strong>Pink Block</strong> — kein PINK Pass. Stop ' +
+              formatStopIndicesDisplay([s0, s1, s2]) +
+              '.';
+            playSmallWinChime();
+            if (winPrizeImg) {
+              winPrizeImg.src = winImageUrl || BLOCK_PREVIEW_URL;
+            }
+          } else if (apiTier === 'smile') {
+            statusEl.innerHTML =
+              '<strong>Smile</strong> — <span style="opacity:.85">kein PINK Pass / kein Sondergewinn.</span> Stop ' +
+              formatStopIndicesDisplay([s0, s1, s2]) +
+              '.';
+            if (winPrizeImg) {
+              winPrizeImg.src = winImageUrl || SMILE_PREVIEW_URL;
+            }
+          } else if (tripleIndex) {
+            const vis = inferPrizeKindFromTargets(shown);
+            if (vis === 'pink_pass') {
               statusEl.innerHTML =
-                '<strong>Jackpot!</strong> PINK Pass — drei gleiche Symbole, Stop ' +
+                '<strong>Jackpot!</strong> PINK Pass — Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               playTripleStopCoins();
@@ -1030,9 +1079,9 @@
                 winPrizeImg.src = winImageUrl || WIN_PRIZE_IMAGE_URL;
               }
               showJackpotWinOverlay();
-            } else if (prizeKind === 'pink_block') {
+            } else if (vis === 'pink_block') {
               statusEl.innerHTML =
-                '<strong>Pink Block</strong> — drei gleiche Symbole (kein PINK Pass). Stop ' +
+                '<strong>Pink Block</strong> — kein PINK Pass. Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               playSmallWinChime();
@@ -1041,7 +1090,7 @@
               }
             } else {
               statusEl.innerHTML =
-                '<strong>Smile</strong> — drei gleiche Symbole, <span style="opacity:.85">kein PINK Pass / kein Sondergewinn.</span> Stop ' +
+                '<strong>Smile</strong> — <span style="opacity:.85">kein PINK Pass.</span> Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               if (winPrizeImg) {
@@ -1063,7 +1112,7 @@
     }
 
     window.addEventListener('message', (event) => {
-      if (event.origin !== window.location.origin) return;
+      if (!ppSlotOriginsMatch(event.origin)) return;
       const d = event.data;
       if (!d || d.type !== 'PP_SLOT_RUN') return;
       if (!Array.isArray(d.targets) || d.targets.length !== 3) return;

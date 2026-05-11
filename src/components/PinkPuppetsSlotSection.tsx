@@ -23,6 +23,23 @@ function pinkSlotApiUrl(path: string): string {
   return apiUrl(p);
 }
 
+/** postMessage-Ursprung: www und apex gelten als gleiche Site (sonst blockiert der Parent iframe-Events). */
+function isSameSiteMessageOrigin(origin: string): boolean {
+  if (origin === window.location.origin) return true;
+  try {
+    const a = new URL(origin);
+    const b = new URL(window.location.href);
+    const strip = (h: string) => h.replace(/^www\./i, '');
+    return (
+      a.protocol === b.protocol &&
+      strip(a.hostname) === strip(b.hostname) &&
+      a.port === b.port
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Live countdown target → hh:mm:ss or mm:ss */
 function formatSpinCooldown(ms: number): string {
   if (ms <= 0) return '00:00';
@@ -186,7 +203,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
   useEffect(() => {
     const onAnimDone = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) return;
+      if (!isSameSiteMessageOrigin(ev.origin)) return;
       if (ev.data?.type !== 'PP_SLOT_ANIM_DONE') return;
       const sid = typeof ev.data.spinId === 'string' ? ev.data.spinId : '';
       const cur = lastSpinRef.current;
@@ -289,6 +306,13 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           result.prize || ''
         );
       });
+      if (prizeRevealFallbackTimerRef.current) {
+        clearTimeout(prizeRevealFallbackTimerRef.current);
+      }
+      prizeRevealFallbackTimerRef.current = setTimeout(() => {
+        prizeRevealFallbackTimerRef.current = null;
+        setPrizeRevealReady(true);
+      }, 14000);
       await loadStatus();
       await loadPassPool();
     } catch (e: any) {
@@ -318,6 +342,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       setConnectWalletHint(true);
       return;
     }
+    if (lastSpin.prize !== 'pink_pass') return;
     const receive = resolveReceive();
     if (!receive.startsWith('bc1p')) {
       setMintStatus({
@@ -506,15 +531,25 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             alt={lastSpin.displayName}
             className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
           />
-          <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
-          <button
-            type="button"
-            disabled={minting}
-            onClick={() => void handleMintPrize()}
-            className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
-          >
-            {minting ? 'Minting…' : 'Mint prize (free delegate)'}
-          </button>
+          {lastSpin.prize === 'pink_pass' ? (
+            <>
+              <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
+              <button
+                type="button"
+                disabled={minting}
+                onClick={() => void handleMintPrize()}
+                className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
+              >
+                {minting ? 'Minting…' : 'Mint prize (free delegate)'}
+              </button>
+            </>
+          ) : (
+            <p className="text-[11px] text-pink-200/70">
+              {lastSpin.prize === 'pink_block'
+                ? 'Pink Block — ornamental inscription only (no PINK Pass mint here).'
+                : 'No PINK Pass this spin — preview above is for your result card only.'}
+            </p>
+          )}
           {mintStatus && <MintingProgress status={mintStatus} />}
         </div>
       )}
