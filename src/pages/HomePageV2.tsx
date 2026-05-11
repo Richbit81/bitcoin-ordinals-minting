@@ -548,6 +548,16 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
       {
+        name: 'Pink Puppets Slot',
+        desc: 'On-chain 3D slot machine — complimentary spins for holders. Tap through to Pink Puppets.',
+        src: '/pinkpuppets-slot/index.html?embed=1',
+        route: '/pinkpuppets',
+        isHtml: true,
+        tag: 'SLOT',
+        tagColor: 'bg-fuchsia-600',
+        mintLive: false,
+      },
+      {
         name: 'SIGNAL',
         desc: 'Generative geometric art system. Bauhaus meets cyberpunk — every mint is a unique on-chain composition.',
         src: 'https://ordinals.com/content/71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0',
