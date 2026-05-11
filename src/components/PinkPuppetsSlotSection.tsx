@@ -126,6 +126,10 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     () => typeof window !== 'undefined' ? localStorage.getItem('unisat_taproot_address') || '' : ''
   );
   const [passPool, setPassPool] = useState<PassPoolInfo | null>(null);
+  /** Ergebnis-Text erst nach Ende der Walzen-Animation (iframe → PP_SLOT_ANIM_DONE) */
+  const [spinUiRevealReady, setSpinUiRevealReady] = useState(false);
+  const lastSpinRef = useRef<SpinResult | null>(null);
+  const spinRevealFallbackRef = useRef<number>(0);
 
   const ordinalAddr = getOrdinalAddress(walletState.accounts || []);
   const connected = walletState.connected && !!ordinalAddr;
@@ -203,6 +207,38 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       setLastSpin(null);
     }
   }, [connected]);
+
+  lastSpinRef.current = lastSpin;
+
+  /** Nach neuem Spin: Overlay erst wenn Walzen fertig; Fallback falls postMessage ausbleibt */
+  useEffect(() => {
+    window.clearTimeout(spinRevealFallbackRef.current);
+    if (!lastSpin) {
+      setSpinUiRevealReady(false);
+      return;
+    }
+    setSpinUiRevealReady(false);
+    spinRevealFallbackRef.current = window.setTimeout(() => {
+      setSpinUiRevealReady(true);
+    }, 8500);
+    return () => window.clearTimeout(spinRevealFallbackRef.current);
+  }, [lastSpin?.spinId]);
+
+  useEffect(() => {
+    const onAnimDone = (ev: MessageEvent) => {
+      if (!isSameSiteMessageOrigin(ev.origin)) return;
+      if (ev.data?.type !== 'PP_SLOT_ANIM_DONE') return;
+      const incoming = typeof ev.data.spinId === 'string' ? ev.data.spinId : '';
+      const cur = lastSpinRef.current;
+      if (!cur) return;
+      const expected = String(cur.spinId ?? '');
+      if (incoming !== expected && (incoming || expected)) return;
+      window.clearTimeout(spinRevealFallbackRef.current);
+      setSpinUiRevealReady(true);
+    };
+    window.addEventListener('message', onAnimDone);
+    return () => window.removeEventListener('message', onAnimDone);
+  }, []);
 
   useEffect(() => {
     if (connected && ordinalAddr && walletState.walletType) {
@@ -291,7 +327,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               ? 'Pink Block'
               : 'Smile — no PINK Pass';
       const result: SpinResult = {
-        spinId: data.spinId,
+        spinId: String(data.spinId ?? ''),
         prize,
         targets: Array.isArray(data.targets) ? data.targets : [],
         templateId: data.templateId,
@@ -497,58 +533,43 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         Pull the lever to spin. Three spins per rolling 8h window. Prizes are free delegate mints (you pay fees). Global cap: 15 PINK Passes · one pass per wallet.
       </p>
 
-      {connected && lastSpin && (
+      {connected && lastSpin && spinUiRevealReady && lastSpin.prize !== 'smile' && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
             lastSpin.prize === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
-              : lastSpin.prize === 'smile'
-                ? 'border-white/15 bg-black/40'
-                : 'border-pink-400/35 bg-black/35'
+              : 'border-pink-400/35 bg-black/35'
           }`}
         >
-          {lastSpin.prize === 'smile' ? (
+          <p
+            className={`text-xs font-bold ${
+              lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
+            }`}
+          >
+            Result: {lastSpin.displayName}
+          </p>
+          <img
+            src={lastSpin.prizePreviewUrl}
+            alt={lastSpin.displayName}
+            className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
+          />
+          {lastSpin.prize === 'pink_pass' ? (
             <>
-              <p className="text-sm font-semibold tracking-tight text-pink-50">
-                Sorry — you didn&apos;t win.
-              </p>
-              <p className="text-[11px] leading-relaxed text-pink-200/65">
-                No PINK Pass this spin. Try again when your spins refresh.
-              </p>
-            </>
-          ) : (
-            <>
-              <p
-                className={`text-xs font-bold ${
-                  lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
-                }`}
+              <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
+              <button
+                type="button"
+                disabled={minting}
+                onClick={() => void handleMintPrize()}
+                className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
               >
-                Result: {lastSpin.displayName}
-              </p>
-              <img
-                src={lastSpin.prizePreviewUrl}
-                alt={lastSpin.displayName}
-                className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
-              />
-              {lastSpin.prize === 'pink_pass' ? (
-                <>
-                  <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
-                  <button
-                    type="button"
-                    disabled={minting}
-                    onClick={() => void handleMintPrize()}
-                    className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
-                  >
-                    {minting ? 'Minting…' : 'Mint prize (free delegate)'}
-                  </button>
-                </>
-              ) : lastSpin.prize === 'pink_block' ? (
-                <p className="text-[11px] text-pink-200/70">
-                  Ornamental inscription only — no PINK Pass mint here.
-                </p>
-              ) : null}
+                {minting ? 'Minting…' : 'Mint prize (free delegate)'}
+              </button>
             </>
-          )}
+          ) : lastSpin.prize === 'pink_block' ? (
+            <p className="text-[11px] text-pink-200/70">
+              Ornamental inscription only — no PINK Pass mint here.
+            </p>
+          ) : null}
           {mintStatus && lastSpin.prize === 'pink_pass' && <MintingProgress status={mintStatus} />}
         </div>
       )}
@@ -654,6 +675,32 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               }
               sandbox="allow-scripts allow-same-origin allow-pointer-lock"
             />
+            {slotOpen && connected && lastSpin && spinUiRevealReady && (
+              <div
+                className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-col items-center gap-1 px-4 text-center sm:top-5"
+                role="status"
+                aria-live="polite"
+              >
+                {lastSpin.prize === 'smile' ? (
+                  <>
+                    <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.9)] sm:text-lg">
+                      Sorry — you didn&apos;t win.
+                    </p>
+                    <p className="max-w-[min(100%,20rem)] text-[11px] leading-snug text-pink-100/95 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)] sm:text-xs">
+                      No PINK Pass this spin. Try again when your spins refresh.
+                    </p>
+                  </>
+                ) : lastSpin.prize === 'pink_pass' ? (
+                  <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-green-300 [text-shadow:0_2px_14px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.85)] sm:text-lg">
+                    You won — PINK Pass!
+                  </p>
+                ) : lastSpin.prize === 'pink_block' ? (
+                  <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-pink-100 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
+                    Pink Block — ornamental (no PINK Pass mint)
+                  </p>
+                ) : null}
+              </div>
+            )}
             {!slotOpen && (
               <button
                 type="button"
