@@ -203,9 +203,14 @@ export const UnifiedChatPanel: React.FC = () => {
     return parts.find((p) => p !== user.displayName) || room.name;
   };
 
-  const msgEndRef = React.useRef<HTMLDivElement>(null);
+  /** Nur diesen Bereich scrollen — scrollIntoView auf dem Sentinel scrollt sonst oft die ganze Seite mit. */
+  const chatScrollRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = chatScrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
   }, [messages]);
 
   const showGuestPrompt = !user && isOpenRoom && !guestNameConfirmed;
@@ -249,7 +254,10 @@ export const UnifiedChatPanel: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2">
+      <div
+        ref={chatScrollRef}
+        className="flex-1 min-h-0 overflow-y-auto rounded border border-pink-300/30 bg-black/35 p-2"
+      >
         {messages.length === 0 ? (
           <p className="text-xs text-pink-100/70">
             {activeRoom ? 'No messages yet.' : 'No room selected.'}
@@ -340,7 +348,6 @@ export const UnifiedChatPanel: React.FC = () => {
                 </div>
               );
             })}
-            <div ref={msgEndRef} />
           </div>
         )}
       </div>
