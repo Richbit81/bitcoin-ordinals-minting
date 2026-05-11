@@ -497,44 +497,59 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         Pull the lever to spin. Three spins per rolling 8h window. Prizes are free delegate mints (you pay fees). Global cap: 15 PINK Passes · one pass per wallet.
       </p>
 
-      {connected && lastSpin && lastSpin.prize !== 'smile' && (
+      {connected && lastSpin && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
             lastSpin.prize === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
-              : 'border-pink-400/35 bg-black/35'
+              : lastSpin.prize === 'smile'
+                ? 'border-white/15 bg-black/40'
+                : 'border-pink-400/35 bg-black/35'
           }`}
         >
-          <p
-            className={`text-xs font-bold ${
-              lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
-            }`}
-          >
-            Result: {lastSpin.displayName}
-          </p>
-          <img
-            src={lastSpin.prizePreviewUrl}
-            alt={lastSpin.displayName}
-            className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
-          />
-          {lastSpin.prize === 'pink_pass' ? (
+          {lastSpin.prize === 'smile' ? (
             <>
-              <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
-              <button
-                type="button"
-                disabled={minting}
-                onClick={() => void handleMintPrize()}
-                className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
-              >
-                {minting ? 'Minting…' : 'Mint prize (free delegate)'}
-              </button>
+              <p className="text-sm font-semibold tracking-tight text-pink-50">
+                Sorry — you didn&apos;t win.
+              </p>
+              <p className="text-[11px] leading-relaxed text-pink-200/65">
+                No PINK Pass this spin. Try again when your spins refresh.
+              </p>
             </>
-          ) : lastSpin.prize === 'pink_block' ? (
-            <p className="text-[11px] text-pink-200/70">
-              Ornamental inscription only — no PINK Pass mint here.
-            </p>
-          ) : null}
-          {mintStatus && <MintingProgress status={mintStatus} />}
+          ) : (
+            <>
+              <p
+                className={`text-xs font-bold ${
+                  lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
+                }`}
+              >
+                Result: {lastSpin.displayName}
+              </p>
+              <img
+                src={lastSpin.prizePreviewUrl}
+                alt={lastSpin.displayName}
+                className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
+              />
+              {lastSpin.prize === 'pink_pass' ? (
+                <>
+                  <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
+                  <button
+                    type="button"
+                    disabled={minting}
+                    onClick={() => void handleMintPrize()}
+                    className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
+                  >
+                    {minting ? 'Minting…' : 'Mint prize (free delegate)'}
+                  </button>
+                </>
+              ) : lastSpin.prize === 'pink_block' ? (
+                <p className="text-[11px] text-pink-200/70">
+                  Ornamental inscription only — no PINK Pass mint here.
+                </p>
+              ) : null}
+            </>
+          )}
+          {mintStatus && lastSpin.prize === 'pink_pass' && <MintingProgress status={mintStatus} />}
         </div>
       )}
     </div>

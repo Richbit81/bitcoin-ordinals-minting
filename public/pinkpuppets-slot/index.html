@@ -1045,7 +1045,7 @@
               'smile';
             if (tier === 'pink_pass') {
               statusEl.innerHTML =
-                '<strong>PINK Pass</strong> — Gewinn. Stop ' +
+                '<strong>PINK Pass</strong> — win. Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               playTripleStopCoins();
@@ -1055,7 +1055,7 @@
               showJackpotWinOverlay();
             } else if (tier === 'pink_block') {
               statusEl.innerHTML =
-                '<strong>Pink Block</strong> — kein PINK Pass (Ornamental). Stop ' +
+                '<strong>Pink Block</strong> — no PINK Pass (ornamental). Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               if (winPrizeImg) {
@@ -1063,7 +1063,7 @@
               }
             } else {
               statusEl.innerHTML =
-                '<strong>Kein Gewinn</strong> — Smile / Soft-Launch. <span style="opacity:.85">Kein PINK Pass.</span> Stop ' +
+                '<strong>Sorry — you didn&apos;t win.</strong> <span style="opacity:.85">No PINK Pass this spin.</span> Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               if (winPrizeImg) {
@@ -1084,7 +1084,7 @@
               showJackpotWinOverlay();
             } else if (vis === 'pink_block') {
               statusEl.innerHTML =
-                '<strong>Pink Block</strong> — kein PINK Pass. Stop ' +
+                '<strong>Pink Block</strong> — no PINK Pass. Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               playSmallWinChime();
@@ -1093,7 +1093,7 @@
               }
             } else {
               statusEl.innerHTML =
-                '<strong>Smile</strong> — kein PINK Pass. Stop ' +
+                '<strong>Sorry — you didn&apos;t win.</strong> No PINK Pass. Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
               if (winPrizeImg) {
