@@ -184,15 +184,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     void loadPassPool();
   }, [loadPassPool]);
 
-  /** Beim Öffnen des Slot-Modals: kein altes Ergebnisbild von vorherigen Sessions */
-  const prevSlotOpenRef = useRef(false);
-  useEffect(() => {
-    if (slotOpen && !prevSlotOpenRef.current) {
-      setLastSpin(null);
-      setSpinError(null);
-    }
-    prevSlotOpenRef.current = slotOpen;
-  }, [slotOpen]);
+  const openSlotModal = useCallback(() => {
+    setLastSpin(null);
+    setSpinError(null);
+    setSlotOpen(true);
+  }, []);
 
   useEffect(() => {
     if (slotStatus != null && slotStatus.spinsRemaining > 0) {
@@ -441,7 +437,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       if (ev.data?.type !== 'PP_SLOT_HEL_REQUEST') return;
       if (spinBusyRef.current) return;
       if (!slotOpen) {
-        setSlotOpen(true);
+        openSlotModal();
       }
       if (!connected || !ordinalAddr || !walletState.walletType) {
         setConnectWalletHint(true);
@@ -459,7 +455,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
-  }, [slotOpen, connected, ordinalAddr, walletState.walletType, spinsLeft, slotStatus, performSpin]);
+  }, [slotOpen, connected, ordinalAddr, walletState.walletType, spinsLeft, slotStatus, performSpin, openSlotModal]);
 
   const controlsPanel = (
     <div className="flex w-full max-w-2xl flex-col gap-4 rounded-2xl border border-white/[0.08] bg-black/25 px-1 py-1 text-sm backdrop-blur-sm sm:px-2">
@@ -501,14 +497,12 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         Pull the lever to spin. Three spins per rolling 8h window. Prizes are free delegate mints (you pay fees). Global cap: 15 PINK Passes · one pass per wallet.
       </p>
 
-      {connected && lastSpin && (
+      {connected && lastSpin && lastSpin.prize !== 'smile' && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
             lastSpin.prize === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
-              : lastSpin.prize === 'pink_block'
-                ? 'border-pink-400/35 bg-black/35'
-                : 'border-white/15 bg-black/40'
+              : 'border-pink-400/35 bg-black/35'
           }`}
         >
           <p
@@ -649,7 +643,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <button
                 type="button"
                 className="absolute inset-0 z-10 cursor-pointer rounded-lg bg-transparent"
-                onClick={() => setSlotOpen(true)}
+                onClick={openSlotModal}
                 aria-label="Slot öffnen"
               />
             )}
