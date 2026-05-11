@@ -438,19 +438,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         </div>
       )}
 
-      {connected && slotStatus?.winPauseActive && (
-        <p className="rounded-xl border border-amber-400/35 bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-amber-100/90">
-          Preview mode: slot prizes are disabled
-          {slotStatus.winPauseUntil
-            ? ` until ${new Date(slotStatus.winPauseUntil).toLocaleString(undefined, {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}`
-            : ''}
-          . You can still pull the lever; results are non-prize for now. Your 8h spin limit still applies.
-        </p>
-      )}
-
       {connected && (
         <div className="space-y-1 rounded-xl border border-pink-400/25 bg-black/30 px-3 py-2.5 text-xs">
           <div className="flex justify-between gap-2">
@@ -494,7 +481,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <span className="mt-1 block font-normal text-pink-200/75">
                 {lastSpin.prize === 'pink_block'
                   ? 'No PINK Pass prize — ornamental delegate only.'
-                  : 'No win / soft-launch — only Smile until real prizes go live.'}
+                  : 'No PINK Pass this spin.'}
               </span>
             )}
           </p>
@@ -574,18 +561,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                   </span>{' '}
                   PINK Passes left
                 </p>
-                {passPool?.winPauseActive && (
-                  <p className="text-[10px] text-pink-200/50">
-                    Preview: real prizes off
-                    {passPool.winPauseUntil
-                      ? ` until ${new Date(passPool.winPauseUntil).toLocaleString(undefined, {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}`
-                      : ''}
-                    . Spins still use your quota.
-                  </p>
-                )}
               </div>
               <h2 className="text-balance text-[clamp(2rem,4.5vw,3.35rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
                 <span className="font-normal text-pink-50/95">Spin and win a</span>{' '}
