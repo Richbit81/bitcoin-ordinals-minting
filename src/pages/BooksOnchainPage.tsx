@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
@@ -104,6 +104,30 @@ const BOOK_ITEMS = [
 
 const COLLECTION_NAME = 'Books Onchain';
 
+async function requestFullscreenElement(el: HTMLElement): Promise<void> {
+  const anyEl = el as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+    mozRequestFullScreen?: () => Promise<void> | void;
+    msRequestFullscreen?: () => Promise<void> | void;
+  };
+  if (el.requestFullscreen) await el.requestFullscreen();
+  else if (anyEl.webkitRequestFullscreen) await Promise.resolve(anyEl.webkitRequestFullscreen());
+  else if (anyEl.mozRequestFullScreen) await Promise.resolve(anyEl.mozRequestFullScreen());
+  else if (anyEl.msRequestFullscreen) await Promise.resolve(anyEl.msRequestFullscreen());
+}
+
+async function exitDocumentFullscreen(): Promise<void> {
+  const doc = document as Document & {
+    webkitExitFullscreen?: () => Promise<void> | void;
+    mozCancelFullScreen?: () => Promise<void> | void;
+    msExitFullscreen?: () => Promise<void> | void;
+  };
+  if (document.exitFullscreen) await document.exitFullscreen().catch(() => {});
+  else if (doc.webkitExitFullscreen) await Promise.resolve(doc.webkitExitFullscreen());
+  else if (doc.mozCancelFullScreen) await Promise.resolve(doc.mozCancelFullScreen());
+  else if (doc.msExitFullscreen) await Promise.resolve(doc.msExitFullscreen());
+}
+
 export const BooksOnchainPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
@@ -113,7 +137,51 @@ export const BooksOnchainPage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
+  const [tryFullscreenItemId, setTryFullscreenItemId] = useState<string | null>(null);
+  const fullscreenShellRef = useRef<HTMLDivElement | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+
+  const tryItem = tryFullscreenItemId ? BOOK_ITEMS.find((b) => b.id === tryFullscreenItemId) : null;
+
+  const closeTryFullscreen = useCallback(async () => {
+    await exitDocumentFullscreen().catch(() => {});
+    setTryFullscreenItemId(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!tryFullscreenItemId || !fullscreenShellRef.current) return;
+    const el = fullscreenShellRef.current;
+    void requestFullscreenElement(el).catch(() => {
+      /* still usable windowed if fullscreen denied */
+    });
+  }, [tryFullscreenItemId]);
+
+  useEffect(() => {
+    if (!tryFullscreenItemId) return;
+    const onFsChange = () => {
+      const fsEl =
+        document.fullscreenElement ||
+        (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement ||
+        (document as Document & { mozFullScreenElement?: Element | null }).mozFullScreenElement ||
+        (document as Document & { msFullscreenElement?: Element | null }).msFullscreenElement;
+      if (!fsEl) setTryFullscreenItemId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') void closeTryFullscreen();
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange as EventListener);
+    document.addEventListener('mozfullscreenchange', onFsChange as EventListener);
+    document.addEventListener('MSFullscreenChange', onFsChange as EventListener);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange as EventListener);
+      document.removeEventListener('mozfullscreenchange', onFsChange as EventListener);
+      document.removeEventListener('MSFullscreenChange', onFsChange as EventListener);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [tryFullscreenItemId, closeTryFullscreen]);
 
   const toggleDescription = (itemId: string) => {
     setExpandedDescriptions((prev) => ({
@@ -308,18 +376,59 @@ export const BooksOnchainPage: React.FC = () => {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => handleMint(item)}
-                    disabled={mintingItemId !== null}
-                    className="w-full py-3 rounded-lg font-bold text-sm transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed mt-auto"
-                  >
-                    {isMintingThis ? 'Minting...' : `MINT "${item.name}"`}
-                  </button>
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTryFullscreenItemId(item.id)}
+                      className="py-3 rounded-lg font-bold text-sm transition-all border border-blue-500/50 bg-black/60 text-sky-200 hover:bg-blue-950/60 hover:border-blue-400"
+                    >
+                      Try
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMint(item)}
+                      disabled={mintingItemId !== null}
+                      className="py-3 rounded-lg font-bold text-sm transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed"
+                    >
+                      {isMintingThis ? 'Minting...' : `MINT`}
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {tryItem && (
+          <div
+            ref={fullscreenShellRef}
+            className="fixed inset-0 z-[100] flex flex-col bg-black"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Preview ${tryItem.name}`}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-700 bg-black/95 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{tryItem.name}</p>
+                <p className="truncate text-xs text-gray-400">{tryItem.author}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void closeTryFullscreen()}
+                className="shrink-0 rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+              >
+                Close
+              </button>
+            </div>
+            <iframe
+              src={`https://ordinals.com/content/${tryItem.inscriptionId}`}
+              title={`${tryItem.name} full screen`}
+              className="min-h-0 flex-1 w-full border-0 bg-black"
+              sandbox="allow-scripts allow-same-origin"
+              allow="fullscreen"
+            />
+          </div>
+        )}
 
         {showWalletConnect && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
