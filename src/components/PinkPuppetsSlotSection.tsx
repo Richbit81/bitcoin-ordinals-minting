@@ -477,13 +477,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             }`}
           >
             Result: {lastSpin.displayName}
-            {lastSpin.prize !== 'pink_pass' && (
-              <span className="mt-1 block font-normal text-pink-200/75">
-                {lastSpin.prize === 'pink_block'
-                  ? 'No PINK Pass prize — ornamental delegate only.'
-                  : 'No PINK Pass this spin.'}
-              </span>
-            )}
           </p>
           <img
             src={lastSpin.prizePreviewUrl}
@@ -502,13 +495,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 {minting ? 'Minting…' : 'Mint prize (free delegate)'}
               </button>
             </>
-          ) : (
+          ) : lastSpin.prize === 'pink_block' ? (
             <p className="text-[11px] text-pink-200/70">
-              {lastSpin.prize === 'pink_block'
-                ? 'Pink Block — ornamental inscription only (no PINK Pass mint here).'
-                : 'No PINK Pass this spin — preview above is for your result card only.'}
+              Ornamental inscription only — no PINK Pass mint here.
             </p>
-          )}
+          ) : null}
           {mintStatus && <MintingProgress status={mintStatus} />}
         </div>
       )}
