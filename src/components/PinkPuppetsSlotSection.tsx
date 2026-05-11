@@ -29,6 +29,22 @@ function pinkSlotApiUrl(path: string): string {
   return apiUrl(p);
 }
 
+function isSameSiteMessageOrigin(origin: string): boolean {
+  if (origin === window.location.origin) return true;
+  try {
+    const a = new URL(origin);
+    const b = new URL(window.location.href);
+    const strip = (h: string) => h.replace(/^www\./i, '');
+    return (
+      a.protocol === b.protocol &&
+      strip(a.hostname) === strip(b.hostname) &&
+      a.port === b.port
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Live countdown target → hh:mm:ss or mm:ss */
 function formatSpinCooldown(ms: number): string {
   if (ms <= 0) return '00:00';
@@ -167,6 +183,30 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   useEffect(() => {
     void loadPassPool();
   }, [loadPassPool]);
+
+  /** Beim Öffnen des Slot-Modals: kein altes Ergebnisbild von vorherigen Sessions */
+  const prevSlotOpenRef = useRef(false);
+  useEffect(() => {
+    if (slotOpen && !prevSlotOpenRef.current) {
+      setLastSpin(null);
+      setSpinError(null);
+    }
+    prevSlotOpenRef.current = slotOpen;
+  }, [slotOpen]);
+
+  useEffect(() => {
+    if (slotStatus != null && slotStatus.spinsRemaining > 0) {
+      setSpinError((msg) =>
+        msg === 'No spins left in this window.' ? null : msg
+      );
+    }
+  }, [slotStatus?.spinsRemaining]);
+
+  useEffect(() => {
+    if (!connected) {
+      setLastSpin(null);
+    }
+  }, [connected]);
 
   useEffect(() => {
     if (connected && ordinalAddr && walletState.walletType) {
@@ -397,7 +437,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) return;
+      if (!isSameSiteMessageOrigin(ev.origin)) return;
       if (ev.data?.type !== 'PP_SLOT_HEL_REQUEST') return;
       if (spinBusyRef.current) return;
       if (!slotOpen) {
