@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jackpot Slot Machine (GLB)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; background: #0f1218; color: #e8eaef; }
+    #info {
+      position: fixed; left: 12px; bottom: 12px; max-width: min(420px, 92vw);
+      padding: 10px 14px; background: rgba(15,18,24,.82); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px; font-size: 13px; line-height: 1.45;
+    }
+    #info code { font-size: 12px; color: #9ecbff; }
+    #spin {
+      position: fixed; right: 14px; bottom: 14px;
+      padding: 12px 20px; font-size: 15px; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer;
+      background: linear-gradient(180deg, #ff9f1c, #e85d04); color: #1a0f05;
+      box-shadow: 0 4px 14px rgba(232, 93, 4, .45);
+    }
+    #spin:active { transform: translateY(1px); }
+    #spin:disabled { opacity: .45; cursor: not-allowed; }
+    #status { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); font-size: 14px; opacity: .9; text-align: center; max-width: 92vw; z-index: 6; }
+    canvas { display: block; }
+    canvas.lever-grab { cursor: grab; }
+    canvas.lever-drag { cursor: grabbing; }
+    #fx-canvas {
+      position: fixed; inset: 0; pointer-events: none; z-index: 4;
+    }
+
+    /* Gewinn-Bild-Overlay: nur Bild + Weiter, ohne Rahmen */
+    .win-overlay {
+      position: fixed; inset: 0; z-index: 48;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      pointer-events: none; opacity: 0; visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s;
+    }
+    .win-overlay.is-visible {
+      pointer-events: auto; opacity: 1; visibility: visible;
+    }
+    .win-overlay-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(8, 10, 18, 0.82);
+      backdrop-filter: blur(6px);
+    }
+    .win-card-wrap {
+      position: relative; z-index: 1;
+      max-width: min(440px, 94vw);
+    }
+    .win-card {
+      transform: scale(0.92);
+      opacity: 0;
+      transition: transform 0.45s cubic-bezier(0.22, 1.12, 0.36, 1), opacity 0.35s ease;
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
+      box-shadow: none;
+    }
+    .win-overlay.is-visible .win-card {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .win-card img {
+      display: block; width: 100%; height: auto;
+      border-radius: 0;
+      box-shadow: none;
+      vertical-align: top;
+    }
+    .win-dismiss {
+      display: block; width: 100%; margin-top: 14px;
+      padding: 11px 18px;
+      font-size: 15px; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer;
+      background: linear-gradient(180deg, #ffd75c, #e85d04);
+      color: #1a1005;
+      box-shadow: 0 4px 18px rgba(232, 93, 4, 0.45);
+    }
+    .win-dismiss:hover { filter: brightness(1.06); }
+    .win-dismiss:active { transform: translateY(1px); }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="status">Lade Modell …</div>
+  <div id="info">
+    <strong>Bedienung:</strong> Start = <strong>Frontalansicht</strong>, Kamera nur ca. <strong>±5°</strong> neigbar. <strong>Hebel</strong> nach vorne ziehen, loslassen zum Drehen. Leichte <strong>Schwebe</strong>. Vorderseite verkehrt? Im Skript <code>FRONT_VIEW_Z_SIGN</code> auf <code>-1</code> setzen.  
+    Modell <code>cambler.glb</code>: Walzen <code>rund1</code>–<code>rund3</code>, Hebel <code>hebel</code>. Wo die GLB schon Texturen hat, bleiben sie; nur <strong>untextierte</strong> Walzenflächen bekommen optional den Symbol-Streifen. Stop 1…4 = <strong>relativ zur Kalibrierung nach Laden</strong> (Offset/Segment); je 90° ein Feld (Achse <code>REEL_SPIN_AXIS</code>). Seite per <code>http://localhost/…</code> öffnen.
+  </div>
+  <button id="spin" type="button" disabled>Spin</button>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+  <div id="win-overlay" class="win-overlay" aria-hidden="true">
+    <div class="win-overlay-backdrop" id="win-overlay-backdrop"></div>
+    <div class="win-card-wrap">
+      <div class="win-card">
+        <img id="win-prize-img" src="" alt="Gewinn" width="800" height="600" />
+        <button type="button" class="win-dismiss" id="win-dismiss">Weiter</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    const MODEL_URL = '/pinkpuppets-slot/cambler.glb';
+    const urlParams = new URLSearchParams(location.search);
+    /** Parent page triggers spins via postMessage (wallet/API); disable local random spins */
+    const EMBED_PARENT = urlParams.get('embed') === '1';
+
+    /** Hebel: Zug nach unten erhöht leverPull01 (0…1), Loslassen über Schwelle → Spin */
+    const LEVER_MAX_PULL_RAD = 1.08;
+    const LEVER_SPIN_THRESHOLD_PULL = 0.45;
+    const LEVER_DRAG_SENS = 0.0025;
+
+    /** Kamera: nur ± diesen Winkel [Grad] um die Start-Frontansicht */
+    const ORBIT_LIMIT_DEG = 5;
+    /** +1: Kamera von +Z; −1: von −Z, falls die GLB-Front anders herum exportiert ist */
+    const FRONT_VIEW_Z_SIGN = 1;
+
+    /** Leichte Gehäuse-Neigung nur bei Hebelzug (Welt-Rotation der machineRig-Gruppe) */
+    const RIG_TILT_X = THREE.MathUtils.degToRad(2.8);
+    const RIG_TILT_Z = THREE.MathUtils.degToRad(1.0);
+
+    /** Schwebe-Bewegung: Amplitude = Modellgröße × Faktor (sehr subtil) */
+    const RIG_FLOAT_AMP_FACTOR = 0.012;
+
+    /** Sterne + Overlay bei drei gleichen — zusätzlich zum Gewinn-Overlay */
+    const ENABLE_FALLING_STARS_ON_TRIPLE_INDEX = true;
+
+    /**
+     * Nur Test: jeder Spin endet mit drei gleichen Symbolen (Jackpot-Flow inkl. Gewinn-Karte).
+     * Für Produktion auf false setzen.
+     */
+    const FORCE_TRIPLE_WIN_FOR_TEST = false;
+
+    /** Fallback wenn kein preview URL vom Parent */
+    const WIN_PRIZE_IMAGE_URL = 'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0';
+
+    /** true: Konsolen-Vergleich aller Walzen — produktiv aus */
+    const DEBUG_REEL_COMPARE_LOG = false;
+
+    /** Walzen drehen sich um eine Achse; bei falscher Richtung: 'x', 'y' oder 'z' probieren */
+    const REEL_SPIN_AXIS = 'x';
+
+    /**
+     * Dreht die gesamte Walze um diesen Winkel [Grad], damit die Symbole zur Front/Sichtfenster passen.
+     * Gegen den Uhrzeigersinn: negativen Wert setzen (z. B. −5).
+     */
+    const REEL_IMAGE_OFFSET_DEG = -10;
+
+    /**
+     * Falls eine Walze im GLB eine andere UV-/Mesh-Lage hat (ein Symbol „versetzt“): je Walze ±0…3
+     * ganze Symbole drehen, bis Bild und Index zusammenpassen.
+     */
+    const REEL_SEGMENT_OFFSET_STEPS = [0, 0, 0];
+
+    const PI2 = Math.PI * 2;
+    /** 90° pro Symbol am Walzen-Rotationswinkel (REEL_SPIN_AXIS). 0°→Stop 1 … 270°→Stop 4. */
+    const STEP = Math.PI / 2;
+
+    function phaseMod(a) {
+      return ((a % PI2) + PI2) % PI2;
+    }
+
+    /** Stop-Anzeige wie „111“ → Indizes 1…4 statt 0…3 */
+    const DISPLAY_STOP_INDEX_ONE_BASED = true;
+
+    function formatStopIndicesDisplay(zeroBasedIndices) {
+      return zeroBasedIndices
+        .map((v) => (DISPLAY_STOP_INDEX_ONE_BASED ? v + 1 : v))
+        .join(' · ');
+    }
+
+    function addReelSpin(reel, delta) {
+      if (REEL_SPIN_AXIS === 'y') reel.rotation.y += delta;
+      else if (REEL_SPIN_AXIS === 'z') reel.rotation.z += delta;
+      else reel.rotation.x += delta;
+    }
+
+    function getReelSpin(reel) {
+      if (REEL_SPIN_AXIS === 'y') return reel.rotation.y;
+      if (REEL_SPIN_AXIS === 'z') return reel.rotation.z;
+      return reel.rotation.x;
+    }
+
+    function setReelSpin(reel, value) {
+      if (REEL_SPIN_AXIS === 'y') reel.rotation.y = value;
+      else if (REEL_SPIN_AXIS === 'z') reel.rotation.z = value;
+      else reel.rotation.x = value;
+    }
+
+    /**
+     * GLB-Walzen haben oft unterschiedliche Restwinkel (mod 90°). Dadurch passten Indizes z. B. 2·2·2
+     * nicht zu drei gleichen Bildern. Alle Walzen an Walze 0 angleichen (gleiche Periodenlage).
+     */
+    function alignReelPhasesToReference(refIndex = 0) {
+      if (reelSpinNodes.length < 2) return;
+      const ref = reelSpinNodes[refIndex];
+      const refSpin = getReelSpin(ref);
+      const refPhase = ((refSpin % STEP) + STEP) % STEP;
+      reelSpinNodes.forEach((node, i) => {
+        if (i === refIndex) return;
+        const s = getReelSpin(node);
+        const phase = ((s % STEP) + STEP) % STEP;
+        let delta = refPhase - phase;
+        while (delta > STEP / 2) delta -= STEP;
+        while (delta < -STEP / 2) delta += STEP;
+        addReelSpin(node, delta);
+      });
+    }
+
+    /** Erstes Mesh mit Textur, sonst erstes Mesh — dort sitzt die UV; Parent leer drehen. */
+    function resolveReelSpinNode(reel) {
+      let withMap = null;
+      let anyMesh = null;
+      reel.traverse((o) => {
+        if (!o.isMesh) return;
+        if (!anyMesh) anyMesh = o;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        if (mats.some((m) => m && m.map)) withMap = o;
+      });
+      return withMap || anyMesh || reel;
+    }
+
+    /** Walzen-Drehung nur auf einem Knoten; bisherige Parent-Rotation auf diesen Knoten legen. */
+    function mergeParentSpinIntoSpinNode(reel, spinNode) {
+      if (spinNode === reel) return;
+      const parentRad =
+        REEL_SPIN_AXIS === 'y'
+          ? reel.rotation.y
+          : REEL_SPIN_AXIS === 'z'
+            ? reel.rotation.z
+            : reel.rotation.x;
+      addReelSpin(spinNode, parentRad);
+      if (REEL_SPIN_AXIS === 'y') reel.rotation.y = 0;
+      else if (REEL_SPIN_AXIS === 'z') reel.rotation.z = 0;
+      else reel.rotation.x = 0;
+    }
+
+    /**
+     * Zielphase = Kalibrierung nach Laden + Symbol × 90° (nicht roh 0/90/180/270 — sonst wird Offset verworfen).
+     * Danach Winkel auf [0, 2π) setzen → weniger Euler-/Float-Drift bei vielen Spins.
+     */
+    function snapSpinNodeToTargetIdx(spinNode, reelIdx, targetIdx0to3) {
+      if (reelBasePhase[reelIdx] === undefined) return;
+      const want = phaseMod(reelBasePhase[reelIdx] + targetIdx0to3 * STEP);
+      const cur = getReelSpin(spinNode);
+      const n = Math.round((cur - want) / PI2);
+      setReelSpin(spinNode, want + n * PI2);
+      const normalized = phaseMod(getReelSpin(spinNode));
+      setReelSpin(spinNode, normalized);
+    }
+
+    /**
+     * Vergleicht alle Walzen: Parent vs Spin-Knoten, Grad mod 360, Ziel vs berechneter Stop.
+     */
+    function logReelDebug(tag, payload = {}) {
+      if (!DEBUG_REEL_COMPARE_LOG || reels.length === 0) return;
+      const { targets, tweens } = payload;
+      const rows = reels.map((reel, i) => {
+        const node = reelSpinNodes[i];
+        const spinRad = node ? getReelSpin(node) : NaN;
+        const phase = Number.isFinite(spinRad) ? phaseMod(spinRad) : NaN;
+        const spinDeg = Number.isFinite(phase) ? THREE.MathUtils.radToDeg(phase) : NaN;
+        const relPhase =
+          Number.isFinite(phase) && reelBasePhase[i] !== undefined
+            ? phaseMod(phase - reelBasePhase[i])
+            : NaN;
+        const idxComputed = Number.isFinite(relPhase)
+          ? Math.min(3, Math.floor(relPhase / STEP + 1e-10))
+          : -1;
+        const parentRad = reel
+          ? REEL_SPIN_AXIS === 'y'
+            ? reel.rotation.y
+            : REEL_SPIN_AXIS === 'z'
+              ? reel.rotation.z
+              : reel.rotation.x
+          : NaN;
+        const row = {
+          Walze: i + 1,
+          Achse: REEL_SPIN_AXIS,
+          parent_name: reel?.name || '—',
+          spinMesh_name: node?.name || '—',
+          parent_deg_achse: Number.isFinite(parentRad)
+            ? Number(THREE.MathUtils.radToDeg(parentRad).toFixed(2))
+            : '—',
+          spin_deg_mod360: Number.isFinite(spinDeg) ? Number(spinDeg.toFixed(2)) : '—',
+          rel_zu_base_deg: Number.isFinite(relPhase)
+            ? Number(THREE.MathUtils.radToDeg(relPhase).toFixed(2))
+            : '—',
+          stop_berechnet_0_3: idxComputed,
+          UI_1_4: DISPLAY_STOP_INDEX_ONE_BASED ? idxComputed + 1 : idxComputed,
+        };
+        if (targets != null && targets[i] !== undefined && reelBasePhase[i] !== undefined) {
+          row.ziel_random_0_3 = targets[i];
+          row.ziel_UI_1_4 = DISPLAY_STOP_INDEX_ONE_BASED ? targets[i] + 1 : targets[i];
+          row.target_vs_stop_ok = targets[i] === idxComputed;
+          row.erwartet_deg_mod360 = Number(
+            THREE.MathUtils.radToDeg(
+              phaseMod(reelBasePhase[i] + targets[i] * STEP)
+            ).toFixed(2)
+          );
+        }
+        return row;
+      });
+
+      console.groupCollapsed(`[Walzen] ${tag}`);
+      console.table(rows);
+      console.log('STEP', THREE.MathUtils.radToDeg(STEP), '° / Raster 0°→Stop1 … 270°→Stop4');
+      if (targets != null) {
+        const computed = rows.map((r) => r.stop_berechnet_0_3);
+        const ok = targets.every((t, i) => t === computed[i]);
+        if (ok) console.log('[Walzen] Ziel (targets) === berechneter Stop ✓');
+        else
+          console.warn('[Walzen] ABWEICHUNG targets vs. Drehwinkel', {
+            targets,
+            stop_berechnet_0_3: computed,
+          });
+      }
+      if (tweens && targets) {
+        console.table(
+          tweens.map((tw, i) => ({
+            Walze: i + 1,
+            ziel_0_3: targets[i],
+            start_deg_mod360: Number(THREE.MathUtils.radToDeg(phaseMod(tw.start)).toFixed(2)),
+            end_deg_gesamt: Number(THREE.MathUtils.radToDeg(tw.end).toFixed(2)),
+            end_deg_mod360: Number(THREE.MathUtils.radToDeg(phaseMod(tw.end)).toFixed(2)),
+            soll_ende_deg_mod360:
+              reelBasePhase[i] !== undefined
+                ? Number(
+                    THREE.MathUtils.radToDeg(
+                      phaseMod(reelBasePhase[i] + targets[i] * STEP)
+                    ).toFixed(2)
+                  )
+                : '—',
+          }))
+        );
+      }
+      console.groupEnd();
+    }
+
+    const statusEl = document.getElementById('status');
+    const spinBtn = document.getElementById('spin');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1f2e);
+
+    const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 500);
+    camera.position.set(1.8, 0.85, 2.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.88;
+    document.body.insertBefore(renderer.domElement, document.body.firstChild);
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const roomEnv = new RoomEnvironment();
+    scene.environment = pmremGenerator.fromScene(roomEnv, 0.026).texture;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.088;
+    controls.rotateSpeed = 0.48;
+    controls.zoomSpeed = 0.65;
+    controls.enablePan = false;
+    controls.target.set(0, 0.35, 0);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x334466, 0.42));
+    const key = new THREE.DirectionalLight(0xffffff, 0.78);
+    key.position.set(4, 8, 6);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xaabbff, 0.22);
+    fill.position.set(-5, 2, -4);
+    scene.add(fill);
+
+    function findFirstByNames(root, names) {
+      const lower = names.map((n) => n.toLowerCase());
+      let found = null;
+      root.traverse((o) => {
+        if (found || !o.name) return;
+        if (lower.includes(o.name.toLowerCase())) found = o;
+      });
+      return found;
+    }
+
+    /** Alle Objekte, deren Name „Cylinder“ enthält (Groß/Klein). */
+    function findCylinderNodes(root) {
+      root.updateMatrixWorld(true);
+      const out = [];
+      root.traverse((o) => {
+        if (o.name && /cylinder/i.test(o.name)) out.push(o);
+      });
+      return out;
+    }
+
+    function pickLeverFromCylinders(cyls) {
+      if (cyls.length === 0) return null;
+      const p = new THREE.Vector3();
+      let best = null;
+      let bestAbs = Infinity;
+      for (const o of cyls) {
+        o.getWorldPosition(p);
+        const ax = Math.abs(p.x);
+        if (ax < bestAbs) {
+          bestAbs = ax;
+          best = o;
+        }
+      }
+      return best;
+    }
+
+    /**
+     * Hebel + Walzen zuverlässig finden (auch wenn Namen von Blender/Sketchfab abweichen).
+     * Vier Zylinder: oft Hebel nahe X≈0, drei Walzen seitlich — sonst Namen 008 / hebel.
+     */
+    function resolveLeverAndReels(root) {
+      const cyls = findCylinderNodes(root);
+      let lever =
+        findFirstByNames(root, ['hebel', 'Hebel', 'lever', 'Lever', 'Cylinder.008_19']) ||
+        cyls.find((o) => /(^|\.)(008)(_|$)|hebel|lever/i.test(o.name)) ||
+        null;
+
+      let reelCand = lever ? cyls.filter((o) => o !== lever) : cyls.slice();
+
+      if (reelCand.length > 3 && !lever) {
+        lever = pickLeverFromCylinders(cyls);
+        reelCand = lever ? cyls.filter((o) => o !== lever) : cyls.slice();
+      }
+
+      const p = new THREE.Vector3();
+      const q = new THREE.Vector3();
+      reelCand.sort((a, b) => {
+        a.getWorldPosition(p);
+        b.getWorldPosition(q);
+        return p.x - q.x;
+      });
+
+      const reelsArr = reelCand.slice(0, 3);
+      return { lever, reels: reelsArr, cylinderCount: cyls.length };
+    }
+
+    /** GLB hat keine Texturen; 4 Felder nebeneinander (passend zu UV-Inseln der Trommeln). */
+    function makeSymbolAtlas() {
+      const w = 1024;
+      const h = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const qw = w / 4;
+      const bg = ['#8e1538', '#b8860b', '#1565a8', '#256f2e'];
+      const labels = ['BAR', '777', 'WIN', '$$'];
+      ctx.imageSmoothingEnabled = true;
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = bg[i];
+        ctx.fillRect(i * qw, 0, qw, h);
+        ctx.strokeStyle = 'rgba(0,0,0,.35)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(i * qw + 2, 2, qw - 4, h - 4);
+        ctx.fillStyle = '#0a0a0a';
+        ctx.font = 'bold 96px Arial, Helvetica, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labels[i], i * qw + qw / 2, h / 2 + 4);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.flipY = true;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    /**
+     * Nur Meshes ohne eigene Textur (sonst würden echte GLB-Symbole überschrieben).
+     * PBR+HDR kann „White“ flau wirken — Basic nur dort.
+     */
+    function applySymbolsToReel(reelRoot, atlas, renderer) {
+      const maxA = renderer.capabilities.getMaxAnisotropy();
+      atlas.anisotropy = maxA;
+      reelRoot.traverse((child) => {
+        if (!child.isMesh || !child.material) return;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        const next = mats.map((mat) => {
+          if (!mat) return mat;
+          if (mat.map) return mat;
+          const m = new THREE.MeshBasicMaterial({
+            map: atlas,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+          });
+          m.map.colorSpace = THREE.SRGBColorSpace;
+          return m;
+        });
+        child.material = next.length === 1 ? next[0] : next;
+      });
+    }
+
+    let leverObject = null;
+    /** Gesamtes GLB; nur minimale Rotation beim Hebelzug */
+    let machineRig = null;
+    /** Ruheposition der Rig (Schwebe addiert sich darauf) */
+    const rigBasePos = new THREE.Vector3();
+    /** Schweben-Amplitude [Einheiten], nach Laden aus maxDim gesetzt */
+    let rigFloatAmp = 0;
+    const reels = [];
+    /** Objekt, an dem wirklich gedreht wird (meist Zylinder-Mesh mit UV — nicht leerer Parent). */
+    let reelSpinNodes = [];
+
+    /** Phase direkt nach Kalibrierung (Offset + Raster); Stop = relativ dazu: mod360(angle − base) / 90° */
+    let reelBasePhase = [];
+
+    /** Relativ zu reelBasePhase: welches der 4 Felder (0…3) → Anzeige 1…4 */
+    function stopIndexFromReelSlot(i) {
+      const node = reelSpinNodes[i];
+      if (!node || reelBasePhase[i] === undefined) return 0;
+      const rel = phaseMod(getReelSpin(node) - reelBasePhase[i]);
+      return Math.min(3, Math.floor(rel / STEP + 1e-10));
+    }
+
+    /** Ruhestellung Hebel (rotation.x nach Laden) */
+    let leverRestX = 0;
+    /** 0 = Ruhe, 1 = maximal gezogen */
+    let leverPull01 = 0;
+    let leverDragging = false;
+    let lastDragY = 0;
+    let leverHover = false;
+
+    let spinning = false;
+
+    function applyMachineRigSway() {
+      if (!machineRig) return;
+      const w = leverPull01 * leverPull01;
+      machineRig.rotation.x = w * RIG_TILT_X;
+      machineRig.rotation.z = Math.sin(leverPull01 * Math.PI * 0.5) * RIG_TILT_Z;
+      machineRig.rotation.y = 0;
+    }
+
+    function resetMachineRig() {
+      if (!machineRig) return;
+      machineRig.rotation.set(0, 0, 0);
+    }
+
+    /** Leichte Idle-Schwebe (Position), gedämpft während Hebelzug */
+    function updateMachineRigFloat(tSec) {
+      if (!machineRig || rigFloatAmp <= 0) return;
+      const damp = 1 - leverPull01 * 0.55;
+      const a = rigFloatAmp * damp;
+      machineRig.position.x = rigBasePos.x + Math.sin(tSec * 0.74 + 0.35) * a * 0.45;
+      machineRig.position.y = rigBasePos.y + Math.sin(tSec * 0.91) * a;
+      machineRig.position.z = rigBasePos.z + Math.cos(tSec * 0.56 + 1.05) * a * 0.4;
+    }
+
+    function applyLeverPull01() {
+      if (!leverObject) return;
+      leverPull01 = Math.max(0, Math.min(1, leverPull01));
+      leverObject.rotation.x = leverRestX + leverPull01 * LEVER_MAX_PULL_RAD;
+      applyMachineRigSway();
+    }
+
+    /** Schnappschuss zurück zur Ruhe (nach Loslassen oder wenn Spin per Drag ausgelöst) */
+    function releaseLeverSpring(duration = 320) {
+      if (!leverObject) return Promise.resolve();
+      const start = performance.now();
+      const from = leverObject.rotation.x;
+      const to = leverRestX;
+      return new Promise((resolve) => {
+        function tick(now) {
+          const t = Math.min(1, (now - start) / duration);
+          const e = 1 - Math.pow(1 - t, 3);
+          leverObject.rotation.x = from + (to - from) * e;
+          leverPull01 =
+            Math.max(0, Math.min(1, (leverObject.rotation.x - leverRestX) / LEVER_MAX_PULL_RAD));
+          applyMachineRigSway();
+          if (t < 1) requestAnimationFrame(tick);
+          else {
+            leverObject.rotation.x = leverRestX;
+            leverPull01 = 0;
+            resetMachineRig();
+            resolve();
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    /** Kurze Automatik-Animation für Spin-Button (nicht beim manuellen Ziehen) */
+    function pullLeverAnimation() {
+      if (!leverObject) return Promise.resolve();
+      const duration = 420;
+      const pullAngle = Math.min(0.85, LEVER_MAX_PULL_RAD * 0.78);
+      const start = performance.now();
+      const r0 = leverRestX;
+      return new Promise((resolve) => {
+        function tick(now) {
+          const t = Math.min(1, (now - start) / duration);
+          const ease = t < 0.5
+            ? 4 * t * t * t
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          const phase = t < 0.45 ? t / 0.45 : (t - 0.45) / 0.55;
+          const ang = t < 0.45 ? pullAngle * (phase * phase) : pullAngle * (1 - phase);
+          leverObject.rotation.x = r0 + ang;
+          leverPull01 =
+            Math.max(0, Math.min(1, (leverObject.rotation.x - leverRestX) / LEVER_MAX_PULL_RAD));
+          applyMachineRigSway();
+          if (t < 1) requestAnimationFrame(tick);
+          else {
+            leverObject.rotation.x = leverRestX;
+            leverPull01 = 0;
+            resetMachineRig();
+            resolve();
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    /* ----- Web Audio (prozedural, keine MP3-Dateien) + Gewinn-FX ----- */
+    let audioCtx = null;
+
+    function ensureAudio() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    document.body.addEventListener(
+      'click',
+      () => {
+        ensureAudio();
+      },
+      { once: true }
+    );
+
+    function tone(freq, dur, vol = 0.06, type = 'square', when = 0) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const t0 = ctx.currentTime + when;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(vol, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.04);
+    }
+
+    function noiseBurst(duration, vol = 0.07, freq = 900) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const n = Math.floor(ctx.sampleRate * duration);
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.value = vol;
+      src.connect(f);
+      f.connect(g);
+      g.connect(ctx.destination);
+      const t0 = ctx.currentTime;
+      src.start(t0);
+      src.stop(t0 + duration);
+    }
+
+    /** Motor/Wicklung + metallischer „Arm“ (Casino-Nähklang) */
+    function playSpinStartWhoosh() {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const motor = ctx.createOscillator();
+      const mg = ctx.createGain();
+      motor.type = 'sawtooth';
+      motor.frequency.setValueAtTime(62, t0);
+      motor.frequency.exponentialRampToValueAtTime(95, t0 + 0.12);
+      mg.gain.setValueAtTime(0, t0);
+      mg.gain.linearRampToValueAtTime(0.035, t0 + 0.03);
+      mg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+      motor.connect(mg);
+      mg.connect(ctx.destination);
+      motor.start(t0);
+      motor.stop(t0 + 0.24);
+      noiseBurst(0.07, 0.048, 2400);
+      noiseBurst(0.03, 0.055, 650);
+    }
+
+    /** Ratschen-Klack wie Metall-Zähnchen */
+    function playReelSpinTick() {
+      noiseBurst(0.014, 0.038, 2650);
+      tone(2100, 0.022, 0.025, 'square', 0);
+    }
+
+    /** Walze klemmt ein: tiefer Dumpf + kurzes Metall-Klack */
+    function playReelStopClack(slotIndex) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const base = 115 + slotIndex * 38;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(base + 120, t0);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.65, t0 + 0.07);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.085, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.14);
+      noiseBurst(0.045, 0.052, 520 + slotIndex * 90);
+    }
+
+    /** „Auszahlung“: kurze Münz-Kaskade (kein Musik-Arpeggio) */
+    function playTripleStopCoins() {
+      for (let i = 0; i < 14; i++) {
+        const hi = 780 + Math.random() * 520;
+        const t = i * 0.038 + Math.random() * 0.015;
+        tone(hi, 0.05 + Math.random() * 0.03, 0.045, 'sine', t);
+      }
+      setTimeout(() => noiseBurst(0.12, 0.045, 1600), 420);
+    }
+
+    /** Kleiner Treffer: eine Glocke */
+    function playSmallWinChime() {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, t0);
+      osc.frequency.exponentialRampToValueAtTime(523, t0 + 0.18);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.055, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.38);
+    }
+
+    /** Hebel: Feder + kurzes Metall-Schaben */
+    function playLeverGrab() {
+      noiseBurst(0.045, 0.065, 420);
+      noiseBurst(0.028, 0.04, 1800);
+      tone(72, 0.09, 0.038, 'triangle', 0);
+    }
+
+    const fxCanvas = document.getElementById('fx-canvas');
+    let fxStars = [];
+    let fxUntil = 0;
+    let fxRaf = 0;
+
+    function resizeFxCanvas() {
+      if (!fxCanvas) return;
+      fxCanvas.width = innerWidth;
+      fxCanvas.height = innerHeight;
+    }
+
+    function runWinStarsFx(durationMs = 4000) {
+      if (!fxCanvas) return;
+      if (fxRaf) cancelAnimationFrame(fxRaf);
+      resizeFxCanvas();
+      const ctx2 = fxCanvas.getContext('2d');
+      const n = 72;
+      fxStars = [];
+      for (let i = 0; i < n; i++) {
+        fxStars.push({
+          x: Math.random() * fxCanvas.width,
+          y: -30 - Math.random() * 120,
+          vy: 2.2 + Math.random() * 5,
+          vx: (Math.random() - 0.5) * 1.2,
+          rot: Math.random() * Math.PI * 2,
+          vr: (Math.random() - 0.5) * 0.12,
+          size: 10 + Math.random() * 18,
+          hue: 42 + Math.random() * 36,
+          flash: Math.random() > 0.65,
+        });
+      }
+      fxUntil = performance.now() + durationMs;
+
+      function drawStar(cx, cy, spikes, outerR, innerR, rot) {
+        const rot2 = Math.PI / 2;
+        ctx2.beginPath();
+        ctx2.moveTo(cx + Math.cos(rot - rot2) * outerR, cy + Math.sin(rot - rot2) * outerR);
+        for (let k = 0; k < spikes * 2; k++) {
+          const r = k % 2 === 0 ? innerR : outerR;
+          const a = rot + (k * Math.PI) / spikes - rot2;
+          ctx2.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        }
+        ctx2.closePath();
+      }
+
+      function tick() {
+        const now = performance.now();
+        ctx2.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+        if (now > fxUntil) {
+          fxStars.length = 0;
+        }
+        if (fxStars.length === 0) {
+          fxRaf = 0;
+          return;
+        }
+        for (let i = fxStars.length - 1; i >= 0; i--) {
+          const s = fxStars[i];
+          s.y += s.vy;
+          s.x += s.vx + Math.sin(now * 0.003 + i) * 0.4;
+          s.rot += s.vr;
+          const alpha = Math.min(1, Math.max(0, (fxUntil - now) / 1400 + 0.28));
+          ctx2.save();
+          ctx2.translate(s.x, s.y);
+          ctx2.rotate(s.rot);
+          ctx2.fillStyle = `hsla(${s.hue}, 95%, 62%, ${alpha})`;
+          ctx2.shadowColor = `hsla(${s.hue}, 100%, 70%, ${alpha})`;
+          ctx2.shadowBlur = s.flash ? 18 : 10;
+          drawStar(0, 0, 5, s.size * 0.55, s.size * 0.22, 0);
+          ctx2.fill();
+          ctx2.restore();
+          if (s.y > fxCanvas.height + 40) fxStars.splice(i, 1);
+        }
+        fxRaf = requestAnimationFrame(tick);
+      }
+      fxRaf = requestAnimationFrame(tick);
+    }
+
+    resizeFxCanvas();
+
+    const winOverlay = document.getElementById('win-overlay');
+    const winPrizeImg = document.getElementById('win-prize-img');
+    const winDismiss = document.getElementById('win-dismiss');
+    const winBackdrop = document.getElementById('win-overlay-backdrop');
+
+    if (winPrizeImg) winPrizeImg.src = WIN_PRIZE_IMAGE_URL;
+
+    function showJackpotWinOverlay() {
+      if (!winOverlay) return;
+      if (fxCanvas) fxCanvas.style.zIndex = '55';
+      winOverlay.classList.add('is-visible');
+      winOverlay.setAttribute('aria-hidden', 'false');
+      if (ENABLE_FALLING_STARS_ON_TRIPLE_INDEX) runWinStarsFx(5200);
+    }
+
+    function hideJackpotWinOverlay() {
+      if (!winOverlay) return;
+      winOverlay.classList.remove('is-visible');
+      winOverlay.setAttribute('aria-hidden', 'true');
+      if (fxCanvas) fxCanvas.style.zIndex = '';
+    }
+
+    if (winDismiss) winDismiss.addEventListener('click', hideJackpotWinOverlay);
+    if (winBackdrop) winBackdrop.addEventListener('click', hideJackpotWinOverlay);
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && winOverlay?.classList.contains('is-visible')) hideJackpotWinOverlay();
+    });
+
+    /**
+     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string }} opts
+     */
+    function spinReels(opts = {}) {
+      const skipLeverAnim = opts.skipLeverAnim === true;
+      const presetTargets =
+        Array.isArray(opts.targets) && opts.targets.length === 3 ? opts.targets : null;
+      const winImageUrl = typeof opts.winImageUrl === 'string' ? opts.winImageUrl.trim() : '';
+      if (spinning || reels.length < 3 || reelSpinNodes.length < 3) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      statusEl.textContent = 'Drehen …';
+      ensureAudio();
+      playSpinStartWhoosh();
+
+      let targets;
+      if (presetTargets) {
+        targets = presetTargets.map((t) =>
+          Math.min(3, Math.max(0, Math.floor(Number(t))))
+        );
+      } else if (!EMBED_PARENT) {
+        targets = reels.map(() => Math.floor(Math.random() * 4));
+        if (FORCE_TRIPLE_WIN_FOR_TEST) {
+          const t = Math.floor(Math.random() * 4);
+          targets = [t, t, t];
+        }
+      } else {
+        spinning = false;
+        spinBtn.disabled = reels.length >= 3;
+        statusEl.textContent = 'Nutze Spin auf richart.app …';
+        return;
+      }
+      const minExtraTurns = 4;
+      const maxExtraTurns = 9;
+
+      const tweens = reelSpinNodes.map((spinNode, i) => {
+        const extra = minExtraTurns + Math.floor(Math.random() * (maxExtraTurns - minExtraTurns + 1));
+        const start = getReelSpin(spinNode);
+        const want = phaseMod(reelBasePhase[i] + targets[i] * STEP);
+        const cur = phaseMod(start);
+        let delta = want - cur;
+        if (delta <= 1e-10) delta += PI2;
+        const end = start + delta + extra * PI2;
+        return { spinNode, start, end, t0: performance.now(), dur: 2200 + i * 380 };
+      });
+
+      logReelDebug('Spin — geplant (vor Animation)', { targets, tweens });
+
+      if (!skipLeverAnim && leverObject) pullLeverAnimation();
+      else if (skipLeverAnim && leverObject) releaseLeverSpring(340);
+
+      const spinTickId = setInterval(() => playReelSpinTick(), 88);
+      const stopTimers = tweens.map((tw, i) =>
+        setTimeout(() => playReelStopClack(i), tw.dur)
+      );
+
+      function easeOutCubic(t) {
+        const p = 1 - t;
+        return 1 - p * p * p;
+      }
+
+      function frame(now) {
+        let allDone = true;
+        for (const tw of tweens) {
+          const elapsed = now - tw.t0;
+          const t = Math.min(1, elapsed / tw.dur);
+          const e = easeOutCubic(t);
+          setReelSpin(tw.spinNode, tw.start + (tw.end - tw.start) * e);
+          if (t < 1) allDone = false;
+        }
+        if (!allDone) requestAnimationFrame(frame);
+        else {
+          clearInterval(spinTickId);
+          stopTimers.forEach((id) => clearTimeout(id));
+          tweens.forEach((tw, i) => {
+            snapSpinNodeToTargetIdx(tw.spinNode, i, targets[i]);
+          });
+          logReelDebug('Spin — nach Snap (Endlage)', { targets, tweens });
+
+          spinning = false;
+          spinBtn.disabled = false;
+
+          const shown = reels.map((_, i) => stopIndexFromReelSlot(i));
+          const [s0, s1, s2] = shown;
+          const tripleIndex = s0 === s1 && s1 === s2;
+          const pairIndex =
+            !tripleIndex &&
+            (s0 === s1 || s1 === s2 || s0 === s2);
+
+          if (tripleIndex) {
+            statusEl.innerHTML =
+              '<strong>Jackpot!</strong> Drei gleiche Symbole — Stop ' +
+              formatStopIndicesDisplay([s0, s1, s2]) +
+              '.';
+            playTripleStopCoins();
+            if (winPrizeImg) {
+              winPrizeImg.src =
+                winImageUrl ||
+                WIN_PRIZE_IMAGE_URL ||
+                'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0';
+            }
+            showJackpotWinOverlay();
+          } else if (pairIndex) {
+            statusEl.innerHTML =
+              'Zwei gleiche Symbole — Stop ' + formatStopIndicesDisplay(shown) + '.';
+            playSmallWinChime();
+          } else {
+            statusEl.textContent = 'Stop (je Walze): ' + formatStopIndicesDisplay(shown);
+          }
+        }
+      }
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data;
+      if (!d || d.type !== 'PP_SLOT_RUN') return;
+      if (!Array.isArray(d.targets) || d.targets.length !== 3) return;
+      spinReels({
+        skipLeverAnim: false,
+        targets: d.targets,
+        winImageUrl: d.winImageUrl || '',
+      });
+    });
+
+    const loader = new GLTFLoader();
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        const root = gltf.scene;
+        machineRig = new THREE.Group();
+        machineRig.name = 'machineRig';
+        scene.add(machineRig);
+        machineRig.add(root);
+
+        const r1 = findFirstByNames(root, ['rund1', 'Rund1', 'reel1', 'Reel1']);
+        const r2 = findFirstByNames(root, ['rund2', 'Rund2', 'reel2', 'Reel2']);
+        const r3 = findFirstByNames(root, ['rund3', 'Rund3', 'reel3', 'Reel3']);
+
+        let cylCount = 0;
+        if (r1 && r2 && r3) {
+          reels.push(r1, r2, r3);
+          cylCount = findCylinderNodes(root).length;
+          leverObject =
+            findFirstByNames(root, ['hebel', 'Hebel', 'lever', 'Lever', 'Cylinder.008_19']) ||
+            pickLeverFromCylinders(findCylinderNodes(root));
+        } else {
+          const resolved = resolveLeverAndReels(root);
+          cylCount = resolved.cylinderCount;
+          reels.push(...resolved.reels);
+          leverObject = resolved.lever;
+        }
+
+        if (leverObject) {
+          leverRestX = leverObject.rotation.x;
+          leverPull01 = 0;
+          applyLeverPull01();
+        }
+
+        reelSpinNodes = reels.map((r) => resolveReelSpinNode(r));
+        reels.forEach((reel, i) => mergeParentSpinIntoSpinNode(reel, reelSpinNodes[i]));
+
+        const reelImageOffsetRad = THREE.MathUtils.degToRad(REEL_IMAGE_OFFSET_DEG);
+        reelSpinNodes.forEach((node) => addReelSpin(node, reelImageOffsetRad));
+        reelSpinNodes.forEach((node, i) => {
+          const se = ((REEL_SEGMENT_OFFSET_STEPS[i] % 4) + 4) % 4;
+          if (se !== 0) addReelSpin(node, se * STEP);
+        });
+        alignReelPhasesToReference(0);
+
+        reelBasePhase = reelSpinNodes.map((n) => phaseMod(getReelSpin(n)));
+        reelSpinNodes.forEach((node, i) => setReelSpin(node, reelBasePhase[i]));
+
+        const symbolAtlas = makeSymbolAtlas();
+        reels.forEach((reel) => applySymbolsToReel(reel, symbolAtlas, renderer));
+
+        const box = new THREE.Box3().setFromObject(root);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        camera.near = maxDim / 100;
+        camera.far = maxDim * 50;
+        camera.updateProjectionMatrix();
+
+        const dist = maxDim * 1.35;
+        camera.position.set(
+          center.x,
+          center.y + maxDim * 0.06,
+          center.z + FRONT_VIEW_Z_SIGN * dist
+        );
+        camera.lookAt(center);
+
+        controls.target.copy(center);
+        controls.update();
+
+        const orbitLim = THREE.MathUtils.degToRad(ORBIT_LIMIT_DEG);
+        const theta0 = controls.getAzimuthalAngle();
+        const phi0 = controls.getPolarAngle();
+        controls.minAzimuthAngle = theta0 - orbitLim;
+        controls.maxAzimuthAngle = theta0 + orbitLim;
+        controls.minPolarAngle = Math.max(0.08, phi0 - orbitLim);
+        controls.maxPolarAngle = Math.min(Math.PI - 0.08, phi0 + orbitLim);
+
+        controls.minDistance = dist * 0.72;
+        controls.maxDistance = dist * 2.1;
+
+        rigFloatAmp = maxDim * RIG_FLOAT_AMP_FACTOR;
+        rigBasePos.copy(machineRig.position);
+
+        const ok = reels.length === 3;
+        const startStops = ok ? reels.map((_, i) => stopIndexFromReelSlot(i)) : [];
+        if (ok) logReelDebug('Modell geladen — Startlage');
+
+        statusEl.textContent = ok
+          ? leverObject
+            ? 'Bereit — Stop ' +
+              formatStopIndicesDisplay(startStops) +
+              ' (Stop relativ zur Kalibrier-Startlage, 1…4). Hebel oder Spin.'
+            : 'Walzen ok — Stop ' +
+              formatStopIndicesDisplay(startStops) +
+              '. Hebel fehlt (nur Spin).'
+          : `Warnung: Walzen ${reels.length}/3${leverObject ? ', Hebel ok' : ', Hebel fehlt'}. „Cylinder“-Knoten: ${cylCount}. Gleicher Ordner wie die GLB + per http:// öffnen (nicht file://).`;
+
+        spinBtn.disabled = reels.length < 3;
+
+        if (EMBED_PARENT) {
+          spinBtn.style.display = 'none';
+          statusEl.textContent =
+            'Verbunden — Spin über die Schaltfläche auf richart.app (Wallet).';
+        } else {
+          spinBtn.addEventListener('click', () => spinReels({ skipLeverAnim: false }));
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        const canvasEl = renderer.domElement;
+
+        function updateLeverCursorClass() {
+          canvasEl.classList.remove('lever-grab', 'lever-drag');
+          if (leverDragging) canvasEl.classList.add('lever-drag');
+          else if (leverHover && leverObject) canvasEl.classList.add('lever-grab');
+        }
+
+        function pickPointer(ev) {
+          const rect = canvasEl.getBoundingClientRect();
+          pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(pointer, camera);
+          return leverObject ? raycaster.intersectObject(leverObject, true) : [];
+        }
+
+        function onCanvasPointerMove(ev) {
+          if (leverDragging && leverObject) {
+            const dy = ev.clientY - lastDragY;
+            lastDragY = ev.clientY;
+            leverPull01 += dy * LEVER_DRAG_SENS;
+            applyLeverPull01();
+            return;
+          }
+          if (!leverObject || spinning) return;
+          leverHover = pickPointer(ev).length > 0;
+          updateLeverCursorClass();
+        }
+
+        function onCanvasPointerDown(ev) {
+          if (!leverObject || spinning) return;
+          const hits = pickPointer(ev);
+          if (!hits.length) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          leverDragging = true;
+          lastDragY = ev.clientY;
+          leverHover = true;
+          controls.enabled = false;
+          ensureAudio();
+          playLeverGrab();
+          try {
+            canvasEl.setPointerCapture(ev.pointerId);
+          } catch (_) {}
+          updateLeverCursorClass();
+        }
+
+        function onCanvasPointerUp(ev) {
+          if (!leverDragging) return;
+          leverDragging = false;
+          controls.enabled = true;
+          leverHover = false;
+          try {
+            canvasEl.releasePointerCapture(ev.pointerId);
+          } catch (_) {}
+          updateLeverCursorClass();
+
+          if (leverPull01 >= LEVER_SPIN_THRESHOLD_PULL && !spinning) {
+            if (!EMBED_PARENT) spinReels({ skipLeverAnim: true });
+            else releaseLeverSpring();
+          } else {
+            releaseLeverSpring();
+          }
+        }
+
+        canvasEl.addEventListener('pointermove', onCanvasPointerMove);
+        canvasEl.addEventListener('pointerdown', onCanvasPointerDown, true);
+        canvasEl.addEventListener('pointerup', onCanvasPointerUp);
+        canvasEl.addEventListener('pointercancel', onCanvasPointerUp);
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+        const msg = String(err?.message || err || '');
+        if (msg.includes('404') || msg.includes('File not found')) {
+          statusEl.innerHTML =
+            '<strong>404 — cambler.glb fehlt am Server-Wurzelverzeichnis.</strong><br>' +
+            'Der Python-Server muss im <strong>gleichen Ordner</strong> laufen wie <code>slot_machine.html</code> und <code>cambler.glb</code>.<br>' +
+            'PowerShell: <code>cd $env:USERPROFILE\\Documents</code> (oder <code>Downloads</code>) → ' +
+            '<code>python -m http.server 5050</code> → dann ' +
+            '<code>http://localhost:5050/slot_machine.html</code>';
+        } else {
+          statusEl.textContent =
+            'Laden fehlgeschlagen. Seite nur per http://localhost/… öffnen (nicht file://).';
+        }
+      }
+    );
+
+    function onResize() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      resizeFxCanvas();
+    }
+    addEventListener('resize', onResize);
+
+    function loop() {
+      requestAnimationFrame(loop);
+      updateMachineRigFloat(performance.now() * 0.001);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    loop();
+  </script>
+</body>
+</html>

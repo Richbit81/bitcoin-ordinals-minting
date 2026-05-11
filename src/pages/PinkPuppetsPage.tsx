@@ -6,6 +6,7 @@ import { AuthGateCard } from '../components/chat/AuthGateCard';
 import { AdminRoomManager } from '../components/chat/AdminRoomManager';
 import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
+import { PinkPuppetsSlotSection } from '../components/PinkPuppetsSlotSection';
 
 const FALLBACK_TWEETS = [
   '2041180097626157365',
@@ -94,6 +95,8 @@ export const PinkPuppetsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <PinkPuppetsSlotSection />
 
           {/* Main layout: 3 equal columns, fixed height so chat matches */}
           <div className="grid gap-3 grid-cols-1 md:grid-cols-3 md:h-[calc(100vh-300px)]">
