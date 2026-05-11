@@ -225,12 +225,20 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     targets: number[],
     winImageUrl: string,
     skipLeverAnim: boolean,
-    spinId: string
+    spinId: string,
+    prize: string
   ) => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
     win.postMessage(
-      { type: 'PP_SLOT_RUN', targets, winImageUrl, skipLeverAnim, spinId },
+      {
+        type: 'PP_SLOT_RUN',
+        targets,
+        winImageUrl,
+        skipLeverAnim,
+        spinId,
+        prize,
+      },
       window.location.origin
     );
   };
@@ -273,7 +281,13 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       };
       setLastSpin(result);
       requestAnimationFrame(() => {
-        sendSpinToIframe(result.targets, result.prizePreviewUrl, true);
+        sendSpinToIframe(
+          result.targets,
+          result.prizePreviewUrl,
+          true,
+          result.spinId || '',
+          result.prize || ''
+        );
       });
       await loadStatus();
       await loadPassPool();

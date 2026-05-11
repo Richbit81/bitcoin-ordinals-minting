@@ -160,6 +160,18 @@
 
     /** Fallback wenn kein preview URL vom Parent */
     const WIN_PRIZE_IMAGE_URL = 'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0';
+    const BLOCK_PREVIEW_URL = 'https://ordinals.com/content/f86f39ff37a31954db74fdea7c0310bd67c4e0f122911718ae4a3a8f2f1ba7d5i0';
+    const SMILE_PREVIEW_URL = 'https://ordinals.com/content/443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0';
+
+    function inferPrizeKindFromTargets(t) {
+      if (!Array.isArray(t) || t.length !== 3) return '';
+      const [a, b, c] = t.map((x) => Math.min(3, Math.max(0, Math.floor(Number(x)))));
+      if (a !== b || b !== c) return '';
+      if (a === 0) return 'pink_pass';
+      if (a === 1) return 'pink_block';
+      if (a === 2) return 'smile';
+      return '';
+    }
 
     /** true: Konsolen-Vergleich aller Walzen — produktiv aus */
     const DEBUG_REEL_COMPARE_LOG = false;
@@ -915,7 +927,7 @@
     }
 
     /**
-     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string; spinId?: string }} opts
+     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string; spinId?: string; prize?: string }} opts
      */
     function spinReels(opts = {}) {
       const spinIdForParent = typeof opts.spinId === 'string' ? opts.spinId : '';
@@ -923,6 +935,7 @@
       const presetTargets =
         Array.isArray(opts.targets) && opts.targets.length === 3 ? opts.targets : null;
       const winImageUrl = typeof opts.winImageUrl === 'string' ? opts.winImageUrl.trim() : '';
+      const prizeFromParent = typeof opts.prize === 'string' ? opts.prize.trim() : '';
       if (spinning || reels.length < 3 || reelSpinNodes.length < 3) return;
       spinning = true;
       spinBtn.disabled = true;
@@ -947,6 +960,7 @@
         statusEl.textContent = 'Nutze Spin auf richart.app …';
         return;
       }
+      const prizeKind = prizeFromParent || inferPrizeKindFromTargets(targets);
       const minExtraTurns = 4;
       const maxExtraTurns = 9;
 
@@ -1005,18 +1019,35 @@
             (s0 === s1 || s1 === s2 || s0 === s2);
 
           if (tripleIndex) {
-            statusEl.innerHTML =
-              '<strong>Jackpot!</strong> Drei gleiche Symbole — Stop ' +
-              formatStopIndicesDisplay([s0, s1, s2]) +
-              '.';
-            playTripleStopCoins();
-            if (winPrizeImg) {
-              winPrizeImg.src =
-                winImageUrl ||
-                WIN_PRIZE_IMAGE_URL ||
-                'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0';
+            hideJackpotWinOverlay();
+            if (prizeKind === 'pink_pass') {
+              statusEl.innerHTML =
+                '<strong>Jackpot!</strong> PINK Pass — drei gleiche Symbole, Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              playTripleStopCoins();
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || WIN_PRIZE_IMAGE_URL;
+              }
+              showJackpotWinOverlay();
+            } else if (prizeKind === 'pink_block') {
+              statusEl.innerHTML =
+                '<strong>Pink Block</strong> — drei gleiche Symbole (kein PINK Pass). Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              playSmallWinChime();
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || BLOCK_PREVIEW_URL;
+              }
+            } else {
+              statusEl.innerHTML =
+                '<strong>Smile</strong> — drei gleiche Symbole, <span style="opacity:.85">kein PINK Pass / kein Sondergewinn.</span> Stop ' +
+                formatStopIndicesDisplay([s0, s1, s2]) +
+                '.';
+              if (winPrizeImg) {
+                winPrizeImg.src = winImageUrl || SMILE_PREVIEW_URL;
+              }
             }
-            showJackpotWinOverlay();
           } else if (pairIndex) {
             statusEl.innerHTML =
               'Zwei gleiche Symbole — Stop ' + formatStopIndicesDisplay(shown) + '.';
@@ -1041,6 +1072,7 @@
         targets: d.targets,
         winImageUrl: d.winImageUrl || '',
         spinId: typeof d.spinId === 'string' ? d.spinId : '',
+        prize: typeof d.prize === 'string' ? d.prize : '',
       });
     });
 
