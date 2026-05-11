@@ -13,31 +13,20 @@ function apiUrl(path: string): string {
 }
 
 /**
- * Slot-Endpunkte: In Vite-Dev immer `/api/...` (same origin) → Proxy in vite.config → lokales Backend.
- * Sonst nutzt `VITE_INSCRIPTION_API_URL` z. B. api.richart.app — dort fehlen oft neue Routen wie `/pool`,
- * dann bleibt die Pass-Zeile leer und Spins schlagen fehl.
+ * Slot-Endpunkte müssen auf **derselben Origin** wie die Seite laufen (Vercel `rewrites` → Railway).
+ * Ein direkter Aufruf von `api.richart.app` umgeht diese Rewrites — dann greift oft ein anderes/älteres Backend
+ * (keine Slot-Routen, falsche Gewinne, fehlende `prizePreviewUrl`).
  */
 function pinkSlotApiUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
   if (import.meta.env.DEV) return p;
-  return apiUrl(p);
-}
-
-/** postMessage-Ursprung: www und apex gelten als gleiche Site (sonst blockiert der Parent iframe-Events). */
-function isSameSiteMessageOrigin(origin: string): boolean {
-  if (origin === window.location.origin) return true;
-  try {
-    const a = new URL(origin);
-    const b = new URL(window.location.href);
-    const strip = (h: string) => h.replace(/^www\./i, '');
-    return (
-      a.protocol === b.protocol &&
-      strip(a.hostname) === strip(b.hostname) &&
-      a.port === b.port
-    );
-  } catch {
-    return false;
+  if (typeof window !== 'undefined') {
+    const h = window.location.hostname;
+    if (h === 'www.richart.app' || h === 'richart.app' || h.endsWith('.richart.app')) {
+      return p;
+    }
   }
+  return apiUrl(p);
 }
 
 /** Live countdown target → hh:mm:ss or mm:ss */
@@ -117,10 +106,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   const [minting, setMinting] = useState(false);
   const [mintStatus, setMintStatus] = useState<MintingStatus | null>(null);
   const [connectWalletHint, setConnectWalletHint] = useState(false);
-  /** Prize card below iframe only after 3D reels finished (iframe → PP_SLOT_ANIM_DONE) */
-  const [prizeRevealReady, setPrizeRevealReady] = useState(true);
-  const lastSpinRef = useRef<SpinResult | null>(null);
-  const prizeRevealFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [taprootOverride, setTaprootOverride] = useState(
     () => typeof window !== 'undefined' ? localStorage.getItem('unisat_taproot_address') || '' : ''
   );
@@ -190,36 +175,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   }, [connected, ordinalAddr, walletState.walletType]);
 
   useEffect(() => {
-    return () => {
-      if (prizeRevealFallbackTimerRef.current) {
-        clearTimeout(prizeRevealFallbackTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    lastSpinRef.current = lastSpin;
-  }, [lastSpin]);
-
-  useEffect(() => {
-    const onAnimDone = (ev: MessageEvent) => {
-      if (!isSameSiteMessageOrigin(ev.origin)) return;
-      if (ev.data?.type !== 'PP_SLOT_ANIM_DONE') return;
-      const sid = typeof ev.data.spinId === 'string' ? ev.data.spinId : '';
-      const cur = lastSpinRef.current;
-      if (!cur) return;
-      if (sid && cur.spinId !== sid) return;
-      if (prizeRevealFallbackTimerRef.current) {
-        clearTimeout(prizeRevealFallbackTimerRef.current);
-        prizeRevealFallbackTimerRef.current = null;
-      }
-      setPrizeRevealReady(true);
-    };
-    window.addEventListener('message', onAnimDone);
-    return () => window.removeEventListener('message', onAnimDone);
-  }, []);
-
-  useEffect(() => {
     if (!slotOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -256,7 +211,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         spinId,
         prize,
       },
-      window.location.origin
+      '*'
     );
   };
 
@@ -266,11 +221,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     setSpinError(null);
     setSpinBusy(true);
     setLastSpin(null);
-    setPrizeRevealReady(false);
-    if (prizeRevealFallbackTimerRef.current) {
-      clearTimeout(prizeRevealFallbackTimerRef.current);
-      prizeRevealFallbackTimerRef.current = null;
-    }
     try {
       const r = await fetch(pinkSlotApiUrl('/api/pinkpuppets/slot/spin'), {
         method: 'POST',
@@ -287,13 +237,30 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             : 'Spin failed');
         throw new Error(msg);
       }
+      const prize = typeof data.prize === 'string' ? data.prize : '';
+      const rawPreview =
+        typeof data.prizePreviewUrl === 'string' ? data.prizePreviewUrl.trim() : '';
+      const fallbackPreview =
+        prize === 'pink_pass'
+          ? 'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0'
+          : prize === 'pink_block'
+            ? 'https://ordinals.com/content/f86f39ff37a31954db74fdea7c0310bd67c4e0f122911718ae4a3a8f2f1ba7d5i0'
+            : 'https://ordinals.com/content/443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0';
+      const dn =
+        typeof data.displayName === 'string' && data.displayName.trim()
+          ? String(data.displayName).trim()
+          : prize === 'pink_pass'
+            ? 'PINK Pass'
+            : prize === 'pink_block'
+              ? 'Pink Block'
+              : 'Smile — no PINK Pass';
       const result: SpinResult = {
         spinId: data.spinId,
-        prize: data.prize,
-        targets: data.targets,
+        prize,
+        targets: Array.isArray(data.targets) ? data.targets : [],
         templateId: data.templateId,
-        prizePreviewUrl: data.prizePreviewUrl,
-        displayName: data.displayName,
+        prizePreviewUrl: rawPreview || fallbackPreview,
+        displayName: dn,
         spinsRemaining: data.spinsRemaining ?? 0,
       };
       setLastSpin(result);
@@ -306,22 +273,10 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           result.prize || ''
         );
       });
-      if (prizeRevealFallbackTimerRef.current) {
-        clearTimeout(prizeRevealFallbackTimerRef.current);
-      }
-      prizeRevealFallbackTimerRef.current = setTimeout(() => {
-        prizeRevealFallbackTimerRef.current = null;
-        setPrizeRevealReady(true);
-      }, 14000);
       await loadStatus();
       await loadPassPool();
     } catch (e: any) {
-      if (prizeRevealFallbackTimerRef.current) {
-        clearTimeout(prizeRevealFallbackTimerRef.current);
-        prizeRevealFallbackTimerRef.current = null;
-      }
       setSpinError(e?.message || 'Spin failed');
-      setPrizeRevealReady(true);
     } finally {
       spinBusyRef.current = false;
       setSpinBusy(false);
@@ -519,11 +474,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         Pull the lever to spin. Three spins per rolling 8h window. Prizes are free delegate mints (you pay fees). Global cap: 15 PINK Passes · one pass per wallet.
       </p>
 
-      {connected && lastSpin && !prizeRevealReady && (
-        <p className="text-center text-xs text-pink-200/75">Reels spinning…</p>
-      )}
-
-      {connected && lastSpin && prizeRevealReady && (
+      {connected && lastSpin && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
             lastSpin.prize === 'pink_pass'
