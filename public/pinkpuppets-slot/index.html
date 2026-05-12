@@ -972,7 +972,7 @@
     }
 
     /**
-     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string; spinId?: string; prize?: string }} opts
+     * @param {{ skipLeverAnim?: boolean; targets?: number[]; winImageUrl?: string; spinId?: string }} opts
      */
     function spinReels(opts = {}) {
       const spinIdForParent = typeof opts.spinId === 'string' ? opts.spinId : '';
@@ -980,7 +980,6 @@
       const presetTargets =
         Array.isArray(opts.targets) && opts.targets.length === 3 ? opts.targets : null;
       const winImageUrl = typeof opts.winImageUrl === 'string' ? opts.winImageUrl.trim() : '';
-      const prizeFromParent = typeof opts.prize === 'string' ? opts.prize.trim() : '';
       if (spinning || reels.length < 3 || reelSpinNodes.length < 3) return;
       spinning = true;
       spinBtn.disabled = true;
@@ -1005,7 +1004,6 @@
         statusEl.textContent = 'Nutze Spin auf richart.app …';
         return;
       }
-      const prizeKind = prizeFromParent || inferPrizeKindFromTargets(targets);
       const minExtraTurns = 4;
       const maxExtraTurns = 9;
 
@@ -1065,12 +1063,9 @@
 
           hideJackpotWinOverlay();
 
-          /** richart embed: nur Server-`prize`/`targets` — nie GLB-Triple als Jackpot (Test-Falle). */
+          /** richart embed: nur die sichtbare Walzen-Endlage zählt (wie Standalone). */
           if (presetTargets) {
-            const tier =
-              prizeKind ||
-              inferPrizeKindFromTargets(targets) ||
-              'smile';
+            const tier = inferPrizeKindFromTargets(shown) || 'smile';
             if (tier === 'pink_pass') {
               statusEl.innerHTML =
                 '<strong>PINK Pass</strong> — win. Stop ' +
@@ -1083,9 +1078,10 @@
               showJackpotWinOverlay();
             } else if (tier === 'pink_block') {
               statusEl.innerHTML =
-                '<strong>Pink Block</strong> — no PINK Pass (ornamental). Stop ' +
+                '<strong>Pink Block</strong> — three of a kind (side prize). Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
+              playSmallWinChime();
               if (winPrizeImg) {
                 winPrizeImg.src = winImageUrl || BLOCK_PREVIEW_URL;
               }
@@ -1152,7 +1148,6 @@
         targets: d.targets,
         winImageUrl: d.winImageUrl || '',
         spinId: typeof d.spinId === 'string' ? d.spinId : '',
-        prize: typeof d.prize === 'string' ? d.prize : '',
       });
     });
 

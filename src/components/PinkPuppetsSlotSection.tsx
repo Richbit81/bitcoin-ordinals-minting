@@ -29,6 +29,19 @@ function pinkSlotApiUrl(path: string): string {
   return apiUrl(p);
 }
 
+/** Gleiche Logik wie `public/pinkpuppets-slot/index.html` → `inferPrizeKindFromTargets`: nur drei gleiche Stops zählen. */
+function pinkSlotTierFromTargets(targets: unknown): 'pink_pass' | 'pink_block' | 'smile' {
+  if (!Array.isArray(targets) || targets.length !== 3) return 'smile';
+  const [a, b, c] = targets.map((x) =>
+    Math.min(3, Math.max(0, Math.floor(Number(x))))
+  );
+  if (a !== b || b !== c) return 'smile';
+  if (a === 0) return 'pink_pass';
+  if (a === 1) return 'pink_block';
+  if (a === 2 || a === 3) return 'smile';
+  return 'smile';
+}
+
 function isSameSiteMessageOrigin(origin: string): boolean {
   if (origin === window.location.origin) return true;
   try {
@@ -130,6 +143,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   const [spinUiRevealReady, setSpinUiRevealReady] = useState(false);
   const lastSpinRef = useRef<SpinResult | null>(null);
   const spinRevealFallbackRef = useRef<number>(0);
+
+  const spinTier = useMemo(
+    () => (lastSpin ? pinkSlotTierFromTargets(lastSpin.targets) : null),
+    [lastSpin]
+  );
 
   const ordinalAddr = getOrdinalAddress(walletState.accounts || []);
   const connected = walletState.connected && !!ordinalAddr;
@@ -269,8 +287,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     targets: number[],
     winImageUrl: string,
     skipLeverAnim: boolean,
-    spinId: string,
-    prize: string
+    spinId: string
   ) => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
@@ -281,7 +298,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         winImageUrl,
         skipLeverAnim,
         spinId,
-        prize,
       },
       '*'
     );
@@ -341,8 +357,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           result.targets,
           result.prizePreviewUrl,
           true,
-          result.spinId || '',
-          result.prize || ''
+          result.spinId || ''
         );
       });
       await loadStatus();
@@ -369,7 +384,17 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       setConnectWalletHint(true);
       return;
     }
-    if (lastSpin.prize !== 'pink_pass') return;
+    const tier = pinkSlotTierFromTargets(lastSpin.targets);
+    if (tier !== 'pink_pass' && tier !== 'pink_block') return;
+    if (tier !== lastSpin.prize) {
+      setMintStatus({
+        progress: 0,
+        status: 'error',
+        message:
+          'Walzenlage und Server-Ergebnis stimmen nicht überein. Bitte nicht minten — kurz warten oder erneut spielen.',
+      });
+      return;
+    }
     const receive = resolveReceive();
     if (!receive.startsWith('bc1p')) {
       setMintStatus({
@@ -452,6 +477,25 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     return Math.max(0, target - Date.now());
   }, [slotStatus?.nextSpinNotBefore, cooldownTick]);
 
+  const spinInconsistent = useMemo(() => {
+    if (!lastSpin || spinTier == null) return false;
+    if (lastSpin.prize === spinTier) return false;
+    return (
+      lastSpin.prize === 'pink_pass' ||
+      lastSpin.prize === 'pink_block' ||
+      spinTier === 'pink_pass' ||
+      spinTier === 'pink_block'
+    );
+  }, [lastSpin, spinTier]);
+
+  const showReelWinPanel =
+    connected &&
+    lastSpin &&
+    spinUiRevealReady &&
+    spinTier != null &&
+    (spinTier === 'pink_pass' || spinTier === 'pink_block') &&
+    !spinInconsistent;
+
   const cooldownEndedRefreshRef = useRef(false);
   useEffect(() => {
     if (!showSpinCooldown) {
@@ -530,30 +574,41 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       {spinError && <p className="text-xs text-red-300">{spinError}</p>}
 
       <p className="text-[11px] leading-relaxed text-pink-200/55">
-        Pull the lever to spin. Three spins per rolling 8h window. Prizes are free delegate mints (you pay fees). Global cap: 15 PINK Passes · one pass per wallet.
+        Pull the lever to spin. Three spins per rolling 8h window. The visible reels decide: three matching rows mean a prize — row 0 = PINK Pass, row 1 = Pink Block (delegate mint), rows 2–3 = no Pass prize. Global cap: 15 PINK Passes · one pass per wallet. You pay network fees for mints.
       </p>
 
-      {connected && lastSpin && spinUiRevealReady && lastSpin.prize !== 'smile' && (
+      {connected && lastSpin && spinUiRevealReady && spinInconsistent && (
+        <p className="rounded-xl border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-[11px] text-amber-100/95">
+          Walzenlage und Server-Ergebnis stimmen nicht überein. Bitte nicht minten — Seite neu laden oder erneut spielen.
+        </p>
+      )}
+
+      {showReelWinPanel && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
-            lastSpin.prize === 'pink_pass'
+            spinTier === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
               : 'border-pink-400/35 bg-black/35'
           }`}
         >
           <p
             className={`text-xs font-bold ${
-              lastSpin.prize === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
+              spinTier === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
             }`}
           >
             Result: {lastSpin.displayName}
+          </p>
+          <p className="text-[10px] leading-snug text-pink-200/55">
+            {spinTier === 'pink_pass'
+              ? 'Three matching pass symbols (row 0) — main prize.'
+              : 'Three matching block symbols (row 1) — side prize.'}
           </p>
           <img
             src={lastSpin.prizePreviewUrl}
             alt={lastSpin.displayName}
             className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
           />
-          {lastSpin.prize === 'pink_pass' ? (
+          {spinTier === 'pink_pass' ? (
             <>
               <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
               <button
@@ -562,15 +617,29 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 onClick={() => void handleMintPrize()}
                 className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
               >
-                {minting ? 'Minting…' : 'Mint prize (free delegate)'}
+                {minting ? 'Minting…' : 'Mint PINK Pass (free delegate)'}
               </button>
             </>
-          ) : lastSpin.prize === 'pink_block' ? (
-            <p className="text-[11px] text-pink-200/70">
-              Ornamental inscription only — no PINK Pass mint here.
-            </p>
+          ) : spinTier === 'pink_block' ? (
+            <>
+              <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
+              <button
+                type="button"
+                disabled={minting}
+                onClick={() => void handleMintPrize()}
+                className="w-full rounded-lg border-2 border-pink-400/60 bg-gradient-to-r from-pink-600 to-fuchsia-700 py-2 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {minting ? 'Minting…' : 'Mint Pink Block (free delegate)'}
+              </button>
+              <p className="text-[10px] text-pink-200/60">
+                Same delegate flow as the Pass — you only pay miner fees. Does not count toward the 15 Pass cap.
+              </p>
+            </>
           ) : null}
-          {mintStatus && lastSpin.prize === 'pink_pass' && <MintingProgress status={mintStatus} />}
+          {mintStatus &&
+            (spinTier === 'pink_pass' || spinTier === 'pink_block') && (
+              <MintingProgress status={mintStatus} />
+            )}
         </div>
       )}
     </div>
@@ -681,7 +750,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 role="status"
                 aria-live="polite"
               >
-                {lastSpin.prize === 'smile' ? (
+                {spinInconsistent ? (
+                  <p className="max-w-[min(100%,22rem)] text-xs font-semibold leading-snug text-amber-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
+                    Ergebnis ungültig — Walze und Server passen nicht zusammen. Hinweis unten.
+                  </p>
+                ) : spinTier === 'smile' ? (
                   <>
                     <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.9)] sm:text-lg">
                       Sorry — you didn&apos;t win.
@@ -690,14 +763,19 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                       No PINK Pass this spin. Try again when your spins refresh.
                     </p>
                   </>
-                ) : lastSpin.prize === 'pink_pass' ? (
+                ) : spinTier === 'pink_pass' ? (
                   <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-green-300 [text-shadow:0_2px_14px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.85)] sm:text-lg">
                     You won — PINK Pass!
                   </p>
-                ) : lastSpin.prize === 'pink_block' ? (
-                  <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-pink-100 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
-                    Pink Block — ornamental (no PINK Pass mint)
-                  </p>
+                ) : spinTier === 'pink_block' ? (
+                  <>
+                    <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-pink-100 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
+                      Pink Block — side prize
+                    </p>
+                    <p className="max-w-[min(100%,22rem)] text-[10px] leading-snug text-pink-100/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">
+                      Three matching block symbols — mint the delegate below.
+                    </p>
+                  </>
                 ) : null}
               </div>
             )}
