@@ -42,6 +42,28 @@ function pinkSlotTierFromTargets(targets: unknown): 'pink_pass' | 'pink_block' |
   return 'smile';
 }
 
+const PINK_SLOT_SMILE_MIX_FALLBACK: [number, number, number] = [2, 1, 2];
+
+/**
+ * Erzwingt Walzen-Stops passend zum Server-`prize` (verhindert Mismatch bei altem API-Stand / fehlerhaften `targets`).
+ * Muss zur Slot-HTML und zu `pinkSlotPrizeToTargets` im Backend passen.
+ */
+function pinkSlotCanonicalTargetsForPrize(prize: string, rawTargets: unknown): number[] {
+  const p = String(prize || '').trim();
+  if (p === 'pink_pass') return [0, 0, 0];
+  if (p === 'pink_block') return [1, 1, 1];
+  if (!Array.isArray(rawTargets) || rawTargets.length !== 3) {
+    return [...PINK_SLOT_SMILE_MIX_FALLBACK];
+  }
+  const t = rawTargets.map((x) =>
+    Math.min(3, Math.max(0, Math.floor(Number(x))))
+  );
+  if (p === 'smile' && pinkSlotTierFromTargets(t) === 'smile') {
+    return t;
+  }
+  return [...PINK_SLOT_SMILE_MIX_FALLBACK];
+}
+
 function isSameSiteMessageOrigin(origin: string): boolean {
   if (origin === window.location.origin) return true;
   try {
@@ -342,10 +364,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             : prize === 'pink_block'
               ? 'Pink Block'
               : 'Smile — no PINK Pass';
+      const targets = pinkSlotCanonicalTargetsForPrize(prize, data.targets);
       const result: SpinResult = {
         spinId: String(data.spinId ?? ''),
         prize,
-        targets: Array.isArray(data.targets) ? data.targets : [],
+        targets,
         templateId: data.templateId,
         prizePreviewUrl: rawPreview || fallbackPreview,
         displayName: dn,
@@ -386,15 +409,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     }
     const tier = pinkSlotTierFromTargets(lastSpin.targets);
     if (tier !== 'pink_pass' && tier !== 'pink_block') return;
-    if (tier !== lastSpin.prize) {
-      setMintStatus({
-        progress: 0,
-        status: 'error',
-        message:
-          'Walzenlage und Server-Ergebnis stimmen nicht überein. Bitte nicht minten — kurz warten oder erneut spielen.',
-      });
-      return;
-    }
     const receive = resolveReceive();
     if (!receive.startsWith('bc1p')) {
       setMintStatus({
@@ -477,24 +491,12 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     return Math.max(0, target - Date.now());
   }, [slotStatus?.nextSpinNotBefore, cooldownTick]);
 
-  const spinInconsistent = useMemo(() => {
-    if (!lastSpin || spinTier == null) return false;
-    if (lastSpin.prize === spinTier) return false;
-    return (
-      lastSpin.prize === 'pink_pass' ||
-      lastSpin.prize === 'pink_block' ||
-      spinTier === 'pink_pass' ||
-      spinTier === 'pink_block'
-    );
-  }, [lastSpin, spinTier]);
-
   const showReelWinPanel =
     connected &&
     lastSpin &&
     spinUiRevealReady &&
     spinTier != null &&
-    (spinTier === 'pink_pass' || spinTier === 'pink_block') &&
-    !spinInconsistent;
+    (spinTier === 'pink_pass' || spinTier === 'pink_block');
 
   const cooldownEndedRefreshRef = useRef(false);
   useEffect(() => {
@@ -576,12 +578,6 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       <p className="text-[11px] leading-relaxed text-pink-200/55">
         Pull the lever to spin. Three spins per rolling 8h window. The visible reels decide: three matching rows mean a prize — row 0 = PINK Pass, row 1 = Pink Block (delegate mint), rows 2–3 = no Pass prize. Global cap: 15 PINK Passes · one pass per wallet. You pay network fees for mints.
       </p>
-
-      {connected && lastSpin && spinUiRevealReady && spinInconsistent && (
-        <p className="rounded-xl border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-[11px] text-amber-100/95">
-          Walzenlage und Server-Ergebnis stimmen nicht überein. Bitte nicht minten — Seite neu laden oder erneut spielen.
-        </p>
-      )}
 
       {showReelWinPanel && (
         <div
@@ -750,11 +746,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 role="status"
                 aria-live="polite"
               >
-                {spinInconsistent ? (
-                  <p className="max-w-[min(100%,22rem)] text-xs font-semibold leading-snug text-amber-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
-                    Ergebnis ungültig — Walze und Server passen nicht zusammen. Hinweis unten.
-                  </p>
-                ) : spinTier === 'smile' ? (
+                {spinTier === 'smile' ? (
                   <>
                     <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.9)] sm:text-lg">
                       Sorry — you didn&apos;t win.
