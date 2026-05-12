@@ -32,6 +32,30 @@
     html.pp-slot-embed body {
       background: transparent !important;
     }
+    /* Mobile: Browser darf Wischen/Scroll nicht stehlen; Hebel-Raycast braucht echte Pointer */
+    html.pp-slot-embed canvas:not(#fx-canvas) {
+      touch-action: none;
+    }
+    /* Embed: großer SPIN — Hebel auf Touch oft nicht treffbar; gleicher Flow wie Hebel (→ Parent) */
+    html.pp-slot-embed #spin {
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      bottom: max(16px, env(safe-area-inset-bottom, 0px));
+      min-height: 48px;
+      min-width: min(92vw, 200px);
+      padding: 14px 28px;
+      font-size: 18px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html.pp-slot-embed #spin:active {
+      transform: translate(-50%, 1px);
+    }
     #fx-canvas {
       position: fixed; inset: 0; pointer-events: none; z-index: 4;
     }
@@ -428,6 +452,10 @@
     controls.zoomSpeed = 0.65;
     controls.enablePan = false;
     controls.target.set(0, 0.35, 0);
+    /** Embed: ein Finger drehte die Kamera statt Hebel — Touch-Spins blockiert */
+    if (EMBED_PARENT) {
+      controls.enableRotate = false;
+    }
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x334466, 0.42));
     const key = new THREE.DirectionalLight(0xffffff, 0.78);
@@ -1230,7 +1258,26 @@
         spinBtn.disabled = reels.length < 3;
 
         if (EMBED_PARENT) {
-          spinBtn.style.display = 'none';
+          spinBtn.textContent = 'SPIN';
+          spinBtn.setAttribute('aria-label', 'Spin — same as pulling the lever');
+          let lastHelFromBtn = 0;
+          const postHelFromSpinButton = (ev) => {
+            if (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }
+            const now = performance.now();
+            if (now - lastHelFromBtn < 420) return;
+            lastHelFromBtn = now;
+            if (spinning || reels.length < 3 || spinBtn.disabled) return;
+            ensureAudio();
+            try {
+              window.parent.postMessage({ type: 'PP_SLOT_HEL_REQUEST' }, '*');
+            } catch (_) {}
+          };
+          /* Touch: pointerup zuverlässiger als click (iOS/WKWebView); Debounce wegen click+Dbl */
+          spinBtn.addEventListener('pointerup', postHelFromSpinButton, { passive: false });
+          spinBtn.addEventListener('click', postHelFromSpinButton, { passive: false });
         } else {
           spinBtn.addEventListener('click', () => spinReels({ skipLeverAnim: false }));
         }
@@ -1255,6 +1302,7 @@
 
         function onCanvasPointerMove(ev) {
           if (leverDragging && leverObject) {
+            ev.preventDefault();
             const dy = ev.clientY - lastDragY;
             lastDragY = ev.clientY;
             leverPull01 += dy * LEVER_DRAG_SENS;
@@ -1308,9 +1356,13 @@
           }
         }
 
-        canvasEl.addEventListener('pointermove', onCanvasPointerMove);
-        canvasEl.addEventListener('pointerdown', onCanvasPointerDown, true);
-        canvasEl.addEventListener('pointerup', onCanvasPointerUp);
+        canvasEl.addEventListener('pointermove', onCanvasPointerMove, { passive: false });
+        canvasEl.addEventListener(
+          'pointerdown',
+          onCanvasPointerDown,
+          { capture: true, passive: false }
+        );
+        canvasEl.addEventListener('pointerup', onCanvasPointerUp, { passive: false });
         canvasEl.addEventListener('pointercancel', onCanvasPointerUp);
       },
       undefined,

@@ -659,7 +659,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           <div
             className={
               slotOpen
-                ? 'relative min-h-[min(52vh,560px)] w-full flex-1'
+                ? 'relative min-h-[min(52vh,560px)] w-full flex-1 touch-none [overscroll-behavior:contain]'
                 : 'animate-slot-float relative aspect-[4/3] w-full overflow-hidden rounded-2xl shadow-[0_28px_70px_-18px_rgba(236,72,153,0.42)] ring-1 ring-white/15'
             }
             onClick={(e) => e.stopPropagation()}
