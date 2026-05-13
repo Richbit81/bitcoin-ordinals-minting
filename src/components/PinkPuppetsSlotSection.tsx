@@ -52,6 +52,7 @@ function pinkSlotCanonicalTargetsForPrize(prize: string, rawTargets: unknown): n
   const p = String(prize || '').trim();
   if (p === 'pink_pass') return [0, 0, 0];
   if (p === 'pink_block') return [1, 1, 1];
+  if (p === 'rs_metatron' || p === 'rs_369') return [3, 3, 3];
   if (!Array.isArray(rawTargets) || rawTargets.length !== 3) {
     return [...PINK_SLOT_SMILE_MIX_FALLBACK];
   }
@@ -170,6 +171,22 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     () => (lastSpin ? pinkSlotTierFromTargets(lastSpin.targets) : null),
     [lastSpin]
   );
+
+  /** Server-`prize` für Embed (u. a. rs_metatron / rs_369 teilen Walzenzeile 3 mit Smile). */
+  const uiSpinKind = useMemo(() => {
+    if (!lastSpin) return null;
+    const p = lastSpin.prize;
+    if (
+      p === 'pink_pass' ||
+      p === 'pink_block' ||
+      p === 'rs_metatron' ||
+      p === 'rs_369' ||
+      p === 'smile'
+    ) {
+      return p;
+    }
+    return spinTier;
+  }, [lastSpin, spinTier]);
 
   const ordinalAddr = getOrdinalAddress(walletState.accounts || []);
   const connected = walletState.connected && !!ordinalAddr;
@@ -309,7 +326,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     targets: number[],
     winImageUrl: string,
     skipLeverAnim: boolean,
-    spinId: string
+    spinId: string,
+    prize: string
   ) => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
@@ -320,6 +338,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         winImageUrl,
         skipLeverAnim,
         spinId,
+        prize,
       },
       '*'
     );
@@ -355,7 +374,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           ? 'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0'
           : prize === 'pink_block'
             ? 'https://ordinals.com/content/f86f39ff37a31954db74fdea7c0310bd67c4e0f122911718ae4a3a8f2f1ba7d5i0'
-            : 'https://ordinals.com/content/443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0';
+            : prize === 'rs_metatron'
+              ? 'https://ordinals.com/content/0c6621f4bc9d3b4c839b7fa02e7d0d097ea613c49542c5c937c2e2c41c2ae603i0'
+              : prize === 'rs_369'
+                ? 'https://ordinals.com/content/3cfe3cf26f1f8e727b3c2ccd0dcc89f97e89445c5bfd22f93ce125e380e83027i0'
+                : 'https://ordinals.com/content/443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0';
       const dn =
         typeof data.displayName === 'string' && data.displayName.trim()
           ? String(data.displayName).trim()
@@ -363,7 +386,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             ? 'PINK Pass'
             : prize === 'pink_block'
               ? 'Pink Block'
-              : 'Smile — no PINK Pass';
+              : prize === 'rs_metatron'
+                ? 'Metatron'
+                : prize === 'rs_369'
+                  ? '369'
+                  : 'Smile — no PINK Pass';
       const targets = pinkSlotCanonicalTargetsForPrize(prize, data.targets);
       const result: SpinResult = {
         spinId: String(data.spinId ?? ''),
@@ -380,7 +407,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           result.targets,
           result.prizePreviewUrl,
           true,
-          result.spinId || ''
+          result.spinId || '',
+          result.prize || ''
         );
       });
       await loadStatus();
@@ -407,8 +435,12 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       setConnectWalletHint(true);
       return;
     }
-    const tier = pinkSlotTierFromTargets(lastSpin.targets);
-    if (tier !== 'pink_pass' && tier !== 'pink_block') return;
+    const mintable =
+      lastSpin.prize === 'pink_pass' ||
+      lastSpin.prize === 'pink_block' ||
+      lastSpin.prize === 'rs_metatron' ||
+      lastSpin.prize === 'rs_369';
+    if (!mintable) return;
     const receive = resolveReceive();
     if (!receive.startsWith('bc1p')) {
       setMintStatus({
@@ -423,11 +455,15 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     setMinting(true);
     setMintStatus({ progress: 10, status: 'processing', message: 'Creating delegate…' });
     try {
+      const collectionName =
+        lastSpin.prize === 'pink_pass' || lastSpin.prize === 'pink_block'
+          ? 'Pink Puppets'
+          : 'Random Stuff';
       const result = await createSingleDelegate(
         lastSpin.templateId,
         lastSpin.displayName,
         receive,
-        'Pink Puppets',
+        collectionName,
         feeRate,
         walletState.walletType,
         'image',
@@ -495,8 +531,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     connected &&
     lastSpin &&
     spinUiRevealReady &&
-    spinTier != null &&
-    (spinTier === 'pink_pass' || spinTier === 'pink_block');
+    uiSpinKind != null &&
+    (uiSpinKind === 'pink_pass' ||
+      uiSpinKind === 'pink_block' ||
+      uiSpinKind === 'rs_metatron' ||
+      uiSpinKind === 'rs_369');
 
   const cooldownEndedRefreshRef = useRef(false);
   useEffect(() => {
@@ -576,35 +615,45 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       {spinError && <p className="text-xs text-red-300">{spinError}</p>}
 
       <p className="text-[11px] leading-relaxed text-pink-200/55">
-        Pull the lever to spin. Three spins per rolling 8h window. The visible reels decide: three matching rows mean a prize — row 0 = PINK Pass, row 1 = Pink Block (delegate mint), rows 2–3 = no Pass prize. Global cap: 15 PINK Passes · one pass per wallet. You pay network fees for mints.
+        Pull the lever to spin. Three spins per rolling 8h window. Three matching rows: row 0 = PINK Pass, row 1 = Pink Block; Random Stuff consolations (Metatron / 369) use the same row as smile on the machine — server shows the exact prize. Global cap: 15 PINK Passes · one pass per wallet. You pay network fees for mints.
       </p>
 
       {showReelWinPanel && (
         <div
           className={`space-y-2 rounded-xl border p-3 ${
-            spinTier === 'pink_pass'
+            uiSpinKind === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
-              : 'border-pink-400/35 bg-black/35'
+              : uiSpinKind === 'pink_block'
+                ? 'border-pink-400/35 bg-black/35'
+                : 'border-cyan-400/30 bg-cyan-950/20'
           }`}
         >
           <p
             className={`text-xs font-bold ${
-              spinTier === 'pink_pass' ? 'text-green-100' : 'text-pink-100/90'
+              uiSpinKind === 'pink_pass'
+                ? 'text-green-100'
+                : uiSpinKind === 'pink_block'
+                  ? 'text-pink-100/90'
+                  : 'text-cyan-100/90'
             }`}
           >
             Result: {lastSpin.displayName}
           </p>
           <p className="text-[10px] leading-snug text-pink-200/55">
-            {spinTier === 'pink_pass'
+            {uiSpinKind === 'pink_pass'
               ? 'Three matching pass symbols (row 0) — main prize.'
-              : 'Three matching block symbols (row 1) — side prize.'}
+              : uiSpinKind === 'pink_block'
+                ? 'Three matching block symbols (row 1) — Pink Puppets side prize.'
+                : uiSpinKind === 'rs_metatron'
+                  ? 'Metatron — Random Stuff delegate (slot consolation).'
+                  : '369 — Random Stuff delegate (slot consolation).'}
           </p>
           <img
             src={lastSpin.prizePreviewUrl}
             alt={lastSpin.displayName}
             className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
           />
-          {spinTier === 'pink_pass' ? (
+          {uiSpinKind === 'pink_pass' ? (
             <>
               <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
               <button
@@ -616,7 +665,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 {minting ? 'Minting…' : 'Mint PINK Pass (free delegate)'}
               </button>
             </>
-          ) : spinTier === 'pink_block' ? (
+          ) : uiSpinKind === 'pink_block' ? (
             <>
               <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
               <button
@@ -631,9 +680,27 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 Same delegate flow as the Pass — you only pay miner fees. Does not count toward the 15 Pass cap.
               </p>
             </>
+          ) : uiSpinKind === 'rs_metatron' || uiSpinKind === 'rs_369' ? (
+            <>
+              <FeeRateSelector selectedFeeRate={feeRate} onFeeRateChange={setFeeRate} />
+              <button
+                type="button"
+                disabled={minting}
+                onClick={() => void handleMintPrize()}
+                className="w-full rounded-lg border-2 border-cyan-400/50 bg-gradient-to-r from-cyan-800 to-slate-900 py-2 text-xs font-bold text-cyan-50 disabled:opacity-50"
+              >
+                {minting ? 'Minting…' : `Mint ${lastSpin.displayName} (Random Stuff delegate)`}
+              </button>
+              <p className="text-[10px] text-pink-200/60">
+                Same collection as /random-stuff — you only pay miner fees (no item sats in the slot).
+              </p>
+            </>
           ) : null}
           {mintStatus &&
-            (spinTier === 'pink_pass' || spinTier === 'pink_block') && (
+            (uiSpinKind === 'pink_pass' ||
+              uiSpinKind === 'pink_block' ||
+              uiSpinKind === 'rs_metatron' ||
+              uiSpinKind === 'rs_369') && (
               <MintingProgress status={mintStatus} />
             )}
         </div>
@@ -746,7 +813,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 role="status"
                 aria-live="polite"
               >
-                {spinTier === 'smile' ? (
+                {uiSpinKind === 'smile' ? (
                   <>
                     <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.9)] sm:text-lg">
                       Sorry — you didn&apos;t win.
@@ -755,17 +822,35 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                       No PINK Pass this spin. Try again when your spins refresh.
                     </p>
                   </>
-                ) : spinTier === 'pink_pass' ? (
+                ) : uiSpinKind === 'pink_pass' ? (
                   <p className="max-w-[min(100%,22rem)] text-base font-bold leading-snug text-green-300 [text-shadow:0_2px_14px_rgba(0,0,0,0.95),0_0_2px_rgba(0,0,0,0.85)] sm:text-lg">
                     You won — PINK Pass!
                   </p>
-                ) : spinTier === 'pink_block' ? (
+                ) : uiSpinKind === 'pink_block' ? (
                   <>
                     <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-pink-100 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
                       Pink Block — side prize
                     </p>
                     <p className="max-w-[min(100%,22rem)] text-[10px] leading-snug text-pink-100/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">
                       Three matching block symbols — mint the delegate below.
+                    </p>
+                  </>
+                ) : uiSpinKind === 'rs_metatron' ? (
+                  <>
+                    <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-cyan-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
+                      Metatron — Random Stuff
+                    </p>
+                    <p className="max-w-[min(100%,22rem)] text-[10px] leading-snug text-cyan-100/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">
+                      Slot consolation — mint below (same as /random-stuff).
+                    </p>
+                  </>
+                ) : uiSpinKind === 'rs_369' ? (
+                  <>
+                    <p className="max-w-[min(100%,22rem)] text-sm font-semibold leading-snug text-cyan-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)]">
+                      369 — Random Stuff
+                    </p>
+                    <p className="max-w-[min(100%,22rem)] text-[10px] leading-snug text-cyan-100/90 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">
+                      Slot consolation — mint below (same as /random-stuff).
                     </p>
                   </>
                 ) : null}
