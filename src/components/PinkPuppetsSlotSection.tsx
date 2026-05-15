@@ -199,7 +199,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     setStatusLoading(true);
     try {
       const r = await fetch(
-        pinkSlotApiUrl(`/api/pinkpuppets/slot/status?address=${encodeURIComponent(ordinalAddr)}`)
+        pinkSlotApiUrl(`/api/pinkpuppets/slot/status?address=${encodeURIComponent(ordinalAddr)}`),
+        { cache: 'no-store' }
       );
       if (r.ok) {
         const d = await r.json();
@@ -214,7 +215,9 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
   const loadPassPool = useCallback(async () => {
     try {
-      const r = await fetch(pinkSlotApiUrl('/api/pinkpuppets/slot/pool'));
+      const r = await fetch(pinkSlotApiUrl('/api/pinkpuppets/slot/pool'), {
+        cache: 'no-store',
+      });
       if (!r.ok) return;
       const d = await r.json();
       setPassPool({
