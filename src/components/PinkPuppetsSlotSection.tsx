@@ -245,11 +245,20 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     void loadPassPool();
   }, [loadPassPool]);
 
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void loadPassPool();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [loadPassPool]);
+
   const openSlotModal = useCallback(() => {
+    void loadPassPool();
     setLastSpin(null);
     setSpinError(null);
     setSlotOpen(true);
-  }, []);
+  }, [loadPassPool]);
 
   useEffect(() => {
     if (slotStatus != null && slotStatus.spinsRemaining > 0) {
@@ -604,7 +613,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             </span>
           </div>
           <div className="flex justify-between gap-2">
-            <span className="text-pink-300/70">PINK Pass minted</span>
+            <span className="text-pink-300/70">PINK Pass pool</span>
             <span className="font-mono text-pink-100">
               {slotStatus ? `${slotStatus.pinkPassesMinted} / ${slotStatus.pinkPassesCap}` : '—'}
             </span>
