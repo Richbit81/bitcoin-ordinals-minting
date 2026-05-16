@@ -8,6 +8,8 @@ import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
 import { getOrdinalAddress } from '../utils/wallet';
+import { isAdminAddress } from '../config/admin';
+import { getApiUrl } from '../utils/apiUrl';
 
 // Bitcoin Mixtape Konfiguration
 const MIXTAPE_CONFIG = {
@@ -19,8 +21,18 @@ const MIXTAPE_CONFIG = {
   thumbnail: '/mixtape.png',
 };
 
-// API URL für Inscription-Bilder
-const API_URL = import.meta.env.VITE_INSCRIPTION_API_URL || '';
+const API_URL = getApiUrl();
+
+type MixtapeMintPricing = {
+  priceInSats: number;
+  priceInBTC: number;
+  adminFreeMint: boolean;
+  listPriceInSats?: number;
+};
+
+function walletHasAdminRole(accounts: { address?: string }[] | undefined): boolean {
+  return (accounts || []).some((a) => isAdminAddress(a?.address));
+}
 
 export const BitcoinMixtapePage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +53,17 @@ export const BitcoinMixtapePage: React.FC = () => {
   const [taprootOverride, setTaprootOverride] = useState<string>(
     () => localStorage.getItem('unisat_taproot_address') || ''
   );
+  const [mintPricing, setMintPricing] = useState<MixtapeMintPricing | null>(null);
+
+  const paymentAddress = walletState.accounts?.[0]?.address;
+  const adminFreeMint =
+    mintPricing?.adminFreeMint ??
+    (paymentAddress ? isAdminAddress(paymentAddress) : walletHasAdminRole(walletState.accounts));
+  const effectivePriceInSats =
+    mintPricing?.priceInSats ??
+    (adminFreeMint ? 0 : MIXTAPE_CONFIG.priceInSats);
+  const effectivePriceInBTC =
+    mintPricing?.priceInBTC ?? effectivePriceInSats / 100000000;
 
   // Try Fullscreen State
   const [showTryFullscreen, setShowTryFullscreen] = useState(false);
@@ -49,6 +72,38 @@ export const BitcoinMixtapePage: React.FC = () => {
   useEffect(() => {
     loadMintStats();
   }, []);
+
+  useEffect(() => {
+    if (!walletState.connected || !paymentAddress) {
+      setMintPricing(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = API_URL.replace(/\/$/, '');
+        const r = await fetch(
+          `${base}/api/mixtape/mint-pricing?walletAddress=${encodeURIComponent(paymentAddress)}`,
+          { cache: 'no-store' }
+        );
+        if (!r.ok) throw new Error('pricing failed');
+        const data = (await r.json()) as MixtapeMintPricing;
+        if (!cancelled) setMintPricing(data);
+      } catch {
+        if (!cancelled) {
+          const localAdmin = isAdminAddress(paymentAddress);
+          setMintPricing({
+            priceInSats: localAdmin ? 0 : MIXTAPE_CONFIG.priceInSats,
+            priceInBTC: localAdmin ? 0 : MIXTAPE_CONFIG.priceInBTC,
+            adminFreeMint: localAdmin,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [walletState.connected, paymentAddress]);
 
   // ESC schließt Fullscreen-Try
   useEffect(() => {
@@ -155,6 +210,8 @@ export const BitcoinMixtapePage: React.FC = () => {
     try {
       setMintingStatus(prev => prev ? { ...prev, progress: 20, message: 'Creating delegate inscription...' } : null);
 
+      const itemPriceSats = effectivePriceInSats;
+
       const result = await createSingleDelegate(
         MIXTAPE_CONFIG.originalInscriptionId,
         MIXTAPE_CONFIG.name,
@@ -163,7 +220,7 @@ export const BitcoinMixtapePage: React.FC = () => {
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
         'html',
-        MIXTAPE_CONFIG.priceInSats
+        itemPriceSats
       );
 
       setMintingStatus(prev => prev ? { ...prev, progress: 70, message: 'Saving mint record...' } : null);
@@ -177,7 +234,8 @@ export const BitcoinMixtapePage: React.FC = () => {
             inscriptionId: result.inscriptionId,
             txid: result.txid,
             originalInscriptionId: MIXTAPE_CONFIG.originalInscriptionId,
-            priceInSats: MIXTAPE_CONFIG.priceInSats,
+            priceInSats: itemPriceSats,
+            adminFreeMint,
           }),
         });
       } catch (logError) {
@@ -212,7 +270,7 @@ export const BitcoinMixtapePage: React.FC = () => {
       setIsMinting(false);
       mintInProgressRef.current = false;
     }
-  }, [walletState, inscriptionFeeRate, taprootOverride]);
+  }, [walletState, inscriptionFeeRate, taprootOverride, effectivePriceInSats, adminFreeMint]);
 
   // Video Intro Screen
   if (showVideo) {
@@ -319,12 +377,28 @@ export const BitcoinMixtapePage: React.FC = () => {
 
               {/* Price Display */}
               <div className="text-center">
-                <p className="text-3xl font-bold text-red-600 mb-1">
-                  {MIXTAPE_CONFIG.priceInSats.toLocaleString()} sats
-                </p>
-                <p className="text-sm text-gray-400">
-                  ({MIXTAPE_CONFIG.priceInBTC} BTC) + inscription fees
-                </p>
+                {adminFreeMint && walletState.connected ? (
+                  <>
+                    <p className="text-3xl font-bold text-green-400 mb-1">
+                      GRATIS (Admin)
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Kein Mixtape-Preis — nur Inskriptions-Fees
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 line-through">
+                      Listenpreis: {MIXTAPE_CONFIG.priceInSats.toLocaleString()} sats
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-red-600 mb-1">
+                      {effectivePriceInSats.toLocaleString()} sats
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      ({effectivePriceInBTC} BTC) + inscription fees
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
