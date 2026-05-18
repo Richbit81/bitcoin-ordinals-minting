@@ -171,6 +171,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   const [spinUiRevealReady, setSpinUiRevealReady] = useState(false);
   const lastSpinRef = useRef<SpinResult | null>(null);
   const spinRevealFallbackRef = useRef<number>(0);
+  const mintPanelRef = useRef<HTMLDivElement>(null);
 
   const spinTier = useMemo(
     () => (lastSpin ? pinkSlotTierFromTargets(lastSpin.targets) : null),
@@ -563,6 +564,14 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       uiSpinKind === 'rs_metatron' ||
       uiSpinKind === 'rs_369');
 
+  useEffect(() => {
+    if (!showReelWinPanel || !slotOpen) return;
+    const t = window.setTimeout(() => {
+      mintPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [showReelWinPanel, slotOpen, lastSpin?.spinId]);
+
   const cooldownEndedRefreshRef = useRef(false);
   useEffect(() => {
     if (!showSpinCooldown) {
@@ -646,7 +655,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
       {showReelWinPanel && (
         <div
-            className={`space-y-2 rounded-xl border p-3 ${
+            ref={mintPanelRef}
+            className={`space-y-2 rounded-xl border p-3 ring-2 ring-pink-400/40 ${
             uiSpinKind === 'pink_pass'
               ? 'border-green-400/40 bg-green-950/30'
               : uiSpinKind === 'pink_block' || uiSpinKind === 'smile'
@@ -654,6 +664,9 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 : 'border-cyan-400/30 bg-cyan-950/20'
           }`}
         >
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/95">
+            Real win — scroll here to mint (miner fees only)
+          </p>
           <p
             className={`text-xs font-bold ${
               uiSpinKind === 'pink_pass'
@@ -872,7 +885,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                       Smile — consolation prize!
                     </p>
                     <p className="max-w-[min(100%,20rem)] text-[11px] leading-snug text-pink-100/95 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)] sm:text-xs">
-                      Three matching smile symbols — mint the delegate below.
+                      Three matching smile symbols — scroll down for Mint button.
                     </p>
                   </>
                 ) : uiSpinKind === 'pink_pass' ? (

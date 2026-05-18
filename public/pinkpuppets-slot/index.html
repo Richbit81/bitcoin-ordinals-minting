@@ -1124,8 +1124,13 @@
                 winPrizeImg.src = winImageUrl || SMILE_PREVIEW_URL;
               }
             } else {
+              const pairHint = pairIndex
+                ? ' <span style="opacity:.85">Two matching symbols are <em>not</em> a win — you need three in a row.</span>'
+                : '';
               statusEl.innerHTML =
-                '<strong>Sorry — you didn&apos;t win.</strong> <span style="opacity:.85">No prize this spin.</span> Stop ' +
+                '<strong>Sorry — no prize.</strong> <span style="opacity:.85">Mixed symbols — nothing to mint.</span>' +
+                pairHint +
+                ' Stop ' +
                 formatStopIndicesDisplay([s0, s1, s2]) +
                 '.';
             }
