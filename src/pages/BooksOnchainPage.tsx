@@ -100,6 +100,15 @@ const BOOK_ITEMS = [
     description:
       'Flatland takes place in a two-dimensional world where geometric shapes represent people. The narrator — a square — discovers the existence of a third dimension and begins questioning the limits of reality. The book combines mathematics, philosophy, social satire, and early science fiction in a remarkably original way',
   },
+  {
+    id: 'frankenstein',
+    name: 'Frankenstein',
+    inscriptionId: '5192400fc728aca8700b6d598119b0cf77c6842695764b878f282f061ff09511i0',
+    author: 'Mary Shelley',
+    priceInSats: 5000,
+    description:
+      'Frankenstein is a famous Gothic novel written by Mary Shelley.\n\nThe story follows the young scientist Victor Frankenstein, who creates a living creature from dead body parts. After bringing it to life, he becomes horrified by his creation and abandons it. The lonely creature suffers from rejection and eventually seeks revenge.\n\nThe novel explores themes such as responsibility, the dangers of uncontrolled science, and the effects of isolation.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
