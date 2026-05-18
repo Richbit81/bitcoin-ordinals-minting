@@ -46,6 +46,37 @@ function pinkSlotTierFromTargets(
 
 const PINK_SLOT_SMILE_MIX_FALLBACK: [number, number, number] = [2, 1, 2];
 
+const PINK_SLOT_TEMPLATE_BY_PRIZE: Record<string, string> = {
+  pink_pass: 'e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0',
+  pink_block: 'f86f39ff37a31954db74fdea7c0310bd67c4e0f122911718ae4a3a8f2f1ba7d5i0',
+  smile: '443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0',
+  rs_metatron: '0c6621f4bc9d3b4c839b7fa02e7d0d097ea613c49542c5c937c2e2c41c2ae603i0',
+  rs_369: '3cfe3cf26f1f8e727b3c2ccd0dcc89f97e89445c5bfd22f93ce125e380e83027i0',
+};
+
+function isPinkSlotMintablePrize(prize: string): boolean {
+  return (
+    prize === 'pink_pass' ||
+    prize === 'pink_block' ||
+    prize === 'smile' ||
+    prize === 'rs_metatron' ||
+    prize === 'rs_369'
+  );
+}
+
+function pinkSlotTemplateIdForPrize(prize: string, fromApi?: unknown): string {
+  const raw = typeof fromApi === 'string' ? fromApi.trim() : '';
+  if (raw) return raw;
+  return PINK_SLOT_TEMPLATE_BY_PRIZE[prize] || PINK_SLOT_TEMPLATE_BY_PRIZE.smile;
+}
+
+function pinkSlotPreviewUrlForPrize(prize: string, fromApi?: unknown): string {
+  const raw = typeof fromApi === 'string' ? fromApi.trim() : '';
+  if (raw) return raw;
+  const tid = pinkSlotTemplateIdForPrize(prize, fromApi);
+  return `https://ordinals.com/content/${tid}`;
+}
+
 /**
  * Erzwingt Walzen-Stops passend zum Server-`prize` (verhindert Mismatch bei altem API-Stand / fehlerhaften `targets`).
  * Muss zur Slot-HTML und zu `pinkSlotPrizeToTargets` im Backend passen.
@@ -118,6 +149,16 @@ function SpinCooldownBanner({ remainingMs }: { remainingMs: number }) {
   );
 }
 
+type PendingWin = {
+  spinId: string;
+  prize: string;
+  targets: number[];
+  templateId: string;
+  prizePreviewUrl: string;
+  displayName: string;
+  at: string;
+};
+
 type SlotStatus = {
   spinsRemaining: number;
   maxSpinsPerWindow: number;
@@ -125,10 +166,25 @@ type SlotStatus = {
   nextSpinNotBefore: string | null;
   pinkPassesMinted: number;
   pinkPassesCap: number;
+  pendingWins?: PendingWin[];
+  pendingWinsCount?: number;
   /** Backend soft-launch: all spins → smile, real odds off */
   winPauseActive?: boolean;
   winPauseUntil?: string | null;
 };
+
+function pendingWinToSpinResult(p: PendingWin, spinsRemaining: number): SpinResult {
+  const prize = p.prize;
+  return {
+    spinId: p.spinId,
+    prize,
+    targets: pinkSlotCanonicalTargetsForPrize(prize, p.targets),
+    templateId: pinkSlotTemplateIdForPrize(prize, p.templateId),
+    prizePreviewUrl: p.prizePreviewUrl || pinkSlotPreviewUrlForPrize(prize, p.templateId),
+    displayName: p.displayName,
+    spinsRemaining,
+  };
+}
 
 type SpinResult = {
   spinId: string;
@@ -178,10 +234,29 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     [lastSpin]
   );
 
+  const pendingWins = useMemo(
+    () => (Array.isArray(slotStatus?.pendingWins) ? slotStatus!.pendingWins! : []),
+    [slotStatus?.pendingWins]
+  );
+
+  const activeMintSpin = useMemo((): SpinResult | null => {
+    if (lastSpin && isPinkSlotMintablePrize(lastSpin.prize) && spinUiRevealReady) {
+      return lastSpin;
+    }
+    if (pendingWins.length > 0) {
+      return pendingWinToSpinResult(
+        pendingWins[0],
+        slotStatus?.spinsRemaining ?? 0
+      );
+    }
+    return null;
+  }, [lastSpin, spinUiRevealReady, pendingWins, slotStatus?.spinsRemaining]);
+
   /** Server-`prize` für Embed (u. a. rs_metatron / rs_369 teilen Walzenzeile 3 mit Smile). */
   const uiSpinKind = useMemo(() => {
-    if (!lastSpin) return null;
-    const p = lastSpin.prize;
+    const spin = activeMintSpin ?? lastSpin;
+    if (!spin) return null;
+    const p = spin.prize;
     if (
       p === 'pink_pass' ||
       p === 'pink_block' ||
@@ -193,7 +268,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       return p;
     }
     return spinTier;
-  }, [lastSpin, spinTier]);
+  }, [activeMintSpin, lastSpin, spinTier]);
 
   const ordinalAddr = getOrdinalAddress(walletState.accounts || []);
   const connected = walletState.connected && !!ordinalAddr;
@@ -265,10 +340,11 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
   const openSlotModal = useCallback(() => {
     void loadPassPool();
+    void loadStatus();
     setLastSpin(null);
     setSpinError(null);
     setSlotOpen(true);
-  }, [loadPassPool]);
+  }, [loadPassPool, loadStatus]);
 
   useEffect(() => {
     if (slotStatus != null && slotStatus.spinsRemaining > 0) {
@@ -388,18 +464,9 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       const prize = typeof data.prize === 'string' ? data.prize : '';
       const rawPreview =
         typeof data.prizePreviewUrl === 'string' ? data.prizePreviewUrl.trim() : '';
-      const fallbackPreview =
-        prize === 'pink_pass'
-          ? 'https://ordinals.com/content/e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0'
-          : prize === 'pink_block'
-            ? 'https://ordinals.com/content/f86f39ff37a31954db74fdea7c0310bd67c4e0f122911718ae4a3a8f2f1ba7d5i0'
-            : prize === 'rs_metatron'
-              ? 'https://ordinals.com/content/0c6621f4bc9d3b4c839b7fa02e7d0d097ea613c49542c5c937c2e2c41c2ae603i0'
-              : prize === 'rs_369'
-                ? 'https://ordinals.com/content/3cfe3cf26f1f8e727b3c2ccd0dcc89f97e89445c5bfd22f93ce125e380e83027i0'
-                : prize === 'smile'
-                  ? 'https://ordinals.com/content/443b155804ee47845709a4743ad84184e3b96972120526e656f5fb2c5214cb82i0'
-                  : '';
+      const fallbackPreview = isPinkSlotMintablePrize(prize)
+        ? pinkSlotPreviewUrlForPrize(prize, data.prizePreviewUrl)
+        : '';
       const dn =
         typeof data.displayName === 'string' && data.displayName.trim()
           ? String(data.displayName).trim()
@@ -415,11 +482,12 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                     ? 'Smile — consolation'
                     : 'No prize — try again';
       const targets = pinkSlotCanonicalTargetsForPrize(prize, data.targets);
+      const templateId = pinkSlotTemplateIdForPrize(prize, data.templateId);
       const result: SpinResult = {
         spinId: String(data.spinId ?? ''),
         prize,
         targets,
-        templateId: data.templateId,
+        templateId,
         prizePreviewUrl: rawPreview || fallbackPreview,
         displayName: dn,
         spinsRemaining: data.spinsRemaining ?? 0,
@@ -453,18 +521,17 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     return addr;
   };
 
-  const handleMintPrize = async () => {
-    if (!lastSpin || !walletState.walletType || !connected) {
+  const handleMintPrize = async (claimSpin?: SpinResult) => {
+    const claim = claimSpin ?? activeMintSpin;
+    if (!claim || !walletState.walletType || !connected) {
       setConnectWalletHint(true);
       return;
     }
-    const mintable =
-      lastSpin.prize === 'pink_pass' ||
-      lastSpin.prize === 'pink_block' ||
-      lastSpin.prize === 'smile' ||
-      lastSpin.prize === 'rs_metatron' ||
-      lastSpin.prize === 'rs_369';
-    if (!mintable) return;
+    if (!isPinkSlotMintablePrize(claim.prize)) return;
+    if (!ordinalAddr) {
+      setConnectWalletHint(true);
+      return;
+    }
     const receive = resolveReceive();
     if (!receive.startsWith('bc1p')) {
       setMintStatus({
@@ -480,14 +547,18 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     setMintStatus({ progress: 10, status: 'processing', message: 'Creating delegate…' });
     try {
       const collectionName =
-        lastSpin.prize === 'pink_pass' ||
-        lastSpin.prize === 'pink_block' ||
-        lastSpin.prize === 'smile'
+        claim.prize === 'pink_pass' ||
+        claim.prize === 'pink_block' ||
+        claim.prize === 'smile'
           ? 'Pink Puppets'
           : 'Random Stuff';
+      const templateId = pinkSlotTemplateIdForPrize(claim.prize, claim.templateId);
+      if (!templateId) {
+        throw new Error('Missing inscription template for this prize — refresh and try again.');
+      }
       const result = await createSingleDelegate(
-        lastSpin.templateId,
-        lastSpin.displayName,
+        templateId,
+        claim.displayName,
         receive,
         collectionName,
         feeRate,
@@ -496,21 +567,24 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         0
       );
       setMintStatus({ progress: 80, status: 'processing', message: 'Mint wird protokolliert…' });
-      try {
-        await fetch(pinkSlotApiUrl('/api/pinkpuppets/slot/log-mint'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            walletAddress: receive,
-            inscriptionId: result.inscriptionId,
-            txid: result.txid,
-            templateId: lastSpin.templateId,
-            prize: lastSpin.prize,
-            spinId: lastSpin.spinId,
-          }),
-        });
-      } catch {
-        /* Log optional */
+      const logRes = await fetch(pinkSlotApiUrl('/api/pinkpuppets/slot/log-mint'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: ordinalAddr,
+          inscriptionId: result.inscriptionId,
+          txid: result.txid,
+          templateId,
+          prize: claim.prize,
+          spinId: claim.spinId,
+        }),
+      });
+      if (!logRes.ok) {
+        const logErr = await logRes.json().catch(() => ({}));
+        throw new Error(
+          logErr?.error ||
+            'Mint on-chain succeeded but server could not record it — contact support with your txid.'
+        );
       }
       setMintStatus({
         progress: 100,
@@ -555,14 +629,10 @@ export const PinkPuppetsSlotSection: React.FC = () => {
 
   const showReelWinPanel =
     connected &&
-    lastSpin &&
-    spinUiRevealReady &&
+    activeMintSpin != null &&
     uiSpinKind != null &&
-    (uiSpinKind === 'pink_pass' ||
-      uiSpinKind === 'pink_block' ||
-      uiSpinKind === 'smile' ||
-      uiSpinKind === 'rs_metatron' ||
-      uiSpinKind === 'rs_369');
+    isPinkSlotMintablePrize(uiSpinKind) &&
+    (spinUiRevealReady || pendingWins.length > 0);
 
   useEffect(() => {
     if (!showReelWinPanel || !slotOpen) return;
@@ -653,7 +723,20 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         Pull the lever to spin. Three spins per rolling 8h window. Most spins are no prize (mixed symbols). Mintable wins: PINK Pass, Pink Block, Smile (triple smile row), Metatron, 369 — server prize decides. Global cap: 15 PINK Passes · one pass per wallet. You pay network fees for mints.
       </p>
 
-      {showReelWinPanel && (
+      {connected && pendingWins.length > 0 && (
+        <div className="rounded-xl border border-amber-400/45 bg-amber-950/35 px-3 py-2.5 text-xs text-amber-50/95">
+          <p className="font-semibold text-amber-100">
+            {pendingWins.length === 1
+              ? '1 prize waiting — mint required'
+              : `${pendingWins.length} prizes waiting — mint each below`}
+          </p>
+          <p className="mt-1 leading-snug text-amber-100/80">
+            A line in the spin log means you <strong>may</strong> mint that prize. Nothing is sent automatically — use the Mint button (miner fees only).
+          </p>
+        </div>
+      )}
+
+      {showReelWinPanel && activeMintSpin && (
         <div
             ref={mintPanelRef}
             className={`space-y-2 rounded-xl border p-3 ring-2 ring-pink-400/40 ${
@@ -676,7 +759,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                   : 'text-cyan-100/90'
             }`}
           >
-            Result: {lastSpin.displayName}
+            Result: {activeMintSpin.displayName}
           </p>
           <p className="text-[10px] leading-snug text-pink-200/55">
             {uiSpinKind === 'pink_pass'
@@ -690,8 +773,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                     : '369 — Random Stuff delegate (slot consolation).'}
           </p>
           <img
-            src={lastSpin.prizePreviewUrl}
-            alt={lastSpin.displayName}
+            src={activeMintSpin.prizePreviewUrl}
+            alt={activeMintSpin.displayName}
             className="max-h-40 w-full rounded-lg border border-pink-300/30 bg-black/50 object-contain"
           />
           {uiSpinKind === 'pink_pass' ? (
@@ -700,7 +783,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <button
                 type="button"
                 disabled={minting}
-                onClick={() => void handleMintPrize()}
+                onClick={() => void handleMintPrize(activeMintSpin)}
                 className="w-full rounded-lg border-2 border-black bg-green-500 py-2 text-xs font-bold text-black disabled:opacity-50"
               >
                 {minting ? 'Minting…' : 'Mint PINK Pass (free delegate)'}
@@ -712,7 +795,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <button
                 type="button"
                 disabled={minting}
-                onClick={() => void handleMintPrize()}
+                onClick={() => void handleMintPrize(activeMintSpin)}
                 className="w-full rounded-lg border-2 border-pink-400/60 bg-gradient-to-r from-pink-600 to-fuchsia-700 py-2 text-xs font-bold text-white disabled:opacity-50"
               >
                 {minting ? 'Minting…' : 'Mint Pink Block (free delegate)'}
@@ -727,7 +810,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <button
                 type="button"
                 disabled={minting}
-                onClick={() => void handleMintPrize()}
+                onClick={() => void handleMintPrize(activeMintSpin)}
                 className="w-full rounded-lg border-2 border-pink-400/60 bg-gradient-to-r from-pink-600 to-fuchsia-700 py-2 text-xs font-bold text-white disabled:opacity-50"
               >
                 {minting ? 'Minting…' : 'Mint Smile (free delegate)'}
@@ -742,10 +825,10 @@ export const PinkPuppetsSlotSection: React.FC = () => {
               <button
                 type="button"
                 disabled={minting}
-                onClick={() => void handleMintPrize()}
+                onClick={() => void handleMintPrize(activeMintSpin)}
                 className="w-full rounded-lg border-2 border-cyan-400/50 bg-gradient-to-r from-cyan-800 to-slate-900 py-2 text-xs font-bold text-cyan-50 disabled:opacity-50"
               >
-                {minting ? 'Minting…' : `Mint ${lastSpin.displayName} (Random Stuff delegate)`}
+                {minting ? 'Minting…' : `Mint ${activeMintSpin.displayName} (Random Stuff delegate)`}
               </button>
               <p className="text-[10px] text-pink-200/60">
                 Same collection as /random-stuff — you only pay miner fees (no item sats in the slot).
@@ -762,6 +845,28 @@ export const PinkPuppetsSlotSection: React.FC = () => {
             )}
         </div>
       )}
+
+      {connected &&
+        pendingWins.slice(1).map((pw) => {
+          const spin = pendingWinToSpinResult(pw, slotStatus?.spinsRemaining ?? 0);
+          return (
+            <div
+              key={pw.spinId}
+              className="space-y-2 rounded-xl border border-amber-400/30 bg-black/40 p-3"
+            >
+              <p className="text-xs font-bold text-amber-100">{spin.displayName}</p>
+              <p className="text-[10px] text-pink-200/55">Earlier win — tap Mint to claim.</p>
+              <button
+                type="button"
+                disabled={minting}
+                onClick={() => void handleMintPrize(spin)}
+                className="w-full rounded-lg border border-amber-400/50 bg-amber-900/50 py-2 text-xs font-bold text-amber-50 disabled:opacity-50"
+              >
+                {minting ? 'Minting…' : `Mint ${spin.displayName}`}
+              </button>
+            </div>
+          );
+        })}
     </div>
   );
 
