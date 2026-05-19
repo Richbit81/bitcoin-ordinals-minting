@@ -430,6 +430,11 @@ export const BadCatsPage: React.FC = () => {
 
   async function loadRecentMints() {
     try {
+      fetch(`${API_URL}/api/badcats/logs/sync-pending`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 150 }),
+      }).catch(() => undefined);
       const res = await fetch(`${API_URL}/api/badcats/recent`);
       const data = res.ok ? await res.json() : { recent: [] as any[] };
       const list = data.recent || data.mints || [];
