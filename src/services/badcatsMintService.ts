@@ -86,7 +86,8 @@ export async function mintBadCatsRandom(
   feeRate: number,
   walletType: 'unisat' | 'xverse' | 'okx' | null,
   isFree: boolean,
-  mintedIndices: number[] = []
+  mintedIndices: number[] = [],
+  forcedIndex?: number
 ): Promise<{ inscriptionId: string; txid?: string; orderId?: string; paymentTxid?: string; item: BadCatsGeneratedItem }> {
 
   if (!buyerAddress.startsWith('bc1p')) {
@@ -111,9 +112,22 @@ export async function mintBadCatsRandom(
 
   console.log(`[BadCatsMint] Verfügbar: ${available.length} von ${collection.generated.length}`);
 
+  let item: BadCatsGeneratedItem | undefined;
+  if (forcedIndex != null && Number.isFinite(forcedIndex)) {
+    item = collection.generated.find((g) => g.index === forcedIndex);
+    if (!item) {
+      throw new Error(`BadCats #${forcedIndex} is not in the deployed collection JSON.`);
+    }
+    if (mintedSet.has(forcedIndex)) {
+      throw new Error(`BadCats #${forcedIndex} is already reserved or minted.`);
+    }
+  }
+
   const PRIORITY_INDICES = [45];
-  const priorityItem = available.find(a => PRIORITY_INDICES.includes(a.index));
-  const item = priorityItem || available[Math.floor(Math.random() * available.length)];
+  const priorityItem = !item ? available.find(a => PRIORITY_INDICES.includes(a.index)) : undefined;
+  if (!item) {
+    item = priorityItem || available[Math.floor(Math.random() * available.length)];
+  }
 
   console.log(
     `[BadCatsMint] Gewählt: Item #${item.index}` +

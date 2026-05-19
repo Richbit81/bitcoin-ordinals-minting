@@ -554,16 +554,36 @@ export const BadCatsPage: React.FC = () => {
         );
       }
 
+      let reservedIndex: number | undefined;
+      let reservationLogId: string | undefined;
+      const allocRes = await fetch(`${API_URL}/api/badcats/allocate-index`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: userAddress }),
+      });
+      if (!allocRes.ok) {
+        const allocErr = await allocRes.json().catch(() => ({}));
+        throw new Error(
+          (allocErr as { error?: string }).error ||
+          `Could not reserve a BadCats number (${allocRes.status}). Try again in a moment.`
+        );
+      }
+      const allocData = await allocRes.json();
+      reservedIndex = allocData.itemIndex;
+      reservationLogId = allocData.reservationLogId;
+      setMintedIndices((prev) => [...new Set([...prev, reservedIndex!])]);
+
       const result = await mintBadCatsRandom(
         userAddress,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
         isFreeForUser,
-        freshMintedIndices
+        freshMintedIndices,
+        reservedIndex
       );
 
       try {
-        await fetch(`${API_URL}/api/badcats/log`, {
+        const logRes = await fetch(`${API_URL}/api/badcats/log`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -576,9 +596,14 @@ export const BadCatsPage: React.FC = () => {
             priceInSats: isFreeForUser ? 0 : BADCATS_PRICE_SATS,
             paymentTxid: result.paymentTxid || null,
             isFree: isFreeForUser,
+            replaceLogId: reservationLogId || null,
             timestamp: Date.now(),
           }),
         });
+        if (!logRes.ok) {
+          const logErr = await logRes.json().catch(() => ({}));
+          console.warn('[BadCats] Log rejected:', logErr);
+        }
       } catch (e) {
         console.warn('[BadCats] Log failed:', e);
       }
