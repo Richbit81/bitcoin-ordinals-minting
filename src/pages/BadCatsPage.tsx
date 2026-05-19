@@ -462,9 +462,29 @@ export const BadCatsPage: React.FC = () => {
             previewDoc: null,
           };
         })
-        .filter((mint: any) => mint.itemIndex > 0 && !HIDDEN_RECENT_MINT_INDICES.has(mint.itemIndex))
+        .filter((mint: any) => mint.itemIndex > 0 && !HIDDEN_RECENT_MINT_INDICES.has(mint.itemIndex));
+
+      const finalInscriptionRe = /^[0-9a-f]{64}i\d+$/i;
+      const byIndex = new Map<number, (typeof filtered)[0]>();
+      for (const mint of filtered) {
+        const prev = byIndex.get(mint.itemIndex);
+        if (!prev) {
+          byIndex.set(mint.itemIndex, mint);
+          continue;
+        }
+        const prevFinal = prev.inscriptionId && finalInscriptionRe.test(prev.inscriptionId);
+        const curFinal = mint.inscriptionId && finalInscriptionRe.test(mint.inscriptionId);
+        if (curFinal && !prevFinal) byIndex.set(mint.itemIndex, mint);
+        else if (!curFinal && !prevFinal) {
+          const tPrev = new Date(prev.timestamp).getTime();
+          const tCur = new Date(mint.timestamp).getTime();
+          if (tCur < tPrev) byIndex.set(mint.itemIndex, mint);
+        }
+      }
+      const deduped = [...byIndex.values()]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 10);
-      setRecentMints(filtered);
+      setRecentMints(deduped);
     } catch {
       setRecentMints([]);
     }
