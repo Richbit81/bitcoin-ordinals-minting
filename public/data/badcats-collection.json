@@ -17942,21 +17942,21 @@
           }
         },
         {
-          "layerName": "Line",
-          "traitType": "Line",
-          "trait": {
-            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
-            "name": "line",
-            "rarity": 50,
-            "contentType": "image/avif"
-          }
-        },
-        {
           "layerName": "Top",
           "traitType": "Top",
           "trait": {
             "inscriptionId": "2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0",
             "name": "jack brown",
+            "rarity": 50,
+            "contentType": "image/avif"
+          }
+        },
+        {
+          "layerName": "Line",
+          "traitType": "Line",
+          "trait": {
+            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
+            "name": "line",
             "rarity": 50,
             "contentType": "image/avif"
           }
@@ -18036,7 +18036,7 @@
           }
         }
       ],
-      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" overflow=\"hidden\" preserveAspectRatio=\"none\">\n  <image href=\"/content/3f73619d590777d90326b956f4cdcc44bf9600dfec1e167f5c86f5d3ed38b979i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/ae2cdf5f516eda0f5c600389ce6876298d078e5cd174a3a58b07d92cd4e90e50i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/939ff22ffede3c1e03c0739640aec6ec6d3f69e3be284a226f1caafc6895191bi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/41a1e94691c876d14d79b3a58400ade3057e8b9eac2c2c2ba4b4098458482885i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/9bba9dac9ec47332d569e357d64a7adee5859b0f5db02fbebfcc984d0030ba66i0\" x=\"28\" y=\"78\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/d1f6c31ca82b9a8c317d5b66ebc076680a09b6c3041297f634c8cd4c5c55ccb4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cead924fb0a04f2f4aca4f8c43739470f0872335a8879639b19d9b574ed325bi0\" x=\"-2\" y=\"28\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/f494be67d73b5cc0905bc12210299ffa936556662f10f04dfbcecc5170fe3972i0\" x=\"58\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/1ec6c41d0d025c81f7d92c75981d2b04773846cc53ea97ec01b6dd40cb201cb4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n</svg>"
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" width=\"1000\" height=\"1000\" overflow=\"hidden\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n<style>\nimage{\n  image-rendering: pixelated;\n  image-rendering: crisp-edges;\n}\n</style>\n  <image href=\"/content/3f73619d590777d90326b956f4cdcc44bf9600dfec1e167f5c86f5d3ed38b979i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/ae2cdf5f516eda0f5c600389ce6876298d078e5cd174a3a58b07d92cd4e90e50i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/939ff22ffede3c1e03c0739640aec6ec6d3f69e3be284a226f1caafc6895191bi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/41a1e94691c876d14d79b3a58400ade3057e8b9eac2c2c2ba4b4098458482885i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/9bba9dac9ec47332d569e357d64a7adee5859b0f5db02fbebfcc984d0030ba66i0\" x=\"28\" y=\"78\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/d1f6c31ca82b9a8c317d5b66ebc076680a09b6c3041297f634c8cd4c5c55ccb4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cead924fb0a04f2f4aca4f8c43739470f0872335a8879639b19d9b574ed325bi0\" x=\"-2\" y=\"28\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/f494be67d73b5cc0905bc12210299ffa936556662f10f04dfbcecc5170fe3972i0\" x=\"58\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/1ec6c41d0d025c81f7d92c75981d2b04773846cc53ea97ec01b6dd40cb201cb4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n</svg>"
     },
     {
       "index": 133,
@@ -19025,21 +19025,21 @@
           }
         },
         {
-          "layerName": "Line",
-          "traitType": "Line",
-          "trait": {
-            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
-            "name": "line",
-            "rarity": 50,
-            "contentType": "image/avif"
-          }
-        },
-        {
           "layerName": "Top",
           "traitType": "Top",
           "trait": {
             "inscriptionId": "2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0",
             "name": "jack brown",
+            "rarity": 50,
+            "contentType": "image/avif"
+          }
+        },
+        {
+          "layerName": "Line",
+          "traitType": "Line",
+          "trait": {
+            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
+            "name": "line",
             "rarity": 50,
             "contentType": "image/avif"
           }
@@ -19113,7 +19113,7 @@
           }
         }
       ],
-      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" overflow=\"hidden\" preserveAspectRatio=\"none\">\n  <image href=\"/content/9bf8b3439163c0cbacab4203f430ff08ee2269d3fb728ed4e8d1dd647109bff5i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/5c733d58da98860d371192db2cdf7a39af8a46d9bd042429d4a1631365b0dddei0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/e6f6d9e34321e8265b7c2f27312521b2b0b54d3f39ed5fde2df2921477a3111ci0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/8ecf4c96f024eef7bb5fab66d03eeed732cebd0abbbcb7d701032b18ef7d023di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/18c1dc43755c71d11c6f604e79577e96af34d625304f83bd7a1d57ebef957274i0\" x=\"-2\" y=\"-22\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/4f61ca066ec1579793af4c08022e5b1f88842031d43ba45d58165b9e2621dc31i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/aa0285a4a37da76fcf941d9d2e8fe1df654b4e11a5eda7cf0771a03e58812ffci0\" x=\"8\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n</svg>"
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" width=\"1000\" height=\"1000\" overflow=\"hidden\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n<style>\nimage{\n  image-rendering: pixelated;\n  image-rendering: crisp-edges;\n}\n</style>\n  <image href=\"/content/9bf8b3439163c0cbacab4203f430ff08ee2269d3fb728ed4e8d1dd647109bff5i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/5c733d58da98860d371192db2cdf7a39af8a46d9bd042429d4a1631365b0dddei0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/e6f6d9e34321e8265b7c2f27312521b2b0b54d3f39ed5fde2df2921477a3111ci0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/8ecf4c96f024eef7bb5fab66d03eeed732cebd0abbbcb7d701032b18ef7d023di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/18c1dc43755c71d11c6f604e79577e96af34d625304f83bd7a1d57ebef957274i0\" x=\"-2\" y=\"-22\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/4f61ca066ec1579793af4c08022e5b1f88842031d43ba45d58165b9e2621dc31i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/aa0285a4a37da76fcf941d9d2e8fe1df654b4e11a5eda7cf0771a03e58812ffci0\" x=\"8\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n</svg>"
     },
     {
       "index": 141,
@@ -30665,7 +30665,7 @@
           }
         }
       ],
-      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" overflow=\"hidden\" preserveAspectRatio=\"none\">\n  <image href=\"/content/78301e01d47d958d5fa64835e1f7e6e554dff500ba45b4617f94d243dc70f1e4i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/51e082c2ee907662ec0f95818152c0cad51d1aca45d6022415af4232832b9daci0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/40be413b6273085171f1ca93192fa89d63db7534d729abd55f72eee629d04c9ai0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2efa7d7783b0bf9ff9203e49dad09fbf8fd77ca66a4d340629005ecb450db079i0\" x=\"-2\" y=\"-102\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/b5c4558ce6e5d3f527c9f5890fef2afe087040ff9dd97c4b8063aa35dccff427i0\" x=\"-2\" y=\"8\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/431cdd4c11e2b5e18e0dec691c1ded343632794d5d37f207a5a756609892f8a9i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/670cde95b05378cd12159e5e059e8aac45de8e5e290c132f0975d57e5ff34428i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n</svg>"
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" width=\"1000\" height=\"1000\" overflow=\"hidden\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n<style>\nimage{\n  image-rendering: pixelated;\n  image-rendering: crisp-edges;\n}\n</style>\n  <image href=\"/content/78301e01d47d958d5fa64835e1f7e6e554dff500ba45b4617f94d243dc70f1e4i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/51e082c2ee907662ec0f95818152c0cad51d1aca45d6022415af4232832b9daci0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/40be413b6273085171f1ca93192fa89d63db7534d729abd55f72eee629d04c9ai0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2efa7d7783b0bf9ff9203e49dad09fbf8fd77ca66a4d340629005ecb450db079i0\" x=\"-2\" y=\"-102\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/b5c4558ce6e5d3f527c9f5890fef2afe087040ff9dd97c4b8063aa35dccff427i0\" x=\"-2\" y=\"8\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/431cdd4c11e2b5e18e0dec691c1ded343632794d5d37f207a5a756609892f8a9i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/670cde95b05378cd12159e5e059e8aac45de8e5e290c132f0975d57e5ff34428i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n</svg>"
     },
     {
       "index": 226,
@@ -53358,16 +53358,6 @@
           }
         },
         {
-          "layerName": "Line",
-          "traitType": "Line",
-          "trait": {
-            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
-            "name": "line",
-            "rarity": 50,
-            "contentType": "image/avif"
-          }
-        },
-        {
           "layerName": "Mouth",
           "traitType": "Mouth",
           "trait": {
@@ -53383,6 +53373,16 @@
           "trait": {
             "inscriptionId": "2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0",
             "name": "jack brown",
+            "rarity": 50,
+            "contentType": "image/avif"
+          }
+        },
+        {
+          "layerName": "Line",
+          "traitType": "Line",
+          "trait": {
+            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
+            "name": "line",
             "rarity": 50,
             "contentType": "image/avif"
           }
@@ -53448,7 +53448,7 @@
           }
         }
       ],
-      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" overflow=\"hidden\" preserveAspectRatio=\"none\">\n  <image href=\"/content/5e3d26b87e8ed32ad99e9d7c292e28f1db3e87e8dd76657d1bcec7d957076b4fi0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/72f7902bbaebe9a99ba5ad7e082f231bdd7cc0efdeb5e1cd7a48371decd0d9bfi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/6b00c29467f7adda861dd13f97be690b6d2276e8ed9569f311c62983fe0ccd51i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/741e1048bf84f7ba2f595be3e6d50af278da8740d1040510a5586939563380cbi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/d1089cb3590211402c8c9484808fb55eae0bb7d8b6ca2cb9daf5cdca22a8bad8i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/85f4de22637f67afa6bea476ef793526426ae201762fa7b53f214b310f0d468di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/b2ef635b1deb772dd2da1f1fa1074c6ea46b8b4f93e38bdf3b2b81e8c828dff6i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/16f2e221540a1241adfdf663aea0b758c2e13eacd368cf71b6e782df0794d3e4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n</svg>"
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" width=\"1000\" height=\"1000\" overflow=\"hidden\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n<style>\nimage{\n  image-rendering: pixelated;\n  image-rendering: crisp-edges;\n}\n</style>\n  <image href=\"/content/5e3d26b87e8ed32ad99e9d7c292e28f1db3e87e8dd76657d1bcec7d957076b4fi0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/72f7902bbaebe9a99ba5ad7e082f231bdd7cc0efdeb5e1cd7a48371decd0d9bfi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/6b00c29467f7adda861dd13f97be690b6d2276e8ed9569f311c62983fe0ccd51i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/741e1048bf84f7ba2f595be3e6d50af278da8740d1040510a5586939563380cbi0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/d1089cb3590211402c8c9484808fb55eae0bb7d8b6ca2cb9daf5cdca22a8bad8i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/85f4de22637f67afa6bea476ef793526426ae201762fa7b53f214b310f0d468di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/b2ef635b1deb772dd2da1f1fa1074c6ea46b8b4f93e38bdf3b2b81e8c828dff6i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/16f2e221540a1241adfdf663aea0b758c2e13eacd368cf71b6e782df0794d3e4i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n</svg>"
     },
     {
       "index": 393,
@@ -57842,21 +57842,21 @@
           }
         },
         {
-          "layerName": "Line",
-          "traitType": "Line",
-          "trait": {
-            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
-            "name": "line",
-            "rarity": 50,
-            "contentType": "image/avif"
-          }
-        },
-        {
           "layerName": "Top",
           "traitType": "Top",
           "trait": {
             "inscriptionId": "2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0",
             "name": "jack brown",
+            "rarity": 50,
+            "contentType": "image/avif"
+          }
+        },
+        {
+          "layerName": "Line",
+          "traitType": "Line",
+          "trait": {
+            "inscriptionId": "556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0",
+            "name": "line",
             "rarity": 50,
             "contentType": "image/avif"
           }
@@ -57945,7 +57945,7 @@
           }
         }
       ],
-      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" overflow=\"hidden\" preserveAspectRatio=\"none\">\n  <image href=\"/content/3f73619d590777d90326b956f4cdcc44bf9600dfec1e167f5c86f5d3ed38b979i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/9a96959824c1f39b1a0a0d09c875b983aa81c3e65bd049a3759803909cd44f86i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/b187010dcd4f55f7dcc48e234756a1ffb5bc6caef51e8875919c4f07588f314ei0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/50bc9033c06d6ada4ba9fee96763012bc18cb7cebb4d5d0a5a1788441987871ei0\" x=\"-2\" y=\"-72\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/ffcda4292c08580ba2a88841edd72f7954e414439173763dc18020cfcf066956i0\" x=\"168\" y=\"228\" width=\"704\" height=\"704\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/92b451afd21155c66735f6520a71354b29e8c607a3632d555ec684e59665ee8di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n  <image href=\"/content/5b00bae3296c797104faf4012b27552480a2a111088f7a1939fe71162c245a47i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" />\n</svg>"
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\" width=\"1000\" height=\"1000\" overflow=\"hidden\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n<style>\nimage{\n  image-rendering: pixelated;\n  image-rendering: crisp-edges;\n}\n</style>\n  <image href=\"/content/3f73619d590777d90326b956f4cdcc44bf9600dfec1e167f5c86f5d3ed38b979i0\" x=\"-16\" y=\"-16\" width=\"1032\" height=\"1032\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/9a96959824c1f39b1a0a0d09c875b983aa81c3e65bd049a3759803909cd44f86i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/2cd2f763d270461c349d051080a89848489fd8cff76938dc80982462cc7310e1i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/556ab89a2d2713ede0bd6189e600d30c83e3ca4b8be595e959bfc121acc4166di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/b187010dcd4f55f7dcc48e234756a1ffb5bc6caef51e8875919c4f07588f314ei0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/50bc9033c06d6ada4ba9fee96763012bc18cb7cebb4d5d0a5a1788441987871ei0\" x=\"-2\" y=\"-72\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/ffcda4292c08580ba2a88841edd72f7954e414439173763dc18020cfcf066956i0\" x=\"168\" y=\"228\" width=\"704\" height=\"704\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/92b451afd21155c66735f6520a71354b29e8c607a3632d555ec684e59665ee8di0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n  <image href=\"/content/5b00bae3296c797104faf4012b27552480a2a111088f7a1939fe71162c245a47i0\" x=\"-2\" y=\"-2\" width=\"1004\" height=\"1004\" preserveAspectRatio=\"none\" image-rendering=\"pixelated\" style=\"image-rendering:pixelated;image-rendering:crisp-edges\" />\n</svg>"
     },
     {
       "index": 426,
