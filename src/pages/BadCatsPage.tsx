@@ -428,6 +428,36 @@ export const BadCatsPage: React.FC = () => {
     }
   };
 
+  function buildRecentFromLogs(rawLogs: any[]): any[] {
+    const finalInscriptionRe = /^[0-9a-f]{64}i\d+$/i;
+    const isFinalId = (id: unknown) => finalInscriptionRe.test(String(id || ''));
+    const sorted = [...rawLogs]
+      .filter((l) => l?.itemIndex || l?.itemName)
+      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    const byIndex = new Map<number, any>();
+    for (const l of sorted) {
+      const parsedFromName = String(l.itemName || l.item_name || '').match(/#(\d+)/)?.[1];
+      const idx = Number(l.itemIndex ?? l.item_index ?? parsedFromName ?? 0);
+      if (!Number.isFinite(idx) || idx <= 0) continue;
+      const prev = byIndex.get(idx);
+      if (!prev) {
+        byIndex.set(idx, l);
+        continue;
+      }
+      const prevFinal = isFinalId(prev.inscriptionId || prev.inscription_id);
+      const curFinal = isFinalId(l.inscriptionId || l.inscription_id);
+      if (curFinal && !prevFinal) byIndex.set(idx, l);
+      else if (!curFinal && !prevFinal) {
+        const tPrev = new Date(prev.timestamp || 0).getTime();
+        const tCur = new Date(l.timestamp || 0).getTime();
+        if (tCur < tPrev) byIndex.set(idx, l);
+      }
+    }
+    return [...byIndex.values()]
+      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+      .slice(0, 10);
+  }
+
   async function loadRecentMints() {
     try {
       fetch(`${API_URL}/api/badcats/logs/sync-pending`, {
@@ -435,9 +465,20 @@ export const BadCatsPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 150 }),
       }).catch(() => undefined);
+
+      let list: any[] = [];
       const res = await fetch(`${API_URL}/api/badcats/recent`);
-      const data = res.ok ? await res.json() : { recent: [] as any[] };
-      const list = data.recent || data.mints || [];
+      if (res.ok) {
+        const data = await res.json();
+        list = data.recent || data.mints || [];
+      } else {
+        console.warn('[BadCats] /recent failed, trying /logs fallback', res.status);
+        const logsRes = await fetch(`${API_URL}/api/badcats/logs`);
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          list = buildRecentFromLogs(logsData.logs || []);
+        }
+      }
       const minTs = new Date(BADCATS_RECENT_MINTS_START_AT).getTime();
       const filtered = list
         .filter((mint: any) => {
