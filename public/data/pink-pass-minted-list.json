@@ -1,0 +1,141 @@
+{
+  "parentInscriptionId": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+  "source": "user-curated",
+  "verifiedAt": "2026-05-22T20:07:41.086Z",
+  "count": 14,
+  "cap": 15,
+  "remaining": 1,
+  "uniqueHolderWallets": 13,
+  "holderWallets": [
+    "bc1pfhwt0k35c8t9xgldq5v5rmkarfss38efd8mmgejenhhxnds34tuszyq6ml",
+    "bc1ppjfe89cppqpymghdk8sn0pe3spd8qra0edydr0ctjy9c3434luzqfv2tyr",
+    "bc1phn6xlysjd6uc0q88qgedzzdsy3wu8kfwgq4pw6kq40xl0rd6msns9qveaz",
+    "bc1p54pwpsq3a7rgenemsnkft2puke6gtp6dfupzgvlhuuhh79njhz5qzvm3ed",
+    "bc1pskpa32q4m5rujalkvnj7yhldwg3jzng7xn0mq2pace3wvr32h7gqd9pd6u",
+    "bc1py5ke23eskvqyjhthvy7fsrl79lng93un2nrz7pvwsdtyqkw0qe2qxugj7k",
+    "bc1pq46zz8pemx2c6rknqfldd5fmjvjgg98zt7scxajecjuc48j025msnxpph0",
+    "bc1pq7p645l7654z48vvfzj0zy6zu30adp07ukalmu9rtk6aefguepmsmnx6je",
+    "bc1pafg9q52fr7ryuzfs6lk6v9ew8gr9ew98nsw63u8evyl6yx0vswhql5j46u",
+    "bc1p62cgklra0hp9sqygv572spzmjy0ajx73laju697uzfgjnh896jks6r4fkx",
+    "bc1pzg723qdxnpdq3p3nsjq8tdfsps3mdwcnr8dxkjd2epqgkysm0qfqafa7nq",
+    "bc1pu9jh4gd6e5frt59dm2lvg2yfkw0qrwq94dpxxpahpr8pmaff9p7sr3d9ex",
+    "bc1pyuju6r8y9qs6dpa8ccp2fyj2jsxthp3tak2l5akqapw94txwsptqrzp77l"
+  ],
+  "inscriptionIds": [
+    "1aaaa03616b5fee07e392ac480f8f79bc67406df3c65569c0a8e2722ed3abf20i0",
+    "3a2ea2ca840b2dde11390e30871bb30a30656032da68eceb472c74f85aae590ci0",
+    "5c9542e33cf01ed3463839abd2de649c197157220c520f34199535290bc4d64fi0",
+    "970dece7a43451e951a85b53dcefb37f272422e0a4ec282edce61eda66f65ff9i0",
+    "9950975437c01cd6543f030e26479cb3e034e8336ed1b1f83d0e4df286cc5f88i0",
+    "9cc92efbb9275fb5faa703321710203f2ae0dd1b64cab303a1ee5edb41bd4ddci0",
+    "b75e59accbd2f97b897b4c8d56a81a8c785da45ae8b9002de7932a51eb4554c2i0",
+    "bdfc27ecbf202d16df21833f5c74677c35af965a36b7a5ab5ca4cc2745ff5712i0",
+    "c239e63045d5c7491fdb97ab9ec27efae1d0c7379b494ce89cdfe1330614eca3i0",
+    "d2911a3881b4bd78773d687feef36b8b8be462bf31dd3ce9c6e4d794475c5955i0",
+    "d86ab35204edfe3b624e5265b947ad0cbd9793d7a149ccc9b6e05c9a9721a946i0",
+    "e7dff262ab105943acff0f825f5809425be26fcddb8415679171612317d1b44bi0",
+    "f98318b00dceb1754d932df17cc544c5f3202bb3617f490cc1a00ebccfa4c948i0",
+    "fb3b24c37e12d00af11e72e9b1813be7412bfe639692809ce7e6fac9abfb1457i0"
+  ],
+  "entries": [
+    {
+      "inscriptionId": "1aaaa03616b5fee07e392ac480f8f79bc67406df3c65569c0a8e2722ed3abf20i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/1aaaa03616b5fee07e392ac480f8f79bc67406df3c65569c0a8e2722ed3abf20i0"
+    },
+    {
+      "inscriptionId": "3a2ea2ca840b2dde11390e30871bb30a30656032da68eceb472c74f85aae590ci0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/3a2ea2ca840b2dde11390e30871bb30a30656032da68eceb472c74f85aae590ci0"
+    },
+    {
+      "inscriptionId": "5c9542e33cf01ed3463839abd2de649c197157220c520f34199535290bc4d64fi0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/5c9542e33cf01ed3463839abd2de649c197157220c520f34199535290bc4d64fi0"
+    },
+    {
+      "inscriptionId": "970dece7a43451e951a85b53dcefb37f272422e0a4ec282edce61eda66f65ff9i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/970dece7a43451e951a85b53dcefb37f272422e0a4ec282edce61eda66f65ff9i0"
+    },
+    {
+      "inscriptionId": "9950975437c01cd6543f030e26479cb3e034e8336ed1b1f83d0e4df286cc5f88i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/9950975437c01cd6543f030e26479cb3e034e8336ed1b1f83d0e4df286cc5f88i0"
+    },
+    {
+      "inscriptionId": "9cc92efbb9275fb5faa703321710203f2ae0dd1b64cab303a1ee5edb41bd4ddci0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/9cc92efbb9275fb5faa703321710203f2ae0dd1b64cab303a1ee5edb41bd4ddci0"
+    },
+    {
+      "inscriptionId": "b75e59accbd2f97b897b4c8d56a81a8c785da45ae8b9002de7932a51eb4554c2i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/b75e59accbd2f97b897b4c8d56a81a8c785da45ae8b9002de7932a51eb4554c2i0"
+    },
+    {
+      "inscriptionId": "bdfc27ecbf202d16df21833f5c74677c35af965a36b7a5ab5ca4cc2745ff5712i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/bdfc27ecbf202d16df21833f5c74677c35af965a36b7a5ab5ca4cc2745ff5712i0"
+    },
+    {
+      "inscriptionId": "c239e63045d5c7491fdb97ab9ec27efae1d0c7379b494ce89cdfe1330614eca3i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/c239e63045d5c7491fdb97ab9ec27efae1d0c7379b494ce89cdfe1330614eca3i0"
+    },
+    {
+      "inscriptionId": "d2911a3881b4bd78773d687feef36b8b8be462bf31dd3ce9c6e4d794475c5955i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/d2911a3881b4bd78773d687feef36b8b8be462bf31dd3ce9c6e4d794475c5955i0"
+    },
+    {
+      "inscriptionId": "d86ab35204edfe3b624e5265b947ad0cbd9793d7a149ccc9b6e05c9a9721a946i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/d86ab35204edfe3b624e5265b947ad0cbd9793d7a149ccc9b6e05c9a9721a946i0"
+    },
+    {
+      "inscriptionId": "e7dff262ab105943acff0f825f5809425be26fcddb8415679171612317d1b44bi0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/e7dff262ab105943acff0f825f5809425be26fcddb8415679171612317d1b44bi0"
+    },
+    {
+      "inscriptionId": "f98318b00dceb1754d932df17cc544c5f3202bb3617f490cc1a00ebccfa4c948i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/f98318b00dceb1754d932df17cc544c5f3202bb3617f490cc1a00ebccfa4c948i0"
+    },
+    {
+      "inscriptionId": "fb3b24c37e12d00af11e72e9b1813be7412bfe639692809ce7e6fac9abfb1457i0",
+      "verified": true,
+      "displayName": "PINK Pass — Phase 3",
+      "metaParent": "e48573379be883ad592ad442633e58e1e8ff3ed3c4b6bbbc6e497f547e793cf0i0",
+      "ordinalsUrl": "https://ordinals.com/inscription/fb3b24c37e12d00af11e72e9b1813be7412bfe639692809ce7e6fac9abfb1457i0"
+    }
+  ],
+  "failedVerification": []
+}
