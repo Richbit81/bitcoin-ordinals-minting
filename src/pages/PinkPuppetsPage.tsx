@@ -15,6 +15,51 @@ const FALLBACK_TWEETS = [
   '2053656947745026341', // https://x.com/PinkPuppets_/status/2053656947745026341
 ];
 
+type SafeTweetProps = { id: string };
+
+class SafeTweetBoundary extends React.Component<
+  SafeTweetProps & { children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(err: unknown) {
+    console.warn('[PinkPuppets] Tweet embed failed:', this.props.id, err);
+  }
+
+  componentDidUpdate(prevProps: SafeTweetProps) {
+    if (prevProps.id !== this.props.id && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <a
+          href={`https://x.com/PinkPuppets_/status/${this.props.id}`}
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-lg border border-pink-400/30 bg-black/40 px-3 py-4 text-center text-xs text-pink-200/80 hover:border-pink-300/50"
+        >
+          Post on X ↗
+        </a>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const SafeTweet: React.FC<SafeTweetProps> = ({ id }) => (
+  <SafeTweetBoundary id={id}>
+    <Tweet id={id} />
+  </SafeTweetBoundary>
+);
+
 export const PinkPuppetsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, token } = usePinkChatAuth();
@@ -25,9 +70,11 @@ export const PinkPuppetsPage: React.FC = () => {
     let cancelled = false;
     fetch('/api/twitter-feed?user=PinkPuppets_&limit=10')
       .then((r) => r.json())
-      .then((data: { ids?: string[] }) => {
+      .then((data: { ids?: unknown }) => {
         if (cancelled) return;
-        const fromApi = Array.isArray(data.ids) ? data.ids.filter(Boolean) : [];
+        const fromApi = Array.isArray(data.ids)
+          ? data.ids.map((id) => String(id || '').trim()).filter((id) => /^\d{10,}$/.test(id))
+          : [];
         if (!fromApi.length) return;
         const rest = fromApi.filter((id) => !FALLBACK_TWEETS.includes(id));
         setTweetIds([...FALLBACK_TWEETS, ...rest]);
@@ -147,7 +194,7 @@ export const PinkPuppetsPage: React.FC = () => {
                 <div className="flex-1 overflow-y-auto rounded-lg border border-pink-300/40 bg-black/40 p-2" data-theme="dark">
                   {tweetIds.map((id) => (
                     <div key={id} className="mb-2 last:mb-0 [&_>div]:!my-0">
-                      <Tweet id={id} />
+                      <SafeTweet id={id} />
                     </div>
                   ))}
                 </div>
