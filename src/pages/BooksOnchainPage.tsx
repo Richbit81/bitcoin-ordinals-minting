@@ -65,6 +65,15 @@ const BOOK_ITEMS = [
       'Brave New World by Aldous Huxley is a dystopian novel about a future society where people are controlled through technology, conditioning, and a happiness drug called soma. It explores the loss of individuality and freedom in a world focused on stability and pleasure.',
   },
   {
+    id: 'doors-of-perception',
+    name: 'The Doors of Perception',
+    inscriptionId: '86babe5628d71ab5224607b7f052ec253776ece0c3b9f7b97002074b423f886ei0',
+    author: 'Aldous Huxley',
+    priceInSats: 5000,
+    description:
+      'If the doors of perception were cleansed everything would appear to man as it is, infinite. —William Blake\n\nThe Doors of Perception by Aldous Huxley is a landmark essay on consciousness, psychedelic experience, and the limits of ordinary perception. Huxley recounts his experiment with mescalin—the active principle of peyote—and reflects on how altered states can reveal beauty, meaning, and mystery that everyday awareness filters out.\n\nThe German pharmacologist Louis Lewin published the first systematic study of the cactus, to which his own name was subsequently given. Anhalonium lewinii was new to science. To primitive religion and the Indians of Mexico and the American Southwest it was a friend of immemorially long standing. Indeed, it was much more than a friend. In the words of one of the early Spanish visitors to the New World, "they eat a root which they call peyote, and which they venerate as though it were a deity."\n\nWhy they should have venerated it as a deity became apparent when such eminent psychologists as Jaensch, Havelock Ellis and Weir Mitchell began their experiments with mescalin, the active principle of peyote.\n\n110% on-chain. Preserved in the blockchain—so Huxley\'s exploration of mind and perception can never be erased.',
+  },
+  {
     id: 'fahrenheit-451',
     name: 'Fahrenheit 451',
     inscriptionId: '6869b0c29206fdfc4cd5866571f073dd43903867120dc02368cd268ba18c69d4i0',
