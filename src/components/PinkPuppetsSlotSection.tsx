@@ -908,24 +908,24 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 </p>
                 <p className="text-[10px] tracking-wide text-pink-200/70">
                   <span className="tabular-nums font-medium text-pink-100/85">
-                    {passPool !== null ? passPool.pinkPassesRemaining : '–'}
+                    {passPool?.pinkPassesCap ?? 15}
                   </span>{' '}
                   of{' '}
                   <span className="tabular-nums font-medium text-pink-100/85">
                     {passPool?.pinkPassesCap ?? 15}
                   </span>{' '}
-                  PINK Passes left
+                  PINK Passes claimed
                 </p>
               </div>
               <h2 className="text-balance text-[clamp(2rem,4.5vw,3.35rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
-                <span className="font-normal text-pink-50/95">Spin and win a</span>{' '}
+                <span className="font-normal text-pink-50/95">All</span>{' '}
                 <span className="bg-gradient-to-br from-white via-pink-100 to-[#e848c7] bg-clip-text font-bold text-transparent">
-                  PINK PASS
-                </span>
-                <span className="font-normal text-pink-50/95">!</span>
+                  PINK PASSES
+                </span>{' '}
+                <span className="font-normal text-pink-50/95">are gone</span>
               </h2>
               <p className="mx-auto max-w-[34rem] text-base leading-relaxed text-pink-100/65 sm:mx-0 sm:text-lg sm:leading-relaxed">
-                Connect your wallet, open the machine, pull the lever — up to three complimentary spins every eight hours. You only cover network fees.
+                All 15 PINK Passes have been claimed. The slot is now closed — thank you to everyone who played!
               </p>
             </div>
           </div>
@@ -1027,20 +1027,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
                 ) : null}
               </div>
             )}
-            {!slotOpen && (
-              <button
-                type="button"
-                className="absolute inset-0 z-10 cursor-pointer rounded-lg bg-transparent"
-                onClick={openSlotModal}
-                aria-label="Slot öffnen"
-              />
-            )}
           </div>
-          {!slotOpen && (
-            <p className="pointer-events-none text-center text-sm leading-snug text-pink-200/60">
-              Tap the machine to open
-            </p>
-          )}
         </div>
 
         {slotOpen && (
