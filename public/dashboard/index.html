@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mempool Live Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-2: #11151c;
+    --card: #161b24;
+    --card-2: #1c222d;
+    --border: #232a36;
+    --text: #e6e8ec;
+    --muted: #8a93a6;
+    --accent: #f7931a;      /* Bitcoin orange */
+    --accent-2: #ffb454;
+    --good: #4ade80;
+    --warn: #f59e0b;
+    --bad: #f87171;
+    --blue: #60a5fa;
+    --purple: #c084fc;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(1200px 600px at 20% -10%, #1a1f2e 0%, var(--bg) 60%) fixed;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #c4710d);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 800; font-size: 22px;
+    box-shadow: 0 6px 24px rgba(247,147,26,0.35);
+  }
+  .brand h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+  .brand .sub { font-size: 12px; color: var(--muted); }
+  .status {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good);
+    animation: pulse 1.8s infinite;
+  }
+  .dot.bad { background: var(--bad); animation: none; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(74,222,128,0); }
+    100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; margin-bottom: 22px;
+  }
+  .card {
+    background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .card.warn {
+    border-color: rgba(245,158,11,0.55);
+    box-shadow: 0 4px 24px rgba(245,158,11,0.2);
+    background: linear-gradient(180deg, rgba(245,158,11,0.10), rgba(245,158,11,0.02));
+  }
+  .card.warn .val { color: var(--warn); }
+  .card.danger {
+    border-color: rgba(248,113,113,0.6);
+    box-shadow: 0 4px 24px rgba(248,113,113,0.25);
+    background: linear-gradient(180deg, rgba(248,113,113,0.10), rgba(248,113,113,0.02));
+  }
+  .card.danger .val { color: var(--bad); }
+  .card h3 {
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); margin: 0 0 8px; font-weight: 600;
+  }
+  .card .val {
+    font-size: 26px; font-weight: 700; line-height: 1.1;
+    color: var(--text);
+  }
+  .card .val .unit { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+  .card .sub { margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .accent { color: var(--accent); }
+
+  .chart-card, .table-card {
+    background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 22px;
+  }
+  .chart-head, .table-head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 14px;
+  }
+  .chart-head h2, .table-head h2 { margin: 0; font-size: 16px; }
+  .chart-head .legend-info, .table-head .info { font-size: 12px; color: var(--muted); }
+
+  .toggle {
+    display: inline-flex; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 10px; padding: 3px;
+  }
+  .toggle button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 7px 14px; font-size: 13px; cursor: pointer;
+    border-radius: 8px; font-weight: 600; transition: all .15s ease;
+  }
+  .toggle button:hover { color: var(--text); }
+  .toggle button.active {
+    background: var(--accent); color: #1a0f00;
+    box-shadow: 0 2px 10px rgba(247,147,26,0.35);
+  }
+
+  /* Dataset toggles (gefärbt nach Dataset) */
+  .ds-toggle {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ds-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: all .15s ease;
+  }
+  .ds-btn .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    transition: opacity .15s ease;
+  }
+  .ds-btn.active { color: var(--text); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); }
+  .ds-btn.active .swatch { opacity: 1; }
+  .ds-btn[data-ds="blocks"]  { --c: #f7931a; }
+  .ds-btn[data-ds="fees"]    { --c: #60a5fa; }
+  .ds-btn[data-ds="txs"]     { --c: #c084fc; }
+  .ds-btn[data-ds="feerate"] { --c: #4ade80; }
+  .ds-btn .swatch { background: var(--c); }
+  .ds-btn.active { color: var(--c); }
+
+  .chart-wrap { position: relative; height: 380px; width: 100%; }
+  .chart-loading {
+    position: absolute; inset: 0;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(11,14,20,0.55);
+    backdrop-filter: blur(2px);
+    border-radius: 12px;
+    color: var(--muted); font-size: 13px;
+    z-index: 5;
+  }
+  .chart-loading.show { display: flex; }
+  .spinner {
+    width: 18px; height: 18px; margin-right: 10px;
+    border: 2px solid rgba(247,147,26,0.25);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+  tbody td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+  .height a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .height a:hover { text-decoration: underline; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    background: rgba(247,147,26,0.12); color: var(--accent-2);
+    font-size: 11px; font-weight: 600;
+  }
+  .pill.fast { background: rgba(74,222,128,0.12); color: var(--good); }
+  .pill.slow { background: rgba(248,113,113,0.12); color: var(--bad); }
+
+  .pager {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .pager .pos { font-size: 12px; color: var(--muted); }
+  .btn {
+    background: var(--bg-2); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 13px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; font-weight: 600;
+    transition: all .15s ease;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.live {
+    background: var(--accent); color: #1a0f00; border-color: transparent;
+  }
+  .btn.live:hover { color: #1a0f00; opacity: .9; }
+  select.btn {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 28px;
+  }
+
+  .footer {
+    margin-top: 24px; text-align: center;
+    font-size: 12px; color: var(--muted);
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+
+  .err {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--bad);
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; margin-bottom: 16px;
+    display: none;
+  }
+  .err.show { display: block; }
+
+  .lang-switch {
+    display: inline-flex; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 2px;
+    margin-left: 12px;
+  }
+  .lang-switch button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 4px 9px; font-size: 11px; cursor: pointer;
+    border-radius: 6px; font-weight: 700; letter-spacing: .5px;
+    transition: all .15s ease;
+  }
+  .lang-switch button:hover { color: var(--text); }
+  .lang-switch button.active {
+    background: var(--accent); color: #1a0f00;
+  }
+
+  @media (max-width: 600px) {
+    .card .val { font-size: 22px; }
+    .chart-wrap { height: 280px; }
+    thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo">₿</div>
+      <div>
+        <h1>Mempool Live Dashboard</h1>
+        <div class="sub"><span data-i18n="brand_sub">Data 100% from</span> <span class="accent">mempool.space</span></div>
+      </div>
+    </div>
+    <div class="status">
+      <span class="dot" id="liveDot"></span>
+      <span id="liveText"></span>
+      <div class="lang-switch" id="langSwitch">
+        <button data-lang="en" class="active">EN</button>
+        <button data-lang="de">DE</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="errBox" class="err"></div>
+
+  <section class="grid">
+    <div class="card">
+      <h3 data-i18n="card_blocks_hour">Blocks current hour</h3>
+      <div class="val"><span id="blocksThisHour">–</span><span class="unit" data-i18n="card_blocks_hour_unit">/ avg 6</span></div>
+      <div class="sub" id="blocksThisHourSub"></div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="card_tip">Tip Block</h3>
+      <div class="val accent" id="tipHeight">–</div>
+      <div class="sub" id="tipAge">–</div>
+    </div>
+    <div class="card" id="blockTimeCard">
+      <h3 data-i18n="card_avgtime">Avg block time (last 10)</h3>
+      <div class="val"><span id="avgBlockTime">–</span><span class="unit">min</span></div>
+      <div class="sub">
+        <span data-i18n="card_avgtime_24h_label">24h avg:</span>
+        <strong id="avgBlockTime24h" style="color:var(--text)">–</strong> min
+        <span id="avgBlockTime24hCount" style="opacity:.7"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="card_fees">Recommended fees</h3>
+      <div class="val"><span id="feeFast">–</span><span class="unit">sat/vB</span></div>
+      <div class="sub" id="feeSub"></div>
+    </div>
+    <div class="card" id="cardDay">
+      <h3 data-i18n="card_blocks_24h">Blocks (last 24h)</h3>
+      <div class="val">
+        <span id="blocks24h">–</span>
+        <span class="unit"> / <span data-i18n="card_blocks_expected_short">exp.</span> 144</span>
+      </div>
+      <div class="sub" id="blocks24hDelta">–</div>
+    </div>
+    <div class="card" id="cardWeek">
+      <h3 data-i18n="card_blocks_week">Blocks (last 7 days)</h3>
+      <div class="val">
+        <span id="blocks7d">–</span>
+        <span class="unit"> / <span data-i18n="card_blocks_expected_short">exp.</span> 1008</span>
+      </div>
+      <div class="sub" id="blocks7dDelta">–</div>
+    </div>
+  </section>
+
+  <section class="chart-card">
+    <div class="chart-head">
+      <div>
+        <h2 data-i18n="chart_title">Blocks / hour – Fees – Transactions</h2>
+        <div class="legend-info" data-i18n="chart_legend_info">Click the buttons or chart legend to toggle</div>
+      </div>
+      <div class="toggle" id="rangeToggle">
+        <button data-range="24h" class="active" data-i18n="range_day">1 Day</button>
+        <button data-range="1w" data-i18n="range_week">1 Week</button>
+        <button data-range="1m" data-i18n="range_month">1 Month</button>
+      </div>
+    </div>
+
+    <div class="ds-toggle" id="dsToggle">
+      <button class="ds-btn active" data-ds="blocks"><span class="swatch"></span><span class="ds-label" data-ds-label="blocks">Blocks / hour</span></button>
+      <button class="ds-btn active" data-ds="fees"><span class="swatch"></span><span class="ds-label" data-i18n="ds_fees">Avg fees / block (BTC)</span></button>
+      <button class="ds-btn active" data-ds="txs"><span class="swatch"></span><span class="ds-label" data-ds-label="txs">Transactions / hour</span></button>
+      <button class="ds-btn active" data-ds="feerate"><span class="swatch"></span><span class="ds-label" data-i18n="ds_feerate">Avg fee rate (sat/vB)</span></button>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-loading" id="chartLoading"><span class="spinner"></span><span id="loadingText"></span></div>
+      <canvas id="mainChart"></canvas>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="table-head">
+      <div>
+        <h2 data-i18n="table_title">Recent blocks</h2>
+        <div class="info" id="tableInfo">–</div>
+      </div>
+      <div class="pager">
+        <button class="btn" id="liveBtn" data-i18n-title="title_live">↺ <span data-i18n="btn_live">Live</span></button>
+        <button class="btn" id="prevBtn" data-i18n="btn_newer" data-i18n-title="title_newer">◀ Newer</button>
+        <span class="pos" id="pagePos">–</span>
+        <button class="btn" id="nextBtn" data-i18n="btn_older" data-i18n-title="title_older">Older ▶</button>
+        <select class="btn" id="pageSize" data-i18n-title="title_pagesize">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th data-i18n="th_height">Height</th>
+          <th data-i18n="th_time">Time</th>
+          <th data-i18n="th_delta">Δ to previous</th>
+          <th data-i18n="th_txs">Transactions</th>
+          <th data-i18n="th_fees">Total Fees</th>
+        </tr>
+      </thead>
+      <tbody id="blocksTable">
+        <tr><td colspan="5" style="color:var(--muted); text-align:center; padding:20px;" data-i18n="table_loading">Loading blocks…</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="footer">
+    <span data-i18n="footer_source">Source:</span>
+    <a href="https://mempool.space" target="_blank" rel="noopener">mempool.space</a> ·
+    <span data-i18n="footer_refresh">Auto-refresh every 30 seconds</span> ·
+    <span data-i18n="footer_cache">Data is cached, only new blocks are fetched on refresh</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API = 'https://mempool.space/api';
+  const REFRESH_MS = 30_000;
+  const PARALLEL_CHUNK = 5;
+
+  // ============== i18n ==============
+  const I18N = {
+    en: {
+      brand_sub: 'Data 100% from',
+      status_connected: (s) => `connected – refreshing in ${s}s`,
+      status_error: 'Connection error',
+      card_blocks_hour: 'Blocks current hour',
+      card_blocks_hour_unit: '/ avg 6',
+      card_blocks_hour_sub: (m) => `${m} min in · hour running`,
+      card_tip: 'Tip Block',
+      card_tip_age: (a) => `${a} ago`,
+      card_avgtime: 'Avg block time (last 10)',
+      card_avgtime_24h_label: '24h avg:',
+      card_avgtime_24h_count: (n) => ` · ${n} blocks`,
+      card_fees: 'Recommended fees',
+      card_fees_sub: (f, h, hr, e) => `fast ${f} · 30min ${h} · 1h ${hr} · low ${e} sat/vB`,
+      card_blocks_24h: 'Blocks (last 24h)',
+      card_blocks_week: 'Blocks (last 7 days)',
+      card_blocks_expected_short: 'exp.',
+      card_blocks_delta_above: (n, p) => `+${n} above expected (${p > 0 ? '+' : ''}${p}%)`,
+      card_blocks_delta_below: (n, p) => `${n} below expected (${p}%)`,
+      card_blocks_delta_match: 'exactly as expected',
+      chart_title: 'Blocks / hour – Fees – Transactions',
+      chart_legend_info: 'Click the buttons or chart legend to toggle',
+      range_day: '1 Day',
+      range_week: '1 Week',
+      range_month: '1 Month',
+      ds_blocks: (unit) => `Blocks / ${unit}`,
+      ds_fees: 'Avg fees / block (BTC)',
+      ds_txs: (unit, avail) => `Transactions / ${unit}${avail ? '' : ' (n/a)'}`,
+      ds_feerate: 'Avg fee rate (sat/vB)',
+      unit_hour: 'hour',
+      unit_day: 'day',
+      loading_data: 'Loading data…',
+      loading_blocks: (d, t) => `Loading blocks (${d}/${t})…`,
+      loading_dayboundaries: 'Loading day boundaries…',
+      loading_fees: 'Loading fees…',
+      err_live: 'Error loading live data:',
+      err_chart: 'Error loading chart data:',
+      err_month: 'Error loading monthly data:',
+      tx_btn_disabled: 'Not available for 1 month (too many block records)',
+      table_title: 'Recent blocks',
+      table_loading: 'Loading blocks…',
+      table_info_live: (s) => `Live mode · ${s} blocks per page`,
+      table_info_paged: (s, b) => `${s} blocks per page · ${b} blocks behind tip`,
+      btn_live: 'Live',
+      btn_newer: '◀ Newer',
+      btn_older: 'Older ▶',
+      title_live: 'Jump to latest blocks',
+      title_newer: 'Newer blocks',
+      title_older: 'Older blocks',
+      title_pagesize: 'Blocks per page',
+      th_height: 'Height',
+      th_time: 'Time',
+      th_delta: 'Δ to previous',
+      th_txs: 'Transactions',
+      th_fees: 'Total Fees',
+      footer_source: 'Source:',
+      footer_refresh: 'Auto-refresh every 30 seconds',
+      footer_cache: 'Data is cached, only new blocks are fetched on refresh',
+      tooltip_fees: (v) => ` Avg fees / block: ${v} BTC`,
+      tooltip_txs: (v) => ` Transactions: ${v}`,
+      tooltip_blocks: (unit, v) => ` Blocks / ${unit}: ${v}`,
+      tooltip_feerate: (v) => ` Avg fee rate: ${v} sat/vB`,
+      axis_blocks: (unit) => `Blocks / ${unit}`,
+      axis_fees: 'Fees (BTC)',
+      ago_sec: (n) => `${n} s`,
+      ago_min: (n) => `${n} min`,
+      ago_h: (h, m) => `${h} h ${m} min`,
+    },
+    de: {
+      brand_sub: 'Daten 100 % von',
+      status_connected: (s) => `verbunden – aktualisiert in ${s}s`,
+      status_error: 'Verbindungsfehler',
+      card_blocks_hour: 'Blöcke aktuelle Stunde',
+      card_blocks_hour_unit: '/ ø 6',
+      card_blocks_hour_sub: (m) => `seit ${m} min · Stunde läuft`,
+      card_tip: 'Tip Block',
+      card_tip_age: (a) => `vor ${a}`,
+      card_avgtime: 'Ø Block-Zeit (letzte 10)',
+      card_avgtime_24h_label: '24h Ø:',
+      card_avgtime_24h_count: (n) => ` · ${n} Blöcke`,
+      card_fees: 'Empfohlene Fees',
+      card_fees_sub: (f, h, hr, e) => `schnell ${f} · 30min ${h} · 1h ${hr} · low ${e} sat/vB`,
+      card_blocks_24h: 'Blöcke (letzte 24h)',
+      card_blocks_week: 'Blöcke (letzte 7 Tage)',
+      card_blocks_expected_short: 'Soll',
+      card_blocks_delta_above: (n, p) => `+${n} über Soll (${p > 0 ? '+' : ''}${p} %)`,
+      card_blocks_delta_below: (n, p) => `${n} unter Soll (${p} %)`,
+      card_blocks_delta_match: 'genau wie erwartet',
+      chart_title: 'Blöcke / Stunde – Gebühren – Transaktionen',
+      chart_legend_info: 'Per Klick auf die Buttons oder die Chart-Legende ein-/ausblenden',
+      range_day: '1 Tag',
+      range_week: '1 Woche',
+      range_month: '1 Monat',
+      ds_blocks: (unit) => `Blöcke / ${unit}`,
+      ds_fees: 'Ø Fees / Block (BTC)',
+      ds_txs: (unit, avail) => `Transaktionen / ${unit}${avail ? '' : ' (n/v)'}`,
+      ds_feerate: 'Ø Fee-Rate (sat/vB)',
+      unit_hour: 'Stunde',
+      unit_day: 'Tag',
+      loading_data: 'Lade Daten…',
+      loading_blocks: (d, t) => `Lade Blöcke (${d}/${t})…`,
+      loading_dayboundaries: 'Lade Tagesgrenzen…',
+      loading_fees: 'Lade Gebühren…',
+      err_live: 'Fehler beim Laden der Live-Daten:',
+      err_chart: 'Fehler beim Laden der Chart-Daten:',
+      err_month: 'Fehler beim Laden der Monats-Daten:',
+      tx_btn_disabled: 'Für 1 Monat nicht verfügbar (zu viele Block-Daten)',
+      table_title: 'Letzte Blöcke',
+      table_loading: 'Lade Blöcke…',
+      table_info_live: (s) => `Live-Modus · ${s} Blöcke pro Seite`,
+      table_info_paged: (s, b) => `${s} Blöcke pro Seite · ${b} Blöcke hinter Tip`,
+      btn_live: 'Live',
+      btn_newer: '◀ Neuer',
+      btn_older: 'Älter ▶',
+      title_live: 'Zu neuesten Blöcken springen',
+      title_newer: 'Neuere Blöcke',
+      title_older: 'Ältere Blöcke',
+      title_pagesize: 'Anzahl Blöcke pro Seite',
+      th_height: 'Höhe',
+      th_time: 'Zeit',
+      th_delta: 'Δ zum vorherigen',
+      th_txs: 'Transaktionen',
+      th_fees: 'Total Fees',
+      footer_source: 'Quelle:',
+      footer_refresh: 'Auto-Refresh alle 30 Sekunden',
+      footer_cache: 'Daten werden gecached, beim Refresh werden nur neue Blöcke geladen',
+      tooltip_fees: (v) => ` Ø Fees / Block: ${v} BTC`,
+      tooltip_txs: (v) => ` Transaktionen: ${v}`,
+      tooltip_blocks: (unit, v) => ` Blöcke / ${unit}: ${v}`,
+      tooltip_feerate: (v) => ` Ø Fee-Rate: ${v} sat/vB`,
+      axis_blocks: (unit) => `Blöcke / ${unit}`,
+      axis_fees: 'Fees (BTC)',
+      ago_sec: (n) => `${n} s`,
+      ago_min: (n) => `${n} min`,
+      ago_h: (h, m) => `${h} h ${m} min`,
+    },
+  };
+
+  let lang = (localStorage.getItem('mempool_lang') || 'en');
+  if (!I18N[lang]) lang = 'en';
+  const t = (key, ...args) => {
+    const v = (I18N[lang] && I18N[lang][key]) ?? (I18N.en[key]) ?? key;
+    return typeof v === 'function' ? v(...args) : v;
+  };
+  const currentLocale = () => lang === 'de' ? 'de-DE' : 'en-US';
+
+  // ============== State ==============
+  let currentRange = '24h';
+  let chart = null;
+  let countdownTimer = null;
+  let countdown = 30;
+
+  let tipHeight = 0;
+  const blocksCache = new Map();
+  let oldestLoadedHeight = Infinity;
+  let newestLoadedHeight = 0;
+
+  let pageSize = 10;
+  let pageStartHeight = null;
+  let isLoadingPage = false;
+
+  const dsVisible = { blocks: true, fees: true, txs: true, feerate: true };
+  const DS_KEYS = ['blocks', 'fees', 'txs', 'feerate'];
+
+  const $ = (id) => document.getElementById(id);
+  let fmt = new Intl.NumberFormat(currentLocale());
+  const fmtBTC = (sats) => (sats / 1e8).toFixed(4);
+
+  // ============== i18n apply ==============
+  function applyStaticI18n() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.getAttribute('data-i18n');
+      el.textContent = t(k);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      el.title = t(el.getAttribute('data-i18n-title'));
+    });
+    // Dataset-Button-Labels (abhängig von currentRange/unit)
+    const unit = currentRange === '1m' ? t('unit_day') : t('unit_hour');
+    const blocksLbl = document.querySelector('[data-ds-label="blocks"]');
+    if (blocksLbl) blocksLbl.textContent = t('ds_blocks', unit);
+    const txsLbl = document.querySelector('[data-ds-label="txs"]');
+    if (txsLbl) txsLbl.textContent = t('ds_txs', unit, currentRange !== '1m');
+    // Loading-Text neutral
+    const loading = $('loadingText');
+    if (loading && !loading.textContent) loading.textContent = t('loading_data');
+    // Number-Format an Sprache anpassen
+    fmt = new Intl.NumberFormat(currentLocale());
+    // Status-Text aktualisieren (mit aktuellem Countdown)
+    setLiveText();
+  }
+
+  function setLiveText() {
+    const liveText = $('liveText');
+    if (!liveText) return;
+    if ($('liveDot') && $('liveDot').classList.contains('bad')) {
+      liveText.textContent = t('status_error');
+    } else {
+      liveText.innerHTML = t('status_connected', `<span id="countdown">${countdown}</span>`);
+    }
+  }
+
+  function showError(msg) {
+    const box = $('errBox');
+    box.textContent = msg;
+    box.classList.add('show');
+    $('liveDot').classList.add('bad');
+    $('liveText').textContent = t('status_error');
+  }
+  function clearError() {
+    $('errBox').classList.remove('show');
+    $('liveDot').classList.remove('bad');
+    setLiveText();
+  }
+
+  async function fetchJSON(path) {
+    const res = await fetch(API + path, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' bei ' + path);
+    return res.json();
+  }
+
+  function timeAgo(ts) {
+    const sec = Math.floor(Date.now() / 1000 - ts);
+    if (sec < 60) return t('ago_sec', sec);
+    const m = Math.floor(sec / 60);
+    if (m < 60) return t('ago_min', m);
+    const h = Math.floor(m / 60);
+    return t('ago_h', h, m % 60);
+  }
+
+  function formatHourLabel(date, range) {
+    const loc = currentLocale();
+    if (range === '24h') {
+      return date.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString(loc, { weekday: 'short', day: '2-digit', month: '2-digit' })
+      + ' ' + date.toLocaleTimeString(loc, { hour: '2-digit' }) + 'h';
+  }
+  function formatDayLabel(date) {
+    return date.toLocaleDateString(currentLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+  }
+
+  // ------- Block-Cache mit pagination -------
+  // /v1/blocks/{h} liefert 15 Blöcke <= h.
+  // Höhen sind deterministisch -> wir können parallel laden.
+
+  async function fetchBlocksPage(startHeight) {
+    const arr = await fetchJSON('/v1/blocks/' + startHeight);
+    for (const b of arr) {
+      blocksCache.set(b.height, b);
+      if (b.height < oldestLoadedHeight) oldestLoadedHeight = b.height;
+      if (b.height > newestLoadedHeight) newestLoadedHeight = b.height;
+    }
+    return arr;
+  }
+
+  // Stellt sicher, dass alle Blöcke von fromH..toH (inkl.) im Cache sind.
+  // Lädt nur fehlende Page-Buckets.
+  async function ensureRange(fromH, toH, onProgress) {
+    fromH = Math.max(1, Math.floor(fromH));
+    toH = Math.max(fromH, Math.floor(toH));
+
+    // Welche /v1/blocks-Pages müssen geholt werden?
+    // /v1/blocks/{h} liefert h-14..h. Wir nehmen "Bucket-Tops" = h, h-15, h-30, ...
+    const tops = [];
+    let cursor = toH;
+    while (cursor >= fromH) {
+      // Prüfe ob alle 15 Blöcke (cursor-14..cursor) bereits im Cache sind
+      let allCached = true;
+      for (let k = 0; k < 15; k++) {
+        const h = cursor - k;
+        if (h < fromH) break;
+        if (!blocksCache.has(h)) { allCached = false; break; }
+      }
+      if (!allCached) tops.push(cursor);
+      cursor -= 15;
+    }
+
+    if (!tops.length) return;
+
+    // Parallel in Chunks
+    let done = 0;
+    for (let i = 0; i < tops.length; i += PARALLEL_CHUNK) {
+      const chunk = tops.slice(i, i + PARALLEL_CHUNK);
+      await Promise.all(chunk.map(h => fetchBlocksPage(h).catch(e => {
+        console.warn('Block-Page-Fehler bei', h, e);
+      })));
+      done += chunk.length;
+      if (onProgress) onProgress(done, tops.length);
+    }
+  }
+
+  // ------- Stat-Karten + Live-Daten -------
+  async function loadCoreData() {
+    try {
+      const [tip, recFees] = await Promise.all([
+        fetchJSON('/blocks/tip/height'),
+        fetchJSON('/v1/fees/recommended'),
+      ]);
+      tipHeight = tip;
+
+      // Letzte ~20 Blöcke garantiert im Cache (für Stat-Karten + erste Tabellen-Seiten)
+      await ensureRange(tip - 20, tip);
+
+      const last10 = [];
+      for (let i = 0; i < 11; i++) {
+        const b = blocksCache.get(tip - i);
+        if (b) last10.push(b);
+      }
+
+      $('tipHeight').textContent = '#' + fmt.format(tip);
+      if (last10[0]) $('tipAge').textContent = t('card_tip_age', timeAgo(last10[0].timestamp));
+
+      // Ø Block-Zeit aus letzten 10 Intervallen
+      let totalDelta = 0, deltaCount = 0;
+      for (let i = 0; i < 10 && i + 1 < last10.length; i++) {
+        const d = last10[i].timestamp - last10[i+1].timestamp;
+        totalDelta += d; deltaCount++;
+      }
+      const blockTimeCard = $('blockTimeCard');
+      blockTimeCard.classList.remove('warn', 'danger');
+      if (deltaCount) {
+        const avgMin = totalDelta / deltaCount / 60;
+        $('avgBlockTime').textContent = avgMin.toFixed(1);
+        // Schwellen: > 10 min orange (über Soll), > 11 min rot (Soll +1 min)
+        if (avgMin > 11) blockTimeCard.classList.add('danger');
+        else if (avgMin > 10) blockTimeCard.classList.add('warn');
+      }
+
+      // Blöcke aktuelle Stunde
+      const hourStart = Math.floor(Date.now() / 3_600_000) * 3600;
+      let inThisHour = 0;
+      // Zähle alle gecachten Blöcke der laufenden Stunde
+      for (const b of blocksCache.values()) {
+        if (b.timestamp >= hourStart) inThisHour++;
+      }
+      $('blocksThisHour').textContent = inThisHour;
+      const minutesIntoHour = Math.floor((Date.now() / 1000 - hourStart) / 60);
+      $('blocksThisHourSub').textContent = t('card_blocks_hour_sub', minutesIntoHour);
+
+      $('feeFast').textContent = recFees.fastestFee;
+      $('feeSub').textContent = t('card_fees_sub', recFees.fastestFee, recFees.halfHourFee, recFees.hourFee, recFees.economyFee);
+
+      clearError();
+    } catch (e) {
+      console.error(e);
+      showError(t('err_live') + ' ' + e.message);
+    }
+  }
+
+  // ------- Chart-Aggregation -------
+  async function loadChartData() {
+    if (!tipHeight) return;
+    const loading = $('chartLoading');
+    const loadingText = $('loadingText');
+    loading.classList.add('show');
+
+    // Tx-Button-Status nach Range
+    updateTxButtonState();
+
+    try {
+      if (currentRange === '1m') {
+        await loadChartDataMonth(loadingText);
+        return;
+      }
+
+      const hours = currentRange === '24h' ? 24 : 24 * 7;
+      const hourMs = 3_600_000;
+      const now = Date.now();
+      const currentHourStart = Math.floor(now / hourMs) * hourMs;
+      const startMs = currentHourStart - (hours - 1) * hourMs;
+      const startSec = startMs / 1000;
+
+      // Schätze benötigte Block-Anzahl: ~6 Blöcke/h, +Puffer
+      const estBlocks = Math.ceil(hours * 6 * 1.3);
+      const fromH = Math.max(1, tipHeight - estBlocks);
+
+      await ensureRange(fromH, tipHeight, (done, total) => {
+        loadingText.textContent = t('loading_blocks', done, total);
+      });
+
+      // Falls die ältesten Blöcke timestamp-mässig noch nach startSec liegen,
+      // weiter zurück laden bis Zeitraum abgedeckt
+      let safety = 5;
+      while (safety-- > 0) {
+        const oldest = blocksCache.get(oldestLoadedHeight);
+        if (!oldest || oldest.timestamp <= startSec) break;
+        await ensureRange(oldestLoadedHeight - 60, oldestLoadedHeight - 1);
+      }
+
+      const labels = [];
+      const blockCounts = new Array(hours).fill(0);
+      const feeSums = new Array(hours).fill(0);
+      const feeCounts = new Array(hours).fill(0);
+      const txSums = new Array(hours).fill(0);
+      const feeRateSums = new Array(hours).fill(0);
+      const feeRateCounts = new Array(hours).fill(0);
+
+      for (let i = 0; i < hours; i++) {
+        labels.push(formatHourLabel(new Date(startMs + i * hourMs), currentRange));
+      }
+
+      for (const b of blocksCache.values()) {
+        const ms = b.timestamp * 1000;
+        const idx = Math.floor((ms - startMs) / hourMs);
+        if (idx >= 0 && idx < hours) {
+          blockCounts[idx]++;
+          const fee = b.extras?.totalFees ?? 0;
+          feeSums[idx] += fee;
+          feeCounts[idx]++;
+          txSums[idx] += (b.tx_count ?? 0);
+          const fr = b.extras?.avgFeeRate;
+          if (typeof fr === 'number') {
+            feeRateSums[idx] += fr;
+            feeRateCounts[idx]++;
+          }
+        }
+      }
+
+      const avgFeesBTC = feeSums.map((s, i) => feeCounts[i] ? (s / feeCounts[i]) / 1e8 : 0);
+      const avgFeeRates = feeRateSums.map((s, i) => feeRateCounts[i] ? s / feeRateCounts[i] : 0);
+
+      renderChart(labels, blockCounts, avgFeesBTC, txSums, avgFeeRates, { unit: t('unit_hour'), txAvailable: true, feeRateAvailable: true });
+      clearError();
+    } catch (e) {
+      console.error(e);
+      showError(t('err_chart') + ' ' + e.message);
+    } finally {
+      loading.classList.remove('show');
+    }
+  }
+
+  // ------- Monats-Aggregation (Tages-Buckets) -------
+  async function loadChartDataMonth(loadingText) {
+    try {
+      const days = 30;
+      const dayMs = 86_400_000;
+      const now = Date.now();
+      const todayStart = Math.floor(now / dayMs) * dayMs;
+      const startMs = todayStart - (days - 1) * dayMs;
+
+      // Tages-Grenz-Timestamps + aktuelles "jetzt" als letzte Grenze
+      const boundaries = [];
+      for (let i = 0; i <= days; i++) {
+        let ts = Math.floor((startMs + i * dayMs) / 1000);
+        if (i === days) ts = Math.floor(now / 1000);
+        boundaries.push(ts);
+      }
+
+      loadingText.textContent = t('loading_dayboundaries');
+      // Parallel die Block-Höhe an jeder Tagesgrenze holen
+      const heights = await Promise.all(
+        boundaries.map(ts =>
+          fetchJSON('/v1/mining/blocks/timestamp/' + ts)
+            .then(r => r.height)
+            .catch(e => { console.warn('timestamp-API-Fehler', ts, e); return null; })
+        )
+      );
+
+      // Blöcke pro Tag = Differenz aufeinanderfolgender Höhen
+      const blockCounts = new Array(days).fill(0);
+      for (let i = 0; i < days; i++) {
+        if (heights[i] != null && heights[i+1] != null) {
+          blockCounts[i] = Math.max(0, heights[i+1] - heights[i]);
+        }
+      }
+
+      // Fees + Fee-Rates (parallel)
+      loadingText.textContent = t('loading_fees');
+      const [feesData, feeRatesData] = await Promise.all([
+        fetchJSON('/v1/mining/blocks/fees/1m'),
+        fetchJSON('/v1/mining/blocks/fee-rates/1m').catch(() => []),
+      ]);
+
+      const feeSums = new Array(days).fill(0);
+      const feeCounts = new Array(days).fill(0);
+      for (const d of feesData) {
+        const ms = d.timestamp * 1000;
+        const idx = Math.floor((ms - startMs) / dayMs);
+        if (idx >= 0 && idx < days) {
+          feeSums[idx] += d.avgFees;
+          feeCounts[idx]++;
+        }
+      }
+      const avgFeesBTC = feeSums.map((s, i) => feeCounts[i] ? (s / feeCounts[i]) / 1e8 : 0);
+
+      const feeRateSums = new Array(days).fill(0);
+      const feeRateCounts = new Array(days).fill(0);
+      for (const d of feeRatesData) {
+        const ms = d.timestamp * 1000;
+        const idx = Math.floor((ms - startMs) / dayMs);
+        // avgFee_50 = Median sat/vB pro Block (bzw. gemittelt über Sample)
+        if (idx >= 0 && idx < days && typeof d.avgFee_50 === 'number') {
+          feeRateSums[idx] += d.avgFee_50;
+          feeRateCounts[idx]++;
+        }
+      }
+      const avgFeeRates = feeRateSums.map((s, i) => feeRateCounts[i] ? s / feeRateCounts[i] : 0);
+
+      const labels = [];
+      for (let i = 0; i < days; i++) {
+        labels.push(formatDayLabel(new Date(startMs + i * dayMs)));
+      }
+
+      // Transaktionsmengen sind über 1 Monat zu teuer (zu viele Block-Calls)
+      const txs = new Array(days).fill(0);
+
+      renderChart(labels, blockCounts, avgFeesBTC, txs, avgFeeRates, { unit: t('unit_day'), txAvailable: false, feeRateAvailable: true });
+      clearError();
+    } catch (e) {
+      console.error(e);
+      showError(t('err_month') + ' ' + e.message);
+    } finally {
+      $('chartLoading').classList.remove('show');
+    }
+  }
+
+  function updateTxButtonState() {
+    const btn = document.querySelector('.ds-btn[data-ds="txs"]');
+    if (!btn) return;
+    if (currentRange === '1m') {
+      btn.disabled = true;
+      btn.classList.remove('active');
+      btn.style.opacity = '0.4';
+      btn.style.cursor = 'not-allowed';
+      btn.title = t('tx_btn_disabled');
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      btn.title = '';
+      if (dsVisible.txs) btn.classList.add('active');
+    }
+  }
+
+  function renderChart(labels, blocks, fees, txs, feeRates, meta = { unit: t('unit_hour'), txAvailable: true, feeRateAvailable: true }) {
+    const ctx = $('mainChart').getContext('2d');
+    const data = {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: t('ds_blocks', meta.unit),
+          data: blocks,
+          backgroundColor: 'rgba(247, 147, 26, 0.55)',
+          borderColor: 'rgba(247, 147, 26, 1)',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y',
+          order: 4,
+          hidden: !dsVisible.blocks,
+        },
+        {
+          type: 'line',
+          label: t('ds_fees'),
+          data: fees,
+          borderColor: '#60a5fa',
+          backgroundColor: 'rgba(96, 165, 250, 0.15)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          fill: true,
+          yAxisID: 'y1',
+          order: 1,
+          hidden: !dsVisible.fees,
+        },
+        {
+          type: 'line',
+          label: t('ds_txs', meta.unit, meta.txAvailable),
+          data: txs,
+          borderColor: '#c084fc',
+          backgroundColor: 'rgba(192, 132, 252, 0.10)',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          fill: false,
+          yAxisID: 'y2',
+          order: 2,
+          hidden: !dsVisible.txs || !meta.txAvailable,
+        },
+        {
+          type: 'line',
+          label: t('ds_feerate'),
+          data: feeRates,
+          borderColor: '#4ade80',
+          backgroundColor: 'rgba(74, 222, 128, 0.10)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          tension: 0.35,
+          fill: false,
+          yAxisID: 'y3',
+          order: 3,
+          hidden: !dsVisible.feerate || !meta.feeRateAvailable,
+        },
+      ],
+    };
+
+    const opts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#cbd2dd', boxWidth: 14, padding: 14, usePointStyle: true },
+          onClick(e, item, legend) {
+            const ci = legend.chart;
+            const idx = item.datasetIndex;
+            const meta = ci.getDatasetMeta(idx);
+            meta.hidden = meta.hidden === null ? !ci.data.datasets[idx].hidden : null;
+            setTimeout(() => syncDsButtons(), 0);
+            ci.update();
+          },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(11,14,20,0.95)',
+          borderColor: '#232a36', borderWidth: 1,
+          titleColor: '#f7931a', bodyColor: '#e6e8ec',
+          padding: 10,
+          callbacks: {
+            label: (c) => {
+              if (c.dataset.yAxisID === 'y1') return t('tooltip_fees', c.parsed.y.toFixed(4));
+              if (c.dataset.yAxisID === 'y2') return t('tooltip_txs', fmt.format(c.parsed.y));
+              if (c.dataset.yAxisID === 'y3') return t('tooltip_feerate', c.parsed.y.toFixed(1));
+              return t('tooltip_blocks', meta.unit, fmt.format(c.parsed.y));
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#8a93a6', maxRotation: 0, autoSkip: true,
+            maxTicksLimit: currentRange === '24h' ? 12 : (currentRange === '1w' ? 14 : 15),
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: t('axis_blocks', meta.unit), color: '#f7931a' },
+          ticks: { color: '#f7931a', precision: 0 },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+        },
+        y1: {
+          beginAtZero: true,
+          position: 'right',
+          title: { display: true, text: t('axis_fees'), color: '#60a5fa' },
+          ticks: { color: '#60a5fa', callback: v => v.toFixed(2) },
+          grid: { drawOnChartArea: false },
+        },
+        y2: {
+          beginAtZero: true,
+          position: 'right',
+          display: false,
+          title: { display: false, text: 'Transaktionen' },
+          grid: { drawOnChartArea: false },
+        },
+        y3: {
+          beginAtZero: true,
+          position: 'right',
+          display: false,
+          title: { display: false, text: 'Fee-Rate' },
+          grid: { drawOnChartArea: false },
+        },
+      },
+    };
+
+    if (chart) {
+      chart.data = data;
+      chart.options = opts;
+      chart.update();
+    } else {
+      chart = new Chart(ctx, { data, options: opts });
+    }
+  }
+
+  function syncDsButtons() {
+    if (!chart) return;
+    DS_KEYS.forEach((k, i) => {
+      const visible = chart.isDatasetVisible(i);
+      dsVisible[k] = visible;
+      const btn = document.querySelector(`.ds-btn[data-ds="${k}"]`);
+      if (btn) btn.classList.toggle('active', visible);
+    });
+  }
+
+  // ------- Tabelle: Pagination -------
+  async function renderTable() {
+    if (isLoadingPage) return;
+    isLoadingPage = true;
+    try {
+      const startH = pageStartHeight ?? tipHeight;
+      const endH = startH - pageSize + 1;
+      // Genug Daten + 1 für Δ-Berechnung
+      await ensureRange(endH - 1, startH);
+
+      const tbody = $('blocksTable');
+      tbody.innerHTML = '';
+      let totalDelta = 0, deltaCount = 0;
+      for (let i = 0; i < pageSize; i++) {
+        const h = startH - i;
+        const b = blocksCache.get(h);
+        if (!b) continue;
+        const prev = blocksCache.get(h - 1);
+        let deltaTxt = '–', deltaClass = '';
+        if (prev) {
+          const d = b.timestamp - prev.timestamp;
+          totalDelta += d; deltaCount++;
+          const min = (d / 60).toFixed(1);
+          deltaTxt = min + ' min';
+          if (d < 7 * 60) deltaClass = 'fast';
+          else if (d > 15 * 60) deltaClass = 'slow';
+        }
+        const fees = b.extras?.totalFees ?? 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="height"><a href="https://mempool.space/block/${b.id}" target="_blank" rel="noopener">#${fmt.format(b.height)}</a></td>
+          <td class="mono">${new Date(b.timestamp * 1000).toLocaleString(currentLocale())}</td>
+          <td><span class="pill ${deltaClass}">${deltaTxt}</span></td>
+          <td>${fmt.format(b.tx_count)}</td>
+          <td class="mono">${fmtBTC(fees)} BTC</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      const isLive = pageStartHeight === null || pageStartHeight === tipHeight;
+      $('pagePos').textContent = `#${fmt.format(startH - pageSize + 1)} – #${fmt.format(startH)}`;
+      $('tableInfo').textContent = isLive
+        ? t('table_info_live', pageSize)
+        : t('table_info_paged', pageSize, tipHeight - startH);
+      $('liveBtn').classList.toggle('live', !isLive);
+      $('prevBtn').disabled = isLive;
+      // nextBtn nie disabled (kann immer weiter zurück)
+    } finally {
+      isLoadingPage = false;
+    }
+  }
+
+  // ------- Erwartete vs. tatsächliche Blöcke -------
+  async function loadExpectedActual() {
+    if (!tipHeight) return;
+    try {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const ts24 = nowSec - 24 * 3600;
+      const ts7d = nowSec - 7 * 24 * 3600;
+
+      const [r24, r7d] = await Promise.all([
+        fetchJSON('/v1/mining/blocks/timestamp/' + ts24).catch(() => null),
+        fetchJSON('/v1/mining/blocks/timestamp/' + ts7d).catch(() => null),
+      ]);
+
+      function update(actual, expected, valId, deltaId, cardId) {
+        const card = $(cardId);
+        card.classList.remove('warn', 'danger');
+        if (actual == null) {
+          $(valId).textContent = '–';
+          $(deltaId).textContent = '–';
+          return;
+        }
+        $(valId).textContent = fmt.format(actual);
+        const diff = actual - expected;
+        const pct = Math.round((diff / expected) * 1000) / 10;
+        if (diff > 0) {
+          $(deltaId).textContent = t('card_blocks_delta_above', diff, pct);
+          $(deltaId).style.color = 'var(--good)';
+        } else if (diff < 0) {
+          $(deltaId).textContent = t('card_blocks_delta_below', diff, pct);
+          $(deltaId).style.color = 'var(--bad)';
+          // Karte hervorheben wenn deutlich unter Soll
+          if (pct <= -5) card.classList.add('warn');
+          if (pct <= -10) card.classList.add('danger');
+        } else {
+          $(deltaId).textContent = t('card_blocks_delta_match');
+          $(deltaId).style.color = 'var(--muted)';
+        }
+      }
+
+      const a24 = r24?.height != null ? (tipHeight - r24.height) : null;
+      const a7d = r7d?.height != null ? (tipHeight - r7d.height) : null;
+      update(a24, 144, 'blocks24h', 'blocks24hDelta', 'cardDay');
+      update(a7d, 1008, 'blocks7d', 'blocks7dDelta', 'cardWeek');
+    } catch (e) {
+      console.warn('expected/actual fehlgeschlagen', e);
+    }
+  }
+
+  // ------- 24h-Durchschnitts-Blockzeit aus Cache -------
+  function update24hAverage() {
+    const cutoff = Math.floor(Date.now() / 1000) - 24 * 3600;
+    const recent = [];
+    for (const b of blocksCache.values()) {
+      if (b.timestamp >= cutoff) recent.push(b);
+    }
+    if (recent.length < 2) {
+      $('avgBlockTime24h').textContent = '–';
+      $('avgBlockTime24hCount').textContent = '';
+      return;
+    }
+    recent.sort((a, b) => a.height - b.height);
+    const spanSec = recent[recent.length - 1].timestamp - recent[0].timestamp;
+    const avgMin = spanSec / (recent.length - 1) / 60;
+    $('avgBlockTime24h').textContent = avgMin.toFixed(1);
+    $('avgBlockTime24hCount').textContent = t('card_avgtime_24h_count', recent.length);
+  }
+
+  // ------- Refresh-Loop -------
+  async function refreshAll() {
+    const oldTip = tipHeight;
+    await loadCoreData();
+    if (pageStartHeight === null || pageStartHeight === oldTip) {
+      pageStartHeight = null;
+    }
+    await Promise.all([loadChartData(), renderTable(), loadExpectedActual()]);
+    update24hAverage();
+  }
+
+  function startCountdown() {
+    countdown = REFRESH_MS / 1000;
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        const el = $('countdown'); if (el) el.textContent = '0';
+        refreshAll().then(startCountdown);
+      } else {
+        const el = $('countdown'); if (el) el.textContent = countdown;
+      }
+    }, 1000);
+  }
+
+  // ------- UI Events -------
+  $('langSwitch').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const newLang = btn.dataset.lang;
+    if (!I18N[newLang] || newLang === lang) return;
+    lang = newLang;
+    localStorage.setItem('mempool_lang', lang);
+    document.querySelectorAll('#langSwitch button').forEach(b => b.classList.toggle('active', b === btn));
+    applyStaticI18n();
+    update24hAverage();
+    renderTable();
+    if (chart) loadChartData();
+    loadCoreData();
+    loadExpectedActual();
+  });
+
+  $('rangeToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const r = btn.dataset.range;
+    if (r === currentRange) return;
+    currentRange = r;
+    document.querySelectorAll('#rangeToggle button').forEach(b => b.classList.toggle('active', b === btn));
+    applyStaticI18n();
+    loadChartData();
+  });
+
+  $('dsToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.ds-btn');
+    if (!btn || btn.disabled || !chart) return;
+    const ds = btn.dataset.ds;
+    const idx = DS_KEYS.indexOf(ds);
+    if (idx < 0) return;
+    const newVisible = !chart.isDatasetVisible(idx);
+    chart.setDatasetVisibility(idx, newVisible);
+    dsVisible[ds] = newVisible;
+    btn.classList.toggle('active', newVisible);
+    chart.update();
+  });
+
+  $('pageSize').addEventListener('change', (e) => {
+    pageSize = parseInt(e.target.value, 10) || 10;
+    renderTable();
+  });
+  $('prevBtn').addEventListener('click', () => {
+    if (pageStartHeight === null) return;
+    pageStartHeight = Math.min(tipHeight, pageStartHeight + pageSize);
+    if (pageStartHeight >= tipHeight) pageStartHeight = null; // Live
+    renderTable();
+  });
+  $('nextBtn').addEventListener('click', () => {
+    const cur = pageStartHeight ?? tipHeight;
+    pageStartHeight = Math.max(pageSize, cur - pageSize);
+    renderTable();
+  });
+  $('liveBtn').addEventListener('click', () => {
+    pageStartHeight = null;
+    renderTable();
+  });
+
+  // ------- Init -------
+  // Sprach-Buttons gemäß gespeicherter Wahl
+  document.querySelectorAll('#langSwitch button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  applyStaticI18n();
+  refreshAll().then(startCountdown);
+})();
+</script>
+</body>
+</html>
