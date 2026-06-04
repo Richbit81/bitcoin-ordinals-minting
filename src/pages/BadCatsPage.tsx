@@ -21,7 +21,7 @@ const API_URL = getApiUrl();
 const BADCATS_RECENT_MINTS_START_AT = '2026-02-28T16:45:00.000Z';
 
 const COMIC_FONT_LINK = 'https://fonts.googleapis.com/css2?family=Creepster&family=Bangers&display=swap';
-const HIDDEN_RECENT_MINT_INDICES = new Set<number>([18, 78]);
+const HIDDEN_RECENT_MINT_INDICES = new Set<number>([18, 78, 43]);
 
 const FREE_MINT_INSCRIPTION_IDS = [
   '334a6ae4a4a12092e154aa5a3266db96bff335e991da3d98c6bbfd8f7b2f0b52i0',
