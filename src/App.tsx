@@ -55,6 +55,7 @@ const TheBoxMarketplacePage = lazy(() =>
   import('./pages/TheBoxMarketplacePage').then((m) => ({ default: m.TheBoxMarketplacePage }))
 );
 const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => ({ default: m.AudiobooksPage })));
+const ArtBaselPage = lazy(() => import('./pages/ArtBaselPage').then((m) => ({ default: m.ArtBaselPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -63,10 +64,12 @@ function AppContent() {
   const isV2Home = location.pathname === '/';
   const isHomePage = isV2Home || location.pathname === '/classic';
   const isMintingPage = location.pathname === '/black-wild';
+  // Full-bleed Kunst-Landingpage: kein globaler Header / keine Bottom-Nav.
+  const isAcs = location.pathname === '/acs';
 
   return (
     <div className="min-h-screen bg-black">
-      {!isV2Home && (
+      {!isV2Home && !isAcs && (
         <HeaderMenu 
           onGalleryClick={() => setShowGallery(true)} 
           showFullMenu={!isHomePage}
@@ -87,6 +90,7 @@ function AppContent() {
           <Route path="/free-stuff" element={<FreeStuffPage />} />
           <Route path="/books-onchain" element={<BooksOnchainPage />} />
           <Route path="/audiobooks" element={<AudiobooksPage />} />
+          <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />
           <Route path="/trade" element={<TradingPage />} />
@@ -126,7 +130,7 @@ function AppContent() {
       {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
       
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
+      {!isAcs && <MobileBottomNav />}
     </div>
   );
 }
