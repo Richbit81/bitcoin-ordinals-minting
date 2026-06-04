@@ -327,6 +327,12 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Generative Art',
+    items: [
+      { label: 'Autonomous Cultural Systems', route: '/acs', img: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', isHtml: true },
+    ],
+  },
+  {
     label: 'Marketplace',
     items: [
       { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
