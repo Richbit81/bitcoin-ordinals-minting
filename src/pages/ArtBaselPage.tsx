@@ -141,7 +141,12 @@ function ProjectFrame({
     }
     if (project.inscriptionId) {
       setLoaded(false);
-      el.src = `${ordContentUrl(project.inscriptionId)}#inscription=${randomInscriptionId()}`;
+      // Wichtig: eine reine Hash-Änderung lädt das iframe NICHT neu. Daher
+      // erzwingen wir das Neuladen über einen Cache-Bust-Query (?s=...) und
+      // geben zusätzlich einen frischen Seed im Hash mit (#inscription=...).
+      const seed = randomInscriptionId();
+      const bust = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
+      el.src = `${ordContentUrl(project.inscriptionId)}?s=${bust}#inscription=${seed}`;
     }
   };
 
