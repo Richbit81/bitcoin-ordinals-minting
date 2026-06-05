@@ -185,11 +185,13 @@ function ProjectFrame({
       {project.tapShuffle && (
         <button
           type="button"
-          className="acs-tap"
+          className="acs-shuffle"
           onClick={shuffle}
           aria-label={`Shuffle ${project.name}`}
+          title="Shuffle (new variation)"
         >
-          <span className="acs-tap-hint">tap = shuffle</span>
+          <span className="acs-shuffle-ico">⟳</span>
+          <span className="acs-shuffle-txt">SHUFFLE</span>
         </button>
       )}
     </>
@@ -809,15 +811,22 @@ const ACS_STYLES = `
 .acs-card:hover .acs-card-enter,.acs-card-enter:focus-visible{opacity:1;transform:none}
 .acs-card-enter:hover{box-shadow:0 0 26px rgba(0,255,213,.7)}
 
-/* tap-to-shuffle layer — nur auf Touch-Geräten aktiv (Desktop bleibt tasten-/mausbedienbar) */
-.acs-tap{position:absolute;inset:0;z-index:2;border:0;padding:0;margin:0;
-  background:transparent;cursor:pointer;display:none}
-@media (pointer:coarse){.acs-tap{display:block}}
-.acs-tap-hint{position:absolute;left:10px;bottom:10px;pointer-events:none;
-  font-family:ui-monospace,Consolas,monospace;font-size:9px;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--cyan);background:rgba(4,4,8,.6);
-  border:1px solid rgba(0,255,213,.4);border-radius:999px;padding:4px 9px;
-  box-shadow:0 0 14px rgba(0,255,213,.18)}
+/* shuffle button — kleiner Ecken-Button, lässt das Werk selbst bedienbar
+   (SPIN/MUTE/? funktionieren auf Touch). Desktop: erscheint beim Hover;
+   Touch & Vollbild: dauerhaft sichtbar. */
+.acs-shuffle{position:absolute;top:10px;left:10px;z-index:4;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:ui-monospace,Consolas,monospace;font-size:10px;letter-spacing:.2em;
+  color:#000;background:var(--cyan);border:0;padding:7px 11px;border-radius:3px;
+  font-weight:700;box-shadow:0 0 16px rgba(0,255,213,.4);
+  opacity:0;transform:translateY(-4px);
+  transition:opacity .25s,transform .25s,box-shadow .2s}
+.acs-shuffle-ico{font-size:12px;line-height:1}
+.acs-card:hover .acs-shuffle,.acs-shuffle:focus-visible{opacity:.95;transform:none}
+.acs-shuffle:hover{opacity:1;box-shadow:0 0 24px rgba(0,255,213,.7)}
+.acs-shuffle:active{transform:scale(.95)}
+.acs-overlay-stage .acs-shuffle{opacity:.95;transform:none}
+@media (pointer:coarse){.acs-shuffle{opacity:.95;transform:none}}
 
 .acs-card-meta{display:flex;align-items:center;justify-content:space-between;
   gap:14px;padding:16px 18px}
