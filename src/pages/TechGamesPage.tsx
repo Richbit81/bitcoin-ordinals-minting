@@ -38,7 +38,7 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     name: 'TESSERACT',
     description:
       'TESSERACT — Generative 4D Hypercube. A self-contained, single-HTML Bitcoin Ordinal that renders a real 4D tesseract (16 vertices, 32 edges) projected through 4D→3D→2D in pure Canvas2D. The inscription ID seeds every visual and audio trait — palette, rotation profile, glitch intensity, background style (19 variants), and a multi-voice generative Web Audio synth (drone, bass, bell sequencer, chord progression). Live mempool fees from mempool.space drive a chaos parameter (more fees = more jitter, chromatic aberration, slicing, lightning, red tint). New blocks fire a screen-wide pulse and a sub-bass hit. Same seed always renders the same hypercube; every minted child gets its own ID and therefore its own unique variant. Touch/mouse: 1 finger = 3D rotation, 2 fingers = 4D rotation, pinch/wheel = zoom. Press T for the trait tester. No external dependencies, no fonts, no images — works offline.',
-    price: 5000,
+    price: 20000,
     category: 'tool',
     isNew: true,
     specs: [
@@ -60,7 +60,7 @@ const TECH_GAMES_ITEMS: TechGameItem[] = [
     name: 'SIGNAL',
     description:
       'SIGNAL — Generative Geometric System. A recursive Bitcoin Ordinal that renders deterministic poster-grade artwork seeded by the mint inscription ID. Bauhaus meets cyberpunk: wireframe geometry, oscilloscope waves, halftone dot matrices, ASCII rain, topographic contours, concentric rings, glitched typography and a technical HUD — composed live in pure Canvas2D. The engine reads its own on-chain context via recursive endpoints (block height, sat number, sat rarity) and remixes the seed accordingly: rare / epic / legendary / mythic sats trigger exclusive palettes (emerald, amethyst, gold, crimson) and rarity-themed hero words. Four presets (MAXIMAL, MINIMAL, OSCILL, INSCRIPT). Hidden HUD with H, regenerate / save / typo / grid / preset / pause keyboard controls. Each minted child references the shared engine inscription, so per-mint payload is only ~236 bytes — cheap, deterministic, and forever on-chain.',
-    price: 5000,
+    price: 10000,
     category: 'tool',
     isNew: true,
     specs: [
