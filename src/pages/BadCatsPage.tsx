@@ -508,7 +508,15 @@ export const BadCatsPage: React.FC = () => {
             previewDoc: null,
           };
         })
-        .filter((mint: any) => mint.itemIndex > 0 && !HIDDEN_RECENT_MINT_INDICES.has(mint.itemIndex));
+        // Nur ECHTE, on-chain finalisierte Mints anzeigen. Abgebrochene
+        // Versuche (z. B. zu wenig Funds) erzeugen serverseitig nur eine
+        // Reservierung ohne finale Inscription-ID — die darf NIE als
+        // "recent mint" auftauchen.
+        .filter((mint: any) =>
+          mint.itemIndex > 0 &&
+          !HIDDEN_RECENT_MINT_INDICES.has(mint.itemIndex) &&
+          /^[0-9a-f]{64}i\d+$/i.test(String(mint.inscriptionId || '')),
+        );
 
       const finalInscriptionRe = /^[0-9a-f]{64}i\d+$/i;
       const byIndex = new Map<number, (typeof filtered)[0]>();
@@ -580,6 +588,10 @@ export const BadCatsPage: React.FC = () => {
     setIsMinting(true);
     setMintingStatus({ packId: 'badcats', status: 'processing', progress: 10 });
 
+    // Außerhalb von try, damit eine reservierte Nummer bei einem Abbruch
+    // (z. B. zu wenig Funds) wieder freigegeben werden kann.
+    let reservedIndex: number | undefined;
+
     try {
       setMintingStatus({ packId: 'badcats', status: 'processing', progress: 30 });
 
@@ -600,7 +612,6 @@ export const BadCatsPage: React.FC = () => {
         );
       }
 
-      let reservedIndex: number | undefined;
       let reservationLogId: string | undefined;
       const allocRes = await fetch(`${API_URL}/api/badcats/allocate-index`, {
         method: 'POST',
@@ -756,6 +767,12 @@ export const BadCatsPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('[BadCats] Mint error:', error);
+      // Optimistisch reservierte Nummer wieder freigeben — der Mint kam nicht
+      // zustande (keine Zahlung), die Nummer darf nicht lokal "belegt" bleiben.
+      if (reservedIndex !== undefined) {
+        const releasedIndex = reservedIndex;
+        setMintedIndices((prev) => prev.filter((i) => i !== releasedIndex));
+      }
       setMintingStatus({
         packId: 'badcats',
         status: 'failed',
