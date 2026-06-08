@@ -127,6 +127,15 @@ const BOOK_ITEMS = [
     description:
       'Frankenstein is a famous Gothic novel written by Mary Shelley.\n\nThe story follows the young scientist Victor Frankenstein, who creates a living creature from dead body parts. After bringing it to life, he becomes horrified by his creation and abandons it. The lonely creature suffers from rejection and eventually seeks revenge.\n\nThe novel explores themes such as responsibility, the dangers of uncontrolled science, and the effects of isolation.',
   },
+  {
+    id: 'a-voyage-to-arcturus',
+    name: 'A Voyage to Arcturus',
+    inscriptionId: '4372343f26d51d35343a6df4f3eae8e20b662f20b16376e3544128b18295f520i0',
+    author: 'David Lindsay',
+    priceInSats: 5000,
+    description:
+      'A Voyage to Arcturus by David Lindsay, published in 1920, is one of the most original and visionary works of philosophical fantasy ever written. It follows Maskull on an interplanetary journey to Tormance, a strange world orbiting the double star Arcturus, where every landscape, creature, and new sense he encounters confronts him with a different vision of truth, will, and illusion.\n\nAs Maskull travels across this shifting realm, growing new organs of perception and meeting beings who embody rival philosophies, the novel becomes a metaphysical quest into the nature of reality, pleasure, pain, and the divine.\n\nA profound influence on writers from C. S. Lewis to many later visionaries, this strange and uncompromising book is a landmark of imaginative literature.\n\n110% on-chain — preserved in the blockchain, so Lindsay\'s voyage can never fade.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
