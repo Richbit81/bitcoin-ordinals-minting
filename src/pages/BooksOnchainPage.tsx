@@ -136,6 +136,15 @@ const BOOK_ITEMS = [
     description:
       'A Voyage to Arcturus by David Lindsay, published in 1920, is one of the most original and visionary works of philosophical fantasy ever written. It follows Maskull on an interplanetary journey to Tormance, a strange world orbiting the double star Arcturus, where every landscape, creature, and new sense he encounters confronts him with a different vision of truth, will, and illusion.\n\nAs Maskull travels across this shifting realm, growing new organs of perception and meeting beings who embody rival philosophies, the novel becomes a metaphysical quest into the nature of reality, pleasure, pain, and the divine.\n\nA profound influence on writers from C. S. Lewis to many later visionaries, this strange and uncompromising book is a landmark of imaginative literature.\n\n110% on-chain — preserved in the blockchain, so Lindsay\'s voyage can never fade.',
   },
+  {
+    id: 'dream-quest-of-unknown-kadath',
+    name: 'The Dream-Quest of Unknown Kadath',
+    inscriptionId: '68c5c705474cdb0bebc2b38b317173d8d83f5a53726c20509fe6b58eb84c3815i0',
+    author: 'H.P. Lovecraft',
+    priceInSats: 5000,
+    description:
+      'Randolph Carter repeatedly dreams of a beautiful, mysterious city that he cannot find again. Determined to reach it, he journeys through the fantastical Dreamlands, encountering strange creatures, ancient gods, enchanted cities, and cosmic horrors.\n\nAs he searches for the location of the city, Carter travels across vast dream realms and uncovers secrets about the nature of dreams and reality. In the end, he learns that the city he has been seeking is connected to his own memories and deepest desires.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
