@@ -687,6 +687,33 @@ export const TechGamesPage: React.FC = () => {
         If you enjoy it and like what I'm creating, I'd really appreciate any support by purchasing something.
       </p>
 
+      {/* Mint-Einstellungen oben: Taproot-Empfangsadresse + Gebührenrate (vor dem Minten ausfüllen) */}
+      {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
+        <div className="max-w-2xl mx-auto mb-6 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
+          <label className="block text-xs text-orange-300 mb-1 font-semibold">
+            Taproot-Adresse für Inscription-Empfang (bc1p...)
+          </label>
+          <input
+            type="text"
+            value={taprootOverride}
+            onChange={(e) => handleTaprootChange(e.target.value)}
+            placeholder="bc1p..."
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">
+            Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+          </p>
+        </div>
+      )}
+
+      {/* Fee Rate Selector - oberhalb der Items, damit er beim Minten sichtbar ist */}
+      <div className="max-w-2xl mx-auto mb-8">
+        <FeeRateSelector
+          selectedFeeRate={inscriptionFeeRate}
+          onFeeRateChange={setInscriptionFeeRate}
+        />
+      </div>
+
       {/* Items Grid - Optimized for performance */}
       <div 
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 max-w-7xl mx-auto"
@@ -924,32 +951,6 @@ export const TechGamesPage: React.FC = () => {
         ))}
       </div>
 
-      {/* UniSat Taproot Eingabefeld */}
-      {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
-        <div className="max-w-2xl mx-auto mt-8 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
-          <label className="block text-xs text-orange-300 mb-1 font-semibold">
-            Taproot-Adresse für Inscription-Empfang (bc1p...)
-          </label>
-          <input
-            type="text"
-            value={taprootOverride}
-            onChange={(e) => handleTaprootChange(e.target.value)}
-            placeholder="bc1p..."
-            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
-          />
-          <p className="text-[10px] text-gray-400 mt-1">
-            Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
-          </p>
-        </div>
-      )}
-
-      {/* Fee Rate Selector - Jetzt unterhalb der Items */}
-      <div className="max-w-2xl mx-auto mt-8">
-        <FeeRateSelector
-          selectedFeeRate={inscriptionFeeRate}
-          onFeeRateChange={setInscriptionFeeRate}
-        />
-      </div>
       </>
       )}
 
