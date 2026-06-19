@@ -17,6 +17,80 @@ import { buildSignalWrapper, SIGNAL_ENGINE_INSCRIPTION_ID, SIGNAL_WRAPPER_BYTES,
 
 const API_URL = getApiUrl();
 
+const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft'; // Admin Payment Wallet
+
+/**
+ * Bezahlt die UniSat-Inscription-Order ZUERST (kritisch — sichert die Inscription)
+ * und den Item-Preis an die Admin-Adresse erst DANACH (best-effort).
+ *
+ * Hintergrund / Bugfix: UniSat & OKX können pro Transaktion nur einen Empfänger.
+ * Früher wurden Item-Gebühr und Inscription-Gebühr als ZWEI getrennte, nach Betrag
+ * sortierte Transaktionen gesendet. Schlug die zweite (Inscription-)Zahlung fehl
+ * (z.B. unbestätigte UTXOs, abgelehnt), war das Geld weg, aber keine Inscription
+ * wurde erzeugt. Jetzt wird die Inscription-Order IMMER zuerst bezahlt; geht danach
+ * die Item-Preis-Zahlung daneben, verliert nur der Betreiber seine Gebühr — der
+ * Käufer hat aber garantiert seine Inscription.
+ *
+ * Xverse unterstützt echte Multi-Output-Transaktionen (atomar: beide Outputs oder
+ * gar keiner), daher bleibt dort der kombinierte Versand erhalten.
+ */
+async function payInscriptionFeeFirst(
+  payAddress: string,
+  payAmountBTC: number,
+  itemPriceSats: number | undefined,
+  walletType: 'unisat' | 'xverse' | 'okx' | null
+): Promise<string> {
+  if (!walletType) {
+    throw new Error('Unsupported wallet type for payment.');
+  }
+
+  const itemPriceBTC = itemPriceSats && itemPriceSats > 0 ? itemPriceSats / 100000000 : 0;
+
+  // Xverse: ein atomarer Multi-Output-Tx (beide Outputs oder keiner) → "Geld weg,
+  // keine Inscription" ist hier strukturell unmöglich.
+  if (walletType === 'xverse') {
+    if (itemPriceBTC > 0) {
+      // Inscription-Output zuerst auflisten (Reihenfolge irrelevant, da atomar).
+      return await sendMultipleBitcoinPayments(
+        [
+          { address: payAddress, amount: payAmountBTC },
+          { address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC },
+        ],
+        'xverse'
+      );
+    }
+    return await sendBitcoinViaXverse(payAddress, payAmountBTC);
+  }
+
+  // UniSat / OKX: nur ein Output pro Transaktion möglich.
+  const sendFn = walletType === 'okx' ? sendBitcoinViaOKX : sendBitcoinViaUnisat;
+
+  // 1) ZUERST die Inscription-Order bezahlen — kritische Zahlung, Fehler bricht ab.
+  console.log(
+    `[CollectionMinting] 💸 Inscription-Order zuerst: ${payAmountBTC.toFixed(8)} BTC → ${payAddress}`
+  );
+  const inscriptionTxid = await sendFn(payAddress, payAmountBTC);
+  console.log(`[CollectionMinting] ✅ Inscription-Order bezahlt, TXID: ${inscriptionTxid}`);
+
+  // 2) DANACH den Item-Preis (best-effort — darf die Inscription nie gefährden).
+  if (itemPriceBTC > 0) {
+    try {
+      console.log(
+        `[CollectionMinting] 💸 Item-Preis (best-effort): ${itemPriceBTC.toFixed(8)} BTC → ${ADMIN_PAYMENT_ADDRESS}`
+      );
+      const feeTxid = await sendFn(ADMIN_PAYMENT_ADDRESS, itemPriceBTC);
+      console.log(`[CollectionMinting] ✅ Item-Preis bezahlt, TXID: ${feeTxid}`);
+    } catch (feeErr) {
+      console.warn(
+        '[CollectionMinting] ⚠️ Item-Preis-Zahlung fehlgeschlagen — Inscription ist bereits gesichert:',
+        feeErr
+      );
+    }
+  }
+
+  return inscriptionTxid;
+}
+
 /**
  * Erstellt eine einzelne Delegate-Inskription für ein Collection-Item
  * @param contentType - 'html' für HTML-Inskriptionen (iframe), 'image' für Bilder (img). Muss zum Original-Inhalt passen — HTML/Runner mit 'image' minten bricht interaktive Delegates. Auto-detect nur wenn nicht angegeben.
@@ -147,52 +221,11 @@ img {
     throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
   }
 
-  // Zahlungen sammeln: Item-Preis (an Admin) + Inskriptions-Fees (an UniSat)
-  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft'; // Admin Payment Wallet
-  const payments: Array<{ address: string; amount: number }> = [];
-
-  // 1. Item-Preis an Admin-Adresse (falls Preis vorhanden)
-  if (itemPrice && itemPrice > 0) {
-    const itemPriceBTC = itemPrice / 100000000; // Konvertiere sats zu BTC
-    payments.push({
-      address: ADMIN_PAYMENT_ADDRESS,
-      amount: itemPriceBTC
-    });
-    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
-  }
-
-  // 2. Inskriptions-Fees an UniSat
-  payments.push({
-    address: result.payAddress,
-    amount: result.amount
-  });
-  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
-
-  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
-  let paymentTxid: string | undefined;
-
+  // Zahlung: Inscription-Order ZUERST (kritisch), Item-Preis DANACH (best-effort).
+  console.log(`[CollectionMinting] 💸 Step 2/3: Paying via ${walletType} (inscription first)...`);
+  let paymentTxid: string;
   try {
-    if (payments.length === 1) {
-      if (walletType === 'unisat') {
-        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
-      } else if (walletType === 'okx') {
-        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
-      } else if (walletType === 'xverse') {
-        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
-      } else {
-        throw new Error('Unsupported wallet type for payment.');
-      }
-    } else {
-      console.log(`[CollectionMinting] Paying ${payments.length} recipients:`);
-      payments.forEach((p, i) => {
-        console.log(`[CollectionMinting]   ${i + 1}. ${p.address}: ${p.amount.toFixed(8)} BTC (${(p.amount * 100000000).toFixed(0)} sats)`);
-      });
-      
-      if (!walletType) {
-        throw new Error('Unsupported wallet type for payment.');
-      }
-      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
-    }
+    paymentTxid = await payInscriptionFeeFirst(result.payAddress, result.amount, itemPrice, walletType);
     console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
   } catch (payErr: any) {
     console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
@@ -279,35 +312,11 @@ export const createRunnerWrapperInscription = async (
     throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
   }
 
-  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
-  const payments: Array<{ address: string; amount: number }> = [];
-
-  if (itemPrice && itemPrice > 0) {
-    const itemPriceBTC = itemPrice / 100000000;
-    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC });
-    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
-  }
-
-  payments.push({ address: result.payAddress, amount: result.amount });
-  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
-
-  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
-  let paymentTxid: string | undefined;
+  // Zahlung: Inscription-Order ZUERST (kritisch), Item-Preis DANACH (best-effort).
+  console.log(`[CollectionMinting] 💸 Step 2/3: Paying via ${walletType} (inscription first)...`);
+  let paymentTxid: string;
   try {
-    if (payments.length === 1) {
-      if (walletType === 'unisat') {
-        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
-      } else if (walletType === 'okx') {
-        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
-      } else if (walletType === 'xverse') {
-        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
-      } else {
-        throw new Error('Unsupported wallet type for payment.');
-      }
-    } else {
-      if (!walletType) throw new Error('Unsupported wallet type for payment.');
-      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
-    }
+    paymentTxid = await payInscriptionFeeFirst(result.payAddress, result.amount, itemPrice, walletType);
     console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
   } catch (payErr: any) {
     console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
@@ -405,35 +414,11 @@ export const createTesseractWrapperInscription = async (
     throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
   }
 
-  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
-  const payments: Array<{ address: string; amount: number }> = [];
-
-  if (itemPrice && itemPrice > 0) {
-    const itemPriceBTC = itemPrice / 100000000;
-    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC });
-    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
-  }
-
-  payments.push({ address: result.payAddress, amount: result.amount });
-  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
-
-  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
-  let paymentTxid: string | undefined;
+  // Zahlung: Inscription-Order ZUERST (kritisch), Item-Preis DANACH (best-effort).
+  console.log(`[CollectionMinting] 💸 Step 2/3: Paying via ${walletType} (inscription first)...`);
+  let paymentTxid: string;
   try {
-    if (payments.length === 1) {
-      if (walletType === 'unisat') {
-        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
-      } else if (walletType === 'okx') {
-        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
-      } else if (walletType === 'xverse') {
-        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
-      } else {
-        throw new Error('Unsupported wallet type for payment.');
-      }
-    } else {
-      if (!walletType) throw new Error('Unsupported wallet type for payment.');
-      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
-    }
+    paymentTxid = await payInscriptionFeeFirst(result.payAddress, result.amount, itemPrice, walletType);
     console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
   } catch (payErr: any) {
     console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
@@ -531,35 +516,11 @@ export const createSignalWrapperInscription = async (
     throw new Error('UniSat API did not return a pay address or amount for inscription fees.');
   }
 
-  const ADMIN_PAYMENT_ADDRESS = '34VvkvWnRw2GVgEQaQZ6fykKbebBHiT4ft';
-  const payments: Array<{ address: string; amount: number }> = [];
-
-  if (itemPrice && itemPrice > 0) {
-    const itemPriceBTC = itemPrice / 100000000;
-    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: itemPriceBTC });
-    console.log(`[CollectionMinting] Item price: ${itemPriceBTC.toFixed(8)} BTC (${itemPrice} sats) to ${ADMIN_PAYMENT_ADDRESS}`);
-  }
-
-  payments.push({ address: result.payAddress, amount: result.amount });
-  console.log(`[CollectionMinting] Inscription fees: ${result.amount.toFixed(8)} BTC to ${result.payAddress}`);
-
-  console.log(`[CollectionMinting] 💸 Step 2/3: Sending ${payments.length} payment(s) via ${walletType}...`);
-  let paymentTxid: string | undefined;
+  // Zahlung: Inscription-Order ZUERST (kritisch), Item-Preis DANACH (best-effort).
+  console.log(`[CollectionMinting] 💸 Step 2/3: Paying via ${walletType} (inscription first)...`);
+  let paymentTxid: string;
   try {
-    if (payments.length === 1) {
-      if (walletType === 'unisat') {
-        paymentTxid = await sendBitcoinViaUnisat(payments[0].address, payments[0].amount);
-      } else if (walletType === 'okx') {
-        paymentTxid = await sendBitcoinViaOKX(payments[0].address, payments[0].amount);
-      } else if (walletType === 'xverse') {
-        paymentTxid = await sendBitcoinViaXverse(payments[0].address, payments[0].amount);
-      } else {
-        throw new Error('Unsupported wallet type for payment.');
-      }
-    } else {
-      if (!walletType) throw new Error('Unsupported wallet type for payment.');
-      paymentTxid = await sendMultipleBitcoinPayments(payments, walletType);
-    }
+    paymentTxid = await payInscriptionFeeFirst(result.payAddress, result.amount, itemPrice, walletType);
     console.log(`[CollectionMinting] ✅ Step 2/3 done. paymentTxid=${paymentTxid}`);
   } catch (payErr: any) {
     console.error(`[CollectionMinting] ❌ Step 2/3 FAILED (payment):`, payErr);
