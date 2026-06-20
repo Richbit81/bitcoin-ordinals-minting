@@ -538,8 +538,8 @@ export const PinkPuppetsSlotSection: React.FC = () => {
         return {
           address: addr,
           error:
-            'Sicherheitscheck: Die Taproot-Empfangsadresse ist nicht eindeutig deiner verbundenen Wallet ' +
-            'zugeordnet. Bitte gib die Taproot-Adresse (bc1p…) deiner verbundenen Wallet oben erneut ein.',
+            'Security check: The Taproot receive address is not clearly assigned to your connected wallet. ' +
+            'Please re-enter the Taproot address (bc1p…) of your connected wallet above.',
         };
       }
     }

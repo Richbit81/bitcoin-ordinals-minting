@@ -691,7 +691,7 @@ export const TechGamesPage: React.FC = () => {
       {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
         <div className="max-w-2xl mx-auto mb-6 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
           <label className="block text-xs text-orange-300 mb-1 font-semibold">
-            Taproot-Adresse für Inscription-Empfang (bc1p...)
+            Taproot address to receive your inscription (bc1p...)
           </label>
           <input
             type="text"
@@ -701,7 +701,7 @@ export const TechGamesPage: React.FC = () => {
             className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
           />
           <p className="text-[10px] text-gray-400 mt-1">
-            Kopiere deine Taproot-Adresse aus UniSat (Settings → Address Type → Taproot → Adresse kopieren).
+            Copy your Taproot address from UniSat (Settings → Address Type → Taproot → copy address).
           </p>
         </div>
       )}

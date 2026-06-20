@@ -75,8 +75,8 @@ export function useUnisatTaproot(walletState?: WalletStateLike) {
         return {
           address: receiveAddress,
           error:
-            'Bitte gib deine Taproot-Adresse (bc1p…) im Feld oberhalb des Mint-Buttons ein. ' +
-            'Dorthin wird deine Inscription gesendet.',
+            'Please enter your Taproot address (bc1p…) in the field above the mint button. ' +
+            'Your inscription will be sent there.',
         };
       }
 
@@ -90,10 +90,10 @@ export function useUnisatTaproot(walletState?: WalletStateLike) {
             return {
               address: receiveAddress,
               error:
-                'UniSat ist mit Taproot verbunden — Zahlung von hier würde deine Inscriptions zerstören!\n\n' +
-                'Bitte wechsle in UniSat zu Native SegWit:\n' +
+                'UniSat is connected with Taproot — paying from here would destroy your inscriptions!\n\n' +
+                'Please switch to Native SegWit in UniSat:\n' +
                 'UniSat → Settings → Address Type → Native SegWit\n' +
-                'Dann verbinde erneut über "Connect Wallet".',
+                'Then reconnect via "Connect Wallet".',
             };
           }
         } catch {
@@ -112,10 +112,10 @@ export function useUnisatTaproot(walletState?: WalletStateLike) {
           return {
             address: receiveAddress,
             error:
-              'Sicherheitscheck: Die Taproot-Empfangsadresse ist nicht eindeutig deiner aktuell ' +
-              'verbundenen Wallet zugeordnet.\n\n' +
-              'Bitte gib die Taproot-Adresse (bc1p…) DEINER verbundenen Wallet im Feld oberhalb ' +
-              'des Mint-Buttons (neu) ein, bevor du mintest.',
+              'Security check: The Taproot receive address is not clearly assigned to your currently ' +
+              'connected wallet.\n\n' +
+              'Please (re-)enter the Taproot address (bc1p…) of YOUR connected wallet in the field above ' +
+              'the mint button before minting.',
           };
         }
       }
