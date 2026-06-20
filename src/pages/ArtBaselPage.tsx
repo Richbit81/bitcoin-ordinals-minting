@@ -389,7 +389,7 @@ type MintPhase =
 
 function AcsMintModal({ onClose }: { onClose: () => void }) {
   const { walletState, connect, disconnect, isUnisatInstalled, isXverseInstalled, isOKXInstalled } = useWallet();
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
   const [feeRate, setFeeRate] = useState<number>(0);
   const [phase, setPhase] = useState<MintPhase>({ kind: 'idle' });
   const [connecting, setConnecting] = useState<WalletType | null>(null);

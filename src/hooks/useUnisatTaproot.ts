@@ -1,38 +1,69 @@
-import { useState, useCallback } from 'react';
-import { getOrdinalAddress } from '../utils/wallet';
+import { useState, useCallback, useEffect } from 'react';
+import { getOrdinalAddress, getPaymentAddress } from '../utils/wallet';
+import { getBoundTaproot, bindTaproot } from '../utils/taprootStore';
+
+type WalletStateLike = {
+  connected?: boolean;
+  walletType?: string | null;
+  accounts?: Array<{ address: string; purpose?: 'ordinals' | 'payment' }>;
+};
 
 /**
- * Shared hook for UniSat taproot address handling across all mint pages.
+ * Shared hook for UniSat/OKX taproot address handling across all mint pages.
  *
- * When UniSat is connected via Native SegWit the user must enter their
- * taproot (bc1p) address manually so inscriptions land in the right place.
- * The address is persisted in localStorage for reuse across pages.
+ * Wenn UniSat/OKX über SegWit verbunden ist, liefert die Wallet KEINE
+ * Taproot-Adresse — der Nutzer muss seine bc1p-Adresse manuell eingeben, damit
+ * die Inscription am richtigen Ort landet.
+ *
+ * KRITISCH: Die Taproot-Adresse wird an die konkret verbundene Wallet gebunden
+ * (über deren Payment-Adresse), niemals global wiederverwendet. So kann eine
+ * andere Wallet niemals die Taproot-Adresse einer vorherigen Wallet erben.
+ * Vor jedem Mint prüft ein hartes Gate, dass die Empfangsadresse eindeutig zur
+ * aktuell verbundenen Wallet gehört.
+ *
+ * `walletState` sollte übergeben werden, damit die Bindung pro Wallet greift.
  */
-export function useUnisatTaproot() {
+export function useUnisatTaproot(walletState?: WalletStateLike) {
+  const paymentAddress = getPaymentAddress(walletState?.accounts || []);
+
   const [taprootOverride, setTaprootOverride] = useState<string>(
-    () => localStorage.getItem('unisat_taproot_address') || '',
+    () => getBoundTaproot(paymentAddress),
   );
 
-  const handleTaprootChange = useCallback((value: string) => {
-    const v = value.trim();
-    setTaprootOverride(v);
-    if (v.startsWith('bc1p')) {
-      localStorage.setItem('unisat_taproot_address', v);
-    }
-  }, []);
+  // Beim Wallet-Wechsel das Eingabefeld neu aus der Bindung dieser Wallet laden —
+  // niemals eine fremde Adresse stehen lassen.
+  useEffect(() => {
+    setTaprootOverride(getBoundTaproot(paymentAddress));
+  }, [paymentAddress]);
+
+  const handleTaprootChange = useCallback(
+    (value: string) => {
+      const v = value.trim();
+      setTaprootOverride(v);
+      if (v.startsWith('bc1p') && paymentAddress) {
+        bindTaproot(paymentAddress, v);
+      }
+    },
+    [paymentAddress],
+  );
 
   const resolveReceiveAddress = useCallback(
-    async (walletState: {
+    async (ws: {
       connected: boolean;
       walletType?: string | null;
       accounts: Array<{ address: string; purpose?: 'ordinals' | 'payment' }>;
     }): Promise<{ address: string; error?: string }> => {
-      let receiveAddress = getOrdinalAddress(walletState.accounts);
+      const accounts = ws.accounts || [];
+      const payment = getPaymentAddress(accounts);
+      const isUnisatLike = ws.walletType === 'unisat' || ws.walletType === 'okx';
 
-      if (walletState.walletType === 'unisat' && !receiveAddress.startsWith('bc1p')) {
-        const saved = taprootOverride || localStorage.getItem('unisat_taproot_address') || '';
-        if (saved.startsWith('bc1p')) {
-          receiveAddress = saved;
+      let receiveAddress = getOrdinalAddress(accounts);
+
+      // SegWit-Verbindung: Taproot aus der Bindung DIESER Wallet holen.
+      if (isUnisatLike && !receiveAddress.startsWith('bc1p')) {
+        const bound = getBoundTaproot(payment);
+        if (bound) {
+          receiveAddress = bound;
         }
       }
 
@@ -45,11 +76,13 @@ export function useUnisatTaproot() {
           address: receiveAddress,
           error:
             'Bitte gib deine Taproot-Adresse (bc1p…) im Feld oberhalb des Mint-Buttons ein. ' +
-            'Dort wird deine Inscription hingesendet.',
+            'Dorthin wird deine Inscription gesendet.',
         };
       }
 
-      if (walletState.walletType === 'unisat') {
+      // Bestehender Schutz: UniSat darf nicht im Taproot-Modus zahlen
+      // (würde Inscriptions auf der Taproot-UTXO zerstören).
+      if (ws.walletType === 'unisat') {
         try {
           const accs = await (window as any).unisat!.getAccounts();
           const activeAddr: string = accs?.[0] || '';
@@ -68,9 +101,28 @@ export function useUnisatTaproot() {
         }
       }
 
+      // HARTES SICHERHEITS-GATE (nur UniSat/OKX):
+      // Die Taproot-Empfangsadresse MUSS eindeutig zur aktuell verbundenen Wallet
+      // gehören — entweder als ausdrücklich gebundene Adresse dieser Payment-Adresse
+      // oder (Taproot-Modus) als die verbundene Adresse selbst. Sonst Abbruch.
+      if (isUnisatLike) {
+        const bound = getBoundTaproot(payment);
+        const belongsToWallet = receiveAddress === bound || receiveAddress === payment;
+        if (!belongsToWallet) {
+          return {
+            address: receiveAddress,
+            error:
+              'Sicherheitscheck: Die Taproot-Empfangsadresse ist nicht eindeutig deiner aktuell ' +
+              'verbundenen Wallet zugeordnet.\n\n' +
+              'Bitte gib die Taproot-Adresse (bc1p…) DEINER verbundenen Wallet im Feld oberhalb ' +
+              'des Mint-Buttons (neu) ein, bevor du mintest.',
+          };
+        }
+      }
+
       return { address: receiveAddress };
     },
-    [taprootOverride],
+    [],
   );
 
   return { taprootOverride, handleTaprootChange, resolveReceiveAddress } as const;

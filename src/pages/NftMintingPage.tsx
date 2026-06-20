@@ -34,7 +34,7 @@ export const NftMintingPage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const handleMint = async () => {
     if (!walletState.connected || !walletState.accounts[0]) {

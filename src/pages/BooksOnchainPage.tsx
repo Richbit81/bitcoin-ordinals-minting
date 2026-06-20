@@ -184,7 +184,7 @@ export const BooksOnchainPage: React.FC = () => {
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
   const [tryFullscreenItemId, setTryFullscreenItemId] = useState<string | null>(null);
   const fullscreenShellRef = useRef<HTMLDivElement | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const tryItem = tryFullscreenItemId ? BOOK_ITEMS.find((b) => b.id === tryFullscreenItemId) : null;
 

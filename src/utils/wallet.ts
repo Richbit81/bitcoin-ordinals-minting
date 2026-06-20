@@ -1,4 +1,5 @@
 import { WalletType, WalletAccount } from '../types/wallet';
+import { getBoundTaproot } from './taprootStore';
 
 declare global {
   interface Window {
@@ -197,17 +198,19 @@ export const connectUnisat = async (): Promise<WalletAccount[]> => {
     const walletAccounts: WalletAccount[] = [];
     
     if (currentAddress.startsWith('bc1p')) {
-      localStorage.setItem('unisat_taproot_address', currentAddress);
+      // Taproot-Modus: die verbundene Adresse IST die verifizierte Empfangsadresse.
       walletAccounts.push({ address: currentAddress, purpose: 'ordinals' });
     } else {
       walletAccounts.push({ address: currentAddress, purpose: 'payment' });
-      
-      const savedTaproot = localStorage.getItem('unisat_taproot_address');
-      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-        console.log(`[UniSat] Using saved Taproot address for ordinals: ${savedTaproot}`);
-        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+
+      // NUR die Taproot-Adresse verwenden, die GENAU an diese Wallet (Payment-Adresse)
+      // gebunden ist. Niemals eine global gespeicherte fremde Adresse erben!
+      const boundTaproot = getBoundTaproot(currentAddress);
+      if (boundTaproot) {
+        console.log(`[UniSat] Bound Taproot address for ${currentAddress}: ${boundTaproot}`);
+        walletAccounts.push({ address: boundTaproot, purpose: 'ordinals' });
       } else {
-        console.log(`[UniSat] No saved Taproot address, using ${currentAddressType} for everything`);
+        console.log(`[UniSat] No bound Taproot for ${currentAddress} — user must enter it before minting`);
       }
     }
 
@@ -339,15 +342,14 @@ export const getUnisatAccounts = async (): Promise<WalletAccount[]> => {
     const walletAccounts: WalletAccount[] = [];
 
     if (currentAddress.startsWith('bc1p')) {
-      // Persist the last known taproot address for auto-reconnect flows.
-      localStorage.setItem('unisat_taproot_address', currentAddress);
       walletAccounts.push({ address: currentAddress, purpose: 'ordinals' });
     } else {
       walletAccounts.push({ address: currentAddress, purpose: 'payment' });
 
-      const savedTaproot = localStorage.getItem('unisat_taproot_address');
-      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+      // Nur die an DIESE Wallet gebundene Taproot-Adresse verwenden (kein globales Erben).
+      const boundTaproot = getBoundTaproot(currentAddress);
+      if (boundTaproot) {
+        walletAccounts.push({ address: boundTaproot, purpose: 'ordinals' });
       }
     }
 
@@ -601,16 +603,16 @@ export const connectOKX = async (): Promise<WalletAccount[]> => {
         console.warn(`[OKX] No saved payment address. Switch to Legacy/SegWit in OKX for payments, then reconnect.`);
       }
     } else {
-      // Legacy/SegWit: use for payments, check for saved Taproot for ordinals
+      // Legacy/SegWit: use for payments. Taproot nur, wenn an DIESE Wallet gebunden.
       localStorage.setItem('okx_payment_address', address);
       walletAccounts.push({ address, publicKey: result.publicKey, purpose: 'payment' });
 
-      const savedTaproot = localStorage.getItem('okx_taproot_address');
-      if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-        console.log(`[OKX] Using saved Taproot address for ordinals: ${savedTaproot}`);
-        walletAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+      const boundTaproot = getBoundTaproot(address);
+      if (boundTaproot) {
+        console.log(`[OKX] Bound Taproot address for ${address}: ${boundTaproot}`);
+        walletAccounts.push({ address: boundTaproot, purpose: 'ordinals' });
       } else {
-        console.log(`[OKX] No saved Taproot address, using ${addressType} for everything`);
+        console.log(`[OKX] No bound Taproot for ${address} — user must enter it before minting`);
       }
     }
 

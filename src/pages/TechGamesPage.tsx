@@ -300,7 +300,7 @@ export const TechGamesPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'all' | Category>('all');
   const [tesseractMintCount, setTesseractMintCount] = useState<number | null>(null);
   const [signalMintCount, setSignalMintCount] = useState<number | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   // Lädt die aktuell geminteten Tesseract-Editions vom Backend.
   // 404 (älterer Backend-Stand) wird stillschweigend ignoriert — der

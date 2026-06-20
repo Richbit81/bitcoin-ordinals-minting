@@ -90,7 +90,7 @@ export const FreeStuffPage: React.FC = () => {
   const [previewItem, setPreviewItem] = useState<FreeStuffItem | null>(null);
   const [recentMints, setRecentMints] = useState<RecentFreeMint[]>([]);
   const [recentLightbox, setRecentLightbox] = useState<RecentFreeMint | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const loadRecentMints = useCallback(async () => {
     const apiUrl = getApiUrl();

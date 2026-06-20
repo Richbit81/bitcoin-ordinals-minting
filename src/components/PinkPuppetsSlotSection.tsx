@@ -4,7 +4,8 @@ import { FeeRateSelector } from './FeeRateSelector';
 import { MintingProgress } from './MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
-import { getOrdinalAddress } from '../utils/wallet';
+import { getOrdinalAddress, getPaymentAddress } from '../utils/wallet';
+import { getBoundTaproot, bindTaproot } from '../utils/taprootStore';
 import { getApiUrl } from '../utils/apiUrl';
 
 function apiUrl(path: string): string {
@@ -220,7 +221,7 @@ export const PinkPuppetsSlotSection: React.FC = () => {
   const [mintStatus, setMintStatus] = useState<MintingStatus | null>(null);
   const [connectWalletHint, setConnectWalletHint] = useState(false);
   const [taprootOverride, setTaprootOverride] = useState(
-    () => typeof window !== 'undefined' ? localStorage.getItem('unisat_taproot_address') || '' : ''
+    () => getBoundTaproot(getPaymentAddress(walletState.accounts || [])),
   );
   const [passPool, setPassPool] = useState<PassPoolInfo | null>(null);
   /** Ergebnis-Text erst nach Ende der Walzen-Animation (iframe → PP_SLOT_ANIM_DONE) */
@@ -512,13 +513,38 @@ export const PinkPuppetsSlotSection: React.FC = () => {
     }
   }, [ordinalAddr, loadStatus, loadPassPool]);
 
-  const resolveReceive = (): string => {
+  const resolveReceive = (): { address: string; error?: string } => {
+    const payment = getPaymentAddress(walletState.accounts || []);
+    const isUnisatLike = walletState.walletType === 'unisat' || walletState.walletType === 'okx';
     let addr = getOrdinalAddress(walletState.accounts || []);
-    if (walletState.walletType === 'unisat' && !addr.startsWith('bc1p')) {
-      const saved = taprootOverride || localStorage.getItem('unisat_taproot_address') || '';
-      if (saved.startsWith('bc1p')) addr = saved;
+
+    if (isUnisatLike && !addr.startsWith('bc1p')) {
+      const bound = getBoundTaproot(payment);
+      if (bound) addr = bound;
     }
-    return addr;
+
+    if (!addr.startsWith('bc1p')) {
+      return {
+        address: addr,
+        error:
+          'Taproot address (bc1p…) required to receive the inscription. UniSat: pay from Native SegWit; enter Taproot receive above.',
+      };
+    }
+
+    // Hartes Sicherheits-Gate: Empfangs-Taproot muss eindeutig zur verbundenen Wallet gehören.
+    if (isUnisatLike) {
+      const bound = getBoundTaproot(payment);
+      if (addr !== bound && addr !== payment) {
+        return {
+          address: addr,
+          error:
+            'Sicherheitscheck: Die Taproot-Empfangsadresse ist nicht eindeutig deiner verbundenen Wallet ' +
+            'zugeordnet. Bitte gib die Taproot-Adresse (bc1p…) deiner verbundenen Wallet oben erneut ein.',
+        };
+      }
+    }
+
+    return { address: addr };
   };
 
   const handleMintPrize = async (claimSpin?: SpinResult) => {
@@ -532,13 +558,12 @@ export const PinkPuppetsSlotSection: React.FC = () => {
       setConnectWalletHint(true);
       return;
     }
-    const receive = resolveReceive();
-    if (!receive.startsWith('bc1p')) {
+    const { address: receive, error: receiveError } = resolveReceive();
+    if (receiveError) {
       setMintStatus({
         progress: 0,
         status: 'error',
-        message:
-          'Taproot address (bc1p…) required to receive the inscription. UniSat: pay from Native SegWit; enter Taproot receive above.',
+        message: receiveError,
       });
       return;
     }
@@ -691,8 +716,9 @@ export const PinkPuppetsSlotSection: React.FC = () => {
           <input
             value={taprootOverride}
             onChange={(e) => {
-              setTaprootOverride(e.target.value);
-              localStorage.setItem('unisat_taproot_address', e.target.value);
+              const v = e.target.value.trim();
+              setTaprootOverride(v);
+              if (v.startsWith('bc1p')) bindTaproot(getPaymentAddress(walletState.accounts || []), v);
             }}
             placeholder="bc1p..."
             className="w-full rounded bg-black/60 border border-orange-500/30 px-2 py-1 font-mono text-xs text-white"

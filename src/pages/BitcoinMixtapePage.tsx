@@ -7,7 +7,7 @@ import { MintingProgress } from '../components/MintingProgress';
 import { MintingStatus } from '../types/wallet';
 import { createSingleDelegate } from '../services/collectionMinting';
 import { addMintPoints } from '../services/pointsService';
-import { getOrdinalAddress } from '../utils/wallet';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { isAdminAddress } from '../config/admin';
 import { getApiUrl } from '../utils/apiUrl';
 
@@ -50,9 +50,7 @@ export const BitcoinMixtapePage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [mintCount, setMintCount] = useState<number>(0);
-  const [taprootOverride, setTaprootOverride] = useState<string>(
-    () => localStorage.getItem('unisat_taproot_address') || ''
-  );
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
   const [mintPricing, setMintPricing] = useState<MixtapeMintPricing | null>(null);
 
   const paymentAddress = walletState.accounts?.[0]?.address;
@@ -162,46 +160,12 @@ export const BitcoinMixtapePage: React.FC = () => {
       return;
     }
 
-    let receiveAddress = getOrdinalAddress(walletState.accounts);
-    if (walletState.walletType === 'unisat' && !receiveAddress.startsWith('bc1p')) {
-      const saved = taprootOverride || localStorage.getItem('unisat_taproot_address') || '';
-      if (saved.startsWith('bc1p')) {
-        receiveAddress = saved;
-      }
-    }
-
-    if (!receiveAddress) {
-      setMintingStatus({ progress: 0, status: 'error', message: 'No wallet address found.' });
+    // Empfänger-Adresse zentral & wallet-gebunden auflösen (inkl. hartem Sicherheits-Gate).
+    const { address: receiveAddress, error: addrError } = await resolveReceiveAddress(walletState);
+    if (addrError) {
+      setMintingStatus({ progress: 0, status: 'error', message: addrError });
       mintInProgressRef.current = false;
       return;
-    }
-
-    if (!receiveAddress.startsWith('bc1p')) {
-      setMintingStatus({
-        progress: 0, status: 'error',
-        message: 'Bitte gib deine Taproot-Adresse (bc1p...) im Feld oberhalb des Mint-Buttons ein. Dort wird deine Inscription hingesendet.'
-      });
-      mintInProgressRef.current = false;
-      return;
-    }
-
-    if (walletState.walletType === 'unisat') {
-      try {
-        const accs = await window.unisat!.getAccounts();
-        const activeAddr = accs?.[0] || '';
-        if (activeAddr.startsWith('bc1p')) {
-          setMintingStatus({
-            progress: 0, status: 'error',
-            message:
-              'UniSat ist mit Taproot verbunden — Zahlung von hier würde deine Inscriptions zerstören!\n\n' +
-              'Bitte wechsle in UniSat zu Native SegWit:\n' +
-              'UniSat → Settings → Address Type → Native SegWit\n' +
-              'Dann verbinde erneut über "Connect Wallet".'
-          });
-          mintInProgressRef.current = false;
-          return;
-        }
-      } catch { /* weiter */ }
     }
 
     setIsMinting(true);
@@ -426,11 +390,7 @@ export const BitcoinMixtapePage: React.FC = () => {
                 <input
                   type="text"
                   value={taprootOverride}
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    setTaprootOverride(v);
-                    if (v.startsWith('bc1p')) localStorage.setItem('unisat_taproot_address', v);
-                  }}
+                  onChange={(e) => handleTaprootChange(e.target.value)}
                   placeholder="bc1p..."
                   className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-600 text-white text-sm font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none"
                 />

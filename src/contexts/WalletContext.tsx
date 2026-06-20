@@ -11,6 +11,7 @@ import {
   getXverseAccounts,
   getOKXAccounts,
 } from '../utils/wallet';
+import { getBoundTaproot } from '../utils/taprootStore';
 
 interface WalletContextType {
   walletState: WalletState;
@@ -64,13 +65,13 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const normalizedAccounts: WalletAccount[] = [];
 
           if (currentAddress.startsWith('bc1p')) {
-            localStorage.setItem('unisat_taproot_address', currentAddress);
             normalizedAccounts.push({ address: currentAddress, purpose: 'ordinals' });
           } else {
             normalizedAccounts.push({ address: currentAddress, purpose: 'payment' });
-            const savedTaproot = localStorage.getItem('unisat_taproot_address');
-            if (savedTaproot && savedTaproot.startsWith('bc1p')) {
-              normalizedAccounts.push({ address: savedTaproot, purpose: 'ordinals' });
+            // Nur die an DIESE neue Wallet gebundene Taproot verwenden — keine fremde erben.
+            const boundTaproot = getBoundTaproot(currentAddress);
+            if (boundTaproot) {
+              normalizedAccounts.push({ address: boundTaproot, purpose: 'ordinals' });
             }
           }
 

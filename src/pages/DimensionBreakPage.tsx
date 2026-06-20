@@ -558,7 +558,7 @@ export const DimensionBreakPage: React.FC = () => {
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
   const [collectionData, setCollectionData] = useState<DimensionBreakCollection | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number | null;
     itemName: string;

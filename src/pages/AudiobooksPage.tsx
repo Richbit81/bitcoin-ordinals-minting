@@ -93,7 +93,7 @@ export const AudiobooksPage: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [tryMode, setTryMode] = useState(false);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const handleMint = async () => {
     if (isMinting) return;

@@ -74,7 +74,7 @@ export const SlumsPage: React.FC = () => {
     imageUrl: string | null;
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   // Load comic font
   useEffect(() => {

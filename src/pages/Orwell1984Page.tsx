@@ -67,7 +67,7 @@ export const Orwell1984Page: React.FC = () => {
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [previewItem, setPreviewItem] = useState<(typeof ITEMS_1984)[number] | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const handleMint = async (item: typeof ITEMS_1984[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {

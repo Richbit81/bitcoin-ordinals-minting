@@ -50,7 +50,7 @@ export const SmilePage: React.FC = () => {
   }>>([]);
   const [collectionData, setCollectionData] = useState<any>(null);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   // Build SVG for lightbox from collection data
   const openLightbox = useCallback((mint: { itemIndex: number; itemName: string; imageUrl: string | null }) => {

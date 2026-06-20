@@ -176,7 +176,7 @@ export const BadCatsPage: React.FC = () => {
     previewDoc?: string | null;
   }>>([]);
   const [lightboxImage, setLightboxImage] = useState<{ previewDoc: string; name: string } | null>(null);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);

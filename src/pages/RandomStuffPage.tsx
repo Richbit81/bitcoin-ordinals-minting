@@ -91,7 +91,7 @@ export const RandomStuffPage: React.FC = () => {
   const [mintingItemId, setMintingItemId] = useState<string | null>(null);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot();
+  const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const handleMint = async (item: typeof RANDOM_ITEMS[0]) => {
     if (!walletState.connected || !walletState.accounts[0]) {
