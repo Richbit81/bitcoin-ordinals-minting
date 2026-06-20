@@ -29,3 +29,19 @@ export function getApiUrl(): string {
   return apiUrl;
 }
 
+/**
+ * True, wenn API-Calls möglich sind. Auf richart.app ist die API per
+ * same-origin /api (Vercel-Rewrite → Backend) erreichbar — dort gibt
+ * getApiUrl() bewusst '' zurück, was NICHT "kein Backend" bedeutet.
+ * Sonst ist die API nur verfügbar, wenn VITE_INSCRIPTION_API_URL gesetzt ist.
+ */
+export function isApiConfigured(): boolean {
+  if (typeof window !== 'undefined') {
+    const h = window.location.hostname;
+    if (h === 'www.richart.app' || h === 'richart.app' || h.endsWith('.richart.app')) {
+      return true;
+    }
+  }
+  return !!(import.meta.env.VITE_INSCRIPTION_API_URL || '');
+}
+

@@ -9,7 +9,7 @@ import { createSingleDelegate, createRunnerWrapperInscription } from '../service
 import { addMintPoints } from '../services/pointsService';
 import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 import { RUNNER_INSCRIPTION_ID, RUNNER_PREVIEW_INSCRIPTION_ID } from '../constants/runnerInscription';
-import { getApiUrl } from '../utils/apiUrl';
+import { getApiUrl, isApiConfigured } from '../utils/apiUrl';
 
 /** Muss zum Original-Inscription-Typ passen — steuert Delegate-Mint (iframe vs img) und Vorschau. */
 type FreeStuffItem = {
@@ -94,7 +94,7 @@ export const FreeStuffPage: React.FC = () => {
 
   const loadRecentMints = useCallback(async () => {
     const apiUrl = getApiUrl();
-    if (!apiUrl) return;
+    if (!isApiConfigured()) return;
     try {
       const res = await fetch(`${apiUrl}/api/free-stuff/recent`);
       const data = res.ok ? await res.json() : { recent: [] };
@@ -186,7 +186,7 @@ export const FreeStuffPage: React.FC = () => {
       // Log mint
       try {
         const apiUrl = getApiUrl();
-        if (!apiUrl) {
+        if (!isApiConfigured()) {
           console.warn('[FreeStuff] VITE_INSCRIPTION_API_URL / API-URL fehlt — Mint-Log wird nicht gespeichert.');
         } else {
           await fetch(`${apiUrl}/api/free-stuff/log`, {
