@@ -145,6 +145,15 @@ const BOOK_ITEMS = [
     description:
       'Randolph Carter repeatedly dreams of a beautiful, mysterious city that he cannot find again. Determined to reach it, he journeys through the fantastical Dreamlands, encountering strange creatures, ancient gods, enchanted cities, and cosmic horrors.\n\nAs he searches for the location of the city, Carter travels across vast dream realms and uncovers secrets about the nature of dreams and reality. In the end, he learns that the city he has been seeking is connected to his own memories and deepest desires.',
   },
+  {
+    id: 'teachings-of-don-juan',
+    name: 'The Teachings of Don Juan',
+    inscriptionId: '288b848af4f5e2dc7c379cc39889ad1e643dd51d61dd9094438f81c1ff1a7276i0',
+    author: 'Carlos Castaneda',
+    priceInSats: 5000,
+    description:
+      'The Teachings of Don Juan: A Yaqui Way of Knowledge by Carlos Castaneda recounts the author\'s apprenticeship with Don Juan Matus, a Yaqui sorcerer from northern Mexico. Through their encounters, Castaneda is initiated into a mysterious system of knowledge centered on perception, power, and the use of psychotropic plants.\n\nThe book blends ethnographic field notes with a deeply personal account of altered states of consciousness, as Don Juan guides his student toward becoming a "man of knowledge" and learning to "see" reality beyond ordinary awareness.\n\nA landmark and controversial work that bridges anthropology, philosophy, and mysticism, it remains one of the most influential explorations of non-ordinary reality ever published.\n\n110% on-chain — preserved in the blockchain, so Don Juan\'s teachings can never fade.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
