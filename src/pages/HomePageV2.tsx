@@ -314,6 +314,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Launchpad',
     items: [
+      { label: 'Primal Club', route: '/primal-club', img: '/images/primal-club/0256.avif' },
       { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/mixtape.png' },
       { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0', isHtml: true },
       { label: 'Smile A Bit', route: '/smile-a-bit', img: '/images/smile-collection.png' },
@@ -406,8 +407,6 @@ const ALL_NEW_STUFF = [
   { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
   { name: 'RICHRACER', thumb: 'https://ordinals.com/content/71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', route: '/tech-games?try=71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-pink-500' },
-  // TEMP: PINK PASS Promo — aus ALL_NEW_STUFF löschen wenn vorbei
-  { name: 'PINK PASS', thumb: '/pinkpasshires.png', route: '/pinkpuppets', tag: 'PASS', tagColor: 'bg-fuchsia-600' },
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Ninja', thumb: 'https://ordinals.com/content/51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', route: '/tech-games?try=51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
@@ -524,12 +523,8 @@ export const HomePageV2: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const displayedNewStuff = useMemo(() => {
-    // TEMP: PINK PASS Promo immer in den ersten 7 — Zeile + Filter entfernen wenn Promo endet
-    const PINNED_NEW_STUFF_NAME = 'PINK PASS';
-    const pinned = ALL_NEW_STUFF.filter((i) => i.name === PINNED_NEW_STUFF_NAME);
-    const rest = ALL_NEW_STUFF.filter((i) => i.name !== PINNED_NEW_STUFF_NAME);
-    const shuffled = [...rest].sort(() => Math.random() - 0.5);
-    return [...pinned, ...shuffled].slice(0, 7);
+    const shuffled = [...ALL_NEW_STUFF].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 7);
   }, []);
 
   // Spotlight: erste zwei Slots sind fix (Bad Cats + Bitcoin Mixtape),
@@ -557,16 +552,6 @@ export const HomePageV2: React.FC = () => {
         isHtml: false,
         tag: 'FEATURED',
         tagColor: 'bg-pink-500',
-        mintLive: false,
-      },
-      {
-        name: 'PINK PASS',
-        desc: 'Spin for the PINK Pass — complimentary spins for holders. Tap through to Pink Puppets.',
-        src: '/pinkpasshires.png',
-        route: '/pinkpuppets',
-        isHtml: false,
-        tag: 'PASS',
-        tagColor: 'bg-fuchsia-600',
         mintLive: false,
       },
       {
@@ -698,8 +683,18 @@ export const HomePageV2: React.FC = () => {
         {/* Spotlight Section */}
         <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Spotlight</h2>
-          <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible scrollbar-hide">
+          <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible scrollbar-hide">
             {[
+              {
+                name: 'Primal Club',
+                desc: 'Unique digital primates on Bitcoin — built for collectors, dreamers and certified Web3 degenerates.',
+                src: '/images/primal-club/0256.avif',
+                route: '/primal-club',
+                isHtml: false,
+                tag: 'NEW',
+                tagColor: 'bg-amber-500',
+                mintLive: true,
+              },
               {
                 name: 'Bad Cats',
                 desc: '500 Recursive Ordinals on Bitcoin. Each cat is uniquely generated on-chain.',
