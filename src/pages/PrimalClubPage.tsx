@@ -19,7 +19,8 @@ import { getApiUrl } from '../utils/apiUrl';
 const PRIMAL_CLUB_PRICE_SATS = 5000;
 const PRIMAL_CLUB_TOTAL_SUPPLY = 480;
 const API_URL = getApiUrl();
-const HERO_IMAGE = primalClubImageUrl('0001.avif');
+const HERO_IMAGE = primalClubImageUrl('0256.avif');
+const CLUB_BG = '/images/primal-club/club-bg.jpg';
 
 function imageForIndex(index: number): string {
   return primalClubImageUrl(`${String(index).padStart(4, '0')}.avif`);
@@ -298,32 +299,52 @@ export const PrimalClubPage: React.FC = () => {
   const progressPercent = Math.min((mintCount / PRIMAL_CLUB_TOTAL_SUPPLY) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/30 via-black to-orange-950/10" />
+    <div className="min-h-screen text-white relative overflow-hidden bg-[#080604]">
+      {/* Collage background */}
+      <div
+        className="fixed inset-0 bg-cover bg-center scale-105"
+        style={{ backgroundImage: `url(${CLUB_BG})`, filter: 'brightness(0.30) saturate(1.1)' }}
+      />
+      {/* Depth + vignette overlays */}
+      <div className="fixed inset-0 bg-gradient-to-b from-black/85 via-black/55 to-black/95" />
+      <div className="fixed inset-0 bg-gradient-to-r from-black/70 via-transparent to-black/70" />
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at 50% 30%, transparent 30%, rgba(0,0,0,0.88) 100%)' }}
+      />
+      <div className="fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-amber-500/10 to-transparent pointer-events-none" />
 
       <div className="relative z-10 container mx-auto px-4 py-8 min-h-screen flex flex-col">
         {/* Back */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/')}
-            className="text-gray-400 hover:text-amber-400 flex items-center gap-2 transition-colors"
+            className="text-amber-200/60 hover:text-amber-400 flex items-center gap-2 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span className="text-sm font-semibold">Back to Home</span>
+            <span className="text-sm font-semibold tracking-wide">Back to Home</span>
           </button>
         </div>
 
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl md:text-7xl font-black mb-3 tracking-tight">
-            <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 bg-clip-text text-transparent">
-              PRIMAL CLUB
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="h-px w-12 bg-gradient-to-r from-transparent to-amber-500/70" />
+            <span className="text-[11px] tracking-[0.5em] text-amber-400/90 font-semibold uppercase">Members Only</span>
+            <span className="h-px w-12 bg-gradient-to-l from-transparent to-amber-500/70" />
+          </div>
+          <h1
+            className="text-6xl md:text-8xl font-black mb-4 tracking-[0.06em]"
+            style={{ textShadow: '0 4px 40px rgba(245,158,11,0.28)' }}
+          >
+            <span className="bg-gradient-to-b from-amber-100 via-amber-400 to-amber-600 bg-clip-text text-transparent">
+              PRIMAL&nbsp;CLUB
             </span>
           </h1>
-          <p className="text-lg text-gray-300">
-            {PRIMAL_CLUB_TOTAL_SUPPLY} Unique Ordinals on Bitcoin
+          <p className="text-xs md:text-sm text-amber-100/60 tracking-[0.32em] uppercase">
+            {PRIMAL_CLUB_TOTAL_SUPPLY} Primates · Inscribed on Bitcoin
           </p>
         </div>
 
@@ -341,15 +362,16 @@ export const PrimalClubPage: React.FC = () => {
           <div className="flex-1 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-6 lg:gap-10">
 
             {/* Left: Mint Panel */}
-            <div className="bg-black/80 border-2 border-amber-600/70 rounded-xl p-4 lg:p-5 max-w-md w-full backdrop-blur-md">
+            <div className="relative bg-gradient-to-b from-white/[0.07] to-black/50 border border-amber-500/25 rounded-2xl p-5 lg:p-6 max-w-md w-full backdrop-blur-xl shadow-2xl shadow-black/70 ring-1 ring-amber-400/10">
               <div className="flex flex-col items-center mb-4">
-                <div className="relative mb-3 w-full max-w-[260px] aspect-square rounded-lg overflow-hidden shadow-2xl shadow-amber-600/20 border border-amber-600/30 bg-black">
+                <div className="relative mb-4 w-full max-w-[260px] aspect-square rounded-xl overflow-hidden shadow-2xl shadow-amber-600/25 border border-amber-500/40 bg-black ring-2 ring-amber-400/10">
                   <img
                     src={HERO_IMAGE}
                     alt="Primal Club Preview"
                     className="w-full h-full object-cover"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
+                  <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-xl pointer-events-none" />
                 </div>
 
                 {/* Mint Counter */}
@@ -469,15 +491,20 @@ export const PrimalClubPage: React.FC = () => {
             </div>
 
             {/* Right: Description */}
-            <div className="bg-black/80 border-2 border-amber-600/40 rounded-xl p-4 lg:p-6 max-w-xl w-full backdrop-blur-md">
-              <h2 className="text-2xl font-bold text-white mb-1">PRIMAL CLUB</h2>
-              <p className="text-amber-400 font-semibold text-sm mb-3">Collection on Bitcoin</p>
+            <div className="relative bg-gradient-to-b from-white/[0.05] to-black/50 border border-amber-500/20 rounded-2xl p-5 lg:p-7 max-w-xl w-full backdrop-blur-xl shadow-2xl shadow-black/60">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-2xl font-bold text-white tracking-wide">PRIMAL CLUB</h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 tracking-widest uppercase">Genesis</span>
+              </div>
+              <p className="text-amber-400/90 font-semibold text-xs tracking-[0.2em] uppercase mb-4">An Exclusive Bitcoin Ordinals Club</p>
 
+              <p className="text-amber-300 text-sm font-semibold leading-relaxed mb-3">
+                Congratulations. You&rsquo;ve officially joined a club run by monkeys.
+              </p>
               <p className="text-gray-300 text-xs leading-relaxed mb-4">
-                <strong className="text-white">Primal Club</strong> is a collection of {PRIMAL_CLUB_TOTAL_SUPPLY} unique
-                primates, each one inscribed directly on the Bitcoin blockchain. Every primate carries its own set of
-                traits — backgrounds, fur, outfits, companions and more. Mint is random: you don&rsquo;t know which one
-                you get until it&rsquo;s yours, forever on-chain.
+                <strong className="text-white">Primal Club</strong> is a collection of unique digital primates built for
+                collectors, dreamers, and certified Web3 degenerates. Membership includes good vibes, questionable
+                financial decisions, and a community that&rsquo;s just as crazy as you are.
               </p>
 
               <div className="bg-black/60 border-2 border-amber-900/60 rounded-md p-3 mb-4">
@@ -499,14 +526,18 @@ export const PrimalClubPage: React.FC = () => {
           </div>
 
           {/* Recent Mints */}
-          {recentMints.length > 0 && (
-            <div className="w-full mt-8 mb-4">
-              <h3 className="text-center text-lg font-bold text-amber-400 mb-4">RECENT MINTS</h3>
-              <div className="flex flex-wrap justify-center gap-3">
+          <div className="w-full mt-14 mb-4">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <span className="h-px w-10 bg-gradient-to-r from-transparent to-amber-500/60" />
+              <h3 className="text-center text-sm font-bold text-amber-400 tracking-[0.35em] uppercase">Recent Mints</h3>
+              <span className="h-px w-10 bg-gradient-to-l from-transparent to-amber-500/60" />
+            </div>
+            {recentMints.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-4">
                 {recentMints.map((mint, i) => (
-                  <div key={`${mint.inscriptionId || mint.itemIndex}-${i}`} className="flex flex-col items-center">
+                  <div key={`${mint.inscriptionId || mint.itemIndex}-${i}`} className="flex flex-col items-center group">
                     <div
-                      className="w-24 h-24 bg-black border-2 border-amber-600/50 rounded-lg overflow-hidden shadow-lg shadow-amber-600/20 cursor-pointer transition-transform hover:scale-110"
+                      className="w-24 h-24 bg-black border border-amber-500/40 rounded-xl overflow-hidden shadow-lg shadow-black/50 ring-1 ring-amber-400/10 cursor-pointer transition-all duration-300 group-hover:scale-110 group-hover:border-amber-400/80 group-hover:shadow-amber-600/30"
                       onClick={() => setLightboxImage({ url: imageForIndex(mint.itemIndex), name: mint.itemName })}
                     >
                       <img
@@ -516,12 +547,27 @@ export const PrimalClubPage: React.FC = () => {
                         loading="lazy"
                       />
                     </div>
-                    <p className="text-[9px] text-gray-400 mt-1 text-center font-bold">#{mint.itemIndex}</p>
+                    <p className="text-[10px] text-amber-200/80 mt-1.5 text-center font-bold tracking-wider">#{mint.itemIndex}</p>
+                    {mint.inscriptionId && (
+                      <a
+                        href={`https://ordinals.com/inscription/${mint.inscriptionId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[8px] text-gray-500 hover:text-amber-400 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        on-chain ↗
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-center text-gray-500 text-xs tracking-[0.15em] uppercase">
+                No primates inducted yet — be the first.
+              </p>
+            )}
+          </div>
           </>
         )}
 
