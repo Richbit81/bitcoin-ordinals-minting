@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
@@ -18,6 +18,7 @@ const BADCATS_PRICE_SATS = 10000;
 const BADCATS_TOTAL_SUPPLY = 500;
 const MINT_ACTIVE = true;
 const API_URL = getApiUrl();
+const BADCATS_MUSIC = '/audio/badcats.mp3';
 // Show recent mints only from this rollout onward.
 const BADCATS_RECENT_MINTS_START_AT = '2026-02-28T16:45:00.000Z';
 
@@ -178,6 +179,46 @@ export const BadCatsPage: React.FC = () => {
   }>>([]);
   const [lightboxImage, setLightboxImage] = useState<{ previewDoc: string; name: string } | null>(null);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [musicOn, setMusicOn] = useState(false);
+
+  const toggleMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicOn) {
+      audio.pause();
+      setMusicOn(false);
+    } else {
+      audio.volume = 0.18; // dezent
+      audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
+    }
+  }, [musicOn]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.18; // dezent
+    audio.loop = true;
+    // Sofort versuchen; falls vom Browser blockiert -> beim ersten User-Klick/Tipp starten
+    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    const startOnFirstGesture = () => {
+      if (audio.paused) {
+        audio.play().then(() => setMusicOn(true)).catch(() => {});
+      }
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+    };
+    window.addEventListener('pointerdown', startOnFirstGesture);
+    window.addEventListener('keydown', startOnFirstGesture);
+    window.addEventListener('touchstart', startOnFirstGesture);
+    return () => {
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+      audio.pause();
+    };
+  }, []);
 
   const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
   const [freeMintFromInscriptions, setFreeMintFromInscriptions] = useState(0);
@@ -787,6 +828,35 @@ export const BadCatsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden" style={{ background: '#0a0a0a' }}>
+
+      {/* Background music (dezent, per Button) */}
+      <audio ref={audioRef} src={BADCATS_MUSIC} loop preload="none" />
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md border-2 transition-all duration-300 text-xs font-bold tracking-wide ${
+          musicOn
+            ? 'bg-red-500/25 border-red-400/70 text-red-100 shadow-lg shadow-red-600/30'
+            : 'bg-black/70 border-red-500/50 text-red-200 hover:border-red-400 hover:bg-black/80 shadow-lg shadow-black/50 animate-pulse'
+        }`}
+      >
+        {musicOn ? (
+          <>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+            <span className="hidden sm:inline">Music On</span>
+            <span className="flex items-end gap-0.5 h-3">
+              <span className="w-0.5 bg-red-300 animate-pulse" style={{ height: '60%' }} />
+              <span className="w-0.5 bg-red-300 animate-pulse" style={{ height: '100%', animationDelay: '0.15s' }} />
+              <span className="w-0.5 bg-red-300 animate-pulse" style={{ height: '40%', animationDelay: '0.3s' }} />
+            </span>
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l11-2v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm11-2a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Play Music</span>
+          </>
+        )}
+      </button>
 
       {/* Background image */}
       <div className="absolute inset-0 opacity-20"
