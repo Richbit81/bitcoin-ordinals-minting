@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
+import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { WalletConnect } from '../components/WalletConnect';
 import { MintingProgress } from '../components/MintingProgress';
@@ -688,6 +689,7 @@ export const TechGamesPage: React.FC = () => {
       </p>
 
       {/* Mint-Einstellungen oben: Taproot-Empfangsadresse + Gebührenrate (vor dem Minten ausfüllen) */}
+      <UnisatTaprootModeWarning />
       {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
         <div className="max-w-2xl mx-auto mb-6 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
           <label className="block text-xs text-orange-300 mb-1 font-semibold">

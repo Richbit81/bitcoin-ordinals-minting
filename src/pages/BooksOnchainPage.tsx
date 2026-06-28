@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
+import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
 import { WalletConnect } from '../components/WalletConnect';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
@@ -359,6 +360,7 @@ export const BooksOnchainPage: React.FC = () => {
         </div>
 
         <div className="max-w-7xl mx-auto w-full mb-8">
+          <UnisatTaprootModeWarning />
           {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
             <div className="mb-4 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40 max-w-lg">
               <label className="block text-xs text-orange-300 mb-1 font-semibold">

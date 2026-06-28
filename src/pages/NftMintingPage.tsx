@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
+import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
 import { WalletConnect } from '../components/WalletConnect';
 import { FeeRateSelector } from '../components/FeeRateSelector';
 import { MintingProgress } from '../components/MintingProgress';
@@ -184,6 +185,7 @@ export const NftMintingPage: React.FC = () => {
               </p>
             </div>
 
+            <UnisatTaprootModeWarning />
             {walletState.connected && walletState.walletType === 'unisat' && !walletState.accounts?.[0]?.address?.startsWith('bc1p') && (
               <div className="mb-4 p-3 rounded-lg bg-gray-800/80 border border-orange-600/40">
                 <label className="block text-xs text-orange-300 mb-1 font-semibold">
