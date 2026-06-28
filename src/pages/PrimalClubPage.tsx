@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { FeeRateSelector } from '../components/FeeRateSelector';
@@ -21,6 +21,7 @@ const PRIMAL_CLUB_TOTAL_SUPPLY = 480;
 const API_URL = getApiUrl();
 const HERO_IMAGE = primalClubImageUrl('0256.avif');
 const CLUB_BG = '/images/primal-club/club-bg.jpg';
+const CLUB_MUSIC = '/audio/primalclub.mp3';
 
 function imageForIndex(index: number): string {
   return primalClubImageUrl(`${String(index).padStart(4, '0')}.avif`);
@@ -46,6 +47,46 @@ export const PrimalClubPage: React.FC = () => {
     inscriptionId: string | null;
   }>>([]);
   const { taprootOverride, handleTaprootChange, resolveReceiveAddress } = useUnisatTaproot(walletState);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [musicOn, setMusicOn] = useState(false);
+
+  const toggleMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicOn) {
+      audio.pause();
+      setMusicOn(false);
+    } else {
+      audio.volume = 0.18; // dezent
+      audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
+    }
+  }, [musicOn]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.18; // dezent
+    audio.loop = true;
+    // Sofort versuchen; falls vom Browser blockiert -> beim ersten User-Klick/Tipp starten
+    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    const startOnFirstGesture = () => {
+      if (audio.paused) {
+        audio.play().then(() => setMusicOn(true)).catch(() => {});
+      }
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+    };
+    window.addEventListener('pointerdown', startOnFirstGesture);
+    window.addEventListener('keydown', startOnFirstGesture);
+    window.addEventListener('touchstart', startOnFirstGesture);
+    return () => {
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+      audio.pause();
+    };
+  }, []);
 
   const loadMintCount = async () => {
     try {
@@ -313,6 +354,35 @@ export const PrimalClubPage: React.FC = () => {
         style={{ background: 'radial-gradient(ellipse at 50% 30%, transparent 30%, rgba(0,0,0,0.88) 100%)' }}
       />
       <div className="fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-amber-500/10 to-transparent pointer-events-none" />
+
+      {/* Club music (dezent, per Button) */}
+      <audio ref={audioRef} src={CLUB_MUSIC} loop preload="none" />
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md border-2 transition-all duration-300 text-xs font-bold tracking-wide ${
+          musicOn
+            ? 'bg-amber-500/25 border-amber-400/70 text-amber-100 shadow-lg shadow-amber-600/30'
+            : 'bg-black/70 border-amber-500/50 text-amber-200 hover:border-amber-400 hover:bg-black/80 shadow-lg shadow-black/50 animate-pulse'
+        }`}
+      >
+        {musicOn ? (
+          <>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+            <span className="hidden sm:inline">Music On</span>
+            <span className="flex items-end gap-0.5 h-3">
+              <span className="w-0.5 bg-amber-300 animate-pulse" style={{ height: '60%' }} />
+              <span className="w-0.5 bg-amber-300 animate-pulse" style={{ height: '100%', animationDelay: '0.15s' }} />
+              <span className="w-0.5 bg-amber-300 animate-pulse" style={{ height: '40%', animationDelay: '0.3s' }} />
+            </span>
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l11-2v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm11-2a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Play Music</span>
+          </>
+        )}
+      </button>
 
       <div className="relative z-10 container mx-auto px-4 py-8 min-h-screen flex flex-col">
         {/* Back */}
