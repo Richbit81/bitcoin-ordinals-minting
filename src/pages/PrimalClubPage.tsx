@@ -35,6 +35,8 @@ export const PrimalClubPage: React.FC = () => {
   const [isMinting, setIsMinting] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [mintedIndices, setMintedIndices] = useState<number[]>([]);
+  const [freeMintEntitlement, setFreeMintEntitlement] = useState(0);
+  const [freeMintUsed, setFreeMintUsed] = useState(0);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [recentMints, setRecentMints] = useState<Array<{
     itemIndex: number;
@@ -95,6 +97,35 @@ export const PrimalClubPage: React.FC = () => {
     }
   }, []);
 
+  const checkFreeMintEligibility = useCallback(async (address: string) => {
+    let entitlement = 0;
+    let used = 0;
+    try {
+      const wlRes = await fetch(`${API_URL}/api/primal-club/whitelist-addresses`);
+      if (wlRes.ok) {
+        const wlData = await wlRes.json();
+        const entries: Array<{ address: string; count?: number }> = wlData.entries || [];
+        const found = entries.find((e) => String(e.address || '').toLowerCase() === address.toLowerCase());
+        if (found) {
+          entitlement = Math.max(1, Number(found.count || 1));
+        } else if ((wlData.addresses || []).some((a: string) => a.toLowerCase() === address.toLowerCase())) {
+          entitlement = 1;
+        }
+      }
+    } catch {
+      console.warn('[PrimalClub] whitelist check failed');
+    }
+    try {
+      const amRes = await fetch(`${API_URL}/api/primal-club/address-mints?address=${encodeURIComponent(address)}`);
+      if (amRes.ok) {
+        const amData = await amRes.json();
+        used = amData.freeMints || 0;
+      }
+    } catch { /* ignore */ }
+    setFreeMintEntitlement(entitlement);
+    setFreeMintUsed(used);
+  }, []);
+
   useEffect(() => {
     loadPrimalClubCollection().then((col) => {
       setCollectionReady(!!(col && col.generated.length > 0));
@@ -103,6 +134,19 @@ export const PrimalClubPage: React.FC = () => {
     loadMintedIndices();
     loadRecentMints();
   }, [loadRecentMints]);
+
+  useEffect(() => {
+    const addr = walletState.connected ? walletState.accounts?.[0]?.address : null;
+    if (addr) {
+      checkFreeMintEligibility(addr);
+    } else {
+      setFreeMintEntitlement(0);
+      setFreeMintUsed(0);
+    }
+  }, [walletState.connected, walletState.accounts, checkFreeMintEligibility]);
+
+  const freeMintsRemaining = Math.max(0, freeMintEntitlement - freeMintUsed);
+  const isFreeForUser = freeMintsRemaining > 0;
 
   const handleMint = async () => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -131,10 +175,12 @@ export const PrimalClubPage: React.FC = () => {
         }
       } catch { /* fallback auf cached */ }
 
+      const useFree = isFreeForUser;
       const result = await mintPrimalClubRandom(
         userAddress,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
+        useFree,
         freshMintedIndices
       );
 
@@ -150,7 +196,8 @@ export const PrimalClubPage: React.FC = () => {
             orderId: result.orderId || null,
             itemName: `Primal Club #${result.item.index}`,
             itemIndex: result.item.index,
-            priceInSats: PRIMAL_CLUB_PRICE_SATS,
+            priceInSats: useFree ? 0 : PRIMAL_CLUB_PRICE_SATS,
+            isFree: useFree,
             paymentTxid: result.paymentTxid || null,
             timestamp: Date.now(),
           }),
@@ -210,6 +257,18 @@ export const PrimalClubPage: React.FC = () => {
         });
       } catch (hashErr) {
         console.warn('[PrimalClub] Hashlist update fehlgeschlagen:', hashErr);
+      }
+
+      // 5) Free-Mint-Verbrauch registrieren (Whitelist)
+      if (useFree) {
+        try {
+          await fetch(`${API_URL}/api/primal-club/free-mint-used`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: userAddress }),
+          });
+        } catch { /* localStorage-frei: Backend-Tracking + Log-Rekonstruktion */ }
+        setFreeMintUsed((prev) => prev + 1);
       }
 
       setMintingStatus({
@@ -312,10 +371,22 @@ export const PrimalClubPage: React.FC = () => {
 
                 {/* Price */}
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-amber-400 mb-0.5">
-                    {PRIMAL_CLUB_PRICE_SATS.toLocaleString()} sats
-                  </p>
-                  <p className="text-xs text-gray-400">+ inscription fees</p>
+                  {isFreeForUser ? (
+                    <>
+                      <p className="text-2xl font-black text-green-400 mb-0.5">FREE MINT</p>
+                      <p className="text-xs text-gray-400">+ inscription fees only</p>
+                      <p className="text-[10px] text-green-400/80 mt-1">
+                        Whitelist: {freeMintsRemaining} free mint{freeMintsRemaining === 1 ? '' : 's'} left
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-amber-400 mb-0.5">
+                        {PRIMAL_CLUB_PRICE_SATS.toLocaleString()} sats
+                      </p>
+                      <p className="text-xs text-gray-400">+ inscription fees</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -361,7 +432,7 @@ export const PrimalClubPage: React.FC = () => {
                       </svg>
                       Minting...
                     </span>
-                  ) : '🐒 MINT RANDOM'}
+                  ) : isFreeForUser ? '🎁 FREE MINT' : '🐒 MINT RANDOM'}
                 </button>
               ) : mintingStatus.status === 'completed' ? (
                 <div className="text-center">

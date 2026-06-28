@@ -9,6 +9,7 @@ import { Card } from '../types/wallet';
 import { getPointShopItems, PointShopItem, createTransfer, confirmTransfer, preparePSBT, savePresignedTransaction, finalizePSBT } from '../services/pointShopService';
 import { CollectionManager } from './admin/CollectionManager';
 import { SmileABitCollectionManager } from './admin/SmileABitCollectionManager';
+import { PrimalClubAdminSection } from './admin/PrimalClubAdminSection';
 import { getWalletInscriptions, WalletInscription } from '../services/collectionService';
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
@@ -441,7 +442,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
               {/* Minting Logs Tab */}
               {activeTab === 'mintingLogs' && adminAddress && (
-                <MintingLogsManagement adminAddress={adminAddress} />
+                <>
+                  <MintingLogsManagement adminAddress={adminAddress} />
+                  <PrimalClubAdminSection adminAddress={adminAddress} />
+                </>
               )}
 
               {/* Settings Tab */}

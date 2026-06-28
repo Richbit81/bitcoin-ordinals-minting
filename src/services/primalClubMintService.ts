@@ -80,6 +80,7 @@ export async function mintPrimalClubRandom(
   buyerAddress: string,
   feeRate: number,
   walletType: 'unisat' | 'xverse' | 'okx' | null,
+  isFree: boolean = false,
   mintedIndices: number[] = [],
   forcedIndex?: number
 ): Promise<{ inscriptionId: string; txid?: string; orderId?: string; paymentTxid?: string; item: PrimalClubItem }> {
@@ -140,7 +141,12 @@ export async function mintPrimalClubRandom(
   }
 
   const payments: Array<{ address: string; amount: number }> = [];
-  payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: PRIMAL_CLUB_PRICE_BTC });
+  // Free Mint (Whitelist): Kollektionspreis entfällt, Inscription-Fees bleiben.
+  if (!isFree) {
+    payments.push({ address: ADMIN_PAYMENT_ADDRESS, amount: PRIMAL_CLUB_PRICE_BTC });
+  } else {
+    console.log('[PrimalClubMint] FREE MINT (whitelist) – kein Kollektionspreis');
+  }
   payments.push({ address: result.payAddress, amount: result.amount });
 
   if (!walletType) throw new Error('Wallet-Typ nicht erkannt.');
