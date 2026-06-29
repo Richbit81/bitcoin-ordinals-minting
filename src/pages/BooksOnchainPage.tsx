@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'the-time-machine',
+    name: 'The Time Machine',
+    inscriptionId: 'a285c3735e7d8b020bdb308e0efad784f2b34bb0ddb484f8afed8a5ea41b8d91i0',
+    author: 'H. G. Wells',
+    priceInSats: 5000,
+    description:
+      'The Time Machine by H. G. Wells is a pioneering science-fiction novel that introduced the idea of travelling through time by machine. The story follows the Time Traveller, who journeys far into the future and discovers a world split between the gentle Eloi and the subterranean Morlocks.\n\nThrough this strange and haunting vision of humanity’s distant fate, Wells explores social class, evolution, and the ultimate destiny of the human race.\n\nA timeless classic of imagination and warning—now preserved forever on-chain.',
+  },
+  {
     id: 'ueber-die-bruecke',
     name: 'Über die Brücke',
     inscriptionId: 'b1e052e02de52586cdbd00539a809beca13ff71ee4bb573ec6b0b84daba68b40i0',
