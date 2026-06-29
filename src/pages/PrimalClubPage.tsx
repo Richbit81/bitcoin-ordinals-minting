@@ -406,14 +406,11 @@ export const PrimalClubPage: React.FC = () => {
             <span className="text-[11px] tracking-[0.5em] text-amber-400/90 font-semibold uppercase">Members Only</span>
             <span className="h-px w-12 bg-gradient-to-l from-transparent to-amber-500/70" />
           </div>
-          <h1
-            className="text-6xl md:text-8xl font-black mb-4 tracking-[0.06em]"
-            style={{ textShadow: '0 4px 40px rgba(245,158,11,0.28)' }}
-          >
-            <span className="bg-gradient-to-b from-amber-100 via-amber-400 to-amber-600 bg-clip-text text-transparent">
-              PRIMAL&nbsp;CLUB
-            </span>
-          </h1>
+          <img
+            src="/images/primal-club/primal-club-banner.png"
+            alt="Primal Club"
+            className="mx-auto mb-4 w-full max-w-2xl drop-shadow-[0_4px_40px_rgba(245,158,11,0.28)]"
+          />
           <p className="text-xs md:text-sm text-amber-100/60 tracking-[0.32em] uppercase">
             {PRIMAL_CLUB_TOTAL_SUPPLY} Primates · Inscribed on Bitcoin
           </p>

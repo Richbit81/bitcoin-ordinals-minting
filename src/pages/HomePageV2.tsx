@@ -314,7 +314,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Launchpad',
     items: [
-      { label: 'Primal Club', route: '/primal-club', img: '/images/primal-club/0256.avif' },
+      { label: 'Primal Club', route: '/primal-club', img: '/images/primal-club/primal-club-logo.png' },
       { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/mixtape.png' },
       { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0', isHtml: true },
       { label: 'Smile A Bit', route: '/smile-a-bit', img: '/images/smile-collection.png' },
@@ -688,7 +688,7 @@ export const HomePageV2: React.FC = () => {
               {
                 name: 'Primal Club',
                 desc: 'Unique digital primates on Bitcoin — built for collectors, dreamers and certified Web3 degenerates.',
-                src: '/images/primal-club/0256.avif',
+                src: '/images/primal-club/primal-club-logo.png',
                 route: '/primal-club',
                 isHtml: false,
                 tag: 'NEW',
