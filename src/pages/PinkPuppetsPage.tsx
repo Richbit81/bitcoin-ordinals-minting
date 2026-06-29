@@ -8,6 +8,8 @@ import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
 import { PinkPuppetsSlotSection } from '../components/PinkPuppetsSlotSection';
 
+const PINKPUPPETS_MUSIC = '/audio/pinkpuppets.mp3';
+
 /** Embedded via react-tweet — gewünschte Reihenfolge (3. Link zuerst) */
 const FALLBACK_TWEETS = [
   '2050719758841262128', // https://x.com/PinkPuppets_/status/2050719758841262128
@@ -110,6 +112,47 @@ export const PinkPuppetsPage: React.FC = () => {
     return () => window.clearInterval(id);
   }, [promoBanners.length]);
 
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [musicOn, setMusicOn] = React.useState(false);
+
+  const toggleMusic = React.useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicOn) {
+      audio.pause();
+      setMusicOn(false);
+    } else {
+      audio.volume = 0.18; // dezent
+      audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
+    }
+  }, [musicOn]);
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.18; // dezent
+    audio.loop = true;
+    // Sofort versuchen; falls vom Browser blockiert -> beim ersten User-Klick/Tipp starten
+    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    const startOnFirstGesture = () => {
+      if (audio.paused) {
+        audio.play().then(() => setMusicOn(true)).catch(() => {});
+      }
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+    };
+    window.addEventListener('pointerdown', startOnFirstGesture);
+    window.addEventListener('keydown', startOnFirstGesture);
+    window.addEventListener('touchstart', startOnFirstGesture);
+    return () => {
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+      audio.pause();
+    };
+  }, []);
+
   return (
     <div
       className="min-h-screen text-white relative overflow-hidden bg-cover bg-center bg-no-repeat"
@@ -117,6 +160,35 @@ export const PinkPuppetsPage: React.FC = () => {
     >
       <div className="absolute inset-0 bg-[#130015]/40" />
       <FloatingPuppetsLayer />
+
+      {/* Background music (dezent, per Button) */}
+      <audio ref={audioRef} src={PINKPUPPETS_MUSIC} loop preload="none" />
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full backdrop-blur-md border-2 transition-all duration-300 text-xs font-bold tracking-wide ${
+          musicOn
+            ? 'bg-pink-500/25 border-pink-400/70 text-pink-100 shadow-lg shadow-pink-600/30'
+            : 'bg-black/70 border-pink-500/50 text-pink-200 hover:border-pink-400 hover:bg-black/80 shadow-lg shadow-black/50 animate-pulse'
+        }`}
+      >
+        {musicOn ? (
+          <>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+            <span className="hidden sm:inline">Music On</span>
+            <span className="flex items-end gap-0.5 h-3">
+              <span className="w-0.5 bg-pink-300 animate-pulse" style={{ height: '60%' }} />
+              <span className="w-0.5 bg-pink-300 animate-pulse" style={{ height: '100%', animationDelay: '0.15s' }} />
+              <span className="w-0.5 bg-pink-300 animate-pulse" style={{ height: '40%', animationDelay: '0.3s' }} />
+            </span>
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l11-2v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm11-2a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Play Music</span>
+          </>
+        )}
+      </button>
       <div className="relative z-10 w-full px-3 py-4 sm:px-4 md:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-[1440px]">
 
