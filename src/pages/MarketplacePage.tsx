@@ -2177,9 +2177,20 @@ export const MarketplacePage: React.FC = () => {
   }, [ranking]);
 
   const collectionsLeaderboardOrder = useMemo(() => {
+    const getDisplayOrder = (c: MarketplaceCollection): number => {
+      const md = (c?.metadata || {}) as Record<string, any>;
+      const raw = md.displayOrder ?? md.display_order ?? md.sortOrder ?? md.sort_order;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
     return orderedCollectionsMeta
       .filter((c) => c.active !== false)
       .sort((a, b) => {
+        // Pinned collections (with an explicit displayOrder) always come first.
+        const aOrder = getDisplayOrder(a);
+        const bOrder = getDisplayOrder(b);
+        if (aOrder !== bOrder) return aOrder - bOrder;
+
         const ra = rankingBySlug.get(String(a.slug || '').trim());
         const rb = rankingBySlug.get(String(b.slug || '').trim());
 
