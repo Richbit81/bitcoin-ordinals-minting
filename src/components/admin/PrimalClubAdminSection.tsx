@@ -179,6 +179,25 @@ export const PrimalClubAdminSection: React.FC<{ adminAddress: string }> = ({ adm
     }
   };
 
+  const syncMarketplace = async () => {
+    setStatus('⏳ Syncing Primal Club into marketplace (incl. live owners)…');
+    try {
+      const res = await fetch(`${apiBase}/api/primal-club/marketplace/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminAddress, refreshOwners: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setStatus(`✅ Marketplace synced (${data.upserted ?? 0} / ${data.total ?? 0} items)`);
+      } else {
+        setStatus(`❌ Marketplace sync failed: ${data.error || ''}`);
+      }
+    } catch {
+      setStatus('❌ Marketplace sync failed');
+    }
+  };
+
   const parseAddresses = (text: string): string[] => {
     const trimmed = text.trim();
     if (!trimmed) return [];
@@ -244,6 +263,9 @@ export const PrimalClubAdminSection: React.FC<{ adminAddress: string }> = ({ adm
         </button>
         <button onClick={syncHashlist} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-semibold">
           🔄 Sync Hashlist
+        </button>
+        <button onClick={syncMarketplace} className="px-3 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded text-sm font-semibold">
+          🛒 Sync Marketplace
         </button>
       </div>
 
