@@ -10,6 +10,7 @@ import { getPointShopItems, PointShopItem, createTransfer, confirmTransfer, prep
 import { CollectionManager } from './admin/CollectionManager';
 import { SmileABitCollectionManager } from './admin/SmileABitCollectionManager';
 import { PrimalClubAdminSection } from './admin/PrimalClubAdminSection';
+import { PinkSlot2AdminSection } from './admin/PinkSlot2AdminSection';
 import { getWalletInscriptions, WalletInscription } from '../services/collectionService';
 import { InscriptionPreview } from './admin/InscriptionPreview';
 import { signPSBT, signPsbts } from '../utils/wallet';
@@ -445,6 +446,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <>
                   <MintingLogsManagement adminAddress={adminAddress} />
                   <PrimalClubAdminSection adminAddress={adminAddress} />
+                  <PinkSlot2AdminSection adminAddress={adminAddress} />
                 </>
               )}
 

@@ -6,7 +6,7 @@ import { AuthGateCard } from '../components/chat/AuthGateCard';
 import { AdminRoomManager } from '../components/chat/AdminRoomManager';
 import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
-import { PinkPuppetsSlotSection } from '../components/PinkPuppetsSlotSection';
+import { PinkPuppetsSlot2Section } from '../components/PinkPuppetsSlot2Section';
 
 const PINKPUPPETS_MUSIC = '/audio/pinkpuppets.mp3';
 
@@ -220,7 +220,7 @@ export const PinkPuppetsPage: React.FC = () => {
             </div>
           </div>
 
-          <PinkPuppetsSlotSection />
+          <PinkPuppetsSlot2Section />
 
           <div
             className="mb-5 mt-2 h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent"
