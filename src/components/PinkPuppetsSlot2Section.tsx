@@ -52,6 +52,17 @@ const EMBED_PRESENTATION: Record<PrizeKey, { embedPrize: string; targets: number
 
 const NO_WIN_MIXES = [[2, 1, 2], [2, 2, 1], [1, 2, 2], [2, 0, 1], [0, 2, 1]];
 
+/** Winner-screen images per prize (local assets override the backend previewUrl). */
+const PRIZE_IMAGE: Record<string, string> = {
+  wl_titans: '/pink-slot2-titans.jpeg',
+  // wl_lilcats: '/pink-slot2-lilcats.jpeg', // TODO: add when the Lil Cats image arrives
+  // main_prize: '/pink-slot2-grandprize.avif',
+};
+
+function prizeImage(prize: string, previewUrl?: string): string {
+  return PRIZE_IMAGE[prize] || (previewUrl || '');
+}
+
 function presentationFor(prize: string): { embedPrize: string; targets: number[] } {
   const p = (EMBED_PRESENTATION as Record<string, { embedPrize: string; targets: number[] }>)[prize];
   if (!p) return { embedPrize: 'no_win', targets: NO_WIN_MIXES[Math.floor(Math.random() * NO_WIN_MIXES.length)] };
@@ -258,7 +269,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
       };
       setLastSpin(result);
       const pres = presentationFor(prize);
-      requestAnimationFrame(() => sendSpinToIframe(pres.targets, result.previewUrl, result.spinId, pres.embedPrize));
+      requestAnimationFrame(() => sendSpinToIframe(pres.targets, prizeImage(prize, result.previewUrl), result.spinId, pres.embedPrize));
       await loadStatus();
       await loadPool();
     } catch (e: any) {
@@ -468,6 +479,13 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
             <div className={`rounded-xl border px-3 py-3 ring-2 ring-pink-400/30 ${prizeBadge(lastSpin.prize).cls}`}>
               <p className="text-[10px] font-bold uppercase tracking-wide opacity-90">{prizeBadge(lastSpin.prize).label} — you won!</p>
               <p className="mt-0.5 text-sm font-bold">{prizeBadge(lastSpin.prize).text}</p>
+              {prizeImage(lastSpin.prize, lastSpin.previewUrl) && (
+                <img
+                  src={prizeImage(lastSpin.prize, lastSpin.previewUrl)}
+                  alt={prizeBadge(lastSpin.prize).text}
+                  className="mt-2 max-h-48 w-full rounded-lg border border-white/20 bg-black/40 object-contain"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => openClaim(lastSpin.prize)}
@@ -517,7 +535,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         {!slotOpen && (
           <div className="order-1 flex max-w-3xl flex-1 flex-col justify-center gap-5 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left">
             <img
-              src="/pinkpasshires.png"
+              src="/pink-slot2-prize.avif"
               alt=""
               aria-hidden
               className="pointer-events-none mx-auto h-auto w-auto max-h-[min(52vw,200px)] max-w-[min(92vw,200px)] shrink-0 object-contain sm:mx-0 sm:max-h-[220px] sm:max-w-[220px]"
@@ -624,6 +642,13 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 <>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-pink-300/80">{prizeBadge(claimPrize).label}</p>
                   <p className="mt-1 text-xl font-semibold text-white">{prizeBadge(claimPrize).text}</p>
+                  {prizeImage(claimPrize) && (
+                    <img
+                      src={prizeImage(claimPrize)}
+                      alt={prizeBadge(claimPrize).text}
+                      className="mt-3 max-h-44 w-full rounded-lg border border-white/20 bg-black/40 object-contain"
+                    />
+                  )}
                   <p className="mt-2 text-sm leading-relaxed text-pink-100/75">
                     Enter the Taproot address (bc1p…) where you want to receive your prize. We prefilled your connected wallet — edit it if needed.
                   </p>
