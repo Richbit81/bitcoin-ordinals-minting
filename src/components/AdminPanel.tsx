@@ -2970,6 +2970,29 @@ const MintingLogsManagement: React.FC<{ adminAddress: string }> = ({ adminAddres
                 if (file) importBadCatsWhitelist(file);
               }}
             />
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetchBadCatsApi('/api/badcats/marketplace/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminAddress, refreshOwners: true }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    window.alert(`Marketplace synced: ${data.added ?? 0} neu, ${data.upserted ?? 0} aktualisiert (gesamt ${data.total ?? 0}).`);
+                  } else {
+                    window.alert(`Marketplace sync fehlgeschlagen: ${data.error || res.status}`);
+                  }
+                } catch {
+                  window.alert('Marketplace sync fehlgeschlagen.');
+                }
+              }}
+              className="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded text-sm font-semibold"
+              title="Fehlende Bad Cats in den Marketplace übertragen (Traits + Owner), ohne Bestehendes zu ändern"
+            >
+              🛒 Sync Marketplace
+            </button>
           </div>
           {badCatsWhitelistEntries.length === 0 ? (
             <p className="text-xs text-gray-500">Keine Adressen eingetragen.</p>
