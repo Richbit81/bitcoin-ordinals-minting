@@ -534,19 +534,21 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
       >
         {!slotOpen && (
           <div className="order-1 flex max-w-3xl flex-1 flex-col justify-center gap-5 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left">
-            <img
-              src="/pink-slot2-prize.avif"
-              alt=""
-              aria-hidden
-              className="pointer-events-none mx-auto h-auto w-auto max-h-[min(52vw,200px)] max-w-[min(92vw,200px)] shrink-0 object-contain sm:mx-0 sm:max-h-[220px] sm:max-w-[220px]"
-            />
+            <div className="mx-auto flex shrink-0 flex-col items-center gap-2 sm:mx-0">
+              <img
+                src="/pink-slot2-prize.avif"
+                alt="Pink Puppet 44 – Pink Bunny"
+                className="pointer-events-none h-auto w-auto max-h-[min(52vw,200px)] max-w-[min(92vw,200px)] object-contain sm:max-h-[220px] sm:max-w-[220px]"
+              />
+              <span className="text-[11px] font-medium tracking-wide text-pink-100/70">Pink Puppet 44 – Pink Bunny</span>
+            </div>
             <div className="min-w-0 flex-1 space-y-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-pink-200/75">
                 {active ? 'Round 2 · Lucky Slot' : 'Round 2 · Coming soon'}
               </p>
               <h2 className="text-balance text-[clamp(1.8rem,4.5vw,3rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-white">
                 Spin for{' '}
-                <span className="bg-gradient-to-br from-amber-200 via-pink-100 to-[#e848c7] bg-clip-text font-bold text-transparent">whitelists & the grand prize</span>
+                <span className="bg-gradient-to-br from-amber-200 via-pink-100 to-[#e848c7] bg-clip-text font-bold text-transparent">whitelists & the grand prize!</span>
               </h2>
               <p className="mx-auto max-w-[34rem] text-sm leading-relaxed text-pink-100/65 sm:mx-0 sm:text-base">
                 Win a whitelist spot for <strong>Blockchain Titans</strong> or <strong>Lil Cats</strong>, bonus spins, or the single
