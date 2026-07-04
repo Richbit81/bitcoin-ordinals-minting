@@ -314,6 +314,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Launchpad',
     items: [
+      { label: 'High Rollers', route: '/high-rollers', img: '/images/high-rollers/0001.avif' },
       { label: 'Primal Club', route: '/primal-club', img: '/images/primal-club/primal-club-logo.png' },
       { label: 'Bitcoin Mixtape', route: '/bitcoin-mixtape', img: '/mixtape.png' },
       { label: 'Bad Cats', route: '/badcats', img: 'https://ordinals.com/content/35ccb1e128e691647258687c53f06a5f3f2078f15770eb0afedcd743524e63bdi0', isHtml: true },
@@ -393,6 +394,7 @@ const ALL_NEWS = [
 ];
 
 const ALL_NEW_STUFF = [
+  { name: 'High Rollers', thumb: '/images/high-rollers/0001.avif', route: '/high-rollers', tag: 'NEW', tagColor: 'bg-red-600' },
   { name: 'TESSERACT', thumb: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', route: '/tech-games?try=1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   // SIGNAL: thumb points at Edition #1's full HTML wrapper (the engine
   // alone is application/javascript and won't render in an iframe), the
@@ -534,6 +536,16 @@ export const HomePageV2: React.FC = () => {
   // Render-Tree, neuer Pick beim nächsten Mount).
   const spotlightThirdSlot = useMemo(() => {
     const pool = [
+      {
+        name: 'High Rollers',
+        desc: 'A limited set of 225 hand-crafted high rollers — parent-linked, provenance-backed Bitcoin ordinals.',
+        src: '/images/high-rollers/0001.avif',
+        route: '/high-rollers',
+        isHtml: false,
+        tag: 'NEW',
+        tagColor: 'bg-amber-500',
+        mintLive: true,
+      },
       {
         name: 'SLOW FIRE',
         desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
