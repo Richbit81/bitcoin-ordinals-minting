@@ -26,7 +26,7 @@ import {
 const HERO_ITEM = '0001';
 const GOLD = '#e8b64b';
 const BG_IMAGE = '/images/high-rollers/highrollers-bg.png';
-const HR_MUSIC = '/audio/high-rollers.mp3';
+const HR_MUSIC = '/audio/high-rollers-loop.wav';
 
 function satsToBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
@@ -235,14 +235,17 @@ export const HighRollersPage: React.FC = () => {
   const mmss = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
   return (
-    <div className="relative min-h-screen text-[#f5e6c8]">
-      {/* fixed cinematic background */}
-      <div className="fixed inset-0 -z-10 bg-[#0a0805]">
-        <img src={BG_IMAGE} alt="" aria-hidden className="h-full w-full object-cover opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0805]/25 via-[#0a0805]/45 to-[#0a0805]/90" />
-        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(1100px 560px at 50% -8%, rgba(232,182,75,0.18), transparent)' }} />
-      </div>
-
+    <div
+      className="relative min-h-screen text-[#f5e6c8]"
+      style={{
+        backgroundColor: '#0a0805',
+        backgroundImage: `radial-gradient(1100px 560px at 50% -8%, rgba(232,182,75,0.18), transparent), linear-gradient(to bottom, rgba(10,8,5,0.20), rgba(10,8,5,0.45) 45%, rgba(10,8,5,0.92)), url(${BG_IMAGE})`,
+        backgroundSize: 'cover, cover, cover',
+        backgroundPosition: 'center top, center, center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed, fixed, fixed',
+      }}
+    >
       {/* top bar */}
       <div className="flex items-center justify-between px-4 py-4 sm:px-8">
         <button
