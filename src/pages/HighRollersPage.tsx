@@ -238,9 +238,9 @@ export const HighRollersPage: React.FC = () => {
     <div className="relative min-h-screen text-[#f5e6c8]">
       {/* fixed cinematic background */}
       <div className="fixed inset-0 -z-10 bg-[#0a0805]">
-        <img src={BG_IMAGE} alt="" aria-hidden className="h-full w-full object-cover opacity-35" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0805]/60 via-[#0a0805]/85 to-[#0a0805]" />
-        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(1100px 560px at 50% -8%, rgba(232,182,75,0.16), transparent)' }} />
+        <img src={BG_IMAGE} alt="" aria-hidden className="h-full w-full object-cover opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0805]/25 via-[#0a0805]/45 to-[#0a0805]/90" />
+        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(1100px 560px at 50% -8%, rgba(232,182,75,0.18), transparent)' }} />
       </div>
 
       {/* top bar */}
