@@ -274,7 +274,7 @@ export const HighRollersPage: React.FC = () => {
           HIGH ROLLERS
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#f5e6c8]/70 sm:text-base">
-          A limited set of {status?.total ?? 225} hand-crafted high rollers, inscribed on-chain and
+          A limited set of {status?.total ?? 225} high rollers, inscribed on-chain and
           linked to a single parent inscription — verifiable, provenance-backed Bitcoin ordinals.
           Pay in BTC, receive your High Roller straight to your taproot wallet.
         </p>
@@ -290,6 +290,12 @@ export const HighRollersPage: React.FC = () => {
             <div className="text-xl font-bold text-[#f7e3a8]">{status?.priceSats ? `${status.priceSats.toLocaleString()} sats` : '5,000 sats'}<span className="text-xs text-[#f5e6c8]/50"> + fees</span></div>
           </div>
         </div>
+        <p className="mx-auto mt-4 max-w-xl text-[11px] leading-relaxed text-[#f5e6c8]/45">
+          {(status?.priceSats ?? 5000).toLocaleString()} sats mint + on-chain inscription &amp; network fees
+          (typically ≈ <span className="text-[#e8b64b]/80">5,000–10,000 sats</span>, varies with the current mempool),
+          so most mints land around <span className="text-[#e8b64b]/80">≈ 10,000–15,000 sats</span> total.
+          The exact amount is always shown before you pay — no hidden costs.
+        </p>
       </header>
 
       {/* mint panel */}
@@ -354,6 +360,17 @@ export const HighRollersPage: React.FC = () => {
                     <button onClick={() => copy(String(quote.amountSats), 'amount')} className="ml-1 rounded border border-[#e8b64b]/30 px-2 py-0.5 text-[10px] uppercase text-[#e8b64b]">{copied === 'amount' ? 'copied' : 'copy'}</button>
                   </div>
                   <div className="mt-1 text-[11px] text-[#f5e6c8]/45">≈ {satsToBtc(quote.amountSats)} BTC · expires in {mmss}</div>
+
+                  {quote.breakdown && (
+                    <div className="mx-auto mt-4 max-w-xs rounded-lg border border-[#e8b64b]/20 bg-black/30 px-4 py-3 text-left text-[11px] text-[#f5e6c8]/60">
+                      <div className="mb-1 text-[10px] uppercase tracking-widest text-[#e8b64b]/60">Breakdown</div>
+                      <div className="flex justify-between"><span>Mint</span><span>{quote.breakdown.priceSats.toLocaleString()} sats</span></div>
+                      <div className="flex justify-between"><span>Inscription fee{quote.feeRate ? ` (${quote.feeRate} sat/vB)` : ''}</span><span>{quote.breakdown.feeSats.toLocaleString()} sats</span></div>
+                      <div className="flex justify-between"><span>Postage</span><span>{quote.breakdown.postageSats.toLocaleString()} sats</span></div>
+                      <div className="flex justify-between"><span>Fee buffer</span><span>{quote.breakdown.bufferSats.toLocaleString()} sats</span></div>
+                      <div className="mt-1 flex justify-between border-t border-[#e8b64b]/15 pt-1 font-bold text-[#f7e3a8]"><span>Total</span><span>{quote.amountSats.toLocaleString()} sats</span></div>
+                    </div>
+                  )}
 
                   {unisatTaprootMode && <div className="mt-4 text-left"><UnisatTaprootModeWarning /></div>}
 
