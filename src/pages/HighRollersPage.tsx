@@ -96,6 +96,12 @@ export const HighRollersPage: React.FC = () => {
 
   const active = status?.active === true;
   const walletConnected = walletState?.connected === true;
+  // UniSat connected in Taproot mode: paying from here can destroy inscriptions.
+  // Block minting until the user switches to the payment (Native SegWit) address.
+  const unisatTaprootMode =
+    walletConnected &&
+    walletState.walletType === 'unisat' &&
+    (walletState.accounts?.[0]?.address || '').startsWith('bc1p');
 
   const refreshStatus = useCallback(() => {
     fetchHighRollersStatus().then(setStatus).catch(() => {});
@@ -316,16 +322,18 @@ export const HighRollersPage: React.FC = () => {
               {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
               <button
                 onClick={handleGetQuote}
-                disabled={phase === 'quoting' || (status !== null && status.available <= 0)}
+                disabled={phase === 'quoting' || (status !== null && status.available <= 0) || unisatTaprootMode}
                 className="mt-5 w-full rounded-xl bg-gradient-to-r from-[#f7e3a8] via-[#e8b64b] to-[#c9902f] py-3.5 text-base font-black uppercase tracking-widest text-[#1a1206] shadow-[0_10px_30px_-10px_rgba(232,182,75,0.6)] transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {phase === 'quoting'
                   ? 'Preparing…'
                   : (status && status.available <= 0)
                     ? 'Sold out'
-                    : walletConnected
-                      ? 'Mint a High Roller'
-                      : 'Connect wallet to mint'}
+                    : unisatTaprootMode
+                      ? 'Switch UniSat to payment address'
+                      : walletConnected
+                        ? 'Mint a High Roller'
+                        : 'Connect wallet to mint'}
               </button>
               {!walletConnected && (
                 <p className="mt-3 cursor-pointer text-center text-[11px] text-[#f5e6c8]/45 hover:text-[#e8b64b]" onClick={() => setShowWalletConnect(true)}>
@@ -347,13 +355,15 @@ export const HighRollersPage: React.FC = () => {
                   </div>
                   <div className="mt-1 text-[11px] text-[#f5e6c8]/45">≈ {satsToBtc(quote.amountSats)} BTC · expires in {mmss}</div>
 
+                  {unisatTaprootMode && <div className="mt-4 text-left"><UnisatTaprootModeWarning /></div>}
+
                   {walletConnected && (
                     <button
                       onClick={() => payWithWallet(quote)}
-                      disabled={paying}
+                      disabled={paying || unisatTaprootMode}
                       className="mx-auto mt-4 flex w-full max-w-xs items-center justify-center rounded-xl bg-gradient-to-r from-[#f7e3a8] via-[#e8b64b] to-[#c9902f] py-3 text-sm font-black uppercase tracking-widest text-[#1a1206] shadow-[0_10px_30px_-10px_rgba(232,182,75,0.6)] transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {paying ? 'Opening wallet…' : payTxid ? 'Payment sent ✓' : 'Pay with wallet'}
+                      {unisatTaprootMode ? 'Switch UniSat to payment address' : paying ? 'Opening wallet…' : payTxid ? 'Payment sent ✓' : 'Pay with wallet'}
                     </button>
                   )}
                   {payTxid && (
