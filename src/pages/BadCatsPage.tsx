@@ -590,6 +590,11 @@ export const BadCatsPage: React.FC = () => {
   const isFreeForUser = freeMintsRemaining > 0;
   const isSoldOut = mintCount >= BADCATS_TOTAL_SUPPLY;
   const progressPercent = Math.min((mintCount / BADCATS_TOTAL_SUPPLY) * 100, 100);
+  // UniSat connected in Taproot mode: paying from here can destroy inscriptions — block minting.
+  const unisatTaprootMode =
+    walletState.connected &&
+    walletState.walletType === 'unisat' &&
+    (walletState.accounts?.[0]?.address || '').startsWith('bc1p');
   const getMissingMintedIndices = useCallback((indices: number[]) => {
     if (!collectionData?.generated) return [];
     const availableIndices = new Set<number>(collectionData.generated.map((item: any) => item.index));
@@ -1068,7 +1073,7 @@ export const BadCatsPage: React.FC = () => {
                   ) : (
                     <button
                       onClick={handleMint}
-                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || !!collectionConsistencyWarning || (!isMintPublic && !isAdminAddress(walletState.accounts?.[0]?.address))}
+                      disabled={isMinting || !walletState.connected || isSoldOut || checkingEligibility || !!collectionConsistencyWarning || unisatTaprootMode || (!isMintPublic && !isAdminAddress(walletState.accounts?.[0]?.address))}
                       className="w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-lg transition-all duration-200 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95"
                       style={{
                         fontFamily: comicFont,
@@ -1078,7 +1083,7 @@ export const BadCatsPage: React.FC = () => {
                         boxShadow: '4px 4px 0 #000',
                         letterSpacing: '0.05em',
                       }}>
-                      {isSoldOut ? 'SOLD OUT!' : isMinting ? (
+                      {isSoldOut ? 'SOLD OUT!' : unisatTaprootMode ? 'SWITCH UNISAT TO PAYMENT ADDRESS' : isMinting ? (
                         <span className="flex items-center justify-center gap-2">
                           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />

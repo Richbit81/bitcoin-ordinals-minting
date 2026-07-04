@@ -339,6 +339,11 @@ export const PrimalClubPage: React.FC = () => {
 
   const isSoldOut = mintCount >= PRIMAL_CLUB_TOTAL_SUPPLY;
   const progressPercent = Math.min((mintCount / PRIMAL_CLUB_TOTAL_SUPPLY) * 100, 100);
+  // UniSat connected in Taproot mode: paying from here can destroy inscriptions — block minting.
+  const unisatTaprootMode =
+    walletState.connected &&
+    walletState.walletType === 'unisat' &&
+    (walletState.accounts?.[0]?.address || '').startsWith('bc1p');
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden bg-[#080604]">
@@ -512,10 +517,10 @@ export const PrimalClubPage: React.FC = () => {
               {!mintingStatus || mintingStatus.status === 'failed' ? (
                 <button
                   onClick={handleMint}
-                  disabled={isMinting || !walletState.connected || isSoldOut}
+                  disabled={isMinting || !walletState.connected || isSoldOut || unisatTaprootMode}
                   className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-amber-600/30 text-black"
                 >
-                  {isSoldOut ? 'SOLD OUT' : isMinting ? (
+                  {isSoldOut ? 'SOLD OUT' : unisatTaprootMode ? 'Switch UniSat to payment address' : isMinting ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
