@@ -27,12 +27,15 @@ export interface HighRollersStatus {
   available: number;
   pending?: number;
   priceSats?: number;
+  maxPerTx?: number;
 }
 
 export interface HighRollersQuote {
   orderId: string;
   itemId: string;
   name: string;
+  quantity?: number;
+  items?: Array<{ itemId: string; name: string }>;
   paymentAddress: string;
   amountSats: number;
   breakdown: { priceSats: number; postageSats: number; feeSats: number; bufferSats: number };
@@ -45,11 +48,14 @@ export type HighRollersOrderStatus = 'pending' | 'paid' | 'minting' | 'minted' |
 export interface HighRollersOrder {
   orderId: string;
   itemId: string;
+  quantity?: number;
   status: HighRollersOrderStatus;
   amountSats: number;
   paidSats: number;
   paymentAddress: string;
   inscriptionId: string | null;
+  inscriptionIds?: string[];
+  items?: Array<{ itemId: string; name: string | null; inscriptionId: string | null }>;
   error: string | null;
   expiresAt: string | null;
 }
@@ -79,12 +85,12 @@ export async function fetchHighRollersMinted(): Promise<HighRollersMint[]> {
   return Array.isArray(j?.mints) ? j.mints : [];
 }
 
-export async function requestHighRollersQuote(taproot: string): Promise<HighRollersQuote> {
+export async function requestHighRollersQuote(taproot: string, quantity = 1): Promise<HighRollersQuote> {
   return jsonOrThrow(
     await fetch(`${API_URL}/api/high-rollers/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taproot }),
+      body: JSON.stringify({ taproot, quantity }),
     }),
   );
 }

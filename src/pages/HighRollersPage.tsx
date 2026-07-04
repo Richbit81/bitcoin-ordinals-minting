@@ -41,6 +41,7 @@ export const HighRollersPage: React.FC = () => {
   const [status, setStatus] = useState<HighRollersStatus | null>(null);
   const [minted, setMinted] = useState<HighRollersMint[]>([]);
   const [taproot, setTaproot] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [phase, setPhase] = useState<Phase>('idle');
   const [quote, setQuote] = useState<HighRollersQuote | null>(null);
   const [order, setOrder] = useState<HighRollersOrder | null>(null);
@@ -119,6 +120,13 @@ export const HighRollersPage: React.FC = () => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Keep the selected quantity within the allowed / available range.
+  useEffect(() => {
+    if (!status) return;
+    const maxAllowed = Math.max(1, Math.min(status.maxPerTx ?? 5, status.available ?? 5));
+    setQuantity((q) => Math.min(Math.max(1, q), maxAllowed));
+  }, [status]);
 
   // Prefill taproot from a connected wallet (convenience only — payment can come
   // from anywhere; this address is only where the inscription is delivered).
@@ -206,7 +214,7 @@ export const HighRollersPage: React.FC = () => {
     }
     setPhase('quoting');
     try {
-      const q = await requestHighRollersQuote(addr);
+      const q = await requestHighRollersQuote(addr, quantity);
       setQuote(q);
       setOrder(null);
       setPhase('awaiting_payment');
@@ -217,7 +225,7 @@ export const HighRollersPage: React.FC = () => {
       setPhase('error');
       setError(e?.message || 'Could not create an order.');
     }
-  }, [taproot, pollOrder, walletConnected, payWithWallet]);
+  }, [taproot, quantity, pollOrder, walletConnected, payWithWallet]);
 
   const reset = useCallback(() => {
     stopPolling();
@@ -325,6 +333,38 @@ export const HighRollersPage: React.FC = () => {
                 This is where your High Roller inscription is delivered. Connect your wallet to pay in one click —
                 your <span className="text-[#e8b64b]/80">Taproot</span> address is filled in automatically.
               </p>
+
+              {(() => {
+                const maxAllowed = Math.max(1, Math.min(status?.maxPerTx ?? 5, status?.available ?? 5));
+                if (maxAllowed <= 1) return null;
+                return (
+                  <div className="mt-5">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-[#e8b64b]/70">
+                      Quantity
+                    </label>
+                    <div className="flex gap-2">
+                      {Array.from({ length: maxAllowed }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setQuantity(n)}
+                          className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition ${
+                            quantity === n
+                              ? 'border-[#e8b64b] bg-[#e8b64b]/20 text-[#f7e3a8]'
+                              : 'border-[#e8b64b]/25 bg-black/30 text-[#f5e6c8]/60 hover:border-[#e8b64b]/60'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-[#f5e6c8]/45">
+                      Mint up to {maxAllowed} at once — all inscribed in one transaction (cheaper on fees) and sent to your Taproot address.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
               <button
                 onClick={handleGetQuote}
@@ -338,7 +378,7 @@ export const HighRollersPage: React.FC = () => {
                     : unisatTaprootMode
                       ? 'Switch UniSat to payment address'
                       : walletConnected
-                        ? 'Mint a High Roller'
+                        ? (quantity > 1 ? `Mint ${quantity} High Rollers` : 'Mint a High Roller')
                         : 'Connect wallet to mint'}
               </button>
               {!walletConnected && (
@@ -412,8 +452,9 @@ export const HighRollersPage: React.FC = () => {
                     Waiting for your payment…
                   </div>
                   <p className="mt-2 text-[11px] text-[#f5e6c8]/40">
-                    Reserved item: <span className="text-[#e8b64b]/80">{quote.name}</span>. As soon as your payment
-                    hits the mempool, your High Roller is inscribed and sent automatically.
+                    {quote.quantity && quote.quantity > 1
+                      ? <>Reserved: <span className="text-[#e8b64b]/80">{quote.quantity} items</span>. As soon as your payment hits the mempool, all are inscribed in one batch and sent automatically.</>
+                      : <>Reserved item: <span className="text-[#e8b64b]/80">{quote.name}</span>. As soon as your payment hits the mempool, your High Roller is inscribed and sent automatically.</>}
                   </p>
                 </>
               )}
@@ -434,16 +475,38 @@ export const HighRollersPage: React.FC = () => {
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#e8b64b]/15 text-3xl">🎰</div>
               <div className="text-xl font-black text-[#f7e3a8]">You're in the club!</div>
-              <p className="mt-1 text-sm text-[#f5e6c8]/60">Your High Roller was inscribed and sent to your wallet.</p>
-              <img src={highRollersImageUrl(order.itemId)} alt={order.itemId} className="mx-auto my-4 h-40 w-40 rounded-xl border border-[#e8b64b]/40 object-cover" />
-              <a
-                href={`https://ordinals.com/inscription/${order.inscriptionId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block break-all rounded-lg border border-[#e8b64b]/40 px-4 py-2 font-mono text-xs text-[#e8b64b] transition hover:bg-[#e8b64b]/10"
-              >
-                {order.inscriptionId}
-              </a>
+              {order.items && order.items.length > 1 ? (
+                <>
+                  <p className="mt-1 text-sm text-[#f5e6c8]/60">Your {order.items.length} High Rollers were inscribed and sent to your wallet.</p>
+                  <div className="mx-auto my-4 grid max-w-md grid-cols-3 gap-3 sm:grid-cols-5">
+                    {order.items.map((it) => (
+                      <a
+                        key={it.itemId}
+                        href={it.inscriptionId ? `https://ordinals.com/inscription/${it.inscriptionId}` : undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group overflow-hidden rounded-xl border border-[#e8b64b]/30 bg-black/30 transition hover:border-[#e8b64b]/60"
+                      >
+                        <img src={highRollersImageUrl(it.itemId)} alt={it.name || it.itemId} className="aspect-square w-full object-cover transition group-hover:scale-105" />
+                        <div className="truncate px-1.5 py-1 text-[9px] text-[#f5e6c8]/60">{it.name || it.itemId}</div>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-[#f5e6c8]/60">Your High Roller was inscribed and sent to your wallet.</p>
+                  <img src={highRollersImageUrl(order.itemId)} alt={order.itemId} className="mx-auto my-4 h-40 w-40 rounded-xl border border-[#e8b64b]/40 object-cover" />
+                  <a
+                    href={`https://ordinals.com/inscription/${order.inscriptionId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block break-all rounded-lg border border-[#e8b64b]/40 px-4 py-2 font-mono text-xs text-[#e8b64b] transition hover:bg-[#e8b64b]/10"
+                  >
+                    {order.inscriptionId}
+                  </a>
+                </>
+              )}
               <div>
                 <button onClick={reset} className="mt-5 rounded-xl bg-gradient-to-r from-[#f7e3a8] to-[#c9902f] px-6 py-2.5 text-sm font-black uppercase tracking-widest text-[#1a1206]">Mint another</button>
               </div>
