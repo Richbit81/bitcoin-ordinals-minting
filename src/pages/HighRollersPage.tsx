@@ -25,6 +25,8 @@ import {
 
 const HERO_ITEM = '0001';
 const GOLD = '#e8b64b';
+const BG_IMAGE = '/images/high-rollers/highrollers-bg.png';
+const HR_MUSIC = '/audio/high-rollers.mp3';
 
 function satsToBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
@@ -52,6 +54,45 @@ export const HighRollersPage: React.FC = () => {
   const [payTxid, setPayTxid] = useState<string | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [musicOn, setMusicOn] = useState(false);
+
+  const toggleMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicOn) {
+      audio.pause();
+      setMusicOn(false);
+    } else {
+      audio.volume = 0.16; // dezent
+      audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
+    }
+  }, [musicOn]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.16; // dezent
+    audio.loop = true;
+    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    const startOnFirstGesture = () => {
+      if (audio.paused) {
+        audio.play().then(() => setMusicOn(true)).catch(() => {});
+      }
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+    };
+    window.addEventListener('pointerdown', startOnFirstGesture);
+    window.addEventListener('keydown', startOnFirstGesture);
+    window.addEventListener('touchstart', startOnFirstGesture);
+    return () => {
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+      audio.pause();
+    };
+  }, []);
 
   const active = status?.active === true;
   const walletConnected = walletState?.connected === true;
@@ -194,7 +235,14 @@ export const HighRollersPage: React.FC = () => {
   const mmss = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
   return (
-    <div className="min-h-screen bg-[#0a0805] text-[#f5e6c8]" style={{ backgroundImage: 'radial-gradient(1200px 600px at 50% -10%, rgba(232,182,75,0.12), transparent)' }}>
+    <div className="relative min-h-screen text-[#f5e6c8]">
+      {/* fixed cinematic background */}
+      <div className="fixed inset-0 -z-10 bg-[#0a0805]">
+        <img src={BG_IMAGE} alt="" aria-hidden className="h-full w-full object-cover opacity-35" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0805]/60 via-[#0a0805]/85 to-[#0a0805]" />
+        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(1100px 560px at 50% -8%, rgba(232,182,75,0.16), transparent)' }} />
+      </div>
+
       {/* top bar */}
       <div className="flex items-center justify-between px-4 py-4 sm:px-8">
         <button
@@ -406,6 +454,35 @@ export const HighRollersPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ambient music (dezent, per button) */}
+      <audio ref={audioRef} src={HR_MUSIC} loop preload="none" />
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        className={`fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border-2 px-4 py-2.5 text-xs font-bold tracking-wide backdrop-blur-md transition-all duration-300 ${
+          musicOn
+            ? 'border-[#e8b64b]/70 bg-[#e8b64b]/25 text-[#f7e3a8] shadow-lg shadow-[#e8b64b]/30'
+            : 'animate-pulse border-[#e8b64b]/50 bg-black/70 text-[#e8b64b] shadow-lg shadow-black/50 hover:border-[#e8b64b] hover:bg-black/80'
+        }`}
+      >
+        {musicOn ? (
+          <>
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+            <span className="hidden sm:inline">Music On</span>
+            <span className="flex h-3 items-end gap-0.5">
+              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '60%' }} />
+              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '100%', animationDelay: '0.15s' }} />
+              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '40%', animationDelay: '0.3s' }} />
+            </span>
+          </>
+        ) : (
+          <>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l11-2v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm11-2a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Play Music</span>
+          </>
+        )}
+      </button>
     </div>
   );
 };
