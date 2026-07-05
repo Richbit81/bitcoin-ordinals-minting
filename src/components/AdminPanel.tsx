@@ -11,6 +11,7 @@ import { CollectionManager } from './admin/CollectionManager';
 import { SmileABitCollectionManager } from './admin/SmileABitCollectionManager';
 import { PrimalClubAdminSection } from './admin/PrimalClubAdminSection';
 import { HighRollersAdminSection } from './admin/HighRollersAdminSection';
+import { SpikesAdminSection } from './admin/SpikesAdminSection';
 import { PinkSlot2AdminSection } from './admin/PinkSlot2AdminSection';
 import { getWalletInscriptions, WalletInscription } from '../services/collectionService';
 import { InscriptionPreview } from './admin/InscriptionPreview';
@@ -448,6 +449,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   <MintingLogsManagement adminAddress={adminAddress} />
                   <PrimalClubAdminSection adminAddress={adminAddress} />
                   <HighRollersAdminSection adminAddress={adminAddress} />
+                  <SpikesAdminSection adminAddress={adminAddress} />
                   <PinkSlot2AdminSection adminAddress={adminAddress} />
                 </>
               )}

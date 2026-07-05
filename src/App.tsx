@@ -31,6 +31,7 @@ const SlumsPage = lazy(() => import('./pages/SlumsPage').then((m) => ({ default:
 const BadCatsPage = lazy(() => import('./pages/BadCatsPage').then((m) => ({ default: m.BadCatsPage })));
 const PrimalClubPage = lazy(() => import('./pages/PrimalClubPage').then((m) => ({ default: m.PrimalClubPage })));
 const HighRollersPage = lazy(() => import('./pages/HighRollersPage').then((m) => ({ default: m.HighRollersPage })));
+const SpikesPage = lazy(() => import('./pages/SpikesPage').then((m) => ({ default: m.SpikesPage })));
 const PinkPuppetsPage = lazy(() => import('./pages/PinkPuppetsPage').then((m) => ({ default: m.PinkPuppetsPage })));
 const PinkPuppetsMarketplacePage = lazy(() =>
   import('./pages/PinkPuppetsMarketplacePage').then((m) => ({ default: m.PinkPuppetsMarketplacePage }))
@@ -104,6 +105,7 @@ function AppContent() {
           <Route path="/badcats" element={<BadCatsPage />} />
           <Route path="/primal-club" element={<PrimalClubPage />} />
           <Route path="/high-rollers" element={<HighRollersPage />} />
+          <Route path="/spikes" element={<SpikesPage />} />
           <Route path="/dimension-break" element={<DimensionBreakPage />} />
           <Route path="/pinkpuppets" element={<PinkPuppetsPage />} />
           <Route path="/pinkpuppets/marketplace" element={<PinkPuppetsMarketplacePage />} />
