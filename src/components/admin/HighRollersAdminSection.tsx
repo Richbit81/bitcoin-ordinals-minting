@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FreeMintWhitelist } from './FreeMintWhitelist';
 
 /**
  * Self-contained admin section for the High Rollers collection.
@@ -143,6 +144,14 @@ export const HighRollersAdminSection: React.FC<{ adminAddress: string }> = ({ ad
         </div>
         <p className="text-[11px] text-gray-500 mt-2">Import is non-destructive: already-minted items keep their status; only empty name/attributes are filled.</p>
       </div>
+
+      <FreeMintWhitelist
+        apiBase={apiBase}
+        basePath="/api/high-rollers"
+        adminAddress={adminAddress}
+        accent="yellow"
+        fileName="high-rollers-whitelist.json"
+      />
 
       {status && <p className="text-xs text-yellow-300 mt-3">{status}</p>}
     </div>

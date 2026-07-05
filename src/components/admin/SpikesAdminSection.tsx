@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FreeMintWhitelist } from './FreeMintWhitelist';
 
 /**
  * Self-contained admin section for the Spikes collection.
@@ -143,6 +144,14 @@ export const SpikesAdminSection: React.FC<{ adminAddress: string }> = ({ adminAd
         </div>
         <p className="text-[11px] text-gray-500 mt-2">Import is non-destructive: already-minted items keep their status; only empty name/attributes are filled.</p>
       </div>
+
+      <FreeMintWhitelist
+        apiBase={apiBase}
+        basePath="/api/spikes"
+        adminAddress={adminAddress}
+        accent="cyan"
+        fileName="spikes-whitelist.json"
+      />
 
       {status && <p className="text-xs text-cyan-300 mt-3">{status}</p>}
     </div>
