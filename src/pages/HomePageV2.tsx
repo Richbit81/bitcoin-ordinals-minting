@@ -692,6 +692,16 @@ export const HomePageV2: React.FC = () => {
           <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:overflow-visible scrollbar-hide">
             {[
               {
+                name: 'High Rollers',
+                desc: 'A limited set of 225 high rollers — parent-linked, provenance-backed Bitcoin ordinals.',
+                src: '/images/high-rollers/0001.avif',
+                route: '/high-rollers',
+                isHtml: false,
+                tag: 'NEW',
+                tagColor: 'bg-amber-500',
+                mintLive: true,
+              },
+              {
                 name: 'Primal Club',
                 desc: 'Unique digital primates on Bitcoin — built for collectors, dreamers and certified Web3 degenerates.',
                 src: '/images/primal-club/primal-club-logo.png',
@@ -732,7 +742,6 @@ export const HomePageV2: React.FC = () => {
                     tagColor: 'bg-amber-600',
                     mintLive: true,
                   },
-              spotlightThirdSlot,
               {
                 name: 'Spikes',
                 desc: 'Techwear renegades on Bitcoin — 64 parent-linked, provenance-backed ordinals. Neon-soaked, on-chain.',
@@ -743,16 +752,7 @@ export const HomePageV2: React.FC = () => {
                 tagColor: 'bg-cyan-500',
                 mintLive: true,
               },
-              {
-                name: 'High Rollers',
-                desc: 'A limited set of 225 high rollers — parent-linked, provenance-backed Bitcoin ordinals.',
-                src: '/images/high-rollers/0001.avif',
-                route: '/high-rollers',
-                isHtml: false,
-                tag: 'NEW',
-                tagColor: 'bg-amber-500',
-                mintLive: true,
-              },
+              spotlightThirdSlot,
             ].map((item) => (
               <div
                 key={item.name}
