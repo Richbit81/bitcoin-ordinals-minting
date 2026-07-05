@@ -557,7 +557,7 @@ export const HomePageV2: React.FC = () => {
         route: '/pinkpuppets',
         isHtml: false,
         tag: 'FEATURED',
-        tagColor: 'bg-pink-500',
+        tagColor: 'bg-red-600',
         mintLive: false,
       },
       {
@@ -577,7 +577,7 @@ export const HomePageV2: React.FC = () => {
         route: '/free-stuff',
         isHtml: true,
         tag: 'FREE MINT',
-        tagColor: 'bg-green-500',
+        tagColor: 'bg-red-600',
         mintLive: false,
       },
       {
@@ -587,7 +587,7 @@ export const HomePageV2: React.FC = () => {
         route: '/slums',
         isHtml: false,
         tag: 'COLLECTION',
-        tagColor: 'bg-purple-600',
+        tagColor: 'bg-red-600',
         mintLive: false,
       },
     ];
@@ -698,7 +698,7 @@ export const HomePageV2: React.FC = () => {
                 route: '/high-rollers',
                 isHtml: false,
                 tag: 'NEW',
-                tagColor: 'bg-amber-500',
+                tagColor: 'bg-red-600',
                 mintLive: true,
               },
               {
@@ -708,7 +708,7 @@ export const HomePageV2: React.FC = () => {
                 route: '/primal-club',
                 isHtml: false,
                 tag: 'NEW',
-                tagColor: 'bg-amber-500',
+                tagColor: 'bg-red-600',
                 mintLive: true,
               },
               {
@@ -718,7 +718,7 @@ export const HomePageV2: React.FC = () => {
                 route: '/badcats',
                 isHtml: true,
                 tag: 'COLLECTION',
-                tagColor: 'bg-purple-600',
+                tagColor: 'bg-red-600',
                 mintLive: true,
               },
               VEGAS_MODE
@@ -729,7 +729,7 @@ export const HomePageV2: React.FC = () => {
                     route: '/pinkpuppets',
                     isHtml: false,
                     tag: 'VEGAS PICK',
-                    tagColor: 'bg-pink-500',
+                    tagColor: 'bg-red-600',
                     mintLive: false,
                   }
                 : {
@@ -739,7 +739,7 @@ export const HomePageV2: React.FC = () => {
                     route: '/bitcoin-mixtape',
                     isHtml: false,
                     tag: 'MUSIC',
-                    tagColor: 'bg-amber-600',
+                    tagColor: 'bg-red-600',
                     mintLive: true,
                   },
               {
@@ -749,7 +749,7 @@ export const HomePageV2: React.FC = () => {
                 route: '/spikes',
                 isHtml: false,
                 tag: 'NEW',
-                tagColor: 'bg-cyan-500',
+                tagColor: 'bg-red-600',
                 mintLive: true,
               },
               spotlightThirdSlot,
