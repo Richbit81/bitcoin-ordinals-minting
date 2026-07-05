@@ -528,7 +528,7 @@ export const HomePageV2: React.FC = () => {
 
   const displayedNewStuff = useMemo(() => {
     const shuffled = [...ALL_NEW_STUFF].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 7);
+    return shuffled.slice(0, 11);
   }, []);
 
   // Spotlight: erste zwei Slots sind fix (Bad Cats + Bitcoin Mixtape),
@@ -537,27 +537,9 @@ export const HomePageV2: React.FC = () => {
   // displayedNewStuff oben (useMemo mit leerer Dep-Liste = stabil pro
   // Render-Tree, neuer Pick beim nächsten Mount).
   const spotlightThirdSlot = useMemo(() => {
+    // Spikes + High Rollers haben jetzt eigene feste Spotlight-Boxen, daher
+    // NICHT mehr im Rotations-Pool (sonst Doppel-Anzeige).
     const pool = [
-      {
-        name: 'Spikes',
-        desc: 'Techwear renegades on Bitcoin — 64 parent-linked, provenance-backed ordinals. Neon-soaked, on-chain.',
-        src: 'https://ordinals.com/content/e7ddfba5037731094b38f9214667e6a44f041fe02de9397e48bb6506f40246a1i0',
-        route: '/spikes',
-        isHtml: false,
-        tag: 'NEW',
-        tagColor: 'bg-cyan-500',
-        mintLive: true,
-      },
-      {
-        name: 'High Rollers',
-        desc: 'A limited set of 225 hand-crafted high rollers — parent-linked, provenance-backed Bitcoin ordinals.',
-        src: '/images/high-rollers/0001.avif',
-        route: '/high-rollers',
-        isHtml: false,
-        tag: 'NEW',
-        tagColor: 'bg-amber-500',
-        mintLive: true,
-      },
       {
         name: 'SLOW FIRE',
         desc: 'Time only moves when you move. A browser-based FPS inspired by SUPERHOT — fully on-chain.',
@@ -620,7 +602,7 @@ export const HomePageV2: React.FC = () => {
 
         {/* Top Bar */}
         <header className="sticky top-0 z-40 border-b border-white/5 bg-black/70 backdrop-blur-xl">
-          <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-14">
+          <div className="mx-auto max-w-[1600px] px-4 flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
               <button onClick={() => navigate('/')} className="hover:opacity-80 transition group">
                 <span className="text-xs sm:text-base font-bold text-white group-hover:text-red-400 transition-colors" style={{ fontFamily: "'Press Start 2P', cursive", textShadow: '0 0 10px rgba(220,38,38,0.6), 0 0 20px rgba(220,38,38,0.3)' }}>
@@ -682,13 +664,13 @@ export const HomePageV2: React.FC = () => {
         )}
 
         {/* Mempool Banner */}
-        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 mt-4">
+        <div className="relative z-10 mx-auto max-w-[1600px] w-full px-4 mt-4">
           <MempoolFeesBanner onDetailsClick={() => setShowMempoolModal(true)} />
         </div>
 
         {/* Hero */}
         {VEGAS_MODE ? <VegasHero /> : (
-          <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-10 text-center flex flex-col items-center">
+          <div className="relative z-10 mx-auto max-w-[1600px] w-full px-4 py-10 text-center flex flex-col items-center">
             <h1
               className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
               style={{
@@ -705,9 +687,9 @@ export const HomePageV2: React.FC = () => {
         )}
 
         {/* Spotlight Section */}
-        <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
+        <section className="relative z-10 mx-auto max-w-[1600px] w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Spotlight</h2>
-          <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible scrollbar-hide">
+          <div className="flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:overflow-visible scrollbar-hide">
             {[
               {
                 name: 'Primal Club',
@@ -751,6 +733,26 @@ export const HomePageV2: React.FC = () => {
                     mintLive: true,
                   },
               spotlightThirdSlot,
+              {
+                name: 'Spikes',
+                desc: 'Techwear renegades on Bitcoin — 64 parent-linked, provenance-backed ordinals. Neon-soaked, on-chain.',
+                src: 'https://ordinals.com/content/e7ddfba5037731094b38f9214667e6a44f041fe02de9397e48bb6506f40246a1i0',
+                route: '/spikes',
+                isHtml: false,
+                tag: 'NEW',
+                tagColor: 'bg-cyan-500',
+                mintLive: true,
+              },
+              {
+                name: 'High Rollers',
+                desc: 'A limited set of 225 high rollers — parent-linked, provenance-backed Bitcoin ordinals.',
+                src: '/images/high-rollers/0001.avif',
+                route: '/high-rollers',
+                isHtml: false,
+                tag: 'NEW',
+                tagColor: 'bg-amber-500',
+                mintLive: true,
+              },
             ].map((item) => (
               <div
                 key={item.name}
@@ -796,9 +798,9 @@ export const HomePageV2: React.FC = () => {
         </section>
 
         {/* New Stuff Section */}
-        <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
+        <section className="relative z-10 mx-auto max-w-[1600px] w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">New & Featured</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 sm:overflow-visible scrollbar-hide">
+          <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-9 xl:grid-cols-11 sm:overflow-visible scrollbar-hide">
             {displayedNewStuff.map((item) => (
               <div
                 key={item.name}
@@ -839,7 +841,7 @@ export const HomePageV2: React.FC = () => {
         </section>
 
         {/* News & Links Section */}
-        <section className="relative z-10 mx-auto max-w-7xl w-full px-4 mb-10">
+        <section className="relative z-10 mx-auto max-w-[1600px] w-full px-4 mb-10">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">News & Links</h2>
           <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 sm:overflow-visible scrollbar-hide">
             {ALL_NEWS.map((item) => (
@@ -872,7 +874,7 @@ export const HomePageV2: React.FC = () => {
 
 function VegasHero() {
   return (
-    <div className="relative z-10 mx-auto max-w-7xl w-full px-4 py-12 flex flex-col items-center">
+    <div className="relative z-10 mx-auto max-w-[1600px] w-full px-4 py-12 flex flex-col items-center">
       <style>{`
         @keyframes vegasMarquee {
           0%, 100% { opacity: 1; box-shadow: 0 0 8px #ffd24a, 0 0 16px #ffd24a; }
