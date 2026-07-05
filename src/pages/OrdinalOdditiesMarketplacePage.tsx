@@ -24,6 +24,7 @@ type ItemListing = {
 type ListingsMap = Record<string, ItemListing>;
 
 const COLLECTION_SLUG = 'ordinaloddities';
+const ORDINAL_ODDITIES_MUSIC = '/audio/ordinaloddities.mp3';
 const SATS_PER_BTC = 100_000_000;
 const NAKAMOTO_SAT_MAX = 95_000_000_000_000;
 const VINTAGE_SAT_MAX = 5_000_000_000_000;
@@ -386,6 +387,43 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
   const [fullscreenImage, setFullscreenImage] = React.useState<{ url: string; name: string } | null>(null);
   const resolvingOwnerIdsRef = React.useRef<Set<string>>(new Set());
   const ordApiCacheRef = React.useRef<Record<string, Record<string, any>>>({});
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [musicOn, setMusicOn] = React.useState(false);
+
+  const toggleMusic = React.useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicOn) {
+      audio.pause();
+      setMusicOn(false);
+    } else {
+      audio.volume = 0.18;
+      audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
+    }
+  }, [musicOn]);
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.18;
+    audio.loop = true;
+    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    const startOnFirstGesture = () => {
+      if (audio.paused) audio.play().then(() => setMusicOn(true)).catch(() => {});
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+    };
+    window.addEventListener('pointerdown', startOnFirstGesture);
+    window.addEventListener('keydown', startOnFirstGesture);
+    window.addEventListener('touchstart', startOnFirstGesture);
+    return () => {
+      window.removeEventListener('pointerdown', startOnFirstGesture);
+      window.removeEventListener('keydown', startOnFirstGesture);
+      window.removeEventListener('touchstart', startOnFirstGesture);
+      audio.pause();
+    };
+  }, []);
 
   const itemIndexById = React.useMemo(() => {
     const map = new Map<string, number>();
@@ -914,6 +952,32 @@ export const OrdinalOdditiesMarketplacePage: React.FC = () => {
           <div className="mt-3 h-px w-full max-w-lg mx-auto" style={{ background: 'linear-gradient(90deg, transparent, #80000040, #a0000040, #80000040, transparent)' }} />
         </div>
       </div>
+
+      {/* collection music (dezent, per button) */}
+      <audio ref={audioRef} src={ORDINAL_ODDITIES_MUSIC} loop preload="none" />
+      <button
+        onClick={toggleMusic}
+        aria-label={musicOn ? 'Mute music' : 'Play music'}
+        className="h-mono fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all"
+        style={{
+          border: `2px solid ${musicOn ? '#c00' : '#80000080'}`,
+          color: musicOn ? '#f44' : '#c44',
+          background: musicOn ? 'linear-gradient(180deg, #a0000030 0%, #60000020 100%)' : '#0a020480',
+          boxShadow: musicOn ? '0 0 18px #a0000060, 4px 4px 0 #0004' : '0 0 10px #80000030, 4px 4px 0 #0004',
+        }}
+      >
+        {musicOn ? (
+          <>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+            <span className="hidden sm:inline">Music On</span>
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l11-2v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm11-2a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Play Music</span>
+          </>
+        )}
+      </button>
     </div>
   );
 };
