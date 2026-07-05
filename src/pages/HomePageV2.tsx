@@ -406,11 +406,11 @@ const ALL_NEW_STUFF = [
   { name: 'Stellar Command', thumb: 'https://ordinals.com/content/4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0', route: '/tech-games?try=4c47bccf81e77815aa54187aa8ca971c62a3c7ba9fdfed87a7ceb3d115387700i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'EXIT PROTOCOL', thumb: 'https://ordinals.com/content/b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', route: '/tech-games?try=b6be591b902fafdefaef94577496e36a0fdd13017772471b1163a4d94197fb72i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'SLOW FIRE', thumb: 'https://ordinals.com/content/e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', route: '/tech-games?try=e052b3516fbada925ba9816ded5ea04854545e911e893c9fb081ab07fac9c15fi0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
-  { name: 'Eito Bitto', thumb: '/eito-bitto-logo.png', route: '/EitoBitto', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
-  { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-cyan-500' },
-  { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-green-500' },
+  { name: 'Eito Bitto', thumb: '/eito-bitto-logo.png', route: '/EitoBitto', tag: 'FRIENDS', tagColor: 'bg-red-600' },
+  { name: 'Ordinal Oddities', thumb: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities', tag: 'FRIENDS', tagColor: 'bg-red-600' },
+  { name: 'Dimension Break', thumb: '/images/dimension-break-preview.gif', route: '/dimension-break', tag: 'FREE MINT', tagColor: 'bg-red-600' },
   { name: 'RICHRACER', thumb: 'https://ordinals.com/content/71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', route: '/tech-games?try=71d03605227c3452772a99658c0b70662706d1308c58bcead73aeb0a1d5280fai0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
-  { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-pink-500' },
+  { name: 'Pink Puppets', thumb: '/images/pinkpuppets-openpage.avif', route: '/pinkpuppets', tag: 'FEATURED', tagColor: 'bg-red-600' },
   { name: 'GAVS', thumb: 'https://ordinals.com/content/927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', route: '/tech-games?try=927bdb131b4487f730fa500759d9d5fe80762b8ca52b0d1709930df038fc9303i0', isIframe: true },
   { name: 'Synthesizer', thumb: 'https://ordinals.com/content/bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', route: '/tech-games?try=bff1b21cd21931cc8075921e8a15d8cbb5c962fa0a4592970586a65c83ab4a36i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
   { name: 'Ninja', thumb: 'https://ordinals.com/content/51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', route: '/tech-games?try=51f03a730c7e943f5cdfa13a9e3ecf13452b4dc12b57acc96a2835b67440a307i0', tag: 'NEW', tagColor: 'bg-red-600', isIframe: true },
@@ -422,8 +422,8 @@ const ALL_NEW_STUFF = [
     tagColor: 'bg-red-600',
     isIframe: true,
   },
-  { name: 'Neuro Drift', thumb: '/images/neuro-drift.png', route: 'https://ord-dropz.xyz/games/listing_1777326819798', tag: 'OrdDropz', tagColor: 'bg-cyan-500', external: true },
-  { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'OrdDropz', tagColor: 'bg-cyan-500', external: true },
+  { name: 'Neuro Drift', thumb: '/images/neuro-drift.png', route: 'https://ord-dropz.xyz/games/listing_1777326819798', tag: 'OrdDropz', tagColor: 'bg-red-600', external: true },
+  { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'OrdDropz', tagColor: 'bg-red-600', external: true },
 ];
 
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
