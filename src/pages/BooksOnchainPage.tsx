@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'beyond-good-and-evil',
+    name: 'Beyond Good and Evil',
+    inscriptionId: 'f9a6dd1471a103d92d9beb84e2f1be6f0c83b01a3ac5eefb6118c97dc396bd77i0',
+    author: 'Friedrich Nietzsche',
+    priceInSats: 5000,
+    description:
+      'Beyond Good and Evil by Friedrich Nietzsche is one of the most influential and provocative works of modern philosophy. In it, Nietzsche challenges the traditional foundations of morality, truth, and religion, urging readers to question the values they have inherited and to think for themselves.\n\nThrough sharp aphorisms and bold arguments, he explores the "will to power," the nature of good and evil, and the possibility of a philosophy that goes beyond conventional judgments. It is a call to intellectual courage and a critique of dogma in all its forms.\n\nA cornerstone of Western thought that continues to provoke, inspire, and unsettle—now preserved forever on-chain.',
+  },
+  {
     id: 'the-time-machine',
     name: 'The Time Machine',
     inscriptionId: 'a285c3735e7d8b020bdb308e0efad784f2b34bb0ddb484f8afed8a5ea41b8d91i0',
