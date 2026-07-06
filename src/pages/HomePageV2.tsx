@@ -432,6 +432,15 @@ const ALL_NEW_STUFF = [
   { name: 'Turbo Rush', thumb: '/images/turbo-rush.png', route: 'https://ord-dropz.xyz/games/listing_1777490840040', tag: 'OrdDropz', tagColor: 'bg-blue-600', external: true },
 ];
 
+// Friends row — the four collections from the "Friends Marketplace" nav, shown
+// as wide banners (twice the width of a New&Featured tile) so 4 fill one row.
+const FRIENDS_ROW = [
+  { name: 'Eito Bitto', img: '/eito-bitto-logo.png', route: '/EitoBitto' },
+  { name: 'Ordinal Oddities', img: '/images/ordinal-oddities-preview.webp', route: '/ordinaloddities' },
+  { name: 'Pink Puppets', img: '/images/pinkpuppets-banner.png', route: '/pinkpuppets/marketplace' },
+  { name: 'The Box', img: '/images/Box.png', route: '/thebox' },
+];
+
 function NavThumb({ item, size = 'h-10 w-10' }: { item: NavItem; size?: string }) {
   if (!item.img) return null;
   if (item.isHtml) {
@@ -837,6 +846,30 @@ export const HomePageV2: React.FC = () => {
                   ) : (
                     <img src={item.thumb} alt={item.name} className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" loading="lazy" />
                   )}
+                </div>
+                <div className="px-2 py-2 text-center">
+                  <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors">{item.name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Friends Section — wide banners, one row of 4 */}
+        <section className="relative z-10 mx-auto max-w-[1600px] w-full px-4 mb-10">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-4">Friends</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible scrollbar-hide">
+            {FRIENDS_ROW.map((item) => (
+              <div
+                key={item.name}
+                onClick={() => navigate(item.route)}
+                className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden min-w-[280px] sm:min-w-0"
+              >
+                <div className="aspect-[2/1] relative overflow-hidden bg-black">
+                  <img src={item.img} alt={item.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
+                  <span className="absolute top-1.5 right-1.5 z-10 bg-cyan-500 px-1.5 py-0.5 text-[8px] font-extrabold text-white rounded-full shadow">
+                    FRIENDS
+                  </span>
                 </div>
                 <div className="px-2 py-2 text-center">
                   <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors">{item.name}</span>
