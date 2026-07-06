@@ -12,9 +12,13 @@ export const RUNNER_PREVIEW_INSCRIPTION_ID =
   '1293e6de9db0588cfdae0aba4e6ec43a3946cf0ce86ee7952589b25bd835561ei0';
 
 /**
- * Nur für eingebettete Vorschau (iframe): ord.io kann nicht in fremden iframes geladen werden
- * (X-Frame-Options: SAMEORIGIN). Ord.io nutzt denselben Content-Endpunkt wie hier — damit
- * Mempool/Rendering der generativen HTML-Inscription dem Explorer auf ord.io entspricht,
- * nicht der rohen ordinals.com/content-Auslieferung.
+ * Eingebettete Vorschau (iframe). Direkt über ordinals.com/content — genau wie
+ * alle anderen HTML-Kacheln auf der Startseite. Die frühere Variante über den
+ * Proxy `ordin-delta.vercel.app` lieferte 404 (Dienst offline) und die reine
+ * Wrapper-Inscription (RUNNER_PREVIEW_INSCRIPTION_ID) referenzierte ihre Engine
+ * nur relativ (/content/…), was außerhalb von ordinals.com brach → leere/
+ * kaputte Vorschau. Wir zeigen deshalb die echte, selbst-lauffähige Runner-
+ * Inscription; deren relative Sub-Ressourcen lösen im iframe korrekt gegen
+ * ordinals.com auf.
  */
-export const RUNNER_PREVIEW_IFRAME_SRC = `https://ordin-delta.vercel.app/content/${RUNNER_PREVIEW_INSCRIPTION_ID}`;
+export const RUNNER_PREVIEW_IFRAME_SRC = `https://ordinals.com/content/${RUNNER_INSCRIPTION_ID}`;
