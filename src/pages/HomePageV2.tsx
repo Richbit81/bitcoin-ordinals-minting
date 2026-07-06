@@ -866,7 +866,7 @@ export const HomePageV2: React.FC = () => {
                 className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-200 overflow-hidden min-w-[280px] sm:min-w-0"
               >
                 <div className="aspect-[2/1] relative overflow-hidden bg-black">
-                  <img src={item.img} alt={item.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
+                  <img src={item.img} alt={item.name} className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" loading="lazy" />
                   <span className="absolute top-1.5 right-1.5 z-10 bg-cyan-500 px-1.5 py-0.5 text-[8px] font-extrabold text-white rounded-full shadow">
                     FRIENDS
                   </span>
