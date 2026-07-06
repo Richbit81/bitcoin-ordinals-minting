@@ -20,6 +20,7 @@ const BitcoinMixtapePage = lazy(() => import('./pages/BitcoinMixtapePage').then(
 const Orwell1984Page = lazy(() => import('./pages/Orwell1984Page').then((m) => ({ default: m.Orwell1984Page })));
 const FreeStuffPage = lazy(() => import('./pages/FreeStuffPage').then((m) => ({ default: m.FreeStuffPage })));
 const BooksOnchainPage = lazy(() => import('./pages/BooksOnchainPage').then((m) => ({ default: m.BooksOnchainPage })));
+const OrddropzPage = lazy(() => import('./pages/OrddropzPage').then((m) => ({ default: m.OrddropzPage })));
 const RandomStuffPage = lazy(() => import('./pages/RandomStuffPage').then((m) => ({ default: m.RandomStuffPage })));
 const CollectionMintingPage = lazy(() => import('./pages/CollectionMintingPage').then((m) => ({ default: m.CollectionMintingPage })));
 const TradingPage = lazy(() => import('./pages/TradingPage').then((m) => ({ default: m.TradingPage })));
@@ -92,6 +93,7 @@ function AppContent() {
           {/* NFT moved into /random-stuff */}
           <Route path="/free-stuff" element={<FreeStuffPage />} />
           <Route path="/books-onchain" element={<BooksOnchainPage />} />
+          <Route path="/orddropz" element={<OrddropzPage />} />
           <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />

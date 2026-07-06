@@ -367,6 +367,12 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Orddropz',
+    items: [
+      { label: 'Orddropz Collections', route: '/orddropz', img: '/images/orddropz-ordheadz.png' },
+    ],
+  },
+  {
     label: 'Point Shop',
     items: [
       { label: 'Point Shop', route: '/point-shop', img: '/pointshop.png' },
