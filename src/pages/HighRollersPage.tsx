@@ -10,6 +10,7 @@ import {
 } from '../utils/wallet';
 import { WalletConnect } from '../components/WalletConnect';
 import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
+import { MintFeeRateSelector } from '../components/MintFeeRateSelector';
 import {
   fetchHighRollersStatus,
   fetchHighRollersMinted,
@@ -42,6 +43,7 @@ export const HighRollersPage: React.FC = () => {
   const [minted, setMinted] = useState<HighRollersMint[]>([]);
   const [taproot, setTaproot] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [feeRate, setFeeRate] = useState(0); // 0 = auto until mempool recommendation loads
   const [phase, setPhase] = useState<Phase>('idle');
   const [quote, setQuote] = useState<HighRollersQuote | null>(null);
   const [order, setOrder] = useState<HighRollersOrder | null>(null);
@@ -214,7 +216,7 @@ export const HighRollersPage: React.FC = () => {
     }
     setPhase('quoting');
     try {
-      const q = await requestHighRollersQuote(addr, quantity);
+      const q = await requestHighRollersQuote(addr, quantity, feeRate);
       setQuote(q);
       setOrder(null);
       setPhase('awaiting_payment');
@@ -225,7 +227,7 @@ export const HighRollersPage: React.FC = () => {
       setPhase('error');
       setError(e?.message || 'Could not create an order.');
     }
-  }, [taproot, quantity, pollOrder, walletConnected, payWithWallet]);
+  }, [taproot, quantity, feeRate, pollOrder, walletConnected, payWithWallet]);
 
   const reset = useCallback(() => {
     stopPolling();
@@ -364,6 +366,8 @@ export const HighRollersPage: React.FC = () => {
                   </div>
                 );
               })()}
+
+              <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent={GOLD} disabled={phase === 'quoting'} />
 
               {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
               <button

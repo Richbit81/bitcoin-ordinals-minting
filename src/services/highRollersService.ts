@@ -85,12 +85,14 @@ export async function fetchHighRollersMinted(): Promise<HighRollersMint[]> {
   return Array.isArray(j?.mints) ? j.mints : [];
 }
 
-export async function requestHighRollersQuote(taproot: string, quantity = 1): Promise<HighRollersQuote> {
+export async function requestHighRollersQuote(taproot: string, quantity = 1, feeRate?: number): Promise<HighRollersQuote> {
+  const body: Record<string, unknown> = { taproot, quantity };
+  if (typeof feeRate === 'number' && Number.isFinite(feeRate) && feeRate > 0) body.feeRate = Math.max(1, Math.floor(feeRate));
   return jsonOrThrow(
     await fetch(`${API_URL}/api/high-rollers/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taproot, quantity }),
+      body: JSON.stringify(body),
     }),
   );
 }

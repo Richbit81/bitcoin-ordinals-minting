@@ -85,12 +85,14 @@ export async function fetchSpikesMinted(): Promise<SpikesMint[]> {
   return Array.isArray(j?.mints) ? j.mints : [];
 }
 
-export async function requestSpikesQuote(taproot: string, quantity = 1): Promise<SpikesQuote> {
+export async function requestSpikesQuote(taproot: string, quantity = 1, feeRate?: number): Promise<SpikesQuote> {
+  const body: Record<string, unknown> = { taproot, quantity };
+  if (typeof feeRate === 'number' && Number.isFinite(feeRate) && feeRate > 0) body.feeRate = Math.max(1, Math.floor(feeRate));
   return jsonOrThrow(
     await fetch(`${API_URL}/api/spikes/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taproot, quantity }),
+      body: JSON.stringify(body),
     }),
   );
 }

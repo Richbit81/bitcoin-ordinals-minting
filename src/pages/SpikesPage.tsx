@@ -10,6 +10,7 @@ import {
 } from '../utils/wallet';
 import { WalletConnect } from '../components/WalletConnect';
 import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
+import { MintFeeRateSelector } from '../components/MintFeeRateSelector';
 import {
   fetchSpikesStatus,
   fetchSpikesMinted,
@@ -162,6 +163,7 @@ export const SpikesPage: React.FC = () => {
   const [minted, setMinted] = useState<SpikesMint[]>([]);
   const [taproot, setTaproot] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [feeRate, setFeeRate] = useState(0); // 0 = auto until mempool recommendation loads
   const [phase, setPhase] = useState<Phase>('idle');
   const [quote, setQuote] = useState<SpikesQuote | null>(null);
   const [order, setOrder] = useState<SpikesOrder | null>(null);
@@ -323,7 +325,7 @@ export const SpikesPage: React.FC = () => {
     }
     setPhase('quoting');
     try {
-      const q = await requestSpikesQuote(addr, quantity);
+      const q = await requestSpikesQuote(addr, quantity, feeRate);
       setQuote(q);
       setOrder(null);
       setPhase('awaiting_payment');
@@ -333,7 +335,7 @@ export const SpikesPage: React.FC = () => {
       setPhase('error');
       setError(e?.message || 'Could not create an order.');
     }
-  }, [taproot, quantity, pollOrder, walletConnected, payWithWallet]);
+  }, [taproot, quantity, feeRate, pollOrder, walletConnected, payWithWallet]);
 
   const reset = useCallback(() => {
     stopPolling();
@@ -495,6 +497,8 @@ export const SpikesPage: React.FC = () => {
                     </div>
                   );
                 })()}
+
+                <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent="#22e3ff" disabled={phase === 'quoting'} />
 
                 {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
                 <button
