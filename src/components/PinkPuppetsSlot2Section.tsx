@@ -448,9 +448,13 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
       {spinError && <p className="text-xs text-red-300">{spinError}</p>}
 
       <p className="text-[11px] leading-relaxed text-pink-200/55">
-        Pull the lever to spin. {status?.maxBaseSpins ?? 3} spins per {status?.windowHours ?? 2}h window. Win a spot on the
-        <strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
-        whitelist, bonus spins, or the one-and-only <strong className="text-green-200">Pink Puppet grand prize</strong>. Winners enter a Taproot address to receive their prize.
+        Pull the lever to spin. {status?.maxBaseSpins ?? 3} spins per {status?.windowHours ?? 2}h window — plus
+        <strong className="text-amber-200"> +3 bonus spins </strong>for every
+        <strong className="text-pink-100"> Bad Cats</strong>,<strong className="text-pink-100"> Primal Club</strong>,
+        <strong className="text-pink-100"> High Rollers </strong>or<strong className="text-pink-100"> Spikes </strong>you mint (no limit, free mints count too).
+        Win a spot on the<strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
+        whitelist (<strong className="text-pink-100">10 spots each</strong>), bonus spins, or the one-and-only
+        <strong className="text-green-200"> Pink Puppet grand prize</strong>. Winners enter a Taproot address (bc1p…) to receive their prize.
       </p>
 
       {showCooldown && (
@@ -551,8 +555,10 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 <span className="bg-gradient-to-br from-amber-200 via-pink-100 to-[#e848c7] bg-clip-text font-bold text-transparent">whitelists & the grand prize!</span>
               </h2>
               <p className="mx-auto max-w-[34rem] text-sm leading-relaxed text-pink-100/65 sm:mx-0 sm:text-base">
-                Win a whitelist spot for <strong>Blockchain Titans</strong> or <strong>Lil Cats</strong>, bonus spins, or the single
-                Pink Puppet grand prize. {pool ? `${pool.titans.remaining + pool.lilcats.remaining} whitelist spots left.` : ''}
+                Win a whitelist spot for <strong>Blockchain Titans</strong> or <strong>Lil Cats</strong> — <strong>10 spots each</strong> —
+                bonus spins, or the single Pink Puppet grand prize. Every <strong>Bad Cats</strong>, <strong>Primal Club</strong>,
+                <strong> High Rollers</strong> or <strong>Spikes</strong> mint earns you <strong>+3 extra spins</strong>.{' '}
+                {pool ? `${pool.titans.remaining} Blockchain Titans + ${pool.lilcats.remaining} Lil Cats whitelist spots left.` : ''}
               </p>
               <button
                 type="button"
