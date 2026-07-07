@@ -554,12 +554,32 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 Spin for{' '}
                 <span className="bg-gradient-to-br from-amber-200 via-pink-100 to-[#e848c7] bg-clip-text font-bold text-transparent">whitelists & the grand prize!</span>
               </h2>
-              <p className="mx-auto max-w-[34rem] text-sm leading-relaxed text-pink-100/65 sm:mx-0 sm:text-base">
-                Win a whitelist spot for <strong>Blockchain Titans</strong> or <strong>Lil Cats</strong> — <strong>10 spots each</strong> —
-                bonus spins, or the single Pink Puppet grand prize. Every <strong>Bad Cats</strong>, <strong>Primal Club</strong>,
-                <strong> High Rollers</strong> or <strong>Spikes</strong> mint earns you <strong>+3 extra spins</strong>.{' '}
-                {pool ? `${pool.titans.remaining} Blockchain Titans + ${pool.lilcats.remaining} Lil Cats whitelist spots left.` : ''}
-              </p>
+              <ul className="mx-auto max-w-[34rem] space-y-2.5 text-left text-sm leading-relaxed text-pink-100/70 sm:mx-0">
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.85)]" />
+                  <span><strong className="text-pink-100">3 spins every 2 hours</strong> — pull the lever and try your luck.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.85)]" />
+                  <span>
+                    Whitelist spot for <strong className="text-amber-200">Blockchain Titans</strong> or <strong className="text-cyan-200">Lil Cats</strong> —{' '}
+                    <strong className="text-pink-100">10 spots each</strong>
+                    {pool ? <span className="text-pink-200/55"> ({pool.titans.remaining} + {pool.lilcats.remaining} left)</span> : null}.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.85)]" />
+                  <span>Or hit the <strong className="text-green-200">one-of-one Pink Puppet grand prize</strong> — plus bonus spins along the way.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.85)]" />
+                  <span>
+                    Every <strong className="text-pink-100">Bad Cats</strong>, <strong className="text-pink-100">Primal Club</strong>,{' '}
+                    <strong className="text-pink-100">High Rollers</strong> or <strong className="text-pink-100">Spikes</strong> mint earns you{' '}
+                    <strong className="text-pink-100">+3 extra spins</strong>.
+                  </span>
+                </li>
+              </ul>
               <button
                 type="button"
                 onClick={openModal}
