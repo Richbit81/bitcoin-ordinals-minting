@@ -969,6 +969,32 @@ export const HomePageV2: React.FC = () => {
         </footer>
       </div>
 
+      {/* Mobile-only always-visible spinner shortcut → /pinkpuppets (desktop uses the hero preview). */}
+      <button
+        type="button"
+        onClick={() => navigate('/pinkpuppets')}
+        aria-label="Open the Pink Puppets Spinner"
+        className="fixed bottom-5 right-4 z-40 flex items-center gap-2 rounded-full py-2.5 pl-2.5 pr-4 text-[11px] font-bold uppercase tracking-widest text-white active:scale-95 lg:hidden"
+        style={{
+          background: 'linear-gradient(90deg,#ec4899,#a855f7)',
+          animation: 'ppSpinFabPulse 2.6s ease-in-out infinite',
+        }}
+      >
+        <style>{`
+          @keyframes ppSpinFabPulse {
+            0%,100% { transform: scale(1); box-shadow: 0 6px 20px rgba(236,72,153,0.5); }
+            50%     { transform: scale(1.05); box-shadow: 0 8px 28px rgba(236,72,153,0.85); }
+          }
+        `}</style>
+        <img
+          src="/images/pinkpuppets-openpage.avif"
+          alt=""
+          className="h-6 w-6 shrink-0 rounded-full object-cover ring-2 ring-white/70"
+          loading="lazy"
+        />
+        Spin &amp; Win
+      </button>
+
       {showMempoolModal && <MempoolDetailsModal onClose={() => setShowMempoolModal(false)} />}
     </>
   );
