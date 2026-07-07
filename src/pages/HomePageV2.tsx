@@ -541,6 +541,19 @@ export const HomePageV2: React.FC = () => {
   const [showMempoolModal, setShowMempoolModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Schwebende Spinner-Vorschau nur auf breiten Screens einblenden (rechter
+  // Freiraum neben den max-w-[1600px] Feldern). Auf schmaleren Screens wird das
+  // 3D-Embed gar nicht erst geladen (spart Bandbreite auf Mobile/Tablet).
+  const [showSpinnerPreview, setShowSpinnerPreview] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 1800px)');
+    const apply = () => setShowSpinnerPreview(mq.matches);
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, []);
+
   const displayedNewStuff = useMemo(() => {
     const shuffled = [...ALL_NEW_STUFF].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 11);
@@ -905,6 +918,53 @@ export const HomePageV2: React.FC = () => {
           richart.app — Bitcoin Ordinals Platform
         </footer>
       </div>
+
+      {showSpinnerPreview && (
+        <button
+          type="button"
+          onClick={() => navigate('/pinkpuppets')}
+          aria-label="Open the Pink Puppets Spinner"
+          className="fixed right-6 top-1/2 z-40 flex flex-col items-center border-0 bg-transparent p-0 group cursor-pointer"
+          style={{ animation: 'ppSpinFloat 4.8s ease-in-out infinite' }}
+        >
+          <style>{`
+            @keyframes ppSpinFloat { 0%,100% { transform: translateY(calc(-50% - 9px)); } 50% { transform: translateY(calc(-50% + 9px)); } }
+            @keyframes ppSpinPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+            @keyframes ppSpinGlow  { 0%,100% { opacity: .30; } 50% { opacity: .65; } }
+          `}</style>
+          <div
+            className="pointer-events-none absolute inset-0 rounded-full blur-2xl"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(236,72,153,0.55) 0%, rgba(168,85,247,0.28) 45%, transparent 70%)',
+              animation: 'ppSpinGlow 4.8s ease-in-out infinite',
+            }}
+          />
+          <div
+            className="relative transition-transform duration-300 group-hover:scale-110"
+            style={{ width: 132, height: 172, animation: 'ppSpinPulse 3.4s ease-in-out infinite' }}
+          >
+            <iframe
+              src="/pinkpuppets-slot/index.html?embed=1"
+              title="Spinner preview"
+              className="h-full w-full pointer-events-none select-none"
+              style={{ border: 'none', background: 'transparent' }}
+              scrolling="no"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
+          <span
+            className="relative mt-1 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow-lg transition-transform duration-300 group-hover:scale-110"
+            style={{
+              background: 'linear-gradient(90deg,#ec4899,#a855f7)',
+              boxShadow: '0 4px 16px rgba(236,72,153,0.5)',
+            }}
+          >
+            Spin &amp; Win
+          </span>
+        </button>
+      )}
 
       {showMempoolModal && <MempoolDetailsModal onClose={() => setShowMempoolModal(false)} />}
     </>
