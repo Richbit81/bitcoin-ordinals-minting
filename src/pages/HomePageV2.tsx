@@ -547,7 +547,7 @@ export const HomePageV2: React.FC = () => {
   const [showSpinnerPreview, setShowSpinnerPreview] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(min-width: 1900px)');
+    const mq = window.matchMedia('(min-width: 1024px)');
     const apply = () => setShowSpinnerPreview(mq.matches);
     apply();
     mq.addEventListener?.('change', apply);
@@ -699,15 +699,65 @@ export const HomePageV2: React.FC = () => {
         {/* Hero */}
         {VEGAS_MODE ? <VegasHero /> : (
           <div className="relative z-10 mx-auto max-w-[1600px] w-full px-4 py-10 text-center flex flex-col items-center">
-            <h1
-              className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
-              style={{
-                fontFamily: "'Press Start 2P', cursive",
-                textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
-              }}
-            >
-              richart<span className="text-red-500">.</span>app
-            </h1>
+            <div className="relative inline-block">
+              <h1
+                className="text-3xl sm:text-5xl md:text-6xl text-white tracking-tight"
+                style={{
+                  fontFamily: "'Press Start 2P', cursive",
+                  textShadow: '0 0 20px rgba(220,38,38,0.7), 0 0 40px rgba(220,38,38,0.4), 0 0 80px rgba(220,38,38,0.2)',
+                }}
+              >
+                richart<span className="text-red-500">.</span>app
+              </h1>
+
+              {/* Floating spinner preview directly beside the title (desktop) → /pinkpuppets */}
+              {showSpinnerPreview && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/pinkpuppets')}
+                  aria-label="Open the Pink Puppets Spinner"
+                  className="absolute left-full top-1/2 z-40 ml-5 flex flex-col items-center border-0 bg-transparent p-0 group cursor-pointer"
+                  style={{ animation: 'ppSpinFloat 4.8s ease-in-out infinite' }}
+                >
+                  <style>{`
+                    @keyframes ppSpinFloat { 0%,100% { transform: translateY(calc(-50% - 8px)); } 50% { transform: translateY(calc(-50% + 8px)); } }
+                    @keyframes ppSpinPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+                    @keyframes ppSpinGlow  { 0%,100% { opacity: .30; } 50% { opacity: .65; } }
+                  `}</style>
+                  <div
+                    className="pointer-events-none absolute inset-0 rounded-full blur-2xl"
+                    style={{
+                      background:
+                        'radial-gradient(circle, rgba(236,72,153,0.55) 0%, rgba(168,85,247,0.28) 45%, transparent 70%)',
+                      animation: 'ppSpinGlow 4.8s ease-in-out infinite',
+                    }}
+                  />
+                  <div
+                    className="relative transition-transform duration-300 group-hover:scale-110"
+                    style={{ width: 110, height: 142, animation: 'ppSpinPulse 3.4s ease-in-out infinite' }}
+                  >
+                    <iframe
+                      src="/pinkpuppets-slot/index.html?embed=1"
+                      title="Spinner preview"
+                      className="h-full w-full pointer-events-none select-none"
+                      style={{ border: 'none', background: 'transparent' }}
+                      scrolling="no"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span
+                    className="relative mt-1 whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: 'linear-gradient(90deg,#ec4899,#a855f7)',
+                      boxShadow: '0 4px 16px rgba(236,72,153,0.5)',
+                    }}
+                  >
+                    Spin &amp; Win
+                  </span>
+                </button>
+              )}
+            </div>
             <p className="mt-4 text-sm text-gray-400 max-w-md mx-auto">
               Bitcoin Ordinals — Collections, Marketplace, Games & Tools
             </p>
@@ -918,53 +968,6 @@ export const HomePageV2: React.FC = () => {
           richart.app — Bitcoin Ordinals Platform
         </footer>
       </div>
-
-      {showSpinnerPreview && (
-        <button
-          type="button"
-          onClick={() => navigate('/pinkpuppets')}
-          aria-label="Open the Pink Puppets Spinner"
-          className="fixed right-6 top-24 z-40 flex flex-col items-center border-0 bg-transparent p-0 group cursor-pointer"
-          style={{ animation: 'ppSpinFloat 4.8s ease-in-out infinite' }}
-        >
-          <style>{`
-            @keyframes ppSpinFloat { 0%,100% { transform: translateY(-8px); } 50% { transform: translateY(8px); } }
-            @keyframes ppSpinPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-            @keyframes ppSpinGlow  { 0%,100% { opacity: .30; } 50% { opacity: .65; } }
-          `}</style>
-          <div
-            className="pointer-events-none absolute inset-0 rounded-full blur-2xl"
-            style={{
-              background:
-                'radial-gradient(circle, rgba(236,72,153,0.55) 0%, rgba(168,85,247,0.28) 45%, transparent 70%)',
-              animation: 'ppSpinGlow 4.8s ease-in-out infinite',
-            }}
-          />
-          <div
-            className="relative transition-transform duration-300 group-hover:scale-110"
-            style={{ width: 120, height: 156, animation: 'ppSpinPulse 3.4s ease-in-out infinite' }}
-          >
-            <iframe
-              src="/pinkpuppets-slot/index.html?embed=1"
-              title="Spinner preview"
-              className="h-full w-full pointer-events-none select-none"
-              style={{ border: 'none', background: 'transparent' }}
-              scrolling="no"
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-          </div>
-          <span
-            className="relative mt-1 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow-lg transition-transform duration-300 group-hover:scale-110"
-            style={{
-              background: 'linear-gradient(90deg,#ec4899,#a855f7)',
-              boxShadow: '0 4px 16px rgba(236,72,153,0.5)',
-            }}
-          >
-            Spin &amp; Win
-          </span>
-        </button>
-      )}
 
       {showMempoolModal && <MempoolDetailsModal onClose={() => setShowMempoolModal(false)} />}
     </>
