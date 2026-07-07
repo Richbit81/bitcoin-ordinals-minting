@@ -547,7 +547,7 @@ export const HomePageV2: React.FC = () => {
   const [showSpinnerPreview, setShowSpinnerPreview] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(min-width: 1800px)');
+    const mq = window.matchMedia('(min-width: 1900px)');
     const apply = () => setShowSpinnerPreview(mq.matches);
     apply();
     mq.addEventListener?.('change', apply);
@@ -924,11 +924,11 @@ export const HomePageV2: React.FC = () => {
           type="button"
           onClick={() => navigate('/pinkpuppets')}
           aria-label="Open the Pink Puppets Spinner"
-          className="fixed right-6 top-1/2 z-40 flex flex-col items-center border-0 bg-transparent p-0 group cursor-pointer"
+          className="fixed right-6 top-24 z-40 flex flex-col items-center border-0 bg-transparent p-0 group cursor-pointer"
           style={{ animation: 'ppSpinFloat 4.8s ease-in-out infinite' }}
         >
           <style>{`
-            @keyframes ppSpinFloat { 0%,100% { transform: translateY(calc(-50% - 9px)); } 50% { transform: translateY(calc(-50% + 9px)); } }
+            @keyframes ppSpinFloat { 0%,100% { transform: translateY(-8px); } 50% { transform: translateY(8px); } }
             @keyframes ppSpinPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
             @keyframes ppSpinGlow  { 0%,100% { opacity: .30; } 50% { opacity: .65; } }
           `}</style>
@@ -942,7 +942,7 @@ export const HomePageV2: React.FC = () => {
           />
           <div
             className="relative transition-transform duration-300 group-hover:scale-110"
-            style={{ width: 132, height: 172, animation: 'ppSpinPulse 3.4s ease-in-out infinite' }}
+            style={{ width: 120, height: 156, animation: 'ppSpinPulse 3.4s ease-in-out infinite' }}
           >
             <iframe
               src="/pinkpuppets-slot/index.html?embed=1"
