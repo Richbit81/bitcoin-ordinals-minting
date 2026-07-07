@@ -642,6 +642,13 @@ export const HomePageV2: React.FC = () => {
               </a>
             </div>
             <nav className="hidden md:flex items-center gap-1">
+              <button
+                onClick={() => navigate('/ordinals-explained')}
+                title="Art on Bitcoin — Ordinals Explained"
+                className="mr-1 rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider whitespace-nowrap animate-learn-glow"
+              >
+                ⚡ Ordinals Explained
+              </button>
               {NAV_MENUS.map((menu) => (
                 <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
               ))}
@@ -683,6 +690,12 @@ export const HomePageV2: React.FC = () => {
                 </button>
               </div>
               <div className="py-2">
+                <button
+                  onClick={() => { navigate('/ordinals-explained'); setMobileMenuOpen(false); }}
+                  className="mx-3 mb-3 block w-[calc(100%-1.5rem)] rounded-lg px-4 py-3 text-center text-sm font-black uppercase tracking-wider animate-learn-glow"
+                >
+                  ⚡ Ordinals Explained
+                </button>
                 {NAV_MENUS.map((menu) => (
                   <MobileMenuSection key={menu.label} menu={menu} navigate={(path) => { navigate(path); setMobileMenuOpen(false); }} />
                 ))}

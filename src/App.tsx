@@ -60,6 +60,7 @@ const TheBoxMarketplacePage = lazy(() =>
 );
 const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => ({ default: m.AudiobooksPage })));
 const ArtBaselPage = lazy(() => import('./pages/ArtBaselPage').then((m) => ({ default: m.ArtBaselPage })));
+const OrdinalsExplainedPage = lazy(() => import('./pages/OrdinalsExplainedPage').then((m) => ({ default: m.OrdinalsExplainedPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -70,10 +71,12 @@ function AppContent() {
   const isMintingPage = location.pathname === '/black-wild';
   // Full-bleed Kunst-Landingpage: kein globaler Header / keine Bottom-Nav.
   const isAcs = location.pathname === '/acs';
+  // Eigenständige Lern-App mit eigenem Full-Screen-Layout (kein globaler Header / Bottom-Nav).
+  const isLearn = location.pathname === '/ordinals-explained';
 
   return (
     <div className="min-h-screen bg-black">
-      {!isV2Home && !isAcs && (
+      {!isV2Home && !isAcs && !isLearn && (
         <HeaderMenu 
           onGalleryClick={() => setShowGallery(true)} 
           showFullMenu={!isHomePage}
@@ -96,6 +99,7 @@ function AppContent() {
           <Route path="/orddropz" element={<OrddropzPage />} />
           <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/acs" element={<ArtBaselPage />} />
+          <Route path="/ordinals-explained" element={<OrdinalsExplainedPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />
           <Route path="/trade" element={<TradingPage />} />
@@ -138,7 +142,7 @@ function AppContent() {
       {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
       
       {/* Mobile Bottom Navigation */}
-      {!isAcs && <MobileBottomNav />}
+      {!isAcs && !isLearn && <MobileBottomNav />}
     </div>
   );
 }
