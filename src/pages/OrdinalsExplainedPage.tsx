@@ -73,6 +73,8 @@ const UI = {
   quizTitle: { en: 'Quiz', de: 'Quiz' },
   lookUp: { en: 'Look it up', de: 'Nachschlagen' },
   glossaryTitle: { en: 'Glossary', de: 'Glossar' },
+  faqKicker: { en: 'Questions & answers', de: 'Fragen & Antworten' },
+  faqTitle: { en: 'Bitcoin Ordinals & Inscriptions — FAQ', de: 'Bitcoin Ordinals & Inscriptions — FAQ' },
   glossarySearch: { en: 'Search the glossary…', de: 'Glossar durchsuchen…' },
   noHit: { en: 'No results.', de: 'Kein Treffer.' },
   scorePerfect: { en: '🎉 Perfect! You’ve got the basics.', de: '🎉 Perfekt! Du hast die Grundlagen drauf.' },
@@ -497,6 +499,50 @@ const Glossary: React.FC = () => {
   );
 };
 
+// ─── SEO: FAQ + HowTo (used for the visible section AND JSON-LD structured data) ──
+const FAQ: { q: L; a: L }[] = [
+  {
+    q: { en: 'What are Bitcoin Ordinals?', de: 'Was sind Bitcoin Ordinals?' },
+    a: { en: 'Ordinals are a way to number every individual satoshi (the smallest unit of bitcoin) so each one becomes uniquely identifiable. That numbering makes it possible to attach data to a specific sat and treat it like a collectible on Bitcoin.', de: 'Ordinals sind eine Methode, jeden einzelnen Satoshi (die kleinste Bitcoin-Einheit) durchzunummerieren, sodass jeder eindeutig identifizierbar wird. Durch diese Nummerierung lassen sich Daten an einen bestimmten Sat anhängen und wie ein Sammlerstück auf Bitcoin behandeln.' },
+  },
+  {
+    q: { en: 'What is a Bitcoin inscription?', de: 'Was ist eine Bitcoin Inscription?' },
+    a: { en: 'An inscription is content — an image, text, or other file — written directly onto a single satoshi and stored permanently on the Bitcoin blockchain. Unlike many NFTs, the data itself lives fully on-chain.', de: 'Eine Inscription ist Inhalt — ein Bild, Text oder eine andere Datei — der direkt auf einen einzelnen Satoshi geschrieben und dauerhaft in der Bitcoin-Blockchain gespeichert wird. Anders als bei vielen NFTs liegen die Daten vollständig on-chain.' },
+  },
+  {
+    q: { en: 'How do I create a Bitcoin inscription?', de: 'Wie erstelle ich eine Bitcoin Inscription?' },
+    a: { en: 'You need an Ordinals-capable Taproot wallet (e.g. Xverse), a small amount of bitcoin for network fees, and your content. You then broadcast an inscription transaction. On richart.app you can practice safely first and then inscribe for real, directly in your browser.', de: 'Du brauchst eine Ordinals-fähige Taproot-Wallet (z. B. Xverse), etwas Bitcoin für die Netzwerkgebühren und deinen Inhalt. Dann sendest du eine Inscription-Transaktion. Auf richart.app kannst du erst gefahrlos üben und anschließend echt einschreiben — direkt im Browser.' },
+  },
+  {
+    q: { en: 'Do I need coding skills to inscribe?', de: 'Brauche ich Programmierkenntnisse zum Einschreiben?' },
+    a: { en: 'No. With a user-friendly wallet and a guided tool like the one on richart.app, you can create an inscription without any coding.', de: 'Nein. Mit einer benutzerfreundlichen Wallet und einem geführten Tool wie auf richart.app kannst du eine Inscription ganz ohne Programmieren erstellen.' },
+  },
+  {
+    q: { en: 'How much does an inscription cost?', de: 'Was kostet eine Inscription?' },
+    a: { en: 'The cost is mainly the Bitcoin network fee plus a tiny amount of "postage" (around 546 sats). Bigger files and higher fee rates cost more; a short text inscription can be very cheap.', de: 'Die Kosten bestehen hauptsächlich aus der Bitcoin-Netzwerkgebühr plus etwas „Postage" (rund 546 Sats). Größere Dateien und höhere Gebühren kosten mehr; eine kurze Text-Inscription kann sehr günstig sein.' },
+  },
+  {
+    q: { en: 'What is the difference between Ordinals and NFTs?', de: 'Was ist der Unterschied zwischen Ordinals und NFTs?' },
+    a: { en: 'Traditional NFTs often store their media on external servers and live on chains like Ethereum, while a Bitcoin inscription stores the full content on-chain on Bitcoin itself — no external hosting needed.', de: 'Klassische NFTs speichern ihre Medien oft auf externen Servern und liegen auf Chains wie Ethereum, während eine Bitcoin Inscription den kompletten Inhalt on-chain auf Bitcoin selbst speichert — ohne externes Hosting.' },
+  },
+  {
+    q: { en: 'Which wallet do I need for Ordinals?', de: 'Welche Wallet brauche ich für Ordinals?' },
+    a: { en: 'Use an Ordinals-aware Taproot wallet such as Xverse. Always download it from the official source and back up your seed phrase offline.', de: 'Nutze eine Ordinals-fähige Taproot-Wallet wie Xverse. Lade sie immer aus der offiziellen Quelle und sichere deine Seed Phrase offline.' },
+  },
+  {
+    q: { en: 'Can I create my first inscription on RichArt?', de: 'Kann ich meine erste Inscription auf RichArt erstellen?' },
+    a: { en: 'Yes. richart.app offers an interactive, beginner-friendly guide plus a hands-on workshop where you can practice with a virtual wallet and then create a real inscription in your browser.', de: 'Ja. richart.app bietet eine interaktive, anfängerfreundliche Anleitung plus einen praktischen Workshop, in dem du mit einer virtuellen Wallet üben und dann eine echte Inscription im Browser erstellen kannst.' },
+  },
+];
+
+const HOWTO_STEPS: { name: L; text: L }[] = [
+  { name: { en: 'Get an Ordinals wallet', de: 'Ordinals-Wallet holen' }, text: { en: 'Install an Ordinals-capable Taproot wallet like Xverse from its official website.', de: 'Installiere eine Ordinals-fähige Taproot-Wallet wie Xverse von der offiziellen Website.' } },
+  { name: { en: 'Back up your seed phrase', de: 'Seed Phrase sichern' }, text: { en: 'Write down your 12–24 word recovery phrase offline and never share it.', de: 'Schreibe deine 12–24 Wörter Wiederherstellungsphrase offline auf und teile sie nie.' } },
+  { name: { en: 'Add funds', de: 'Guthaben aufladen' }, text: { en: 'Buy a small amount of bitcoin in your wallet (card, Apple/Google Pay, bank) or send BTC to your payment address.', de: 'Kaufe etwas Bitcoin in deiner Wallet (Karte, Apple/Google Pay, Bank) oder sende BTC an deine Zahlungs-Adresse.' } },
+  { name: { en: 'Choose your content', de: 'Inhalt wählen' }, text: { en: 'Pick the text or image you want to inscribe onto a satoshi.', de: 'Wähle den Text oder das Bild, das du auf einen Satoshi einschreiben möchtest.' } },
+  { name: { en: 'Set the fee & inscribe', de: 'Gebühr setzen & einschreiben' }, text: { en: 'Select a network fee rate and confirm. Your inscription is broadcast to the mempool and confirmed in a block.', de: 'Wähle eine Netzwerkgebühr und bestätige. Deine Inscription geht in den Mempool und wird in einem Block bestätigt.' } },
+];
+
 // ─── Chapter navigation data ────────────────────────────────────────────────
 const NAV: { id: string; label: L }[] = [
   { id: 'bitcoin', label: { en: '1 · Bitcoin', de: '1 · Bitcoin' } },
@@ -517,6 +563,7 @@ const NAV: { id: string; label: L }[] = [
   { id: 'security', label: { en: '15 · Security', de: '15 · Sicherheit' } },
   { id: 'tx', label: { en: '16 · Transactions', de: '16 · Transaktionen' } },
   { id: 'quiz', label: { en: 'Quiz', de: 'Quiz' } },
+  { id: 'faq', label: { en: 'FAQ', de: 'FAQ' } },
   { id: 'glossary', label: { en: 'Glossary', de: 'Glossar' } },
 ];
 
@@ -683,6 +730,90 @@ export const OrdinalsExplainedPage: React.FC = () => {
     setNavOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
+
+  // ── SEO: title, meta tags, Open Graph/Twitter cards & JSON-LD structured data ──
+  useEffect(() => {
+    const PAGE_URL = 'https://www.richart.app/ordinals-explained';
+    const OG_IMAGE = 'https://www.richart.app/images/ordinals-explained-og.png';
+    const title = lang === 'de'
+      ? 'Bitcoin Ordinals erklärt | Inscriptions erstellen lernen | RichArt'
+      : 'Bitcoin Ordinals Explained | Learn How to Create Inscriptions | RichArt';
+    const description = lang === 'de'
+      ? 'Lerne einfach, was Bitcoin Ordinals und Inscriptions sind – und wie du deine erste Inscription erstellst. Interaktive Schritt-für-Schritt-Anleitung für Anfänger von RichArt.'
+      : 'Learn what Bitcoin Ordinals and inscriptions are — and how to create your first inscription. A beginner-friendly, interactive step-by-step guide by RichArt.';
+    const keywords = 'bitcoin ordinals, ordinals explained, what are ordinals, bitcoin inscriptions, how to create an inscription, learn bitcoin ordinals, ordinals tutorial, inscribe on bitcoin, richart ordinals, richart inscription';
+
+    const prevTitle = document.title;
+    document.title = title;
+    const created: HTMLElement[] = [];
+
+    const upsertMeta = (attr: 'name' | 'property', key: string, content: string) => {
+      let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); created.push(el); }
+      el.setAttribute('content', content);
+    };
+    upsertMeta('name', 'description', description);
+    upsertMeta('name', 'keywords', keywords);
+    upsertMeta('name', 'robots', 'index,follow,max-image-preview:large');
+    upsertMeta('property', 'og:type', 'article');
+    upsertMeta('property', 'og:site_name', 'RichArt');
+    upsertMeta('property', 'og:title', title);
+    upsertMeta('property', 'og:description', description);
+    upsertMeta('property', 'og:url', PAGE_URL);
+    upsertMeta('property', 'og:image', OG_IMAGE);
+    upsertMeta('property', 'og:locale', lang === 'de' ? 'de_DE' : 'en_US');
+    upsertMeta('name', 'twitter:card', 'summary_large_image');
+    upsertMeta('name', 'twitter:title', title);
+    upsertMeta('name', 'twitter:description', description);
+    upsertMeta('name', 'twitter:image', OG_IMAGE);
+
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) { canonical = document.createElement('link'); canonical.setAttribute('rel', 'canonical'); document.head.appendChild(canonical); created.push(canonical); }
+    canonical.setAttribute('href', PAGE_URL);
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Article',
+          headline: title,
+          description,
+          image: OG_IMAGE,
+          inLanguage: lang,
+          author: { '@type': 'Organization', name: 'RichArt', url: 'https://www.richart.app' },
+          publisher: { '@type': 'Organization', name: 'RichArt', url: 'https://www.richart.app', logo: { '@type': 'ImageObject', url: OG_IMAGE } },
+          mainEntityOfPage: PAGE_URL,
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: tr(f.q, lang), acceptedAnswer: { '@type': 'Answer', text: tr(f.a, lang) } })),
+        },
+        {
+          '@type': 'HowTo',
+          name: lang === 'de' ? 'Wie man eine Bitcoin Inscription erstellt' : 'How to create a Bitcoin inscription',
+          description,
+          step: HOWTO_STEPS.map((s, i) => ({ '@type': 'HowToStep', position: i + 1, name: tr(s.name, lang), text: tr(s.text, lang) })),
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'RichArt', item: 'https://www.richart.app' },
+            { '@type': 'ListItem', position: 2, name: lang === 'de' ? 'Ordinals erklärt' : 'Ordinals Explained', item: PAGE_URL },
+          ],
+        },
+      ],
+    };
+    const ld = document.createElement('script');
+    ld.type = 'application/ld+json';
+    ld.textContent = JSON.stringify(jsonLd);
+    document.head.appendChild(ld);
+    created.push(ld);
+
+    return () => {
+      document.title = prevTitle;
+      created.forEach((el) => el.remove());
+    };
+  }, [lang]);
 
   const theme = dark ? DARK : LIGHT;
 
@@ -1021,6 +1152,29 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 ) : (
                   <p className="mt-6 text-center text-sm" style={{ color: 'var(--muted)' }}>{tr(UI.step2Hint, lang)}</p>
                 )}
+              </Reveal>
+            </div>
+          </section>
+
+          {/* ── FAQ ── */}
+          <section id="faq" className="scroll-mt-24 px-5 py-14 sm:py-20">
+            <div className="mx-auto max-w-3xl">
+              <Reveal>
+                <div className="mb-6 text-center">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: BTC }}>{tr(UI.faqKicker, lang)}</div>
+                  <h2 className="mt-1 text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{tr(UI.faqTitle, lang)}</h2>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {FAQ.map((f, i) => (
+                    <details key={i} className="group rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-left text-base font-semibold" style={{ color: 'var(--text)' }}>
+                        <span>{tr(f.q, lang)}</span>
+                        <span className="shrink-0 transition-transform group-open:rotate-45" style={{ color: BTC }}>+</span>
+                      </summary>
+                      <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(f.a, lang)}</p>
+                    </details>
+                  ))}
+                </div>
               </Reveal>
             </div>
           </section>
