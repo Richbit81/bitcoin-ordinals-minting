@@ -124,6 +124,23 @@ export const InscribeToolPage: React.FC = () => {
   const [mode, setMode] = useState<'text' | 'file'>('text');
   const [text, setText] = useState('gm ₿');
   const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const pickFile = useCallback((f: File | null) => {
+    setFile(f);
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return f && f.type.startsWith('image/') ? URL.createObjectURL(f) : null;
+    });
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (f) { setMode('file'); pickFile(f); setError(''); }
+  }, [pickFile]);
 
   // optional features
   const [enableTitle, setEnableTitle] = useState(false);
@@ -147,6 +164,7 @@ export const InscribeToolPage: React.FC = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const pollRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Live cost estimate — recomputes as content / features / fee change.
   const estimate = useMemo(() => {
@@ -167,7 +185,10 @@ export const InscribeToolPage: React.FC = () => {
 
   useEffect(() => {
     getRecommendedFees().then((f) => { setRecFees(f); setFeeRate(Math.max(1, f.halfHour)); }).catch(() => {});
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setPreview((p) => { if (p) URL.revokeObjectURL(p); return null; });
+    };
   }, []);
 
   const doReveal = useCallback(async (s: InscriptionSession, commitTxid: string, commitVout: number, commitAmount: number) => {
@@ -278,12 +299,12 @@ export const InscribeToolPage: React.FC = () => {
 
   const restartAll = useCallback(() => {
     reset();
-    setMode('text'); setText('gm ₿'); setFile(null);
+    setMode('text'); setText('gm ₿'); pickFile(null);
     setEnableTitle(false); setTitle('');
     setEnableTraits(false); setTraits([{ key: '', value: '' }]);
     setEnableParent(false); setParentIds('');
     setEnableSat(false); setSpecificSat('');
-  }, [reset]);
+  }, [reset, pickFile]);
 
   const inscriptionId = session?.inscriptionId;
   const activeFeatures = [enableTitle, enableTraits, enableParent, enableSat].filter(Boolean).length;
@@ -357,12 +378,34 @@ export const InscribeToolPage: React.FC = () => {
                   <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} className={`${input} mt-3`} style={inputStyle} placeholder="Type anything — a message, JSON, SVG, HTML…" />
                 ) : (
                   <div className="mt-3">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
-                      Choose file
-                      <input type="file" accept="image/*,text/html,text/plain,image/svg+xml,application/json" onChange={(e) => setFile(e.target.files?.[0] || null)} className="hidden" />
-                    </label>
-                    <span className="ml-2 text-xs" style={{ color: 'var(--muted)' }}>{file ? file.name : 'No file selected'}</span>
-                    {file && <p className="mt-1 text-[11px]" style={{ color: file.size > 100_000 ? '#EF4444' : 'var(--muted)' }}>{(file.size / 1024).toFixed(1)} KB {file.size > 100_000 ? '(large → high fees!)' : ''}</p>}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition"
+                      style={{ borderColor: dragOver ? BTC : 'var(--border)', background: dragOver ? `${BTC}14` : 'var(--soft)' }}
+                    >
+                      {preview ? (
+                        <img src={preview} alt="preview" className="mb-3 max-h-40 rounded-lg object-contain" />
+                      ) : (
+                        <div className="mb-2 text-3xl" aria-hidden>{dragOver ? '📥' : '🖼'}</div>
+                      )}
+                      <div className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                        {file ? file.name : (dragOver ? 'Drop the file here' : 'Drag & drop a file here')}
+                      </div>
+                      <div className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>
+                        {file ? 'Click or drop to replace' : 'or click to choose · image, SVG, HTML, text, JSON'}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,text/html,text/plain,image/svg+xml,application/json"
+                        onChange={(e) => pickFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                    </div>
+                    {file && <p className="mt-2 text-[11px]" style={{ color: file.size > 100_000 ? '#EF4444' : 'var(--muted)' }}>{(file.size / 1024).toFixed(1)} KB {file.size > 100_000 ? '(large → high fees!)' : ''}</p>}
                   </div>
                 )}
               </Card>
