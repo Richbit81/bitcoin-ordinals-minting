@@ -61,6 +61,7 @@ const TheBoxMarketplacePage = lazy(() =>
 const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => ({ default: m.AudiobooksPage })));
 const ArtBaselPage = lazy(() => import('./pages/ArtBaselPage').then((m) => ({ default: m.ArtBaselPage })));
 const OrdinalsExplainedPage = lazy(() => import('./pages/OrdinalsExplainedPage').then((m) => ({ default: m.OrdinalsExplainedPage })));
+const InscribeLabPage = lazy(() => import('./pages/InscribeLabPage').then((m) => ({ default: m.InscribeLabPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -72,7 +73,7 @@ function AppContent() {
   // Full-bleed Kunst-Landingpage: kein globaler Header / keine Bottom-Nav.
   const isAcs = location.pathname === '/acs';
   // Eigenständige Lern-App mit eigenem Full-Screen-Layout (kein globaler Header / Bottom-Nav).
-  const isLearn = location.pathname === '/ordinals-explained';
+  const isLearn = location.pathname.startsWith('/ordinals-explained');
 
   return (
     <div className="min-h-screen bg-black">
@@ -100,6 +101,7 @@ function AppContent() {
           <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/ordinals-explained" element={<OrdinalsExplainedPage />} />
+          <Route path="/ordinals-explained/step-2" element={<InscribeLabPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />
           <Route path="/trade" element={<TradingPage />} />

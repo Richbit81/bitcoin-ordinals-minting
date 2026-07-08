@@ -79,6 +79,16 @@ const UI = {
   scoreGood: { en: '👍 Well done — review the red answers again.', de: '👍 Gut gemacht — schau dir die roten Antworten nochmal an.' },
   scoreLow: { en: 'No worries — scroll up and read the chapters again.', de: 'Kein Stress — scrolle hoch und lies die Kapitel nochmal.' },
   footer: { en: 'Art on Bitcoin — Ordinals explained · Part of', de: 'Art on Bitcoin — Ordinals erklärt · Teil von' },
+  step1Done: { en: '🎉 Step 1 complete!', de: '🎉 Step 1 geschafft!' },
+  step2Cta: { en: 'Continue to Step 2 — Inscribe it yourself →', de: 'Weiter zu Step 2 — selbst einschreiben →' },
+  step2Hint: { en: 'Answer all quiz questions correctly to unlock the hands-on inscribing workshop.', de: 'Beantworte alle Quizfragen richtig, um den praktischen Einschreibe-Workshop freizuschalten.' },
+  introTitle: { en: 'Learn Bitcoin Ordinals', de: 'Lerne Bitcoin Ordinals' },
+  introSub: { en: 'In 2 simple steps — no prior knowledge needed.', de: 'In 2 einfachen Schritten — ganz ohne Vorwissen.' },
+  introS1Title: { en: 'Step 1 · Understand', de: 'Step 1 · Verstehen' },
+  introS1Body: { en: 'What Bitcoin, wallets, keys, satoshis, ordinals & inscriptions are — explained simply and visually.', de: 'Was Bitcoin, Wallets, Schlüssel, Satoshis, Ordinals & Inscriptions sind — einfach und visuell erklärt.' },
+  introS2Title: { en: 'Step 2 · Do it yourself', de: 'Step 2 · Selber machen' },
+  introS2Body: { en: 'Create a wallet and make your first inscription — practice safely first, then for real.', de: 'Erstelle eine Wallet und deine erste Inscription — erst gefahrlos üben, dann echt.' },
+  introCta: { en: "Start learning →", de: 'Los geht’s →' },
 };
 
 // ─── Simplified (NON-cryptographic) derivation helpers ───────────────────────
@@ -396,11 +406,12 @@ const QUIZ: { q: L; options: L[]; correct: number; explain: L }[] = [
     explain: { en: 'On exactly one satoshi — stored permanently on Bitcoin.', de: 'Auf genau einem Satoshi — dauerhaft auf Bitcoin gespeichert.' } },
 ];
 
-const BigQuiz: React.FC = () => {
+const BigQuiz: React.FC<{ onResult?: (score: number, done: boolean) => void }> = ({ onResult }) => {
   const lang = useLang();
   const [answers, setAnswers] = useState<(number | null)[]>(() => QUIZ.map(() => null));
   const score = answers.reduce((acc: number, a, i) => acc + (a === QUIZ[i].correct ? 1 : 0), 0);
   const done = answers.every((a) => a !== null);
+  useEffect(() => { onResult?.(score, done); }, [score, done, onResult]);
   return (
     <div className="flex flex-col gap-4">
       {QUIZ.map((item, qi) => (
@@ -620,6 +631,16 @@ export const OrdinalsExplainedPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>('bitcoin');
+  const [quizPassed, setQuizPassed] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+  const dismissIntro = useCallback(() => setShowIntro(false), []);
+
+  const handleQuizResult = useCallback((score: number, done: boolean) => {
+    if (done && score === QUIZ.length) {
+      setQuizPassed(true);
+      try { localStorage.setItem('aob_step1_done', '1'); } catch { /* ignore */ }
+    }
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -649,6 +670,36 @@ export const OrdinalsExplainedPage: React.FC = () => {
     <LangContext.Provider value={lang}>
       <div style={theme} className="min-h-screen">
         <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
+          {/* ── Intro / start screen ── */}
+          {showIntro && (
+            <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ background: 'var(--bg)' }}>
+              <div className="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
+                <div className="absolute right-5 top-5 flex overflow-hidden rounded-full border" style={{ borderColor: 'var(--border)' }}>
+                  {(['en', 'de'] as Lang[]).map((l) => (
+                    <button key={l} onClick={() => setLang(l)} className="px-3 py-1 text-xs font-semibold" style={{ background: lang === l ? BTC : 'transparent', color: lang === l ? '#000' : 'var(--muted)' }}>{l.toUpperCase()}</button>
+                  ))}
+                </div>
+                <span className="text-xs font-semibold tracking-[0.3em]" style={{ color: BTC }}>◆ ART ON BITCOIN</span>
+                <h1 className="mt-3 text-4xl font-black leading-tight sm:text-5xl" style={{ color: 'var(--text)' }}>{tr(UI.introTitle, lang)}</h1>
+                <p className="mt-3 text-lg" style={{ color: 'var(--muted)' }}>{tr(UI.introSub, lang)}</p>
+                <div className="mt-9 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                    <div className="text-3xl">📚</div>
+                    <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS1Title, lang)}</h3>
+                    <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS1Body, lang)}</p>
+                  </div>
+                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                    <div className="text-3xl">🛠️</div>
+                    <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS2Title, lang)}</h3>
+                    <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS2Body, lang)}</p>
+                  </div>
+                </div>
+                <div className="mt-10 flex flex-wrap items-center gap-5">
+                  <button onClick={dismissIntro} className="rounded-full px-8 py-3.5 text-base font-bold transition hover:brightness-105" style={{ background: BTC, color: '#000' }}>{tr(UI.introCta, lang)}</button>
+                </div>
+              </div>
+            </div>
+          )}
           {/* ── Header ── */}
           <header className="sticky top-0 z-40 border-b backdrop-blur" style={{ borderColor: 'var(--border)', background: dark ? 'rgba(11,11,15,0.72)' : 'rgba(250,250,248,0.72)' }}>
             <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-3">
@@ -656,6 +707,9 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 <span style={{ color: BTC }}>◆</span> Art on Bitcoin
               </button>
               <div className="flex items-center gap-2">
+                <button onClick={() => navigate('/')} className="flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--soft)' }} title="Home">
+                  🏠
+                </button>
                 {/* Language toggle */}
                 <div className="flex overflow-hidden rounded-full border" style={{ borderColor: 'var(--border)' }}>
                   {(['en', 'de'] as Lang[]).map((lng) => (
@@ -907,7 +961,21 @@ export const OrdinalsExplainedPage: React.FC = () => {
                   <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: BTC }}>{tr(UI.testYourself, lang)}</div>
                   <h2 className="mt-1 text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{tr(UI.quizTitle, lang)}</h2>
                 </div>
-                <BigQuiz />
+                <BigQuiz onResult={handleQuizResult} />
+                {quizPassed ? (
+                  <div className="mt-6 rounded-3xl border p-6 text-center animate-learn-glow" style={{ borderColor: BTC }}>
+                    <div className="text-lg font-black">{tr(UI.step1Done, lang)}</div>
+                    <button
+                      onClick={() => navigate('/ordinals-explained/step-2')}
+                      className="mt-3 rounded-full px-6 py-3 text-sm font-bold"
+                      style={{ background: '#000', color: '#fff' }}
+                    >
+                      {tr(UI.step2Cta, lang)}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-6 text-center text-sm" style={{ color: 'var(--muted)' }}>{tr(UI.step2Hint, lang)}</p>
+                )}
               </Reveal>
             </div>
           </section>

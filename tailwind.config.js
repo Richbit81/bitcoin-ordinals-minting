@@ -26,10 +26,15 @@ export default {
             boxShadow: '0 0 12px rgba(37,99,235,0.9), 0 0 26px rgba(37,99,235,0.6)',
           },
         },
+        fadeUp: {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slot-float': 'slotFloat 6s ease-in-out infinite',
         'learn-glow': 'learnGlow 1.1s ease-in-out infinite',
+        'fade-up': 'fadeUp 0.4s ease',
       },
     },
   },
