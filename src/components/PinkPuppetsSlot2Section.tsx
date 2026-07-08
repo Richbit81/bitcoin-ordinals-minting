@@ -451,7 +451,8 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         Pull the lever to spin. {status?.maxBaseSpins ?? 3} spins per {status?.windowHours ?? 2}h window — plus
         <strong className="text-amber-200"> +3 bonus spins </strong>for every
         <strong className="text-pink-100"> Bad Cats</strong>,<strong className="text-pink-100"> Primal Club</strong>,
-        <strong className="text-pink-100"> High Rollers </strong>or<strong className="text-pink-100"> Spikes </strong>you mint (no limit, free mints count too).
+        <strong className="text-pink-100"> High Rollers </strong>or<strong className="text-pink-100"> Spikes </strong>you mint
+        <strong className="text-pink-100"> from now on</strong> (no limit, free mints count too — earlier mints don&apos;t count).
         Win a spot on the<strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
         whitelist (<strong className="text-pink-100">10 spots each</strong>), bonus spins, or the one-and-only
         <strong className="text-green-200"> Pink Puppet grand prize</strong>. Winners enter a Taproot address (bc1p…) to receive their prize.
@@ -574,9 +575,9 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 <li className="flex items-start gap-2.5">
                   <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.85)]" />
                   <span>
-                    Every <strong className="text-pink-100">Bad Cats</strong>, <strong className="text-pink-100">Primal Club</strong>,{' '}
-                    <strong className="text-pink-100">High Rollers</strong> or <strong className="text-pink-100">Spikes</strong> mint earns you{' '}
-                    <strong className="text-pink-100">+3 extra spins</strong>.
+                    Every <strong className="text-pink-100">new</strong> <strong className="text-pink-100">Bad Cats</strong>, <strong className="text-pink-100">Primal Club</strong>,{' '}
+                    <strong className="text-pink-100">High Rollers</strong> or <strong className="text-pink-100">Spikes</strong> mint{' '}
+                    <strong className="text-pink-100">from now on</strong> earns you <strong className="text-pink-100">+3 extra spins</strong> (free mints count; earlier mints don&apos;t).
                   </span>
                 </li>
               </ul>
