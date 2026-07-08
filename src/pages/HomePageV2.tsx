@@ -655,10 +655,9 @@ export const HomePageV2: React.FC = () => {
                   {menu.label === 'Friends Marketplace' && (
                     <button
                       onClick={() => navigate('/inscribe')}
-                      title="Create a Bitcoin inscription"
-                      className="mx-1 rounded-full border border-[#F7931A]/60 bg-[#F7931A]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider whitespace-nowrap text-[#F7931A] transition hover:bg-[#F7931A]/20"
+                      className="px-4 py-2 text-sm font-semibold transition-colors rounded-lg text-gray-200 hover:text-white hover:bg-white/10"
                     >
-                      ◆ Inscribe
+                      Inscribe
                     </button>
                   )}
                 </React.Fragment>
@@ -713,9 +712,9 @@ export const HomePageV2: React.FC = () => {
                     {menu.label === 'Friends Marketplace' && (
                       <button
                         onClick={() => { navigate('/inscribe'); setMobileMenuOpen(false); }}
-                        className="mx-3 mb-3 block w-[calc(100%-1.5rem)] rounded-lg border border-[#F7931A]/60 bg-[#F7931A]/10 px-4 py-3 text-center text-sm font-black uppercase tracking-wider text-[#F7931A]"
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-200 hover:bg-white/5 transition-colors"
                       >
-                        ◆ Inscribe
+                        Inscribe
                       </button>
                     )}
                   </React.Fragment>
