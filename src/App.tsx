@@ -62,6 +62,7 @@ const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => (
 const ArtBaselPage = lazy(() => import('./pages/ArtBaselPage').then((m) => ({ default: m.ArtBaselPage })));
 const OrdinalsExplainedPage = lazy(() => import('./pages/OrdinalsExplainedPage').then((m) => ({ default: m.OrdinalsExplainedPage })));
 const InscribeLabPage = lazy(() => import('./pages/InscribeLabPage').then((m) => ({ default: m.InscribeLabPage })));
+const InscribeToolPage = lazy(() => import('./pages/InscribeToolPage').then((m) => ({ default: m.InscribeToolPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -102,6 +103,7 @@ function AppContent() {
           <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/ordinals-explained" element={<OrdinalsExplainedPage />} />
           <Route path="/ordinals-explained/step-2" element={<InscribeLabPage />} />
+          <Route path="/inscribe" element={<InscribeToolPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />
           <Route path="/trade" element={<TradingPage />} />

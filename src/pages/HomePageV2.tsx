@@ -650,7 +650,18 @@ export const HomePageV2: React.FC = () => {
                 ⚡ Ordinals Explained
               </button>
               {NAV_MENUS.map((menu) => (
-                <DropdownMenu key={menu.label} menu={menu} navigate={navigate} />
+                <React.Fragment key={menu.label}>
+                  <DropdownMenu menu={menu} navigate={navigate} />
+                  {menu.label === 'Friends Marketplace' && (
+                    <button
+                      onClick={() => navigate('/inscribe')}
+                      title="Create a Bitcoin inscription"
+                      className="mx-1 rounded-full border border-[#F7931A]/60 bg-[#F7931A]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider whitespace-nowrap text-[#F7931A] transition hover:bg-[#F7931A]/20"
+                    >
+                      ◆ Inscribe
+                    </button>
+                  )}
+                </React.Fragment>
               ))}
               {VEGAS_MODE && (
                 <span
@@ -697,7 +708,17 @@ export const HomePageV2: React.FC = () => {
                   ⚡ Ordinals Explained
                 </button>
                 {NAV_MENUS.map((menu) => (
-                  <MobileMenuSection key={menu.label} menu={menu} navigate={(path) => { navigate(path); setMobileMenuOpen(false); }} />
+                  <React.Fragment key={menu.label}>
+                    <MobileMenuSection menu={menu} navigate={(path) => { navigate(path); setMobileMenuOpen(false); }} />
+                    {menu.label === 'Friends Marketplace' && (
+                      <button
+                        onClick={() => { navigate('/inscribe'); setMobileMenuOpen(false); }}
+                        className="mx-3 mb-3 block w-[calc(100%-1.5rem)] rounded-lg border border-[#F7931A]/60 bg-[#F7931A]/10 px-4 py-3 text-center text-sm font-black uppercase tracking-wider text-[#F7931A]"
+                      >
+                        ◆ Inscribe
+                      </button>
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
             </div>
