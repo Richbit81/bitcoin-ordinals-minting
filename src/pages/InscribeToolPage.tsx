@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import {
@@ -9,6 +9,7 @@ import {
   getRecommendedFees,
   encodeMetadataAsCBOR,
   detectContentType,
+  estimateInscription,
   type InscriptionSession,
   type InscriptionOptions,
 } from '../services/inscriptionBuilder';
@@ -136,6 +137,7 @@ export const InscribeToolPage: React.FC = () => {
 
   // fees
   const [feeRate, setFeeRate] = useState(6);
+  const [allowSubOne, setAllowSubOne] = useState(false);
   const [recFees, setRecFees] = useState<{ economy: number; hour: number; halfHour: number; fastest: number } | null>(null);
 
   // session / flow
@@ -145,6 +147,23 @@ export const InscribeToolPage: React.FC = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const pollRef = useRef<number | null>(null);
+
+  // Live cost estimate — recomputes as content / features / fee change.
+  const estimate = useMemo(() => {
+    try {
+      const bodySize = mode === 'file' ? (file?.size ?? 0) : new TextEncoder().encode(text).length;
+      const validTraits = traits.filter((t) => t.key.trim() && t.value.trim());
+      const meta = encodeMetadataAsCBOR(
+        enableTitle && title.trim() ? title.trim() : undefined,
+        enableTraits && validTraits.length > 0 ? validTraits : undefined,
+      );
+      const metaSize = meta ? meta.length : 0;
+      const fr = Math.max(allowSubOne ? 0.1 : 1, feeRate);
+      return estimateInscription([bodySize], 0, metaSize, fr);
+    } catch {
+      return null;
+    }
+  }, [mode, text, file, enableTitle, title, enableTraits, traits, feeRate, allowSubOne]);
 
   useEffect(() => {
     getRecommendedFees().then((f) => { setRecFees(f); setFeeRate(Math.max(1, f.halfHour)); }).catch(() => {});
@@ -218,7 +237,8 @@ export const InscribeToolPage: React.FC = () => {
         metadata,
         parentIds: parents.length > 0 ? parents : undefined,
       };
-      const s = createInscriptionCommit([opts], Math.max(1, feeRate), ordAddr);
+      const minFee = allowSubOne ? 0.1 : 1;
+      const s = createInscriptionCommit([opts], Math.max(minFee, feeRate), ordAddr);
       setSession(s);
       setStatus('');
       setBusy(false);
@@ -391,15 +411,66 @@ export const InscribeToolPage: React.FC = () => {
                 <label className={label} style={{ color: 'var(--muted)' }}>
                   <span className="flex items-center justify-between"><span>Fee rate</span><span style={{ color: BTC }}>{feeRate} sat/vB</span></span>
                 </label>
-                <input type="range" min={1} max={Math.max(50, recFees?.fastest ?? 50)} value={feeRate} onChange={(e) => setFeeRate(Number(e.target.value))} className="mt-2 w-full" style={{ accentColor: BTC }} />
+                <input
+                  type="range"
+                  min={allowSubOne ? 0.1 : 1}
+                  step={allowSubOne ? 0.1 : 1}
+                  max={Math.max(50, recFees?.fastest ?? 50)}
+                  value={feeRate}
+                  onChange={(e) => setFeeRate(Number(e.target.value))}
+                  className="mt-2 w-full"
+                  style={{ accentColor: BTC }}
+                />
                 {recFees && (
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                     {([['eco', recFees.economy], ['~1h', recFees.hour], ['~30m', recFees.halfHour], ['fast', recFees.fastest]] as [string, number][]).map(([lbl, v]) => (
-                      <button key={lbl} onClick={() => setFeeRate(Math.max(1, v))} className="rounded-full px-2 py-0.5" style={{ background: 'var(--soft)', color: 'var(--text)', border: '1px solid var(--border)' }}>{lbl} {v}</button>
+                      <button key={lbl} onClick={() => setFeeRate(Math.max(allowSubOne ? 0.1 : 1, v))} className="rounded-full px-2 py-0.5" style={{ background: 'var(--soft)', color: 'var(--text)', border: '1px solid var(--border)' }}>{lbl} {v}</button>
                     ))}
                   </div>
                 )}
-                <InfoBox icon="⚠️" color="#EF4444">This spends real bitcoin. Start with a small fee rate and short content to keep it cheap. Total cost ≈ fee rate × transaction size + 546 sats postage.</InfoBox>
+
+                {/* Sub-1 sat/vB toggle */}
+                <label className="mt-3 flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={allowSubOne}
+                    onChange={() => setAllowSubOne((v) => {
+                      const next = !v;
+                      if (!next && feeRate < 1) setFeeRate(1);
+                      return next;
+                    })}
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                    style={{ accentColor: BTC }}
+                  />
+                  <span className="text-xs" style={{ color: 'var(--text)' }}>
+                    Allow sub-1 sat/vB (as low as 0.1)
+                  </span>
+                </label>
+                {allowSubOne && (
+                  <InfoBox icon="🐢" color="#EAB308">
+                    Below 1 sat/vB is cheap but risky: many nodes won&apos;t relay it and it can take a long time — or get stuck — when the mempool is busy. Only use it when fees are low and you&apos;re not in a hurry.
+                  </InfoBox>
+                )}
+
+                {/* Live price */}
+                <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: BTC, background: `${BTC}12` }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Estimated total cost</span>
+                    <span className="text-lg font-black" style={{ color: BTC }}>
+                      {estimate ? `${estimate.commitAmount.toLocaleString()} sats` : '—'}
+                    </span>
+                  </div>
+                  {estimate && (
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]" style={{ color: 'var(--muted)' }}>
+                      <span>Network fee ≈ {estimate.fee.toLocaleString()} sats</span>
+                      <span>+ 546 sats postage</span>
+                      <span>~{estimate.virtualSize} vB @ {Math.max(allowSubOne ? 0.1 : 1, feeRate)} sat/vB</span>
+                    </div>
+                  )}
+                  <div className="mt-1 text-[11px]" style={{ color: 'var(--muted)' }}>Updates live as you change the fee or content.</div>
+                </div>
+
+                <InfoBox icon="⚠️" color="#EF4444">This spends real bitcoin. Start with a small fee rate and short content to keep it cheap.</InfoBox>
                 <Btn className="mt-4 w-full" disabled={busy} onClick={handleCreate}>{busy ? (status || 'Working…') : 'Create inscription →'}</Btn>
               </Card>
             </>
