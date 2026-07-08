@@ -104,6 +104,10 @@ const Btn: React.FC<{ onClick?: () => void; disabled?: boolean; children: React.
 // ─── Transaction explainer (used in both modes) ──────────────────────────────
 type TxStage = 'idle' | 'building' | 'mempool' | 'confirmed' | 'done';
 
+// A real, permanent example inscription transaction on mempool.space —
+// used in the practice mode so learners can see what a real tx page looks like.
+const EXAMPLE_MEMPOOL_TX = 'b61b0172d95e266c18aea0c624db987e971a5d6d4ebc2aaed85da4642d635735';
+
 const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual?: boolean }> = ({ lang, stage, txid, virtual }) => {
   const steps: { key: TxStage; icon: string; title: L; desc: L }[] = [
     { key: 'building', icon: '🔨', title: { en: 'Signing', de: 'Signieren' }, desc: { en: 'Your wallet signs the transaction with your private key.', de: 'Deine Wallet signiert die Transaktion mit deinem Private Key.' } },
@@ -143,9 +147,16 @@ const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual
             🔗 {tr({ en: 'View on mempool.space', de: 'Auf mempool.space ansehen' }, lang)}
           </a>
         )}
-        {txid && virtual && (
+        {txid && virtual && (stage === 'mempool' || stage === 'confirmed' || stage === 'done') && (
+          <a href={`https://mempool.space/tx/${EXAMPLE_MEMPOOL_TX}`} target="_blank" rel="noopener noreferrer"
+            title={tr({ en: 'Opens a real example inscription transaction on mempool.space', de: 'Öffnet eine echte Beispiel-Inscription-Transaktion auf mempool.space' }, lang)}
+            className="rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
+            🔗 mempool.space/tx/{txid.slice(0, 8)}… {tr({ en: '(see live example ↗)', de: '(Live-Beispiel ansehen ↗)' }, lang)}
+          </a>
+        )}
+        {txid && virtual && stage === 'building' && (
           <span className="rounded-full px-4 py-2 text-xs font-bold" style={{ background: 'var(--card)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-            🔗 mempool.space/tx/{txid.slice(0, 8)}… {tr({ en: '(demo)', de: '(Demo)' }, lang)}
+            🔗 mempool.space/tx/{txid.slice(0, 8)}… {tr({ en: '(broadcasting…)', de: '(wird gesendet…)' }, lang)}
           </span>
         )}
         <a href="https://mempool.space" target="_blank" rel="noopener noreferrer"
@@ -525,6 +536,34 @@ const RealInscriber: React.FC<{ lang: Lang }> = ({ lang }) => {
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Inscription goes to', de: 'Inscription geht an' }, lang)}</div>
           <div className="break-all font-mono text-xs" style={{ color: 'var(--text)' }}>{ordAddr}</div>
         </div>
+      )}
+
+      {!inscriptionId && (
+        <details className="mt-4 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+          <summary className="cursor-pointer list-none text-sm font-semibold" style={{ color: 'var(--text)' }}>
+            💰 {tr({ en: 'How to add funds to your wallet', de: 'Wie du Guthaben in deine Wallet lädst' }, lang)}
+          </summary>
+          <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+            {tr({ en: 'You need a little bitcoin in your wallet for postage + network fees. Two ways:', de: 'Du brauchst etwas Bitcoin in deiner Wallet für Postage + Netzwerkgebühren. Zwei Wege:' }, lang)}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+              <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>💳 {tr({ en: 'Buy inside Xverse', de: 'In Xverse kaufen' }, lang)}</div>
+              <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {tr({ en: 'Tap “Buy” in Xverse and pay with credit/debit card, Apple Pay, Google Pay, SEPA, Revolut or bank transfer. The BTC lands directly in your wallet.', de: 'Tippe in Xverse auf „Buy" und zahle per Kredit-/Debitkarte, Apple Pay, Google Pay, SEPA, Revolut oder Banküberweisung. Das BTC landet direkt in deiner Wallet.' }, lang)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+              <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>₿ {tr({ en: 'Send Bitcoin', de: 'Bitcoin senden' }, lang)}</div>
+              <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {tr({ en: 'Already own BTC (e.g. on an exchange or another wallet)? Send it to your payment address (bc1q…). It arrives after the transaction confirms.', de: 'Du besitzt schon BTC (z. B. auf einer Börse oder anderen Wallet)? Sende es an deine Zahlungs-Adresse (bc1q…). Es ist da, sobald die Transaktion bestätigt ist.' }, lang)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+            💡 {tr({ en: 'Tip: a few thousand sats is usually enough for a small text inscription.', de: 'Tipp: Ein paar tausend Sats reichen meist für eine kleine Text-Inscription.' }, lang)}
+          </p>
+        </details>
       )}
 
       {ordAddr && !inscriptionId && (

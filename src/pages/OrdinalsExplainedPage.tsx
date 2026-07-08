@@ -515,6 +515,7 @@ const NAV: { id: string; label: L }[] = [
   { id: 'art', label: { en: '13 · Digital Art', de: '13 · Digitale Kunst' } },
   { id: 'wallets', label: { en: '14 · Wallets', de: '14 · Wallets' } },
   { id: 'security', label: { en: '15 · Security', de: '15 · Sicherheit' } },
+  { id: 'tx', label: { en: '16 · Transactions', de: '16 · Transaktionen' } },
   { id: 'quiz', label: { en: 'Quiz', de: 'Quiz' } },
   { id: 'glossary', label: { en: 'Glossary', de: 'Glossar' } },
 ];
@@ -621,6 +622,25 @@ const CH = {
     { en: 'Send a small test transaction first', de: 'Erst kleine Testtransaktion senden' },
   ] as L[],
   secMerke: { en: 'Support staff will NEVER ask for your seed phrase. Anyone who does is a scammer.', de: 'Support-Mitarbeiter fragen NIE nach deiner Seed Phrase. Wer danach fragt, ist ein Betrüger.' },
+
+  txTitle: { en: 'Transactions, blocks & 10 minutes', de: 'Transaktionen, Blöcke & 10 Minuten' },
+  tx1: { en: 'When you send bitcoin (or create an inscription), you build a transaction and sign it with your private key. It is then broadcast to the network.', de: 'Wenn du Bitcoin sendest (oder eine Inscription erstellst), baust du eine Transaktion und signierst sie mit deinem Private Key. Danach wird sie ins Netzwerk gesendet.' },
+  tx2: { en: 'The transaction first lands in the "mempool" — a waiting room of unconfirmed transactions. Miners pick transactions from there (higher fee = picked sooner) and pack them into a block. On average a new block is found roughly every 10 minutes. Once your transaction is in a block, it is confirmed. Each following block adds another confirmation and makes it more final.', de: 'Die Transaktion landet zuerst im „Mempool" — einem Warteraum unbestätigter Transaktionen. Miner picken von dort Transaktionen (höhere Gebühr = früher dran) und packen sie in einen Block. Im Schnitt wird etwa alle 10 Minuten ein neuer Block gefunden. Sobald deine Transaktion in einem Block ist, ist sie bestätigt. Jeder weitere Block fügt eine weitere Bestätigung hinzu und macht sie endgültiger.' },
+  txFlow: [
+    { en: '✍️ Sign', de: '✍️ Signieren' },
+    { en: '📡 Broadcast', de: '📡 Senden' },
+    { en: '⏳ Mempool (waiting)', de: '⏳ Mempool (warten)' },
+    { en: '⛏️ Into a block (~10 min)', de: '⛏️ In einen Block (~10 Min)' },
+    { en: '✅ Confirmed', de: '✅ Bestätigt' },
+  ] as L[],
+  txMerke: { en: 'The ~10-minute block time is an average, not a guarantee. A low fee can mean waiting much longer; a higher fee gets you into a block sooner.', de: 'Die ~10-Minuten-Blockzeit ist ein Durchschnitt, keine Garantie. Eine niedrige Gebühr kann viel längeres Warten bedeuten; eine höhere Gebühr bringt dich schneller in einen Block.' },
+  txQ: { en: 'Why can a transaction with a low fee take longer?', de: 'Warum kann eine Transaktion mit niedriger Gebühr länger dauern?' },
+  txQo: [
+    { en: 'The network is broken', de: 'Das Netzwerk ist kaputt' },
+    { en: 'Miners prioritize higher-fee transactions', de: 'Miner bevorzugen Transaktionen mit höherer Gebühr' },
+    { en: 'Low fees are rejected forever', de: 'Niedrige Gebühren werden für immer abgelehnt' },
+  ] as L[],
+  txQe: { en: 'Miners pick the most profitable transactions first, so lower fees wait longer in the mempool.', de: 'Miner picken zuerst die profitabelsten Transaktionen, deshalb warten niedrigere Gebühren länger im Mempool.' },
 };
 
 // ─── Main page ──────────────────────────────────────────────────────────────
@@ -951,6 +971,31 @@ export const OrdinalsExplainedPage: React.FC = () => {
               ))}
             </div>
             <MerkBox>{tr(CH.secMerke, lang)}</MerkBox>
+          </Chapter>
+
+          {/* ── Chapter 16 · Transactions & blocks ── */}
+          <Chapter id="tx" n={16} title={tr(CH.txTitle, lang)} emoji="⛓️">
+            <Para>{tr(CH.tx1, lang)}</Para>
+            <Para>{tr(CH.tx2, lang)}</Para>
+            <Flow steps={CH.txFlow.map((s) => tr(s, lang))} accent="#2563EB" />
+            <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-2">
+              {[0, 1, 2, 3].map((i) => (
+                <React.Fragment key={i}>
+                  <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[10px] font-bold" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--muted)' }}>
+                    <span className="text-base">🧱</span>
+                    <span>#{812340 + i}</span>
+                  </div>
+                  <span style={{ color: 'var(--border)' }}>→</span>
+                </React.Fragment>
+              ))}
+              <div className="flex h-16 w-16 shrink-0 animate-pulse flex-col items-center justify-center gap-0.5 rounded-xl border-2 text-[10px] font-bold" style={{ borderColor: BTC, background: `${BTC}12`, color: BTC }}>
+                <span className="text-base">🆕</span>
+                <span>~10 min</span>
+              </div>
+            </div>
+            <p className="mt-2 text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'New blocks are added roughly every 10 minutes — each one confirms the transactions inside it.', de: 'Etwa alle 10 Minuten kommt ein neuer Block dazu — jeder bestätigt die Transaktionen darin.' }, lang)}</p>
+            <MerkBox>{tr(CH.txMerke, lang)}</MerkBox>
+            <MiniQuiz data={{ q: tr(CH.txQ, lang), options: CH.txQo.map((o) => tr(o, lang)), correct: 1, explain: tr(CH.txQe, lang) }} />
           </Chapter>
 
           {/* ── Quiz ── */}
