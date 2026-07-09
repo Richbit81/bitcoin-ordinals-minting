@@ -92,6 +92,7 @@ const UI = {
   introS2Title: { en: 'Step 2 · Do it yourself', de: 'Step 2 · Selber machen' },
   introS2Body: { en: 'Create a wallet and make your first inscription — practice safely first, then for real.', de: 'Erstelle eine Wallet und deine erste Inscription — erst gefahrlos üben, dann echt.' },
   introCta: { en: "Start learning →", de: 'Los geht’s →' },
+  introSkipToS2: { en: 'Already know the basics? Skip to Step 2 →', de: 'Basics schon drauf? Direkt zu Step 2 →' },
 };
 
 // ─── Simplified (NON-cryptographic) derivation helpers ───────────────────────
@@ -848,6 +849,7 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 </div>
                 <div className="mt-10 flex flex-wrap items-center gap-5">
                   <button onClick={dismissIntro} className="rounded-full px-8 py-3.5 text-base font-bold transition hover:brightness-105" style={{ background: BTC, color: '#000' }}>{tr(UI.introCta, lang)}</button>
+                  <button onClick={() => navigate('/ordinals-explained/step-2')} className="text-sm font-semibold underline underline-offset-4" style={{ color: 'var(--muted)' }}>{tr(UI.introSkipToS2, lang)}</button>
                 </div>
               </div>
             </div>

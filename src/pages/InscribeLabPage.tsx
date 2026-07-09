@@ -742,6 +742,21 @@ export const InscribeLabPage: React.FC = () => {
           </div>
         </section>
 
+        {/* Basics advisory */}
+        <div className="mx-auto mb-6 max-w-3xl px-5">
+          <div className="flex flex-col items-start gap-2 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: `${BTC}55`, background: `${BTC}12` }}>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-lg" aria-hidden>💡</span>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
+                {tr({ en: 'You can start here anytime — but only do Step 2 once you understand the basics (wallet, seed phrase, fees, inscriptions). If anything is unclear, go through Step 1 first.', de: 'Du kannst hier jederzeit einsteigen — mach Step 2 aber erst, wenn du die Basics verstanden hast (Wallet, Seed Phrase, Fees, Inscriptions). Wenn etwas unklar ist, geh zuerst durch Step 1.' }, lang)}
+              </p>
+            </div>
+            <button onClick={() => navigate('/ordinals-explained')} className="shrink-0 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
+              {tr({ en: '← Review Step 1', de: '← Step 1 ansehen' }, lang)}
+            </button>
+          </div>
+        </div>
+
         {/* Mode toggle */}
         <div className="mx-auto mb-8 flex max-w-3xl justify-center px-5">
           <div className="flex w-full max-w-md overflow-hidden rounded-full border p-1" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
