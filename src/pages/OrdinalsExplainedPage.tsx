@@ -84,6 +84,7 @@ const UI = {
   step1Done: { en: '🎉 Step 1 complete!', de: '🎉 Step 1 geschafft!' },
   step2Cta: { en: 'Continue to Step 2 — Inscribe it yourself →', de: 'Weiter zu Step 2 — selbst einschreiben →' },
   step2Hint: { en: 'Answer all quiz questions correctly to unlock the hands-on inscribing workshop.', de: 'Beantworte alle Quizfragen richtig, um den praktischen Einschreibe-Workshop freizuschalten.' },
+  quizGateNote: { en: '🔒 Solve this quiz to unlock Step 2 — the hands-on inscribing workshop.', de: '🔒 Löse dieses Quiz, um Step 2 freizuschalten — den praktischen Einschreibe-Workshop.' },
   introTitle: { en: 'Learn Bitcoin Ordinals', de: 'Lerne Bitcoin Ordinals' },
   introSub: { en: 'In 2 simple steps — no prior knowledge needed.', de: 'In 2 einfachen Schritten — ganz ohne Vorwissen.' },
   introS1Title: { en: 'Step 1 · Understand', de: 'Step 1 · Verstehen' },
@@ -1136,6 +1137,9 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 <div className="mb-6 text-center">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: BTC }}>{tr(UI.testYourself, lang)}</div>
                   <h2 className="mt-1 text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{tr(UI.quizTitle, lang)}</h2>
+                  <div className="mx-auto mt-3 max-w-xl rounded-2xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: BTC, background: `${BTC}14`, color: 'var(--text)' }}>
+                    {tr(UI.quizGateNote, lang)}
+                  </div>
                 </div>
                 <BigQuiz onResult={handleQuizResult} />
                 {quizPassed ? (
