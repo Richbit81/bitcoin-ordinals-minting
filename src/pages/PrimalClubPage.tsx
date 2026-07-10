@@ -579,6 +579,33 @@ export const PrimalClubPage: React.FC = () => {
                 <FeeRateSelector selectedFeeRate={inscriptionFeeRate} onFeeRateChange={setInscriptionFeeRate} />
               </div>
 
+              {(() => {
+                // Upfront total estimate. Fees apply to every item (free items too);
+                // AVIF content enters the witness (~¼ vsize) → ~3200 vB + 546 postage per item.
+                const effFee = inscriptionFeeRate > 0 ? inscriptionFeeRate : 1;
+                const estFeesAll = quantity * (effFee * 3200 + 546);
+                const estTotal = marginTotalSats + estFeesAll;
+                return (
+                  <div className="mb-4 rounded-lg border border-amber-500/30 bg-black/40 px-4 py-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Mint price{quantity > 1 ? ` (${quantity})` : ''}</span>
+                      <span className="font-bold text-amber-300">{marginTotalSats.toLocaleString()} sats</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[13px] text-gray-400">
+                      <span>Est. inscription + network fees ({effFee} sat/vB)</span>
+                      <span>≈ {estFeesAll.toLocaleString()} sats</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-amber-500/20 pt-2 text-base font-black text-amber-300">
+                      <span>≈ Total</span>
+                      <span>{estTotal.toLocaleString()} sats</span>
+                    </div>
+                    <div className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                      Estimate based on the current fee rate — the exact amount is confirmed in your wallet before you pay.
+                    </div>
+                  </div>
+                );
+              })()}
+
               {mintingStatus && (
                 <div className="mb-4">
                   <MintingProgress status={mintingStatus} />

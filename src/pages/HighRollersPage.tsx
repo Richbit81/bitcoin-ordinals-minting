@@ -380,11 +380,19 @@ export const HighRollersPage: React.FC = () => {
                 );
               })()}
 
+              <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent={GOLD} disabled={phase === 'quoting'} />
+
               {(() => {
                 const base = status?.priceSats ?? 5000;
                 const margin = discountedMargin(base, quantity);
                 const full = base * quantity;
                 const saved = full - margin;
+                // Upfront fee estimate. AVIF content enters the witness (~¼ vsize);
+                // ~150 vB shared tx overhead + ~3600 vB per item. Postage 546 + 1000 buffer per item-set (matches backend CFG).
+                const effFee = feeRate > 0 ? feeRate : 2;
+                const estNetworkFee = effFee * (150 + quantity * 3600);
+                const estFeesAll = 546 * quantity + estNetworkFee + 1000;
+                const estTotal = margin + estFeesAll;
                 return (
                   <div className="mt-5 rounded-xl border border-[#e8b64b]/25 bg-black/30 px-4 py-3">
                     <div className="flex items-center justify-between text-sm">
@@ -395,16 +403,22 @@ export const HighRollersPage: React.FC = () => {
                       </span>
                     </div>
                     {saved > 0 && (
-                      <div className="mt-1 text-right text-[11px] font-semibold text-green-400/90">You save {saved.toLocaleString()} sats</div>
+                      <div className="text-right text-[11px] font-semibold text-green-400/90">You save {saved.toLocaleString()} sats</div>
                     )}
+                    <div className="mt-1.5 flex items-center justify-between text-[13px] text-[#f5e6c8]/60">
+                      <span>Est. inscription + network fees ({effFee} sat/vB)</span>
+                      <span>≈ {estFeesAll.toLocaleString()} sats</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-[#e8b64b]/20 pt-2 text-base font-black text-[#f7e3a8]">
+                      <span>≈ Total</span>
+                      <span>{estTotal.toLocaleString()} sats</span>
+                    </div>
                     <div className="mt-1 text-[11px] leading-relaxed text-[#f5e6c8]/45">
-                      + on-chain inscription &amp; network fees (≈ 5,000–10,000 sats, varies with the mempool). The exact total is always shown before you pay.
+                      Estimate based on the current fee rate — the exact amount is confirmed before you pay (usually a little lower).
                     </div>
                   </div>
                 );
               })()}
-
-              <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent={GOLD} disabled={phase === 'quoting'} />
 
               {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
               <button
