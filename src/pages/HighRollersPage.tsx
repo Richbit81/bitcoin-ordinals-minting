@@ -33,6 +33,14 @@ function satsToBtc(sats: number): string {
   return (sats / 100_000_000).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
 }
 
+// Mirror of the backend volume discount: -5% per extra item → 5 = one free.
+function discountedMargin(base: number, qty: number, step = 0.05): number {
+  const n = Math.max(0, Math.floor(qty) || 0);
+  if (n <= 0) return 0;
+  const factor = Math.max(0, 1 - step * (n - 1));
+  return Math.round(base * n * factor);
+}
+
 type Phase = 'idle' | 'quoting' | 'awaiting_payment' | 'minting' | 'done' | 'error';
 
 export const HighRollersPage: React.FC = () => {
@@ -368,6 +376,30 @@ export const HighRollersPage: React.FC = () => {
                       Mint up to {maxAllowed} at once — all inscribed in one transaction (cheaper on fees) and sent to your Taproot address.
                       Volume discount on the mint price: <span className="text-[#e8b64b]/80">2 = −5%, 3 = −10%, 4 = −15%, mint 5 → one free (−20%)</span>.
                     </p>
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const base = status?.priceSats ?? 5000;
+                const margin = discountedMargin(base, quantity);
+                const full = base * quantity;
+                const saved = full - margin;
+                return (
+                  <div className="mt-5 rounded-xl border border-[#e8b64b]/25 bg-black/30 px-4 py-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#f5e6c8]/70">Mint price{quantity > 1 ? ` (${quantity})` : ''}</span>
+                      <span className="font-bold text-[#f7e3a8]">
+                        {saved > 0 && <span className="mr-2 text-[#f5e6c8]/40 line-through">{full.toLocaleString()}</span>}
+                        {margin.toLocaleString()} sats
+                      </span>
+                    </div>
+                    {saved > 0 && (
+                      <div className="mt-1 text-right text-[11px] font-semibold text-green-400/90">You save {saved.toLocaleString()} sats</div>
+                    )}
+                    <div className="mt-1 text-[11px] leading-relaxed text-[#f5e6c8]/45">
+                      + on-chain inscription &amp; network fees (≈ 5,000–10,000 sats, varies with the mempool). The exact total is always shown before you pay.
+                    </div>
                   </div>
                 );
               })()}
