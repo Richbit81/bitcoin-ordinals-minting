@@ -306,6 +306,10 @@ export const HighRollersPage: React.FC = () => {
           so most mints land around <span className="text-[#e8b64b]/80">≈ 10,000–15,000 sats</span> total.
           The exact amount is always shown before you pay — no hidden costs.
         </p>
+        <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#e8b64b]/70">
+          Bulk deal: the more you mint, the cheaper each gets — 2 = −5%, 3 = −10%, 4 = −15%, and
+          <strong className="text-[#f7e3a8]"> mint 5 → one is free (−20%)</strong>. Inscription/network fees still apply per item.
+        </p>
       </header>
 
       {/* mint panel */}
@@ -362,6 +366,7 @@ export const HighRollersPage: React.FC = () => {
                     </div>
                     <p className="mt-2 text-[11px] text-[#f5e6c8]/45">
                       Mint up to {maxAllowed} at once — all inscribed in one transaction (cheaper on fees) and sent to your Taproot address.
+                      Volume discount on the mint price: <span className="text-[#e8b64b]/80">2 = −5%, 3 = −10%, 4 = −15%, mint 5 → one free (−20%)</span>.
                     </p>
                   </div>
                 );

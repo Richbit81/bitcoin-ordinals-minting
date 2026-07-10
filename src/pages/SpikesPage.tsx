@@ -437,6 +437,10 @@ export const SpikesPage: React.FC = () => {
             (typically ≈ <span className="text-[#22e3ff]/90">5,000–10,000 sats</span>, varies with the current mempool).
             The exact amount is always shown before you pay — no hidden costs.
           </p>
+          <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#22e3ff]/80">
+            Bulk deal: the more you mint, the cheaper each gets — 2 = −5%, 3 = −10%, 4 = −15%, and
+            <strong className="text-[#8affff]"> mint 5 → one is free (−20%)</strong>. Inscription/network fees still apply per item.
+          </p>
         </header>
 
         {/* mint panel */}
@@ -493,6 +497,7 @@ export const SpikesPage: React.FC = () => {
                       </div>
                       <p className="mt-2 text-[11px] text-[#d8faff]/45">
                         Mint up to {maxAllowed} at once — all inscribed in one transaction (cheaper on fees) and sent to your Taproot address.
+                        Volume discount on the mint price: <span className="text-[#22e3ff]/90">2 = −5%, 3 = −10%, 4 = −15%, mint 5 → one free (−20%)</span>.
                       </p>
                     </div>
                   );

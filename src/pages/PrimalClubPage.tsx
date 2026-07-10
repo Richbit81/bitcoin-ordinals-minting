@@ -9,7 +9,9 @@ import { MintingStatus } from '../types/wallet';
 import { logMinting } from '../services/mintingLog';
 import { addMintPoints } from '../services/pointsService';
 import {
-  mintPrimalClubRandom,
+  mintPrimalClubBatch,
+  primalClubVolumeMargin,
+  PRIMAL_CLUB_MAX_PER_TX,
   loadPrimalClubCollection,
   primalClubImageUrl,
 } from '../services/primalClubMintService';
@@ -33,6 +35,7 @@ export const PrimalClubPage: React.FC = () => {
   const { walletState } = useWallet();
   const [collectionReady, setCollectionReady] = useState<boolean | null>(null);
   const [mintCount, setMintCount] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [inscriptionFeeRate, setInscriptionFeeRate] = useState<number>(1);
   const [mintingStatus, setMintingStatus] = useState<MintingStatus | null>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -189,7 +192,17 @@ export const PrimalClubPage: React.FC = () => {
   }, [walletState.connected, walletState.accounts, checkFreeMintEligibility]);
 
   const freeMintsRemaining = Math.max(0, freeMintEntitlement - freeMintUsed);
-  const isFreeForUser = freeMintsRemaining > 0;
+
+  // Volume-discount pricing for the currently selected quantity.
+  const maxSelectable = Math.min(PRIMAL_CLUB_MAX_PER_TX, Math.max(1, PRIMAL_CLUB_TOTAL_SUPPLY - mintCount));
+  const freeInSelection = Math.min(freeMintsRemaining, quantity);
+  const paidInSelection = Math.max(0, quantity - freeInSelection);
+  const marginTotalSats = primalClubVolumeMargin(paidInSelection);
+  const savingsSats = paidInSelection * PRIMAL_CLUB_PRICE_SATS - marginTotalSats;
+
+  useEffect(() => {
+    setQuantity((q) => Math.min(Math.max(1, q), maxSelectable));
+  }, [maxSelectable]);
 
   const handleMint = async () => {
     if (!walletState.connected || !walletState.accounts[0]) {
@@ -218,111 +231,122 @@ export const PrimalClubPage: React.FC = () => {
         }
       } catch { /* fallback auf cached */ }
 
-      const useFree = isFreeForUser;
-      const result = await mintPrimalClubRandom(
+      const freeInBatch = Math.min(freeMintsRemaining, quantity);
+      const paidQty = Math.max(0, quantity - freeInBatch);
+      const perItemPaid = paidQty > 0 ? Math.round(primalClubVolumeMargin(paidQty) / paidQty) : 0;
+
+      const { paymentTxid, items } = await mintPrimalClubBatch(
         userAddress,
         inscriptionFeeRate,
         walletState.walletType || 'unisat',
-        useFree,
+        quantity,
+        freeInBatch,
         freshMintedIndices
       );
 
-      // 1) Mint-Log (mit pending->final Auflösung serverseitig)
-      try {
-        await fetch(`${API_URL}/api/primal-club/log`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            walletAddress: userAddress,
-            inscriptionId: result.inscriptionId,
-            txid: result.txid || null,
-            orderId: result.orderId || null,
-            itemName: `Primal Club #${result.item.index}`,
-            itemIndex: result.item.index,
-            priceInSats: useFree ? 0 : PRIMAL_CLUB_PRICE_SATS,
-            isFree: useFree,
-            paymentTxid: result.paymentTxid || null,
-            timestamp: Date.now(),
-          }),
-        });
-      } catch (e) {
-        console.warn('[PrimalClub] Log failed:', e);
-      }
+      for (let i = 0; i < items.length; i++) {
+        const r = items[i];
+        const itemIsFree = i < freeInBatch;
 
-      // 2) Backup-Log (generisches Minting-Log)
-      try {
-        await logMinting({
-          walletAddress: userAddress,
-          packId: 'primal-club',
-          packName: 'Primal Club',
-          cards: [{
-            id: `primal-club-${result.item.index}`,
-            name: `Primal Club #${result.item.index}`,
-            inscriptionId: result.inscriptionId,
-            rarity: 'common',
-          }],
-          inscriptionIds: [result.inscriptionId],
-          inscriptionId: result.inscriptionId,
-          txids: result.txid ? [result.txid] : [],
-          paymentTxid: result.paymentTxid,
-          orderId: result.orderId,
-          originalPendingInscriptionId: String(result.inscriptionId || '').startsWith('pending-')
-            ? result.inscriptionId
-            : undefined,
-        });
-      } catch { /* backup log failed */ }
-
-      // 3) Punkte
-      try {
-        await addMintPoints(userAddress, {
-          collection: 'Primal Club',
-          itemName: `Primal Club #${result.item.index}`,
-          inscriptionId: result.inscriptionId,
-          txid: result.txid || null,
-          source: 'primal-club-mint',
-        });
-      } catch (pointsErr) {
-        console.warn('[PrimalClub] Punkte konnten nicht hinzugefuegt werden:', pointsErr);
-      }
-
-      // 4) Hashlist mit Metadaten aktualisieren (finale Mintliste). Sehr wichtig:
-      //    inscriptionId + Item + Attributes werden dauerhaft in der DB gespeichert.
-      try {
-        await fetch(`${API_URL}/api/primal-club/hashlist`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inscriptionId: result.inscriptionId,
-            itemIndex: result.item.index,
-            name: result.item.name || `Primal Club #${result.item.index}`,
-            attributes: result.item.attributes || [],
-          }),
-        });
-      } catch (hashErr) {
-        console.warn('[PrimalClub] Hashlist update fehlgeschlagen:', hashErr);
-      }
-
-      // 5) Free-Mint-Verbrauch registrieren (Whitelist)
-      if (useFree) {
+        // 1) Mint-Log (mit pending->final Auflösung serverseitig)
         try {
-          await fetch(`${API_URL}/api/primal-club/free-mint-used`, {
+          await fetch(`${API_URL}/api/primal-club/log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: userAddress }),
+            body: JSON.stringify({
+              walletAddress: userAddress,
+              inscriptionId: r.inscriptionId,
+              txid: r.txid || null,
+              orderId: r.orderId || null,
+              itemName: `Primal Club #${r.item.index}`,
+              itemIndex: r.item.index,
+              priceInSats: itemIsFree ? 0 : perItemPaid,
+              isFree: itemIsFree,
+              paymentTxid: paymentTxid || null,
+              timestamp: Date.now(),
+            }),
           });
-        } catch { /* localStorage-frei: Backend-Tracking + Log-Rekonstruktion */ }
-        setFreeMintUsed((prev) => prev + 1);
+        } catch (e) {
+          console.warn('[PrimalClub] Log failed:', e);
+        }
+
+        // 2) Backup-Log (generisches Minting-Log)
+        try {
+          await logMinting({
+            walletAddress: userAddress,
+            packId: 'primal-club',
+            packName: 'Primal Club',
+            cards: [{
+              id: `primal-club-${r.item.index}`,
+              name: `Primal Club #${r.item.index}`,
+              inscriptionId: r.inscriptionId,
+              rarity: 'common',
+            }],
+            inscriptionIds: [r.inscriptionId],
+            inscriptionId: r.inscriptionId,
+            txids: r.txid ? [r.txid] : [],
+            paymentTxid: paymentTxid,
+            orderId: r.orderId,
+            originalPendingInscriptionId: String(r.inscriptionId || '').startsWith('pending-')
+              ? r.inscriptionId
+              : undefined,
+          });
+        } catch { /* backup log failed */ }
+
+        // 3) Punkte
+        try {
+          await addMintPoints(userAddress, {
+            collection: 'Primal Club',
+            itemName: `Primal Club #${r.item.index}`,
+            inscriptionId: r.inscriptionId,
+            txid: r.txid || null,
+            source: 'primal-club-mint',
+          });
+        } catch (pointsErr) {
+          console.warn('[PrimalClub] Punkte konnten nicht hinzugefuegt werden:', pointsErr);
+        }
+
+        // 4) Hashlist mit Metadaten aktualisieren (finale Mintliste). Sehr wichtig:
+        //    inscriptionId + Item + Attributes werden dauerhaft in der DB gespeichert.
+        try {
+          await fetch(`${API_URL}/api/primal-club/hashlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inscriptionId: r.inscriptionId,
+              itemIndex: r.item.index,
+              name: r.item.name || `Primal Club #${r.item.index}`,
+              attributes: r.item.attributes || [],
+            }),
+          });
+        } catch (hashErr) {
+          console.warn('[PrimalClub] Hashlist update fehlgeschlagen:', hashErr);
+        }
+      }
+
+      // 5) Free-Mint-Verbrauch registrieren (Whitelist) — je Free-Item einmal
+      if (freeInBatch > 0) {
+        for (let i = 0; i < freeInBatch; i++) {
+          try {
+            await fetch(`${API_URL}/api/primal-club/free-mint-used`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: userAddress }),
+            });
+          } catch { /* Backend-Tracking + Log-Rekonstruktion */ }
+        }
+        setFreeMintUsed((prev) => prev + freeInBatch);
       }
 
       setMintingStatus({
         packId: 'primal-club',
         status: 'completed',
         progress: 100,
-        inscriptionIds: [result.inscriptionId],
-        paymentTxid: result.paymentTxid || undefined,
+        inscriptionIds: items.map((r) => r.inscriptionId),
+        paymentTxid: paymentTxid || undefined,
       });
-      setMintCount((prev) => prev + 1);
-      setMintedIndices((prev) => [...new Set([...prev, result.item.index])]);
+      setMintCount((prev) => prev + items.length);
+      setMintedIndices((prev) => [...new Set([...prev, ...items.map((r) => r.item.index)])]);
       loadRecentMints();
     } catch (error: any) {
       console.error('[PrimalClub] Mint-Fehler:', error);
@@ -464,22 +488,69 @@ export const PrimalClubPage: React.FC = () => {
                   </p>
                 </div>
 
+                {/* Quantity selector */}
+                <div className="text-center">
+                  <p className="text-[11px] uppercase tracking-widest text-amber-300/70 mb-2">Quantity</p>
+                  <div className="flex items-center justify-center gap-2">
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const disabled = n > maxSelectable || isMinting;
+                      const active = quantity === n;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setQuantity(n)}
+                          className={`w-11 h-11 rounded-lg font-bold text-sm border-2 transition-all ${
+                            active
+                              ? 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-300 text-black shadow-lg shadow-amber-600/40'
+                              : 'bg-black/50 border-amber-500/30 text-amber-200 hover:border-amber-400 disabled:opacity-30 disabled:cursor-not-allowed'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-amber-200/50 mt-2">
+                    Mint more, pay less per ape — mint 5 and one is on the house.
+                  </p>
+                </div>
+
                 {/* Price */}
                 <div className="text-center">
-                  {isFreeForUser ? (
+                  {marginTotalSats === 0 ? (
                     <>
-                      <p className="text-2xl font-black text-green-400 mb-0.5">FREE MINT</p>
-                      <p className="text-xs text-gray-400">+ inscription fees only</p>
-                      <p className="text-[10px] text-green-400/80 mt-1">
-                        Whitelist: {freeMintsRemaining} free mint{freeMintsRemaining === 1 ? '' : 's'} left
+                      <p className="text-2xl font-black text-green-400 mb-0.5">
+                        FREE MINT{quantity > 1 ? ` ×${quantity}` : ''}
                       </p>
+                      <p className="text-xs text-gray-400">+ inscription fees only</p>
+                      {freeMintsRemaining > 0 && (
+                        <p className="text-[10px] text-green-400/80 mt-1">
+                          Whitelist: {freeMintsRemaining} free mint{freeMintsRemaining === 1 ? '' : 's'} left
+                        </p>
+                      )}
                     </>
                   ) : (
                     <>
                       <p className="text-2xl font-bold text-amber-400 mb-0.5">
-                        {PRIMAL_CLUB_PRICE_SATS.toLocaleString()} sats
+                        {marginTotalSats.toLocaleString()} sats
                       </p>
-                      <p className="text-xs text-gray-400">+ inscription fees</p>
+                      <p className="text-xs text-gray-400">
+                        {quantity > 1
+                          ? `for ${quantity}${freeInSelection > 0 ? ` (${freeInSelection} whitelist-free)` : ''} · + inscription fees`
+                          : '+ inscription fees'}
+                      </p>
+                      {savingsSats > 0 && (
+                        <p className="text-[10px] text-green-400/90 mt-1 font-semibold">
+                          You save {savingsSats.toLocaleString()} sats on the club margin
+                        </p>
+                      )}
+                      {freeMintsRemaining > 0 && (
+                        <p className="text-[10px] text-green-400/80 mt-1">
+                          Whitelist: {freeMintsRemaining} free mint{freeMintsRemaining === 1 ? '' : 's'} left
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -528,7 +599,9 @@ export const PrimalClubPage: React.FC = () => {
                       </svg>
                       Minting...
                     </span>
-                  ) : isFreeForUser ? '🎁 FREE MINT' : '🐒 MINT RANDOM'}
+                  ) : marginTotalSats === 0
+                    ? (quantity > 1 ? `🎁 FREE MINT ×${quantity}` : '🎁 FREE MINT')
+                    : (quantity > 1 ? `🐒 MINT ${quantity} RANDOM` : '🐒 MINT RANDOM')}
                 </button>
               ) : mintingStatus.status === 'completed' ? (
                 <div className="text-center">
@@ -595,6 +668,7 @@ export const PrimalClubPage: React.FC = () => {
                 <li className="flex items-start gap-2"><span className="text-amber-500">•</span><span><strong className="text-white">Random mint</strong> — you don&rsquo;t know which one you get</span></li>
                 <li className="flex items-start gap-2"><span className="text-amber-500">•</span><span>Real image inscribed <strong className="text-white">directly on Bitcoin</strong></span></li>
                 <li className="flex items-start gap-2"><span className="text-amber-500">•</span><span>Sent to your <strong className="text-white">Taproot address (bc1p...)</strong></span></li>
+                <li className="flex items-start gap-2"><span className="text-amber-500">•</span><span><strong className="text-white">Mint up to 5 at once</strong> — the more you mint, the cheaper each gets: <strong className="text-amber-300">2 = −5%, 3 = −10%, 4 = −15%, and mint 5 → one is free (−20%)</strong>. Inscription fees still apply per item.</span></li>
               </ul>
             </div>
           </div>
