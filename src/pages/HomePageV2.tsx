@@ -618,6 +618,17 @@ export const HomePageV2: React.FC = () => {
         tagColor: 'bg-purple-600',
         mintLive: false,
       },
+      {
+        name: 'SplitVerse: PANDA',
+        desc: 'Unique pandas blurring reality and imagination — adorable design meets futuristic duality. Live on OpenSea.',
+        src: '/images/splitverse-panda.webp',
+        route: 'https://opensea.io/collection/splitverse-panda',
+        external: true,
+        isHtml: false,
+        tag: 'COLLECTION',
+        tagColor: 'bg-purple-600',
+        mintLive: false,
+      },
     ];
     const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
     return filtered[Math.floor(Math.random() * filtered.length)];
@@ -867,7 +878,13 @@ export const HomePageV2: React.FC = () => {
             ].map((item) => (
               <div
                 key={item.name}
-                onClick={() => navigate(item.route)}
+                onClick={() => {
+                  if ((item as { external?: boolean }).external) {
+                    window.open(item.route, '_blank', 'noopener,noreferrer');
+                  } else {
+                    navigate(item.route);
+                  }
+                }}
                 className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col min-w-[75vw] sm:min-w-0"
               >
                 <div className="aspect-square relative overflow-hidden bg-black p-3">
