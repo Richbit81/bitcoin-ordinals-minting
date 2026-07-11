@@ -193,6 +193,8 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   // inscribe form
   const [title, setTitle] = useState('');
   const [feeRate, setFeeRate] = useState(8);
+  const [imageDropped, setImageDropped] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [txStage, setTxStage] = useState<TxStage>('idle');
   const [resultTxid, setResultTxid] = useState('');
   const [myInscriptions, setMyInscriptions] = useState<{ txid: string; title: string; img: string }[]>([]);
@@ -247,7 +249,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
 
   const restart = () => {
     timers.current.forEach((t) => clearTimeout(t));
-    setScreen('welcome'); setSeed([]); setBalance(0); setTitle(''); setTxStage('idle'); setResultTxid(''); setMyInscriptions([]);
+    setScreen('welcome'); setSeed([]); setBalance(0); setTitle(''); setTxStage('idle'); setResultTxid(''); setMyInscriptions([]); setImageDropped(false); setDragOver(false);
   };
 
   const AddrRow: React.FC<{ label: string; addr: string; tag: string; color: string }> = ({ label, addr, tag, color }) => (
@@ -263,6 +265,24 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   // phone frame
   return (
     <div className="mx-auto w-full max-w-[340px]">
+      {/* Draggable image source — user drags this into the wallet's drop zone */}
+      {screen === 'inscribe' && !imageDropped && (
+        <div className="mb-3 rounded-2xl border p-3 text-center" style={{ borderColor: BTC, background: `${BTC}0e` }}>
+          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: BTC }}>
+            {tr({ en: 'Your file — drag it into the wallet ↓', de: 'Deine Datei — zieh sie in die Wallet ↓' }, lang)}
+          </div>
+          <img
+            src={DEMO_INSCRIPTION_IMG}
+            alt="draggable file"
+            draggable
+            onDragStart={(e) => { e.dataTransfer.setData('text/plain', 'inscription-image'); e.dataTransfer.effectAllowed = 'copy'; }}
+            onClick={() => setImageDropped(true)}
+            title={tr({ en: 'Drag me into the wallet (or tap on touch)', de: 'Zieh mich in die Wallet (oder tippen am Touch)' }, lang)}
+            className="mx-auto mt-2 h-20 w-20 cursor-grab rounded-lg border object-cover shadow-md active:cursor-grabbing"
+            style={{ borderColor: 'var(--border)', imageRendering: 'pixelated' }}
+          />
+        </div>
+      )}
       <div className="overflow-hidden rounded-[2rem] border-4 shadow-2xl" style={{ borderColor: '#000', background: 'var(--card)' }}>
         {/* wallet top bar */}
         <div className="flex items-center justify-between px-4 py-3" style={{ background: 'linear-gradient(90deg,#1a1a1a,#2a2320)' }}>
@@ -359,7 +379,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               </InfoBox>
               <div className="mt-3 flex gap-2">
                 <Btn variant="ghost" className="flex-1" onClick={() => setBalance((b) => b + 25000)}>＋ {tr({ en: 'Receive test sats', de: 'Test-Sats erhalten' }, lang)}</Btn>
-                <Btn className="flex-1" disabled={balance <= 0} onClick={() => setScreen('inscribe')}>{tr({ en: 'Inscribe', de: 'Einschreiben' }, lang)} →</Btn>
+                <Btn className="flex-1" disabled={balance <= 0} onClick={() => { setImageDropped(false); setDragOver(false); setScreen('inscribe'); }}>{tr({ en: 'Inscribe', de: 'Einschreiben' }, lang)} →</Btn>
               </div>
 
               {/* Collectibles — inscriptions owned by this practice wallet */}
@@ -394,9 +414,24 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr({ en: 'My first inscription', de: 'Meine erste Inscription' }, lang)}
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--text)' }} />
               <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Content (image)', de: 'Inhalt (Bild)' }, lang)}</label>
-              <div className="mt-1 flex items-center gap-3 rounded-lg border p-2" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
-                <img src={DEMO_INSCRIPTION_IMG} alt="inscription" className="h-14 w-14 rounded-md object-cover" style={{ imageRendering: 'pixelated' }} />
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'Sample image (this demo inscribes a picture).', de: 'Beispielbild (dieses Demo schreibt ein Bild ein).' }, lang)}</span>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); setImageDropped(true); }}
+                className="mt-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-3 text-center transition"
+                style={{ borderColor: imageDropped ? '#22C55E' : dragOver ? BTC : 'var(--border)', background: imageDropped ? '#22C55E14' : dragOver ? `${BTC}14` : 'var(--soft)' }}
+              >
+                {imageDropped ? (
+                  <>
+                    <img src={DEMO_INSCRIPTION_IMG} alt="inscription" className="h-16 w-16 rounded-md object-cover" style={{ imageRendering: 'pixelated' }} />
+                    <span className="mt-1 text-xs font-semibold" style={{ color: '#22C55E' }}>✓ {tr({ en: 'Image added', de: 'Bild hinzugefügt' }, lang)}</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl" aria-hidden>{dragOver ? '📥' : '⬇️'}</div>
+                    <span className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{dragOver ? tr({ en: 'Drop it here', de: 'Hier ablegen' }, lang) : tr({ en: 'Drag the sample image in here', de: 'Zieh das Beispielbild hier hinein' }, lang)}</span>
+                  </>
+                )}
               </div>
               <label className="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                 <span>{tr({ en: 'Fee rate', de: 'Gebühr' }, lang)}</span><span style={{ color: BTC }}>{feeRate} sat/vB</span>
@@ -408,7 +443,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               {balance < estCost && <p className="mt-2 text-xs" style={{ color: '#EF4444' }}>{tr({ en: 'Not enough sats — receive test sats first.', de: 'Zu wenig Sats — hol dir zuerst Test-Sats.' }, lang)}</p>}
               <div className="mt-3 flex gap-2">
                 <Btn variant="ghost" onClick={() => setScreen('home')}>←</Btn>
-                <Btn className="flex-1" disabled={balance < estCost} onClick={doVirtualInscribe}>{tr({ en: 'Inscribe now', de: 'Jetzt einschreiben' }, lang)}</Btn>
+                <Btn className="flex-1" disabled={balance < estCost || !imageDropped} onClick={doVirtualInscribe}>{tr({ en: 'Inscribe now', de: 'Jetzt einschreiben' }, lang)}</Btn>
               </div>
             </div>
           )}
