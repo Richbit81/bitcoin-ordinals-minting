@@ -154,15 +154,15 @@ const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual
 };
 
 // ─── Virtual Xverse (practice wallet) ────────────────────────────────────────
-type VScreen = 'needWallet' | 'home' | 'inscribe' | 'result';
+type VScreen = 'home' | 'inscribe' | 'result';
 
 const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => void }> = ({ lang, onScreenChange }) => {
-  const navigate = useNavigate();
-  const { wallet, patchWallet } = usePracticeWallet();
-  const [screen, setScreen] = useState<VScreen>(wallet ? 'home' : 'needWallet');
+  const { wallet, patchWallet, createWallet } = usePracticeWallet();
+  const [screen, setScreen] = useState<VScreen>('home');
   useEffect(() => { onScreenChange?.(screen); }, [screen, onScreenChange]);
-  // Keep the screen in sync if the wallet appears/disappears (e.g. created in Step 2).
-  useEffect(() => { setScreen((s) => (!wallet ? 'needWallet' : s === 'needWallet' ? 'home' : s)); }, [wallet]);
+  // If the learner jumped straight to Step 3 without a wallet, create one automatically
+  // so they can practice inscribing right away (Step 2 remains the guided wallet lesson).
+  useEffect(() => { if (!wallet) createWallet(); }, [wallet, createWallet]);
   // inscribe form
   const [title, setTitle] = useState('');
   const [feeRate, setFeeRate] = useState(8);
@@ -204,7 +204,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   // "Practice again" keeps the saved wallet — just resets the inscribe form.
   const restart = () => {
     timers.current.forEach((t) => clearTimeout(t));
-    setScreen(wallet ? 'home' : 'needWallet'); setTitle(''); setTxStage('idle'); setResultTxid(''); setImageDropped(false); setDragOver(false);
+    setScreen('home'); setTitle(''); setTxStage('idle'); setResultTxid(''); setImageDropped(false); setDragOver(false);
   };
 
   const AddrRow: React.FC<{ label: string; addr: string; tag: string; color: string }> = ({ label, addr, tag, color }) => (
@@ -246,13 +246,11 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
         </div>
 
         <div className="p-4" style={{ minHeight: 420 }}>
-          {/* NEED WALLET — no saved practice wallet yet */}
-          {screen === 'needWallet' && (
-            <div className="flex h-full flex-col items-center justify-center py-8 text-center">
+          {/* Auto-provisioning a practice wallet (only shows for a brief moment) */}
+          {!wallet && (
+            <div className="flex h-full flex-col items-center justify-center py-10 text-center">
               <div className="mb-4 text-5xl">👛</div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'No practice wallet yet', de: 'Noch keine Übungs-Wallet' }, lang)}</h3>
-              <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>{tr({ en: 'Create your practice wallet in Step 2 first — it only takes a minute and is then saved here.', de: 'Erstelle zuerst deine Übungs-Wallet in Step 2 — das dauert nur eine Minute und wird dann hier gespeichert.' }, lang)}</p>
-              <Btn className="mt-6" onClick={() => navigate('/ordinals-explained/step-2')}>{tr({ en: '→ Go to Step 2 (create wallet)', de: '→ Zu Step 2 (Wallet erstellen)' }, lang)}</Btn>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Setting up your practice wallet…', de: 'Übungs-Wallet wird eingerichtet…' }, lang)}</h3>
             </div>
           )}
 
@@ -634,18 +632,6 @@ const V_STEPS: VStepDef[] = [
 ];
 
 const VirtualGuide: React.FC<{ lang: Lang; vScreen: VScreen }> = ({ lang, vScreen }) => {
-  if (vScreen === 'needWallet') {
-    return (
-      <Card>
-        <Pill color="#2563EB">🧪 {tr({ en: 'Practice guide', de: 'Übungs-Anleitung' }, lang)}</Pill>
-        <div className="mt-5">
-          <h3 className="text-xl font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Create your wallet first', de: 'Erstelle zuerst deine Wallet' }, lang)}</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr({ en: 'Inscribing needs a wallet. Head to Step 2 to create one — it gets saved, so you only do this once.', de: 'Zum Einschreiben brauchst du eine Wallet. Geh zu Step 2, um eine zu erstellen — sie wird gespeichert, du machst das also nur einmal.' }, lang)}</p>
-          <InfoBox icon="👉" color="#2563EB">{tr({ en: 'Use the button in the wallet on the right to jump to Step 2.', de: 'Nutze den Button in der Wallet rechts, um zu Step 2 zu springen.' }, lang)}</InfoBox>
-        </div>
-      </Card>
-    );
-  }
   const idx = Math.max(0, V_STEPS.findIndex((s) => s.screen === vScreen));
   const step = V_STEPS[idx];
   return (
@@ -677,7 +663,7 @@ export const InscribeLabPage: React.FC = () => {
   const [lang, setLang] = useState<Lang>('en');
   const [dark, setDark] = useState(true);
   const [mode, setMode] = useState<'virtual' | 'real'>('virtual');
-  const [vScreen, setVScreen] = useState<VScreen>('needWallet');
+  const [vScreen, setVScreen] = useState<VScreen>('home');
   const theme = dark ? DARK : LIGHT;
 
   return (
@@ -722,11 +708,11 @@ export const InscribeLabPage: React.FC = () => {
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-lg" aria-hidden>💡</span>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
-                {tr({ en: 'This uses the practice wallet from Step 2. No wallet yet? Create one in Step 2 first — it stays saved so you can practice inscribing here anytime.', de: 'Hier wird die Übungs-Wallet aus Step 2 genutzt. Noch keine Wallet? Erstelle zuerst eine in Step 2 — sie bleibt gespeichert, damit du hier jederzeit das Einschreiben üben kannst.' }, lang)}
+                {tr({ en: 'A practice wallet is ready automatically — reused from Step 2 if you made one, otherwise created for you here. Want the guided wallet lesson? Visit Step 2.', de: 'Eine Übungs-Wallet ist automatisch bereit — sie wird aus Step 2 übernommen, falls du eine erstellt hast, sonst hier für dich angelegt. Du willst die geführte Wallet-Lektion? Schau bei Step 2 vorbei.' }, lang)}
               </p>
             </div>
             <button onClick={() => navigate('/ordinals-explained/step-2')} className="shrink-0 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
-              {tr({ en: '← Go to Step 2', de: '← Zu Step 2' }, lang)}
+              {tr({ en: 'Step 2 lesson', de: 'Step 2 Lektion' }, lang)}
             </button>
           </div>
         </div>
