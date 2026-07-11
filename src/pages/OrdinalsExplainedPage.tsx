@@ -94,7 +94,9 @@ const UI = {
   introS3Title: { en: 'Step 3 · Inscribe', de: 'Step 3 · Einschreiben' },
   introS3Body: { en: 'Use your saved wallet to make your first inscription — practice safely, then do it for real.', de: 'Nutze deine gespeicherte Wallet für deine erste Inscription — erst gefahrlos üben, dann echt.' },
   introCta: { en: "Start learning →", de: 'Los geht’s →' },
-  introSkipToS2: { en: 'Already know the basics? Skip to the hands-on part →', de: 'Basics schon drauf? Direkt zum Praxis-Teil →' },
+  introPickHint: { en: 'Or jump straight in:', de: 'Oder direkt einsteigen:' },
+  introSkipToS2: { en: 'Step 2 · Create wallet →', de: 'Step 2 · Wallet erstellen →' },
+  introSkipToS3: { en: 'Step 3 · Inscribe →', de: 'Step 3 · Einschreiben →' },
 };
 
 // ─── Simplified (NON-cryptographic) derivation helpers ───────────────────────
@@ -838,25 +840,30 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 <h1 className="mt-3 text-4xl font-black leading-tight sm:text-5xl" style={{ color: 'var(--text)' }}>{tr(UI.introTitle, lang)}</h1>
                 <p className="mt-3 text-lg" style={{ color: 'var(--muted)' }}>{tr(UI.introSub, lang)}</p>
                 <div className="mt-9 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                  <button type="button" onClick={dismissIntro} className="rounded-2xl border p-5 text-left transition hover:-translate-y-0.5 hover:brightness-105" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
                     <div className="text-3xl">📚</div>
                     <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS1Title, lang)}</h3>
                     <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS1Body, lang)}</p>
-                  </div>
-                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                    <span className="mt-3 inline-block text-sm font-bold" style={{ color: BTC }}>{tr({ en: 'Open →', de: 'Öffnen →' }, lang)}</span>
+                  </button>
+                  <button type="button" onClick={() => navigate('/ordinals-explained/step-2')} className="rounded-2xl border p-5 text-left transition hover:-translate-y-0.5 hover:brightness-105" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
                     <div className="text-3xl">👛</div>
                     <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS2Title, lang)}</h3>
                     <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS2Body, lang)}</p>
-                  </div>
-                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                    <span className="mt-3 inline-block text-sm font-bold" style={{ color: BTC }}>{tr({ en: 'Open →', de: 'Öffnen →' }, lang)}</span>
+                  </button>
+                  <button type="button" onClick={() => navigate('/ordinals-explained/step-3')} className="rounded-2xl border p-5 text-left transition hover:-translate-y-0.5 hover:brightness-105" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
                     <div className="text-3xl">🛠️</div>
                     <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS3Title, lang)}</h3>
                     <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS3Body, lang)}</p>
-                  </div>
+                    <span className="mt-3 inline-block text-sm font-bold" style={{ color: BTC }}>{tr({ en: 'Open →', de: 'Öffnen →' }, lang)}</span>
+                  </button>
                 </div>
-                <div className="mt-10 flex flex-wrap items-center gap-5">
+                <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
                   <button onClick={dismissIntro} className="rounded-full px-8 py-3.5 text-base font-bold transition hover:brightness-105" style={{ background: BTC, color: '#000' }}>{tr(UI.introCta, lang)}</button>
-                  <button onClick={() => navigate('/ordinals-explained/step-2')} className="text-sm font-semibold underline underline-offset-4" style={{ color: 'var(--muted)' }}>{tr(UI.introSkipToS2, lang)}</button>
+                  <span className="text-sm" style={{ color: 'var(--muted)' }}>{tr(UI.introPickHint, lang)}</span>
+                  <button onClick={() => navigate('/ordinals-explained/step-2')} className="text-sm font-semibold underline underline-offset-4" style={{ color: 'var(--text)' }}>{tr(UI.introSkipToS2, lang)}</button>
+                  <button onClick={() => navigate('/ordinals-explained/step-3')} className="text-sm font-semibold underline underline-offset-4" style={{ color: 'var(--text)' }}>{tr(UI.introSkipToS3, lang)}</button>
                 </div>
               </div>
             </div>
