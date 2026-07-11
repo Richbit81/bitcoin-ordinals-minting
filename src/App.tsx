@@ -62,6 +62,7 @@ const AudiobooksPage = lazy(() => import('./pages/AudiobooksPage').then((m) => (
 const ArtBaselPage = lazy(() => import('./pages/ArtBaselPage').then((m) => ({ default: m.ArtBaselPage })));
 const OrdinalsExplainedPage = lazy(() => import('./pages/OrdinalsExplainedPage').then((m) => ({ default: m.OrdinalsExplainedPage })));
 const InscribeLabPage = lazy(() => import('./pages/InscribeLabPage').then((m) => ({ default: m.InscribeLabPage })));
+const WalletLabPage = lazy(() => import('./pages/WalletLabPage').then((m) => ({ default: m.WalletLabPage })));
 const InscribeToolPage = lazy(() => import('./pages/InscribeToolPage').then((m) => ({ default: m.InscribeToolPage })));
 
 function AppContent() {
@@ -102,7 +103,8 @@ function AppContent() {
           <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/ordinals-explained" element={<OrdinalsExplainedPage />} />
-          <Route path="/ordinals-explained/step-2" element={<InscribeLabPage />} />
+          <Route path="/ordinals-explained/step-2" element={<WalletLabPage />} />
+          <Route path="/ordinals-explained/step-3" element={<InscribeLabPage />} />
           <Route path="/inscribe" element={<InscribeToolPage />} />
           <Route path="/random-stuff" element={<RandomStuffPage />} />
           <Route path="/collection/:id" element={<CollectionMintingPage />} />

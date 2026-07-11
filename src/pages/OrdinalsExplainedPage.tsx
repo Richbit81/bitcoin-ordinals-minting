@@ -82,17 +82,19 @@ const UI = {
   scoreLow: { en: 'No worries — scroll up and read the chapters again.', de: 'Kein Stress — scrolle hoch und lies die Kapitel nochmal.' },
   footer: { en: 'Art on Bitcoin — Ordinals explained · Part of', de: 'Art on Bitcoin — Ordinals erklärt · Teil von' },
   step1Done: { en: '🎉 Step 1 complete!', de: '🎉 Step 1 geschafft!' },
-  step2Cta: { en: 'Continue to Step 2 — Inscribe it yourself →', de: 'Weiter zu Step 2 — selbst einschreiben →' },
-  step2Hint: { en: 'Answer all quiz questions correctly to unlock the hands-on inscribing workshop.', de: 'Beantworte alle Quizfragen richtig, um den praktischen Einschreibe-Workshop freizuschalten.' },
-  quizGateNote: { en: '🔒 Solve this quiz to unlock Step 2 — the hands-on inscribing workshop.', de: '🔒 Löse dieses Quiz, um Step 2 freizuschalten — den praktischen Einschreibe-Workshop.' },
+  step2Cta: { en: 'Continue to Step 2 — Create your wallet →', de: 'Weiter zu Step 2 — Wallet erstellen →' },
+  step2Hint: { en: 'Answer all quiz questions correctly to unlock the hands-on part (wallet + inscribing).', de: 'Beantworte alle Quizfragen richtig, um den Praxis-Teil freizuschalten (Wallet + Einschreiben).' },
+  quizGateNote: { en: '🔒 Solve this quiz to unlock the hands-on part — Step 2 (create a wallet) & Step 3 (inscribe).', de: '🔒 Löse dieses Quiz, um den Praxis-Teil freizuschalten — Step 2 (Wallet erstellen) & Step 3 (einschreiben).' },
   introTitle: { en: 'Learn Bitcoin Ordinals', de: 'Lerne Bitcoin Ordinals' },
-  introSub: { en: 'In 2 simple steps — no prior knowledge needed.', de: 'In 2 einfachen Schritten — ganz ohne Vorwissen.' },
+  introSub: { en: 'In 3 simple steps — no prior knowledge needed.', de: 'In 3 einfachen Schritten — ganz ohne Vorwissen.' },
   introS1Title: { en: 'Step 1 · Understand', de: 'Step 1 · Verstehen' },
   introS1Body: { en: 'What Bitcoin, wallets, keys, satoshis, ordinals & inscriptions are — explained simply and visually.', de: 'Was Bitcoin, Wallets, Schlüssel, Satoshis, Ordinals & Inscriptions sind — einfach und visuell erklärt.' },
-  introS2Title: { en: 'Step 2 · Do it yourself', de: 'Step 2 · Selber machen' },
-  introS2Body: { en: 'Create a wallet and make your first inscription — practice safely first, then for real.', de: 'Erstelle eine Wallet und deine erste Inscription — erst gefahrlos üben, dann echt.' },
+  introS2Title: { en: 'Step 2 · Create a wallet', de: 'Step 2 · Wallet erstellen' },
+  introS2Body: { en: 'Set up a safe practice wallet and back up your seed phrase. It is saved for later.', de: 'Richte eine gefahrlose Übungs-Wallet ein und sichere deine Seed Phrase. Sie wird für später gespeichert.' },
+  introS3Title: { en: 'Step 3 · Inscribe', de: 'Step 3 · Einschreiben' },
+  introS3Body: { en: 'Use your saved wallet to make your first inscription — practice safely, then do it for real.', de: 'Nutze deine gespeicherte Wallet für deine erste Inscription — erst gefahrlos üben, dann echt.' },
   introCta: { en: "Start learning →", de: 'Los geht’s →' },
-  introSkipToS2: { en: 'Already know the basics? Skip to Step 2 →', de: 'Basics schon drauf? Direkt zu Step 2 →' },
+  introSkipToS2: { en: 'Already know the basics? Skip to the hands-on part →', de: 'Basics schon drauf? Direkt zum Praxis-Teil →' },
 };
 
 // ─── Simplified (NON-cryptographic) derivation helpers ───────────────────────
@@ -835,16 +837,21 @@ export const OrdinalsExplainedPage: React.FC = () => {
                 <span className="text-xs font-semibold tracking-[0.3em]" style={{ color: BTC }}>◆ ART ON BITCOIN</span>
                 <h1 className="mt-3 text-4xl font-black leading-tight sm:text-5xl" style={{ color: 'var(--text)' }}>{tr(UI.introTitle, lang)}</h1>
                 <p className="mt-3 text-lg" style={{ color: 'var(--muted)' }}>{tr(UI.introSub, lang)}</p>
-                <div className="mt-9 grid gap-4 sm:grid-cols-2">
+                <div className="mt-9 grid gap-4 sm:grid-cols-3">
                   <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
                     <div className="text-3xl">📚</div>
                     <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS1Title, lang)}</h3>
                     <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS1Body, lang)}</p>
                   </div>
                   <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
-                    <div className="text-3xl">🛠️</div>
+                    <div className="text-3xl">👛</div>
                     <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS2Title, lang)}</h3>
                     <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS2Body, lang)}</p>
+                  </div>
+                  <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                    <div className="text-3xl">🛠️</div>
+                    <h3 className="mt-3 text-lg font-bold" style={{ color: 'var(--text)' }}>{tr(UI.introS3Title, lang)}</h3>
+                    <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr(UI.introS3Body, lang)}</p>
                   </div>
                 </div>
                 <div className="mt-10 flex flex-wrap items-center gap-5">

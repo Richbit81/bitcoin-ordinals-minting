@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
+import { usePracticeWallet, fakeTxid, DEMO_INSCRIPTION_IMG } from './practiceWallet';
 import {
   createInscriptionCommit,
   checkCommitFunding,
@@ -43,31 +44,8 @@ const DARK = {
 const BTC = '#F7931A';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-const SEED_WORDS = [
-  'apple', 'ocean', 'river', 'stone', 'tiger', 'cloud', 'ember', 'maple', 'north', 'quartz',
-  'lemon', 'pixel', 'raven', 'solar', 'amber', 'cabin', 'delta', 'frost', 'grape', 'harbor',
-  'ivory', 'jazz', 'koala', 'lunar', 'mango', 'nebula', 'orbit', 'panda', 'quiet', 'ripple',
-  'satoshi', 'topaz', 'umbra', 'vivid', 'whale', 'xenon', 'yeti', 'zebra', 'bloom', 'cedar',
-  'ridge', 'spark', 'timber', 'violet', 'willow', 'cosmos', 'dawn', 'flint',
-];
-const BECH = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
-function rand(n: number) { return Math.floor(Math.random() * n); }
-function randomSeed(count = 12): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) out.push(SEED_WORDS[rand(SEED_WORDS.length)]);
-  return out;
-}
-function fakeBech(prefix: string, len: number): string {
-  let s = prefix;
-  for (let i = 0; i < len; i++) s += BECH[rand(32)];
-  return s;
-}
-function fakeTxid(): string {
-  const hx = '0123456789abcdef';
-  let s = '';
-  for (let i = 0; i < 64; i++) s += hx[rand(16)];
-  return s;
-}
+// Seed/address helpers + the persisted practice wallet now live in ./practiceWallet
+// (shared with Step 2). fakeTxid + DEMO_INSCRIPTION_IMG are imported from there.
 
 // ─── small atoms ─────────────────────────────────────────────────────────────
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
@@ -107,9 +85,6 @@ type TxStage = 'idle' | 'building' | 'mempool' | 'confirmed' | 'done';
 // A real, permanent example inscription transaction on mempool.space —
 // used in the practice mode so learners can see what a real tx page looks like.
 const EXAMPLE_MEMPOOL_TX = 'b61b0172d95e266c18aea0c624db987e971a5d6d4ebc2aaed85da4642d635735';
-
-// Sample image the practice wallet "inscribes" so beginners see an image land in the wallet.
-const DEMO_INSCRIPTION_IMG = '/images/practice-inscription.png';
 
 const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual?: boolean }> = ({ lang, stage, txid, virtual }) => {
   const steps: { key: TxStage; icon: string; title: L; desc: L }[] = [
@@ -179,17 +154,15 @@ const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual
 };
 
 // ─── Virtual Xverse (practice wallet) ────────────────────────────────────────
-type VScreen = 'welcome' | 'seed' | 'confirm' | 'home' | 'inscribe' | 'result';
+type VScreen = 'needWallet' | 'home' | 'inscribe' | 'result';
 
 const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => void }> = ({ lang, onScreenChange }) => {
-  const [screen, setScreen] = useState<VScreen>('welcome');
+  const navigate = useNavigate();
+  const { wallet, patchWallet } = usePracticeWallet();
+  const [screen, setScreen] = useState<VScreen>(wallet ? 'home' : 'needWallet');
   useEffect(() => { onScreenChange?.(screen); }, [screen, onScreenChange]);
-  const [seed, setSeed] = useState<string[]>([]);
-  const [seedRevealed, setSeedRevealed] = useState(false);
-  const [wroteDown, setWroteDown] = useState(false);
-  const [balance, setBalance] = useState(0);
-  const [ordAddr, setOrdAddr] = useState('');
-  const [payAddr, setPayAddr] = useState('');
+  // Keep the screen in sync if the wallet appears/disappears (e.g. created in Step 2).
+  useEffect(() => { setScreen((s) => (!wallet ? 'needWallet' : s === 'needWallet' ? 'home' : s)); }, [wallet]);
   // inscribe form
   const [title, setTitle] = useState('');
   const [feeRate, setFeeRate] = useState(8);
@@ -197,59 +170,41 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   const [dragOver, setDragOver] = useState(false);
   const [txStage, setTxStage] = useState<TxStage>('idle');
   const [resultTxid, setResultTxid] = useState('');
-  const [myInscriptions, setMyInscriptions] = useState<{ txid: string; title: string; img: string }[]>([]);
   const timers = useRef<number[]>([]);
+
+  const balance = wallet?.balance ?? 0;
+  const ordAddr = wallet?.ordAddr ?? '';
+  const payAddr = wallet?.payAddr ?? '';
+  const myInscriptions = wallet?.inscriptions ?? [];
 
   useEffect(() => () => { timers.current.forEach((t) => clearTimeout(t)); }, []);
 
-  const createWallet = () => {
-    setSeed(randomSeed(12));
-    setOrdAddr(fakeBech('bc1p', 39));
-    setPayAddr(fakeBech('bc1q', 34));
-    setSeedRevealed(false);
-    setWroteDown(false);
-    setScreen('seed');
-  };
-
-  // confirm step: 3 random positions
-  const [challenge, setChallenge] = useState<{ pos: number; options: string[]; picked: number | null }[]>([]);
-  const buildChallenge = () => {
-    const positions: number[] = [];
-    while (positions.length < 3) { const p = rand(12); if (!positions.includes(p)) positions.push(p); }
-    positions.sort((a, b) => a - b);
-    const ch = positions.map((pos) => {
-      const correct = seed[pos];
-      const opts = new Set<string>([correct]);
-      while (opts.size < 4) opts.add(SEED_WORDS[rand(SEED_WORDS.length)]);
-      const options = [...opts].sort(() => Math.random() - 0.5);
-      return { pos, options, picked: null as number | null };
-    });
-    setChallenge(ch);
-    setScreen('confirm');
-  };
-  const allCorrect = challenge.length === 3 && challenge.every((c) => c.picked !== null && c.options[c.picked] === seed[c.pos]);
-
   const estCost = feeRate * 700 + 546; // rough demo cost (image is bigger than text)
   const doVirtualInscribe = () => {
-    if (balance < estCost) return;
+    if (!wallet || balance < estCost) return;
     const txid = fakeTxid();
     setResultTxid(txid);
     setTxStage('building');
     setScreen('result');
+    const inscribedTitle = title.trim();
     timers.current.push(window.setTimeout(() => setTxStage('mempool'), 1400));
     timers.current.push(window.setTimeout(() => {
       setTxStage('confirmed');
-      setBalance((b) => Math.max(0, b - estCost));
-      // The inscription now "lands" in the wallet's collectibles.
-      setMyInscriptions((prev) => [{ txid, title: title.trim(), img: DEMO_INSCRIPTION_IMG }, ...prev]);
+      // Deduct fees and let the inscription "land" in the wallet's collectibles (persisted).
+      patchWallet((w) => ({
+        ...w,
+        balance: Math.max(0, w.balance - estCost),
+        inscriptions: [{ txid, title: inscribedTitle, img: DEMO_INSCRIPTION_IMG }, ...w.inscriptions],
+      }));
     }, 5200));
     // Shortcut: after 10s the block "arrives" and everything is fully settled (no endless pulsing).
     timers.current.push(window.setTimeout(() => setTxStage('done'), 10000));
   };
 
+  // "Practice again" keeps the saved wallet — just resets the inscribe form.
   const restart = () => {
     timers.current.forEach((t) => clearTimeout(t));
-    setScreen('welcome'); setSeed([]); setBalance(0); setTitle(''); setTxStage('idle'); setResultTxid(''); setMyInscriptions([]); setImageDropped(false); setDragOver(false);
+    setScreen(wallet ? 'home' : 'needWallet'); setTitle(''); setTxStage('idle'); setResultTxid(''); setImageDropped(false); setDragOver(false);
   };
 
   const AddrRow: React.FC<{ label: string; addr: string; tag: string; color: string }> = ({ label, addr, tag, color }) => (
@@ -291,80 +246,18 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
         </div>
 
         <div className="p-4" style={{ minHeight: 420 }}>
-          {/* WELCOME */}
-          {screen === 'welcome' && (
-            <div className="flex h-full flex-col items-center justify-center py-10 text-center">
+          {/* NEED WALLET — no saved practice wallet yet */}
+          {screen === 'needWallet' && (
+            <div className="flex h-full flex-col items-center justify-center py-8 text-center">
               <div className="mb-4 text-5xl">👛</div>
-              <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Welcome', de: 'Willkommen' }, lang)}</h3>
-              <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>{tr({ en: 'Create a practice wallet — no real money involved.', de: 'Erstelle eine Übungs-Wallet — kein echtes Geld im Spiel.' }, lang)}</p>
-              <Btn className="mt-6" onClick={createWallet}>{tr({ en: 'Create new wallet', de: 'Neue Wallet erstellen' }, lang)}</Btn>
-            </div>
-          )}
-
-          {/* SEED */}
-          {screen === 'seed' && (
-            <div>
-              <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Back up your Seed Phrase', de: 'Sichere deine Seed Phrase' }, lang)}</h3>
-              <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'These 12 words ARE your wallet. Write them on paper. Never share or screenshot them.', de: 'Diese 12 Wörter SIND deine Wallet. Schreib sie auf Papier. Nie teilen oder screenshotten.' }, lang)}</p>
-              <div className="relative mt-3">
-                <div className={`grid grid-cols-2 gap-2 ${seedRevealed ? '' : 'blur-sm select-none'}`}>
-                  {seed.map((w, i) => (
-                    <div key={i} className="rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--text)' }}>
-                      <span style={{ color: 'var(--muted)' }}>{i + 1}. </span>{w}
-                    </div>
-                  ))}
-                </div>
-                {!seedRevealed && (
-                  <button onClick={() => setSeedRevealed(true)} className="absolute inset-0 flex items-center justify-center rounded-lg text-xs font-bold" style={{ background: 'rgba(0,0,0,0.35)', color: '#fff' }}>
-                    👁 {tr({ en: 'Tap to reveal', de: 'Zum Anzeigen tippen' }, lang)}
-                  </button>
-                )}
-              </div>
-              <label className="mt-4 flex items-center gap-2 text-xs" style={{ color: 'var(--text)' }}>
-                <input type="checkbox" checked={wroteDown} onChange={(e) => setWroteDown(e.target.checked)} />
-                {tr({ en: 'I wrote my 12 words down safely', de: 'Ich habe meine 12 Wörter sicher notiert' }, lang)}
-              </label>
-              <Btn className="mt-4 w-full" disabled={!seedRevealed || !wroteDown} onClick={buildChallenge}>{tr({ en: 'Continue', de: 'Weiter' }, lang)}</Btn>
-            </div>
-          )}
-
-          {/* CONFIRM */}
-          {screen === 'confirm' && (
-            <div>
-              <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Confirm your backup', de: 'Backup bestätigen' }, lang)}</h3>
-              <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'Pick the correct word for each position.', de: 'Wähle für jede Position das richtige Wort.' }, lang)}</p>
-              <div className="mt-3 flex flex-col gap-3">
-                {challenge.map((c, ci) => (
-                  <div key={ci}>
-                    <div className="mb-1 text-xs font-semibold" style={{ color: 'var(--text)' }}>{tr({ en: 'Word', de: 'Wort' }, lang)} #{c.pos + 1}</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {c.options.map((opt, oi) => {
-                        const picked = c.picked === oi;
-                        const isCorrect = opt === seed[c.pos];
-                        let border = 'var(--border)'; let bg = 'var(--soft)';
-                        if (c.picked !== null && isCorrect) { border = '#22C55E'; bg = '#22C55E22'; }
-                        else if (picked && !isCorrect) { border = '#EF4444'; bg = '#EF444422'; }
-                        return (
-                          <button key={oi} disabled={c.picked !== null}
-                            onClick={() => setChallenge((prev) => prev.map((x, idx) => idx === ci ? { ...x, picked: oi } : x))}
-                            className="rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: border, background: bg, color: 'var(--text)' }}>
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Btn className="mt-4 w-full" disabled={!allCorrect} onClick={() => setScreen('home')}>{tr({ en: 'Open wallet', de: 'Wallet öffnen' }, lang)}</Btn>
-              {challenge.some((c) => c.picked !== null && c.options[c.picked!] !== seed[c.pos]) && (
-                <button onClick={() => setScreen('seed')} className="mt-2 w-full text-xs underline" style={{ color: BTC }}>{tr({ en: 'Show words again', de: 'Wörter erneut zeigen' }, lang)}</button>
-              )}
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'No practice wallet yet', de: 'Noch keine Übungs-Wallet' }, lang)}</h3>
+              <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>{tr({ en: 'Create your practice wallet in Step 2 first — it only takes a minute and is then saved here.', de: 'Erstelle zuerst deine Übungs-Wallet in Step 2 — das dauert nur eine Minute und wird dann hier gespeichert.' }, lang)}</p>
+              <Btn className="mt-6" onClick={() => navigate('/ordinals-explained/step-2')}>{tr({ en: '→ Go to Step 2 (create wallet)', de: '→ Zu Step 2 (Wallet erstellen)' }, lang)}</Btn>
             </div>
           )}
 
           {/* HOME */}
-          {screen === 'home' && (
+          {screen === 'home' && wallet && (
             <div>
               <div className="rounded-2xl border p-4 text-center" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
                 <div className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--muted)' }}>{tr({ en: 'Balance', de: 'Guthaben' }, lang)}</div>
@@ -378,7 +271,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
                 {tr({ en: 'Inscriptions go to your Taproot (bc1p…) address. Fees are paid from the payment address.', de: 'Inscriptions gehen an deine Taproot- (bc1p…) Adresse. Gebühren werden von der Zahlungs-Adresse bezahlt.' }, lang)}
               </InfoBox>
               <div className="mt-3 flex gap-2">
-                <Btn variant="ghost" className="flex-1" onClick={() => setBalance((b) => b + 25000)}>＋ {tr({ en: 'Receive test sats', de: 'Test-Sats erhalten' }, lang)}</Btn>
+                <Btn variant="ghost" className="flex-1" onClick={() => patchWallet((w) => ({ ...w, balance: w.balance + 25000 }))}>＋ {tr({ en: 'Receive test sats', de: 'Test-Sats erhalten' }, lang)}</Btn>
                 <Btn className="flex-1" disabled={balance <= 0} onClick={() => { setImageDropped(false); setDragOver(false); setScreen('inscribe'); }}>{tr({ en: 'Inscribe', de: 'Einschreiben' }, lang)} →</Btn>
               </div>
 
@@ -735,15 +628,24 @@ const Step: React.FC<{ n: number; title: string; children: React.ReactNode }> = 
 // ─── Practice guide (single active step, synced to the virtual wallet) ───────
 type VStepDef = { screen: VScreen; title: L; body: L; tip?: { icon: string; color: string; text: L } };
 const V_STEPS: VStepDef[] = [
-  { screen: 'welcome', title: { en: '1 · Get a wallet', de: '1 · Wallet holen' }, body: { en: 'Xverse is a beginner-friendly wallet made for Ordinals. Here you use a safe practice wallet — just tap “Create new wallet”.', de: 'Xverse ist eine anfängerfreundliche Wallet für Ordinals. Hier nutzt du eine gefahrlose Übungs-Wallet — tippe einfach auf „Neue Wallet erstellen".' }, tip: { icon: '🧪', color: '#2563EB', text: { en: 'For the real thing later, install it only from xverse.app.', de: 'Für den Ernstfall später: nur von xverse.app installieren.' } } },
-  { screen: 'seed', title: { en: '2 · Save your seed phrase', de: '2 · Seed Phrase sichern' }, body: { en: 'The wallet shows 12 words. Write them on paper, in order. These 12 words ARE your wallet.', de: 'Die Wallet zeigt 12 Wörter. Schreib sie in Reihenfolge auf Papier. Diese 12 Wörter SIND deine Wallet.' }, tip: { icon: '🚫', color: '#EF4444', text: { en: 'Never screenshot, cloud-save or share them.', de: 'Nie screenshotten, in der Cloud speichern oder teilen.' } } },
-  { screen: 'confirm', title: { en: '3 · Confirm your backup', de: '3 · Backup bestätigen' }, body: { en: 'Pick the correct word for each requested position. This proves you really wrote them down.', de: 'Wähle für jede abgefragte Position das richtige Wort. So beweist du, dass du sie wirklich notiert hast.' } },
-  { screen: 'home', title: { en: '4 · Your addresses & funding', de: '4 · Deine Adressen & Aufladen' }, body: { en: 'Your wallet has a Taproot address (bc1p…, receives inscriptions) and a payment address (bc1q…, pays fees). Tap “Receive test sats” to fund it.', de: 'Deine Wallet hat eine Taproot-Adresse (bc1p…, empfängt Inscriptions) und eine Zahlungs-Adresse (bc1q…, zahlt Gebühren). Tippe „Test-Sats erhalten", um sie aufzuladen.' } },
-  { screen: 'inscribe', title: { en: '5 · Inscribe: title, content, fee', de: '5 · Einschreiben: Titel, Inhalt, Fee' }, body: { en: 'Give it a title, add content, choose a fee rate and confirm. Higher fee = faster; bigger content = more expensive.', de: 'Gib einen Titel, füge Inhalt hinzu, wähle eine Gebühr und bestätige. Höhere Fee = schneller; größerer Inhalt = teurer.' } },
-  { screen: 'result', title: { en: '6 · Watch the transaction', de: '6 · Transaktion verfolgen' }, body: { en: 'Your tx is broadcast to the mempool, then confirmed in a block (~10 min on average). Follow the stages below.', de: 'Deine Tx geht in den Mempool und wird dann in einem Block bestätigt (~10 Min im Schnitt). Verfolge die Phasen unten.' } },
+  { screen: 'home', title: { en: '1 · Fund your wallet', de: '1 · Wallet aufladen' }, body: { en: 'Your saved wallet has a Taproot address (bc1p…, receives inscriptions) and a payment address (bc1q…, pays fees). Tap “Receive test sats” to fund it.', de: 'Deine gespeicherte Wallet hat eine Taproot-Adresse (bc1p…, empfängt Inscriptions) und eine Zahlungs-Adresse (bc1q…, zahlt Gebühren). Tippe „Test-Sats erhalten", um sie aufzuladen.' } },
+  { screen: 'inscribe', title: { en: '2 · Inscribe: title, image, fee', de: '2 · Einschreiben: Titel, Bild, Fee' }, body: { en: 'Give it a title, drag the sample image into the drop zone, choose a fee rate and confirm. Higher fee = faster; bigger content = more expensive.', de: 'Gib einen Titel, zieh das Beispielbild in die Ablage-Zone, wähle eine Gebühr und bestätige. Höhere Fee = schneller; größerer Inhalt = teurer.' } },
+  { screen: 'result', title: { en: '3 · Watch the transaction', de: '3 · Transaktion verfolgen' }, body: { en: 'Your tx is broadcast to the mempool, then confirmed in a block (~10 min on average). Follow the stages below — then it lands in your collectibles.', de: 'Deine Tx geht in den Mempool und wird dann in einem Block bestätigt (~10 Min im Schnitt). Verfolge die Phasen unten — danach landet sie in deinen Sammlerstücken.' } },
 ];
 
 const VirtualGuide: React.FC<{ lang: Lang; vScreen: VScreen }> = ({ lang, vScreen }) => {
+  if (vScreen === 'needWallet') {
+    return (
+      <Card>
+        <Pill color="#2563EB">🧪 {tr({ en: 'Practice guide', de: 'Übungs-Anleitung' }, lang)}</Pill>
+        <div className="mt-5">
+          <h3 className="text-xl font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Create your wallet first', de: 'Erstelle zuerst deine Wallet' }, lang)}</h3>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>{tr({ en: 'Inscribing needs a wallet. Head to Step 2 to create one — it gets saved, so you only do this once.', de: 'Zum Einschreiben brauchst du eine Wallet. Geh zu Step 2, um eine zu erstellen — sie wird gespeichert, du machst das also nur einmal.' }, lang)}</p>
+          <InfoBox icon="👉" color="#2563EB">{tr({ en: 'Use the button in the wallet on the right to jump to Step 2.', de: 'Nutze den Button in der Wallet rechts, um zu Step 2 zu springen.' }, lang)}</InfoBox>
+        </div>
+      </Card>
+    );
+  }
   const idx = Math.max(0, V_STEPS.findIndex((s) => s.screen === vScreen));
   const step = V_STEPS[idx];
   return (
@@ -775,7 +677,7 @@ export const InscribeLabPage: React.FC = () => {
   const [lang, setLang] = useState<Lang>('en');
   const [dark, setDark] = useState(true);
   const [mode, setMode] = useState<'virtual' | 'real'>('virtual');
-  const [vScreen, setVScreen] = useState<VScreen>('welcome');
+  const [vScreen, setVScreen] = useState<VScreen>('needWallet');
   const theme = dark ? DARK : LIGHT;
 
   return (
@@ -785,8 +687,8 @@ export const InscribeLabPage: React.FC = () => {
         <header className="sticky top-0 z-40 border-b backdrop-blur" style={{ borderColor: 'var(--border)', background: dark ? 'rgba(11,11,15,0.72)' : 'rgba(250,250,248,0.72)' }}>
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-3">
             <div className="flex items-center gap-2">
-              <button onClick={() => navigate('/ordinals-explained')} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--soft)' }}>
-                <span style={{ color: BTC }}>←</span> {tr({ en: 'Step 1', de: 'Step 1' }, lang)}
+              <button onClick={() => navigate('/ordinals-explained/step-2')} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--soft)' }}>
+                <span style={{ color: BTC }}>←</span> {tr({ en: 'Step 2', de: 'Step 2' }, lang)}
               </button>
               <button onClick={() => navigate('/')} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--soft)' }}>
                 🏠 {tr({ en: 'Home', de: 'Startseite' }, lang)}
@@ -806,10 +708,10 @@ export const InscribeLabPage: React.FC = () => {
         {/* Hero */}
         <section className="px-5 pt-14 pb-6 text-center">
           <div className="mx-auto max-w-3xl">
-            <Pill>{tr({ en: 'Step 2', de: 'Step 2' }, lang)}</Pill>
+            <Pill>{tr({ en: 'Step 3', de: 'Step 3' }, lang)}</Pill>
             <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl" style={{ color: 'var(--text)' }}>{tr({ en: 'Inscribe it yourself', de: 'Selbst einschreiben' }, lang)}</h1>
             <p className="mx-auto mt-3 max-w-xl text-base" style={{ color: 'var(--muted)' }}>
-              {tr({ en: 'A guided, hands-on walkthrough: get a wallet, secure your seed, fund it, and create your first inscription — practice safely first, then do it for real.', de: 'Eine geführte Praxis-Anleitung: Wallet holen, Seed sichern, aufladen und deine erste Inscription erstellen — erst gefahrlos üben, dann echt machen.' }, lang)}
+              {tr({ en: 'Use the wallet you created in Step 2 to fund and create your first inscription — practice safely as often as you like, then do it for real.', de: 'Nutze die in Step 2 erstellte Wallet, um deine erste Inscription aufzuladen und zu erstellen — übe gefahrlos so oft du willst, dann mach es echt.' }, lang)}
             </p>
           </div>
         </section>
@@ -820,11 +722,11 @@ export const InscribeLabPage: React.FC = () => {
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-lg" aria-hidden>💡</span>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
-                {tr({ en: 'You can start here anytime — but only do Step 2 once you understand the basics (wallet, seed phrase, fees, inscriptions). If anything is unclear, go through Step 1 first.', de: 'Du kannst hier jederzeit einsteigen — mach Step 2 aber erst, wenn du die Basics verstanden hast (Wallet, Seed Phrase, Fees, Inscriptions). Wenn etwas unklar ist, geh zuerst durch Step 1.' }, lang)}
+                {tr({ en: 'This uses the practice wallet from Step 2. No wallet yet? Create one in Step 2 first — it stays saved so you can practice inscribing here anytime.', de: 'Hier wird die Übungs-Wallet aus Step 2 genutzt. Noch keine Wallet? Erstelle zuerst eine in Step 2 — sie bleibt gespeichert, damit du hier jederzeit das Einschreiben üben kannst.' }, lang)}
               </p>
             </div>
-            <button onClick={() => navigate('/ordinals-explained')} className="shrink-0 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
-              {tr({ en: '← Review Step 1', de: '← Step 1 ansehen' }, lang)}
+            <button onClick={() => navigate('/ordinals-explained/step-2')} className="shrink-0 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BTC, color: '#000' }}>
+              {tr({ en: '← Go to Step 2', de: '← Zu Step 2' }, lang)}
             </button>
           </div>
         </div>

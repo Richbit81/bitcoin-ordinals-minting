@@ -97,8 +97,18 @@ const ROUTES = [
   },
   {
     path: 'ordinals-explained/step-2',
+    title: 'Create a Bitcoin Wallet — Practice Wallet Workshop | RichArt',
+    description: 'Set up your first Bitcoin Ordinals wallet safely: practice creating a wallet, backing up your seed phrase and getting your Taproot & payment addresses — with RichArt.',
+    graph: (url, title, description) => [
+      articleNode(title, description, url),
+      howToNode(description),
+      breadcrumbNode('Create a Wallet', url),
+    ],
+  },
+  {
+    path: 'ordinals-explained/step-3',
     title: 'Create Your First Bitcoin Inscription — Hands-on Workshop | RichArt',
-    description: 'A hands-on workshop to create your first Bitcoin Ordinals inscription: practice safely with a virtual Xverse wallet, then inscribe for real directly in your browser with RichArt.',
+    description: 'A hands-on workshop to create your first Bitcoin Ordinals inscription: practice safely with your saved virtual wallet, then inscribe for real directly in your browser with RichArt.',
     graph: (url, title, description) => [
       articleNode(title, description, url),
       howToNode(description),
