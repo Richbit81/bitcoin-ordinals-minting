@@ -108,6 +108,9 @@ type TxStage = 'idle' | 'building' | 'mempool' | 'confirmed' | 'done';
 // used in the practice mode so learners can see what a real tx page looks like.
 const EXAMPLE_MEMPOOL_TX = 'b61b0172d95e266c18aea0c624db987e971a5d6d4ebc2aaed85da4642d635735';
 
+// Sample image the practice wallet "inscribes" so beginners see an image land in the wallet.
+const DEMO_INSCRIPTION_IMG = '/images/practice-inscription.png';
+
 const TxExplainer: React.FC<{ lang: Lang; stage: TxStage; txid?: string; virtual?: boolean }> = ({ lang, stage, txid, virtual }) => {
   const steps: { key: TxStage; icon: string; title: L; desc: L }[] = [
     { key: 'building', icon: '🔨', title: { en: 'Signing', de: 'Signieren' }, desc: { en: 'Your wallet signs the transaction with your private key.', de: 'Deine Wallet signiert die Transaktion mit deinem Private Key.' } },
@@ -189,10 +192,10 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   const [payAddr, setPayAddr] = useState('');
   // inscribe form
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('gm ₿');
   const [feeRate, setFeeRate] = useState(8);
   const [txStage, setTxStage] = useState<TxStage>('idle');
   const [resultTxid, setResultTxid] = useState('');
+  const [myInscriptions, setMyInscriptions] = useState<{ txid: string; title: string; img: string }[]>([]);
   const timers = useRef<number[]>([]);
 
   useEffect(() => () => { timers.current.forEach((t) => clearTimeout(t)); }, []);
@@ -224,21 +227,27 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
   };
   const allCorrect = challenge.length === 3 && challenge.every((c) => c.picked !== null && c.options[c.picked] === seed[c.pos]);
 
-  const estCost = feeRate * 160 + 546; // rough demo cost
+  const estCost = feeRate * 700 + 546; // rough demo cost (image is bigger than text)
   const doVirtualInscribe = () => {
     if (balance < estCost) return;
-    setResultTxid(fakeTxid());
+    const txid = fakeTxid();
+    setResultTxid(txid);
     setTxStage('building');
     setScreen('result');
     timers.current.push(window.setTimeout(() => setTxStage('mempool'), 1400));
-    timers.current.push(window.setTimeout(() => { setTxStage('confirmed'); setBalance((b) => Math.max(0, b - estCost)); }, 5200));
+    timers.current.push(window.setTimeout(() => {
+      setTxStage('confirmed');
+      setBalance((b) => Math.max(0, b - estCost));
+      // The inscription now "lands" in the wallet's collectibles.
+      setMyInscriptions((prev) => [{ txid, title: title.trim(), img: DEMO_INSCRIPTION_IMG }, ...prev]);
+    }, 5200));
     // Shortcut: after 10s the block "arrives" and everything is fully settled (no endless pulsing).
     timers.current.push(window.setTimeout(() => setTxStage('done'), 10000));
   };
 
   const restart = () => {
     timers.current.forEach((t) => clearTimeout(t));
-    setScreen('welcome'); setSeed([]); setBalance(0); setTitle(''); setContent('gm ₿'); setTxStage('idle'); setResultTxid('');
+    setScreen('welcome'); setSeed([]); setBalance(0); setTitle(''); setTxStage('idle'); setResultTxid(''); setMyInscriptions([]);
   };
 
   const AddrRow: React.FC<{ label: string; addr: string; tag: string; color: string }> = ({ label, addr, tag, color }) => (
@@ -352,6 +361,28 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
                 <Btn variant="ghost" className="flex-1" onClick={() => setBalance((b) => b + 25000)}>＋ {tr({ en: 'Receive test sats', de: 'Test-Sats erhalten' }, lang)}</Btn>
                 <Btn className="flex-1" disabled={balance <= 0} onClick={() => setScreen('inscribe')}>{tr({ en: 'Inscribe', de: 'Einschreiben' }, lang)} →</Btn>
               </div>
+
+              {/* Collectibles — inscriptions owned by this practice wallet */}
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Collectibles', de: 'Sammlerstücke' }, lang)}</span>
+                  {myInscriptions.length > 0 && <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{myInscriptions.length}</span>}
+                </div>
+                {myInscriptions.length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
+                    {tr({ en: 'No inscriptions yet — create one above.', de: 'Noch keine Inscriptions — erstelle oben eine.' }, lang)}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {myInscriptions.map((it) => (
+                      <div key={it.txid} className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                        <img src={it.img} alt={it.title || 'inscription'} className="aspect-square w-full object-cover" style={{ imageRendering: 'pixelated' }} />
+                        {it.title && <div className="truncate px-1.5 py-1 text-[10px]" style={{ color: 'var(--text)' }}>{it.title}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -362,9 +393,11 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Title', de: 'Titel' }, lang)}</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr({ en: 'My first inscription', de: 'Meine erste Inscription' }, lang)}
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--text)' }} />
-              <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Content (text)', de: 'Inhalt (Text)' }, lang)}</label>
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--text)' }} />
+              <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{tr({ en: 'Content (image)', de: 'Inhalt (Bild)' }, lang)}</label>
+              <div className="mt-1 flex items-center gap-3 rounded-lg border p-2" style={{ borderColor: 'var(--border)', background: 'var(--soft)' }}>
+                <img src={DEMO_INSCRIPTION_IMG} alt="inscription" className="h-14 w-14 rounded-md object-cover" style={{ imageRendering: 'pixelated' }} />
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'Sample image (this demo inscribes a picture).', de: 'Beispielbild (dieses Demo schreibt ein Bild ein).' }, lang)}</span>
+              </div>
               <label className="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                 <span>{tr({ en: 'Fee rate', de: 'Gebühr' }, lang)}</span><span style={{ color: BTC }}>{feeRate} sat/vB</span>
               </label>
@@ -375,7 +408,7 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               {balance < estCost && <p className="mt-2 text-xs" style={{ color: '#EF4444' }}>{tr({ en: 'Not enough sats — receive test sats first.', de: 'Zu wenig Sats — hol dir zuerst Test-Sats.' }, lang)}</p>}
               <div className="mt-3 flex gap-2">
                 <Btn variant="ghost" onClick={() => setScreen('home')}>←</Btn>
-                <Btn className="flex-1" disabled={balance < estCost || !content.trim()} onClick={doVirtualInscribe}>{tr({ en: 'Inscribe now', de: 'Jetzt einschreiben' }, lang)}</Btn>
+                <Btn className="flex-1" disabled={balance < estCost} onClick={doVirtualInscribe}>{tr({ en: 'Inscribe now', de: 'Jetzt einschreiben' }, lang)}</Btn>
               </div>
             </div>
           )}
@@ -387,12 +420,16 @@ const VirtualXverse: React.FC<{ lang: Lang; onScreenChange?: (s: VScreen) => voi
               <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>
                 {txStage === 'confirmed' || txStage === 'done' ? tr({ en: 'Inscription confirmed!', de: 'Inscription bestätigt!' }, lang) : tr({ en: 'Broadcasting…', de: 'Wird gesendet…' }, lang)}
               </h3>
-              {title && <p className="mt-1 text-sm" style={{ color: BTC }}>"{title}"</p>}
+              <img src={DEMO_INSCRIPTION_IMG} alt="inscription" className="mx-auto mt-2 h-28 w-28 rounded-xl border object-cover" style={{ borderColor: 'var(--border)', imageRendering: 'pixelated' }} />
+              {title && <p className="mt-2 text-sm" style={{ color: BTC }}>"{title}"</p>}
               <div className="mt-2 break-all rounded-lg border px-3 py-2 font-mono text-[10px]" style={{ borderColor: 'var(--border)', background: 'var(--soft)', color: 'var(--text)' }}>
                 {resultTxid}i0
               </div>
               <div className="mt-3 text-left"><TxExplainer lang={lang} stage={txStage} txid={resultTxid} virtual /></div>
-              <Btn variant="ghost" className="mt-3 w-full" onClick={restart}>↺ {tr({ en: 'Practice again', de: 'Nochmal üben' }, lang)}</Btn>
+              {(txStage === 'confirmed' || txStage === 'done') && (
+                <Btn className="mt-3 w-full" onClick={() => setScreen('home')}>{tr({ en: 'See it in your wallet →', de: 'In der Wallet ansehen →' }, lang)}</Btn>
+              )}
+              <Btn variant="ghost" className="mt-2 w-full" onClick={restart}>↺ {tr({ en: 'Practice again', de: 'Nochmal üben' }, lang)}</Btn>
             </div>
           )}
         </div>
