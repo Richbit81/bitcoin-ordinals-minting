@@ -96,7 +96,10 @@ const AddrRow: React.FC<{ label: string; addr: string; tag: string; color: strin
 const WalletApp: React.FC<{ lang: Lang; onScreenChange?: (s: WScreen) => void }> = ({ lang, onScreenChange }) => {
   const navigate = useNavigate();
   const { wallet, createWallet, patchWallet, resetWallet } = usePracticeWallet();
-  const [screen, setScreen] = useState<WScreen>(wallet ? 'home' : 'welcome');
+  // Step 2 is the guided wallet lesson — always start at the beginning so learners
+  // practice writing down the seed, even if a wallet already exists (e.g. from Step 3).
+  const [screen, setScreen] = useState<WScreen>('welcome');
+  const hadWallet = React.useRef(!!wallet).current;
   const [seedRevealed, setSeedRevealed] = useState(false);
   const [wroteDown, setWroteDown] = useState(false);
   const [challenge, setChallenge] = useState<{ pos: number; options: string[]; picked: number | null }[]>([]);
@@ -143,6 +146,12 @@ const WalletApp: React.FC<{ lang: Lang; onScreenChange?: (s: WScreen) => void }>
               <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{tr({ en: 'Welcome', de: 'Willkommen' }, lang)}</h3>
               <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>{tr({ en: 'Create a practice wallet — no real money involved.', de: 'Erstelle eine Übungs-Wallet — kein echtes Geld im Spiel.' }, lang)}</p>
               <Btn className="mt-6" onClick={startCreate}>{tr({ en: 'Create new wallet', de: 'Neue Wallet erstellen' }, lang)}</Btn>
+              {hadWallet && (
+                <>
+                  <p className="mt-4 text-xs" style={{ color: 'var(--muted)' }}>{tr({ en: 'You already have a saved wallet — creating a new one replaces it.', de: 'Du hast bereits eine gespeicherte Wallet — eine neue ersetzt sie.' }, lang)}</p>
+                  <button onClick={() => setScreen('home')} className="mt-1 text-xs font-semibold underline underline-offset-4" style={{ color: BTC }}>{tr({ en: 'Keep it — open my wallet', de: 'Behalten — meine Wallet öffnen' }, lang)}</button>
+                </>
+              )}
             </div>
           )}
 
