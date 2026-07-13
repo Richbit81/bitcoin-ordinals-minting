@@ -314,7 +314,6 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Launchpad',
     items: [
-      { label: 'Robin Pulse', route: 'https://mint.richart.app/mint.html', img: 'https://pub-0fe0773daa26432ca3478685fda2cb43.r2.dev/images/1.png', external: true },
       { label: 'Spikes', route: '/spikes', img: 'https://ordinals.com/content/e7ddfba5037731094b38f9214667e6a44f041fe02de9397e48bb6506f40246a1i0' },
       { label: 'High Rollers', route: '/high-rollers', img: '/images/high-rollers/0001.avif' },
       { label: 'Primal Club', route: '/primal-club', img: '/images/primal-club/primal-club-logo.png' },
@@ -629,17 +628,6 @@ export const HomePageV2: React.FC = () => {
         tag: 'COLLECTION',
         tagColor: 'bg-purple-600',
         mintLive: false,
-      },
-      {
-        name: 'Robin Pulse',
-        desc: '2.000 generative energy lifeforms on Robinhood Chain — live HTML, free mint, pay only gas.',
-        src: 'https://pub-0fe0773daa26432ca3478685fda2cb43.r2.dev/images/1.png',
-        route: 'https://mint.richart.app/mint.html',
-        external: true,
-        isHtml: false,
-        tag: 'FREE MINT',
-        tagColor: 'bg-green-500',
-        mintLive: true,
       },
     ];
     const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
