@@ -173,6 +173,15 @@ const BOOK_ITEMS = [
     description:
       'The Teachings of Don Juan: A Yaqui Way of Knowledge by Carlos Castaneda recounts the author\'s apprenticeship with Don Juan Matus, a Yaqui sorcerer from northern Mexico. Through their encounters, Castaneda is initiated into a mysterious system of knowledge centered on perception, power, and the use of psychotropic plants.\n\nThe book blends ethnographic field notes with a deeply personal account of altered states of consciousness, as Don Juan guides his student toward becoming a "man of knowledge" and learning to "see" reality beyond ordinary awareness.\n\nA landmark and controversial work that bridges anthropology, philosophy, and mysticism, it remains one of the most influential explorations of non-ordinary reality ever published.\n\n110% on-chain — preserved in the blockchain, so Don Juan\'s teachings can never fade.',
   },
+  {
+    id: 'tyndale-new-testament',
+    name: 'Tyndale New Testament',
+    inscriptionId: '7906889d8eb52a7939a15b8942cc6b9b849f5f3b00b705582d559b3c40edcb0fi0',
+    author: 'William Tyndale',
+    priceInSats: 0,
+    description:
+      'William Tyndale\'s New Testament (1526) is the first printed English translation of the New Testament made directly from the Greek. It opened Scripture to ordinary readers and deeply shaped later English Bibles, including the King James Version.\n\nTyndale\'s clear, forceful prose and many of his renderings entered the language itself. For this pioneering work he was condemned and later executed — a landmark of Reformation history and of the English Bible tradition.\n\nFree mint — pay only inscription fees. 110% on-chain, preserved forever.',
+  },
 ];
 
 const COLLECTION_NAME = 'Books Onchain';
