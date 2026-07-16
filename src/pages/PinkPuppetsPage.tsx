@@ -90,16 +90,25 @@ export const PinkPuppetsPage: React.FC = () => {
   const promoBanners = React.useMemo(
     () => [
       {
+        href: '#pink-slot2',
+        image: '/images/pinkpuppets-slot-prizes-poster.png',
+        title: 'New prizes added!',
+        subtitle: '39 ordinals in the slot — spin to win',
+        external: false,
+      },
+      {
         href: 'https://openpage.fun/badges/9161ff5e-79a1-4376-b6b4-f7036b9903d6',
         image: '/images/pinkpuppets-openpage.avif',
         title: 'PinkPuppets on Openpage!',
         subtitle: 'Open the PinkPuppets community on op.xyz',
+        external: true,
       },
       {
         href: 'https://www.ord-x.com/item/Pink-Puppets',
         image: '/images/pinkpuppets-genesis.avif',
         title: 'Mint Phase 3 is coming on Ord-x.com!',
         subtitle: 'Prepare for the next PinkPuppets mint phase',
+        external: true,
       },
     ],
     []
@@ -234,15 +243,15 @@ export const PinkPuppetsPage: React.FC = () => {
             <div className="min-w-0 md:h-full md:overflow-hidden">
               <a
                 href={promoBanners[promoIndex].href}
-                target="_blank"
-                rel="noreferrer"
+                target={promoBanners[promoIndex].external ? '_blank' : undefined}
+                rel={promoBanners[promoIndex].external ? 'noreferrer' : undefined}
                 className="group flex flex-col h-full overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200"
               >
                 <img
                   src={promoBanners[promoIndex].image}
                   alt={promoBanners[promoIndex].title}
                   className="w-full flex-1 rounded-lg object-contain min-h-0"
-                  loading="lazy"
+                  loading={promoIndex === 0 ? 'eager' : 'lazy'}
                 />
                 <div className="mt-2 text-center">
                   <p className="text-sm font-bold text-pink-100 group-hover:text-white">{promoBanners[promoIndex].title}</p>

@@ -569,7 +569,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
   );
 
   return (
-    <section className={slotOpen ? 'contents' : 'mb-10 w-full'}>
+    <section id="pink-slot2" className={slotOpen ? 'contents' : 'mb-10 w-full'}>
       <div
         role={slotOpen ? 'dialog' : undefined}
         aria-modal={slotOpen ? true : undefined}
