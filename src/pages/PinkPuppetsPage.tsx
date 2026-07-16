@@ -62,10 +62,12 @@ const SafeTweet: React.FC<SafeTweetProps> = ({ id }) => (
   </SafeTweetBoundary>
 );
 
+const SLOT_PRIZES_POSTER = '/images/pinkpuppets-slot-prizes-poster.png';
+
 export const PinkPuppetsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, token } = usePinkChatAuth();
-  const [promoIndex, setPromoIndex] = React.useState(0);
+  const [posterOpen, setPosterOpen] = React.useState(false);
   const [tweetIds, setTweetIds] = React.useState<string[]>(FALLBACK_TWEETS);
 
   React.useEffect(() => {
@@ -87,39 +89,19 @@ export const PinkPuppetsPage: React.FC = () => {
     };
   }, []);
 
-  const promoBanners = React.useMemo(
-    () => [
-      {
-        href: '#pink-slot2',
-        image: '/images/pinkpuppets-slot-prizes-poster.png',
-        title: 'New prizes added!',
-        subtitle: '39 ordinals in the slot — spin to win',
-        external: false,
-      },
-      {
-        href: 'https://openpage.fun/badges/9161ff5e-79a1-4376-b6b4-f7036b9903d6',
-        image: '/images/pinkpuppets-openpage.avif',
-        title: 'PinkPuppets on Openpage!',
-        subtitle: 'Open the PinkPuppets community on op.xyz',
-        external: true,
-      },
-      {
-        href: 'https://www.ord-x.com/item/Pink-Puppets',
-        image: '/images/pinkpuppets-genesis.avif',
-        title: 'Mint Phase 3 is coming on Ord-x.com!',
-        subtitle: 'Prepare for the next PinkPuppets mint phase',
-        external: true,
-      },
-    ],
-    []
-  );
-
   React.useEffect(() => {
-    const id = window.setInterval(() => {
-      setPromoIndex((prev) => (prev + 1) % promoBanners.length);
-    }, 5000);
-    return () => window.clearInterval(id);
-  }, [promoBanners.length]);
+    if (!posterOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPosterOpen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [posterOpen]);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [musicOn, setMusicOn] = React.useState(false);
@@ -239,30 +221,25 @@ export const PinkPuppetsPage: React.FC = () => {
           {/* Main layout: 3 equal columns, fixed height so chat matches */}
           <div className="grid gap-3 grid-cols-1 md:grid-cols-3 md:h-[calc(100vh-300px)]">
 
-            {/* Col 1: Promo */}
+            {/* Col 1: Slot prizes poster (always visible) */}
             <div className="min-w-0 md:h-full md:overflow-hidden">
-              <a
-                href={promoBanners[promoIndex].href}
-                target={promoBanners[promoIndex].external ? '_blank' : undefined}
-                rel={promoBanners[promoIndex].external ? 'noreferrer' : undefined}
-                className="group flex flex-col h-full overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 transition hover:border-pink-200"
+              <button
+                type="button"
+                onClick={() => setPosterOpen(true)}
+                className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 text-left transition hover:border-pink-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/80"
+                aria-label="Open slot prizes poster fullscreen"
               >
                 <img
-                  src={promoBanners[promoIndex].image}
-                  alt={promoBanners[promoIndex].title}
-                  className="w-full flex-1 rounded-lg object-contain min-h-0"
-                  loading={promoIndex === 0 ? 'eager' : 'lazy'}
+                  src={SLOT_PRIZES_POSTER}
+                  alt="New prizes added — Pink Puppets slot prize poster"
+                  className="w-full flex-1 rounded-lg object-contain min-h-0 transition group-hover:opacity-95"
+                  loading="eager"
                 />
                 <div className="mt-2 text-center">
-                  <p className="text-sm font-bold text-pink-100 group-hover:text-white">{promoBanners[promoIndex].title}</p>
-                  <p className="text-[11px] text-pink-200/75 mt-0.5">{promoBanners[promoIndex].subtitle}</p>
+                  <p className="text-sm font-bold text-pink-100 group-hover:text-white">New prizes added!</p>
+                  <p className="text-[11px] text-pink-200/75 mt-0.5">Tap to enlarge · 39 ordinals in the slot</p>
                 </div>
-                <div className="mt-2 flex justify-center gap-1.5">
-                  {promoBanners.map((_, idx) => (
-                    <span key={idx} className={`block h-1 rounded-full transition-all ${promoIndex === idx ? 'w-5 bg-pink-300' : 'w-1.5 bg-pink-400/40'}`} />
-                  ))}
-                </div>
-              </a>
+              </button>
             </div>
 
             {/* Col 2: Latest Posts */}
@@ -295,6 +272,31 @@ export const PinkPuppetsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {posterOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Slot prizes poster"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-3 sm:p-6"
+          onClick={() => setPosterOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setPosterOpen(false)}
+            className="absolute right-3 top-3 z-10 rounded-full border border-pink-300/50 bg-black/60 px-3 py-1.5 text-xs font-semibold text-pink-100 hover:bg-black/80 sm:right-5 sm:top-5"
+            aria-label="Close poster"
+          >
+            Close ✕
+          </button>
+          <img
+            src={SLOT_PRIZES_POSTER}
+            alt="New prizes added — Pink Puppets slot prize poster (full size)"
+            className="max-h-[min(96vh,1400px)] max-w-full object-contain shadow-2xl shadow-pink-950/40"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };
