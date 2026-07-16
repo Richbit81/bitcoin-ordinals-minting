@@ -80,7 +80,7 @@ export const PinkSlot2AdminSection: React.FC<{ adminAddress: string }> = ({ admi
   return (
     <div className="mt-6 rounded-xl border border-pink-400/30 bg-black/30 p-4">
       <h3 className="text-sm font-bold text-pink-200">🎰 Pink Puppets — Slot Round 2</h3>
-      <p className="mt-1 text-[11px] text-pink-300/60">Adaptive prize engine · whitelist winners with Taproot addresses & spin log.</p>
+      <p className="mt-1 text-[11px] text-pink-300/60">Adaptive prize engine · whitelist winners with Taproot addresses, inscription prizes &amp; spin log.</p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
         <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">

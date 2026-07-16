@@ -39,13 +39,14 @@ function isSameSiteMessageOrigin(origin: string): boolean {
   }
 }
 
-type PrizeKey = 'main_prize' | 'wl_titans' | 'wl_lilcats' | 'bonus_spin' | 'no_win';
+type PrizeKey = 'main_prize' | 'wl_titans' | 'wl_lilcats' | 'inscription_prize' | 'bonus_spin' | 'no_win';
 
 /** Presentation mapping → reuses the round-1 embed animations (reels are cosmetic). */
 const EMBED_PRESENTATION: Record<PrizeKey, { embedPrize: string; targets: number[] }> = {
   main_prize: { embedPrize: 'pink_pass', targets: [0, 0, 0] }, // jackpot celebration
   wl_titans: { embedPrize: 'pink_block', targets: [1, 1, 1] },
   wl_lilcats: { embedPrize: 'smile', targets: [2, 2, 2] },
+  inscription_prize: { embedPrize: 'pink_pass', targets: [0, 2, 0] },
   bonus_spin: { embedPrize: 'no_win', targets: [3, 3, 3] },
   no_win: { embedPrize: 'no_win', targets: [2, 1, 2] },
 };
@@ -103,6 +104,15 @@ type Slot2Pool = {
   titans: { awarded: number; total: number; remaining: number };
   lilcats: { awarded: number; total: number; remaining: number };
   mainPrize: { awarded: boolean; gateSpins: number };
+  inscriptions?: {
+    awarded: number;
+    total: number;
+    remaining: number;
+    dailyCap: number;
+    awardedToday: number;
+    remainingToday: number;
+    testMode?: boolean;
+  };
   globalSpins: number;
   gateProgress: number;
 };
@@ -114,6 +124,9 @@ type SpinResult = {
   previewUrl: string;
   requiresClaim: boolean;
   claimKind: 'wl' | 'main' | null;
+  deliveryNote?: string | null;
+  inscriptionNumber?: string | null;
+  inscriptionId?: string | null;
   spinsRemaining: number;
   bonusBalance: number;
 };
@@ -264,6 +277,9 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         previewUrl: String(data.previewUrl || ''),
         requiresClaim: !!data.requiresClaim,
         claimKind: (data.claimKind as 'wl' | 'main' | null) ?? null,
+        deliveryNote: data.deliveryNote ? String(data.deliveryNote) : null,
+        inscriptionNumber: data.inscriptionNumber ? String(data.inscriptionNumber) : null,
+        inscriptionId: data.inscriptionId ? String(data.inscriptionId) : null,
         spinsRemaining: data.spinsRemaining ?? 0,
         bonusBalance: data.bonusBalance ?? 0,
       };
@@ -399,7 +415,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
 
   const pendingClaims = status?.pendingClaims ?? [];
 
-  const prizeBadge = (prize: PrizeKey) => {
+  const prizeBadge = (prize: PrizeKey, spin?: SpinResult | null) => {
     switch (prize) {
       case 'main_prize':
         return { label: 'GRAND PRIZE', text: 'Pink Puppet inscription', cls: 'border-green-400/50 bg-green-950/40 text-green-100' };
@@ -407,6 +423,12 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         return { label: 'WHITELIST', text: 'Blockchain Titans', cls: 'border-amber-400/50 bg-amber-950/40 text-amber-100' };
       case 'wl_lilcats':
         return { label: 'WHITELIST', text: 'Lil Cats', cls: 'border-cyan-400/50 bg-cyan-950/40 text-cyan-100' };
+      case 'inscription_prize':
+        return {
+          label: 'INSCRIPTION',
+          text: spin?.inscriptionNumber ? `Inscription ${spin.inscriptionNumber}` : (spin?.displayName || 'Inscription prize'),
+          cls: 'border-fuchsia-400/50 bg-fuchsia-950/40 text-fuchsia-100',
+        };
       default:
         return { label: '', text: '', cls: '' };
     }
@@ -454,8 +476,11 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         <strong className="text-pink-100"> High Rollers </strong>or<strong className="text-pink-100"> Spikes </strong>you mint
         <strong className="text-pink-100"> from now on</strong> (no limit, free mints count too — earlier mints don&apos;t count).
         Win a spot on the<strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
-        whitelist (<strong className="text-pink-100">10 spots each</strong>), bonus spins, or the one-and-only
-        <strong className="text-green-200"> Pink Puppet grand prize</strong>. Winners enter a Taproot address (bc1p…) to receive their prize.
+        whitelist (<strong className="text-pink-100">10 spots each</strong>), bonus spins, the one-and-only
+        <strong className="text-green-200"> Pink Puppet grand prize</strong>, or one of
+        <strong className="text-fuchsia-200"> 39 extra inscription prizes</strong>
+        {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
+        {' '}— winners receive the inscription within 24 hours (one per wallet from this pool). Whitelist / grand-prize winners enter a Taproot address (bc1p…) to receive those prizes.
       </p>
 
       {showCooldown && (
@@ -478,6 +503,25 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
             <div className="rounded-xl border border-white/10 bg-black/35 px-3 py-2.5 text-xs text-pink-100/80">
               <p className="font-semibold text-pink-100">No prize this spin.</p>
               <p className="mt-0.5 text-pink-200/60">Try again when your spins refresh.</p>
+            </div>
+          )}
+          {lastSpin.prize === 'inscription_prize' && (
+            <div className={`rounded-xl border px-3 py-3 ring-2 ring-fuchsia-400/30 ${prizeBadge(lastSpin.prize, lastSpin).cls}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide opacity-90">You won!</p>
+              <p className="mt-0.5 text-sm font-bold font-mono">{prizeBadge(lastSpin.prize, lastSpin).text}</p>
+              {prizeImage(lastSpin.prize, lastSpin.previewUrl) && (
+                <img
+                  src={prizeImage(lastSpin.prize, lastSpin.previewUrl)}
+                  alt={prizeBadge(lastSpin.prize, lastSpin).text}
+                  className="mt-2 max-h-56 w-full rounded-lg border border-white/20 bg-black/40 object-contain"
+                />
+              )}
+              <p className="mt-2 text-[11px] leading-relaxed text-fuchsia-100/85">
+                {lastSpin.deliveryNote || 'Your prize arrives within 24 hours.'}
+              </p>
+              <p className="mt-1 text-[10px] text-fuchsia-200/55">
+                Logged to your spin wallet{ordinalAddr ? ` (${ordinalAddr.slice(0, 8)}…${ordinalAddr.slice(-6)})` : ''}.
+              </p>
             </div>
           )}
           {isClaimablePrize(lastSpin.prize) && (
@@ -573,6 +617,14 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                   <span>Or hit the <strong className="text-green-200">one-of-one Pink Puppet grand prize</strong> — plus bonus spins along the way.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
+                  <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.85)]" />
+                  <span>
+                    Win one of <strong className="text-pink-100">39 inscription prizes</strong>
+                    {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
+                    {' '}— image shown on win; <strong className="text-pink-100">arrives within 24 hours</strong>. One prize per wallet from this pool.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
                   <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.85)]" />
                   <span>
                     Every <strong className="text-pink-100">new</strong> <strong className="text-pink-100">Bad Cats</strong>, <strong className="text-pink-100">Primal Club</strong>,{' '}
@@ -633,6 +685,10 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                   <p className="text-base font-bold leading-snug text-amber-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)] sm:text-lg">Whitelist — Blockchain Titans!</p>
                 ) : lastSpin.prize === 'wl_lilcats' ? (
                   <p className="text-base font-bold leading-snug text-cyan-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)] sm:text-lg">Whitelist — Lil Cats!</p>
+                ) : lastSpin.prize === 'inscription_prize' ? (
+                  <p className="text-base font-bold leading-snug text-fuchsia-200 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)] sm:text-lg">
+                    You won Inscription {lastSpin.inscriptionNumber || ''}!
+                  </p>
                 ) : lastSpin.prize === 'bonus_spin' ? (
                   <p className="text-base font-bold leading-snug text-amber-100 [text-shadow:0_2px_12px_rgba(0,0,0,0.95)] sm:text-lg">Bonus Spin — +1!</p>
                 ) : (
