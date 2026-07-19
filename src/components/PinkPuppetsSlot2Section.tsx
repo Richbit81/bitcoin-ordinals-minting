@@ -203,7 +203,12 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
   }, [loadPool]);
 
   useEffect(() => {
-    if (!connected) setLastSpin(null);
+    if (!connected) {
+      setLastSpin(null);
+      // Also drop a held animation lock so the button can't stay stuck on "Spinning…".
+      spinBusyRef.current = false;
+      setSpinBusy(false);
+    }
   }, [connected]);
 
   lastSpinRef.current = lastSpin;
@@ -259,6 +264,9 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
     setSpinError(null);
     setSpinBusy(true);
     setLastSpin(null);
+    // Keep the lock until the reels stop (PP_SLOT_ANIM_DONE / reveal fallback),
+    // otherwise users can re-spin mid-animation and think they lost that spin.
+    let holdLockForAnimation = false;
     try {
       const r = await fetch(slot2ApiUrl('/api/pinkpuppets/slot2/spin'), {
         method: 'POST',
@@ -284,6 +292,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         bonusBalance: data.bonusBalance ?? 0,
       };
       setLastSpin(result);
+      holdLockForAnimation = true;
       const pres = presentationFor(prize);
       requestAnimationFrame(() => sendSpinToIframe(pres.targets, prizeImage(prize, result.previewUrl), result.spinId, pres.embedPrize));
       await loadStatus();
@@ -291,10 +300,21 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
     } catch (e: any) {
       setSpinError(e?.message || 'Spin failed');
     } finally {
+      if (!holdLockForAnimation) {
+        spinBusyRef.current = false;
+        setSpinBusy(false);
+      }
+    }
+  }, [ordinalAddr, suggestedTaproot, loadStatus, loadPool]);
+
+  // Release the spin lock once the reels have stopped (revealReady flips true
+  // via PP_SLOT_ANIM_DONE or the 8.5s fallback timer — so it always releases).
+  useEffect(() => {
+    if (revealReady) {
       spinBusyRef.current = false;
       setSpinBusy(false);
     }
-  }, [ordinalAddr, suggestedTaproot, loadStatus, loadPool]);
+  }, [revealReady]);
 
   // Alternative to pulling the lever (better on mobile) — same guard logic.
   const triggerSpin = useCallback(() => {
