@@ -64,6 +64,7 @@ const OrdinalsExplainedPage = lazy(() => import('./pages/OrdinalsExplainedPage')
 const InscribeLabPage = lazy(() => import('./pages/InscribeLabPage').then((m) => ({ default: m.InscribeLabPage })));
 const WalletLabPage = lazy(() => import('./pages/WalletLabPage').then((m) => ({ default: m.WalletLabPage })));
 const InscribeToolPage = lazy(() => import('./pages/InscribeToolPage').then((m) => ({ default: m.InscribeToolPage })));
+const DroidzArenaPage = lazy(() => import('./pages/DroidzArenaPage').then((m) => ({ default: m.DroidzArenaPage })));
 
 function AppContent() {
   const [showGallery, setShowGallery] = useState(false);
@@ -76,10 +77,12 @@ function AppContent() {
   const isAcs = location.pathname === '/acs';
   // Eigenständige Lern-App mit eigenem Full-Screen-Layout (kein globaler Header / Bottom-Nav).
   const isLearn = location.pathname.startsWith('/ordinals-explained');
+  // Coming-soon Seite: nur Pixel-Titel, kein Header / keine Bottom-Nav.
+  const isDroidzArena = location.pathname === '/droidzarena';
 
   return (
     <div className="min-h-screen bg-black">
-      {!isV2Home && !isAcs && !isLearn && (
+      {!isV2Home && !isAcs && !isLearn && !isDroidzArena && (
         <HeaderMenu 
           onGalleryClick={() => setShowGallery(true)} 
           showFullMenu={!isHomePage}
@@ -141,6 +144,7 @@ function AppContent() {
           <Route path="/thebox" element={<TheBoxMarketplacePage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/marketplace/profile" element={<MarketplaceProfilePage />} />
+          <Route path="/droidzarena" element={<DroidzArenaPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -148,7 +152,7 @@ function AppContent() {
       {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
       
       {/* Mobile Bottom Navigation */}
-      {!isAcs && !isLearn && <MobileBottomNav />}
+      {!isAcs && !isLearn && !isDroidzArena && <MobileBottomNav />}
     </div>
   );
 }
