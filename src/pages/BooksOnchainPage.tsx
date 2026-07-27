@@ -12,6 +12,24 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'the-art-of-war',
+    name: 'The Art of War',
+    inscriptionId: '7e8f4dcb3de57ca1d81e630b9f39776d10e9c1942824bda7a61fd5c2c864248ai0',
+    author: 'Sun Tzu',
+    priceInSats: 5000,
+    description:
+      'The Art of War by Sun Tzu is the classic Chinese treatise on strategy, leadership, and conflict. Across thirteen concise chapters it teaches how to win with preparation, intelligence, and discipline—often without fighting at all.\n\nIts insights on knowing yourself and your opponent, choosing when to engage, and adapting to changing conditions have shaped military thinking and remain widely read in business, politics, and everyday decision-making.\n\nA timeless guide to strategy—now preserved forever on-chain.',
+  },
+  {
+    id: 'meditations',
+    name: 'Meditations',
+    inscriptionId: '398e3110bea78b6ce9f0a72206780b5556c7275edf809873847378f6e51e212ai0',
+    author: 'Marcus Aurelius Antoninus',
+    priceInSats: 5000,
+    description:
+      'Meditations by Marcus Aurelius Antoninus is the private notebook of a Roman emperor and Stoic philosopher. Written as notes to himself, it reflects on virtue, duty, mortality, and how to live calmly amid power, pressure, and uncertainty.\n\nClear, honest, and practical, these reflections have guided readers for centuries toward self-discipline, gratitude, and inner freedom.\n\nA cornerstone of Stoic wisdom—now preserved forever on-chain.',
+  },
+  {
     id: 'beyond-good-and-evil',
     name: 'Beyond Good and Evil',
     inscriptionId: 'f9a6dd1471a103d92d9beb84e2f1be6f0c83b01a3ac5eefb6118c97dc396bd77i0',
