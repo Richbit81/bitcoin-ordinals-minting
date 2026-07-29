@@ -641,7 +641,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                   <span>
                     Win one of <strong className="text-pink-100">39 inscription prizes</strong>
                     {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
-                    {' '}— image shown on win; <strong className="text-pink-100">arrives within 24 hours</strong>. One prize per wallet from this pool.
+                    {' '}— image shown on win; <strong className="text-pink-100">arrives within 48 hours</strong>. One prize per wallet from this pool.
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">
