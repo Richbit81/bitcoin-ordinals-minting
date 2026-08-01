@@ -89,6 +89,14 @@
       "destination": "/dashboard/$1"
     },
     {
+      "source": "/freakheadzburn",
+      "destination": "/freakheadzburn/index.html"
+    },
+    {
+      "source": "/freakheadzburn/(.*)",
+      "destination": "/freakheadzburn/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
