@@ -7,9 +7,21 @@ type OpenSeaCollection = {
   url: string;
   description: string;
   pixelated?: boolean;
+  cta?: string;
+  external?: boolean;
 };
 
 const OPENSEA_COLLECTIONS: OpenSeaCollection[] = [
+  {
+    name: 'Burn your Freakheadz!',
+    cover: '/images/opensea-freakheadz.png',
+    url: '/freakheadzburn',
+    pixelated: true,
+    external: false,
+    cta: 'Open Burn Studio',
+    description:
+      'Burn one Twin and claim your Apex — immediate reveal on Robinhood Chain.',
+  },
   {
     name: 'FreakHeadz',
     cover: '/images/opensea-freakheadz.png',
@@ -97,39 +109,52 @@ export const OpenSeaCollectionsPage: React.FC = () => {
         </div>
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-          {OPENSEA_COLLECTIONS.map((c) => (
-            <div
-              key={c.name}
-              className="group flex flex-col rounded-2xl overflow-hidden border border-sky-500/20 bg-white/[0.03] backdrop-blur-sm shadow-2xl shadow-sky-950/40 hover:border-sky-400/50 transition-all"
-            >
-              <div className="aspect-square overflow-hidden bg-black/40">
-                <img
-                  src={c.cover}
-                  alt={c.name}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                  style={c.pixelated ? { imageRendering: 'pixelated' } : undefined}
-                />
-              </div>
+          {OPENSEA_COLLECTIONS.map((c) => {
+            const isExternal = c.external !== false;
+            const isBurn = c.url === '/freakheadzburn';
+            return (
+              <div
+                key={c.name}
+                className={`group flex flex-col rounded-2xl overflow-hidden border backdrop-blur-sm shadow-2xl transition-all ${
+                  isBurn
+                    ? 'border-fuchsia-400/40 bg-fuchsia-500/10 shadow-fuchsia-950/40 hover:border-fuchsia-300/70'
+                    : 'border-sky-500/20 bg-white/[0.03] shadow-sky-950/40 hover:border-sky-400/50'
+                }`}
+              >
+                <div className="aspect-square overflow-hidden bg-black/40">
+                  <img
+                    src={c.cover}
+                    alt={c.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                    style={c.pixelated ? { imageRendering: 'pixelated' } : undefined}
+                  />
+                </div>
 
-              <div className="flex flex-col flex-1 p-5">
-                <h2 className="text-xl font-bold text-white mb-2">{c.name}</h2>
-                <p className="text-sm text-sky-100/60 leading-relaxed flex-1">{c.description}</p>
+                <div className="flex flex-col flex-1 p-5">
+                  <h2 className="text-xl font-bold text-white mb-2">{c.name}</h2>
+                  <p className="text-sm text-sky-100/60 leading-relaxed flex-1">{c.description}</p>
 
-                <a
-                  href={c.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-5 inline-flex items-center justify-center gap-2 w-full py-3 rounded-lg font-semibold text-sm tracking-wide bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 transition-all shadow-lg shadow-sky-900/30"
-                >
-                  View on OpenSea
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </a>
+                  <a
+                    href={c.url}
+                    {...(isExternal
+                      ? { target: '_blank', rel: 'noopener noreferrer' }
+                      : {})}
+                    className={`mt-5 inline-flex items-center justify-center gap-2 w-full py-3 rounded-lg font-semibold text-sm tracking-wide transition-all shadow-lg ${
+                      isBurn
+                        ? 'bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:from-fuchsia-500 hover:to-pink-400 shadow-fuchsia-900/30'
+                        : 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-sky-900/30'
+                    }`}
+                  >
+                    {c.cta || 'View on OpenSea'}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </a>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="text-center mt-12">
