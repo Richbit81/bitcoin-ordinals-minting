@@ -21,6 +21,9 @@ const Orwell1984Page = lazy(() => import('./pages/Orwell1984Page').then((m) => (
 const FreeStuffPage = lazy(() => import('./pages/FreeStuffPage').then((m) => ({ default: m.FreeStuffPage })));
 const BooksOnchainPage = lazy(() => import('./pages/BooksOnchainPage').then((m) => ({ default: m.BooksOnchainPage })));
 const OrddropzPage = lazy(() => import('./pages/OrddropzPage').then((m) => ({ default: m.OrddropzPage })));
+const OpenSeaCollectionsPage = lazy(() =>
+  import('./pages/OpenSeaCollectionsPage').then((m) => ({ default: m.OpenSeaCollectionsPage }))
+);
 const RandomStuffPage = lazy(() => import('./pages/RandomStuffPage').then((m) => ({ default: m.RandomStuffPage })));
 const CollectionMintingPage = lazy(() => import('./pages/CollectionMintingPage').then((m) => ({ default: m.CollectionMintingPage })));
 const TradingPage = lazy(() => import('./pages/TradingPage').then((m) => ({ default: m.TradingPage })));
@@ -103,6 +106,7 @@ function AppContent() {
           <Route path="/free-stuff" element={<FreeStuffPage />} />
           <Route path="/books-onchain" element={<BooksOnchainPage />} />
           <Route path="/orddropz" element={<OrddropzPage />} />
+          <Route path="/opensea" element={<OpenSeaCollectionsPage />} />
           <Route path="/audiobooks" element={<AudiobooksPage />} />
           <Route path="/acs" element={<ArtBaselPage />} />
           <Route path="/ordinals-explained" element={<OrdinalsExplainedPage />} />

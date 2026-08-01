@@ -373,6 +373,12 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'OpenSea',
+    items: [
+      { label: 'OpenSea Collections', route: '/opensea', img: '/images/opensea-freakheadz.png' },
+    ],
+  },
+  {
     label: 'Point Shop',
     items: [
       { label: 'Point Shop', route: '/point-shop', img: '/pointshop.png' },
