@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'twenty-thousand-leagues',
+    name: 'Twenty Thousand Leagues under the Sea',
+    inscriptionId: '796dc74b825828401c4c170f2b1ba1466c3d2e7485502b059a3308cdc4da1618i0',
+    author: 'Jules Verne',
+    priceInSats: 5000,
+    description:
+      'Twenty Thousand Leagues under the Sea by Jules Verne is a pioneering adventure novel of submarine exploration. It follows Professor Aronnax, his servant Conseil, and the harpooner Ned Land as they are taken aboard the Nautilus by the enigmatic Captain Nemo.\n\nThrough wondrous undersea voyages, Verne blends scientific imagination with mystery, freedom, and the unknown depths of the ocean.\n\nA classic of adventure and early science fiction—now preserved forever on-chain.',
+  },
+  {
     id: 'the-art-of-war',
     name: 'The Art of War',
     inscriptionId: '7e8f4dcb3de57ca1d81e630b9f39776d10e9c1942824bda7a61fd5c2c864248ai0',
