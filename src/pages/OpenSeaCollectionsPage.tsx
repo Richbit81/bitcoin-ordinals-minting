@@ -9,14 +9,15 @@ type OpenSeaCollection = {
   pixelated?: boolean;
   cta?: string;
   external?: boolean;
-  fireCover?: boolean;
+  burn?: boolean;
 };
 
 const OPENSEA_COLLECTIONS: OpenSeaCollection[] = [
   {
     name: 'Burn your Freakheadz!',
+    cover: '/images/opensea-freakheadzburn.gif',
     url: '/freakheadzburn',
-    fireCover: true,
+    burn: true,
     external: false,
     cta: 'Open Burn Studio',
     description: 'Burn one Twin → claim Apex. Instant reveal.',
@@ -59,61 +60,6 @@ const OPENSEA_COLLECTIONS: OpenSeaCollection[] = [
     description: 'Unfiltered hood chaos.',
   },
 ];
-
-function FireCover() {
-  return (
-    <div className="relative h-full w-full overflow-hidden bg-[#120406]">
-      <div
-        className="absolute inset-0 opacity-90"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 55% at 50% 110%, rgba(255,80,0,0.85), transparent 70%),' +
-            'radial-gradient(ellipse 50% 40% at 35% 95%, rgba(255,200,0,0.75), transparent 60%),' +
-            'radial-gradient(ellipse 45% 35% at 65% 100%, rgba(255,40,0,0.7), transparent 55%),' +
-            'linear-gradient(180deg, #1a0508 0%, #3a0808 45%, #7a1400 100%)',
-          animation: 'fhFirePulse 2.4s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="absolute inset-x-[-10%] bottom-[-20%] h-[85%]"
-        style={{
-          background:
-            'radial-gradient(ellipse 35% 70% at 30% 80%, rgba(255,220,80,0.9), transparent 70%),' +
-            'radial-gradient(ellipse 40% 75% at 50% 85%, rgba(255,120,20,0.95), transparent 72%),' +
-            'radial-gradient(ellipse 35% 70% at 70% 80%, rgba(255,60,0,0.9), transparent 70%)',
-          filter: 'blur(2px)',
-          animation: 'fhFireFlicker 1.1s ease-in-out infinite alternate',
-        }}
-      />
-      <div
-        className="absolute inset-x-0 bottom-0 h-1/2"
-        style={{
-          background: 'linear-gradient(0deg, rgba(255,40,0,0.35), transparent)',
-          animation: 'fhFireRise 1.8s linear infinite',
-        }}
-      />
-      <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
-        <span className="font-black tracking-[0.28em] text-base md:text-lg text-orange-50 drop-shadow-[0_2px_10px_rgba(255,80,0,0.9)]">
-          BURN
-        </span>
-      </div>
-      <style>{`
-        @keyframes fhFirePulse {
-          0%, 100% { transform: scale(1); opacity: 0.88; }
-          50% { transform: scale(1.06); opacity: 1; }
-        }
-        @keyframes fhFireFlicker {
-          0% { transform: translateY(4%) scaleX(0.96); opacity: 0.85; }
-          100% { transform: translateY(-2%) scaleX(1.04); opacity: 1; }
-        }
-        @keyframes fhFireRise {
-          0% { transform: translateY(8%); opacity: 0.35; }
-          100% { transform: translateY(-6%); opacity: 0.55; }
-        }
-      `}</style>
-    </div>
-  );
-}
 
 export const OpenSeaCollectionsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -164,7 +110,7 @@ export const OpenSeaCollectionsPage: React.FC = () => {
         <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-w-6xl mx-auto w-full content-start">
           {OPENSEA_COLLECTIONS.map((c) => {
             const isExternal = c.external !== false;
-            const isBurn = Boolean(c.fireCover);
+            const isBurn = Boolean(c.burn);
             return (
               <div
                 key={c.name}
@@ -175,17 +121,13 @@ export const OpenSeaCollectionsPage: React.FC = () => {
                 }`}
               >
                 <div className="aspect-[1200/630] overflow-hidden bg-black/50">
-                  {c.fireCover ? (
-                    <FireCover />
-                  ) : (
-                    <img
-                      src={c.cover}
-                      alt={c.name}
-                      loading="lazy"
-                      className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
-                      style={c.pixelated ? { imageRendering: 'pixelated' } : undefined}
-                    />
-                  )}
+                  <img
+                    src={c.cover}
+                    alt={c.name}
+                    loading="lazy"
+                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                    style={c.pixelated ? { imageRendering: 'pixelated' } : undefined}
+                  />
                 </div>
 
                 <div className="flex flex-col flex-1 p-2.5">
