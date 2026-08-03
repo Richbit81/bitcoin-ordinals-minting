@@ -125,7 +125,9 @@ export const OpenSeaCollectionsPage: React.FC = () => {
                     src={c.cover}
                     alt={c.name}
                     loading="lazy"
-                    className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                    className={`w-full h-full group-hover:scale-[1.02] transition-transform duration-300 ${
+                      isBurn ? 'object-cover object-top' : 'object-contain'
+                    }`}
                     style={c.pixelated ? { imageRendering: 'pixelated' } : undefined}
                   />
                 </div>
