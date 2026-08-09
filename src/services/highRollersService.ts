@@ -1,10 +1,8 @@
 /**
- * High Rollers mint service (client).
+ * High Rollers client helpers.
  *
- * Unlike the UniSat-based collections, High Rollers is minted on-demand by the
- * project's own ord-wallet (via the backend + ord-companion). The buyer simply
- * pays a quoted amount to a shown BTC address and receives the child inscription
- * (linked to the collection's parent) on their taproot address.
+ * Minting itself goes through UniSat (see highRollersMintService.ts).
+ * These helpers talk to the backend for status / minted list / confirm.
  */
 
 import { getApiUrl } from '../utils/apiUrl';
@@ -13,7 +11,8 @@ const API_URL = getApiUrl().replace(/\/$/, '');
 
 export function highRollersImageUrl(itemId: string): string {
   const base = import.meta.env.BASE_URL || '/';
-  return `${base}images/high-rollers/${itemId}.avif`;
+  const id = String(itemId || '').padStart(4, '0');
+  return `${base}images/high-rollers/${id}.avif`;
 }
 
 export function isTaprootAddress(address: string): boolean {
@@ -28,36 +27,6 @@ export interface HighRollersStatus {
   pending?: number;
   priceSats?: number;
   maxPerTx?: number;
-}
-
-export interface HighRollersQuote {
-  orderId: string;
-  itemId: string;
-  name: string;
-  quantity?: number;
-  items?: Array<{ itemId: string; name: string }>;
-  paymentAddress: string;
-  amountSats: number;
-  breakdown: { priceSats: number; postageSats: number; feeSats: number; bufferSats: number };
-  feeRate: number;
-  expiresAt: string;
-}
-
-export type HighRollersOrderStatus = 'pending' | 'paid' | 'minting' | 'minted' | 'expired' | 'failed';
-
-export interface HighRollersOrder {
-  orderId: string;
-  itemId: string;
-  quantity?: number;
-  status: HighRollersOrderStatus;
-  amountSats: number;
-  paidSats: number;
-  paymentAddress: string;
-  inscriptionId: string | null;
-  inscriptionIds?: string[];
-  items?: Array<{ itemId: string; name: string | null; inscriptionId: string | null }>;
-  error: string | null;
-  expiresAt: string | null;
 }
 
 export interface HighRollersMint {
@@ -85,18 +54,20 @@ export async function fetchHighRollersMinted(): Promise<HighRollersMint[]> {
   return Array.isArray(j?.mints) ? j.mints : [];
 }
 
-export async function requestHighRollersQuote(taproot: string, quantity = 1, feeRate?: number): Promise<HighRollersQuote> {
-  const body: Record<string, unknown> = { taproot, quantity };
-  if (typeof feeRate === 'number' && Number.isFinite(feeRate) && feeRate > 0) body.feeRate = Math.max(1, Math.floor(feeRate));
-  return jsonOrThrow(
-    await fetch(`${API_URL}/api/high-rollers/quote`, {
+/** Record a successful UniSat mint in the High Rollers DB + marketplace. */
+export async function confirmHighRollersMint(body: {
+  itemId: string;
+  inscriptionId: string;
+  ownerAddress: string;
+  name?: string;
+  orderId?: string | null;
+  paymentTxid?: string | null;
+}): Promise<void> {
+  await jsonOrThrow(
+    await fetch(`${API_URL}/api/high-rollers/confirm-mint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
   );
-}
-
-export async function fetchHighRollersOrder(orderId: string): Promise<HighRollersOrder> {
-  return jsonOrThrow(await fetch(`${API_URL}/api/high-rollers/order/${encodeURIComponent(orderId)}`));
 }

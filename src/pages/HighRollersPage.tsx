@@ -1,70 +1,50 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode';
 import { useWallet } from '../contexts/WalletContext';
-import {
-  getOrdinalAddress,
-  sendBitcoinViaUnisat,
-  sendBitcoinViaXverse,
-  sendBitcoinViaOKX,
-} from '../utils/wallet';
 import { WalletConnect } from '../components/WalletConnect';
 import { UnisatTaprootModeWarning } from '../components/UnisatTaprootModeWarning';
 import { MintFeeRateSelector } from '../components/MintFeeRateSelector';
+import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
+import { logMinting } from '../services/mintingLog';
+import { addMintPoints } from '../services/pointsService';
 import {
   fetchHighRollersStatus,
   fetchHighRollersMinted,
-  requestHighRollersQuote,
-  fetchHighRollersOrder,
+  confirmHighRollersMint,
   highRollersImageUrl,
-  isTaprootAddress,
   type HighRollersStatus,
-  type HighRollersQuote,
-  type HighRollersOrder,
   type HighRollersMint,
 } from '../services/highRollersService';
+import {
+  mintHighRollersBatch,
+  highRollersVolumeMargin,
+  HIGH_ROLLERS_PRICE_SATS,
+  HIGH_ROLLERS_MAX_PER_TX,
+  type HighRollersMintedItem,
+} from '../services/highRollersMintService';
 
 const HERO_ITEM = '0001';
 const GOLD = '#e8b64b';
 const BG_IMAGE = '/images/high-rollers/highrollers-bg.png';
 const HR_MUSIC = '/audio/high-rollers-loop.wav';
 
-function satsToBtc(sats: number): string {
-  return (sats / 100_000_000).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
-}
-
-// Mirror of the backend volume discount: -5% per extra item → 5 = one free.
-function discountedMargin(base: number, qty: number, step = 0.05): number {
-  const n = Math.max(0, Math.floor(qty) || 0);
-  if (n <= 0) return 0;
-  const factor = Math.max(0, 1 - step * (n - 1));
-  return Math.round(base * n * factor);
-}
-
-type Phase = 'idle' | 'quoting' | 'awaiting_payment' | 'minting' | 'done' | 'error';
+type Phase = 'idle' | 'minting' | 'done' | 'error';
 
 export const HighRollersPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletState } = useWallet();
+  const { resolveReceiveAddress } = useUnisatTaproot(walletState);
 
   const [status, setStatus] = useState<HighRollersStatus | null>(null);
   const [minted, setMinted] = useState<HighRollersMint[]>([]);
-  const [taproot, setTaproot] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [feeRate, setFeeRate] = useState(0); // 0 = auto until mempool recommendation loads
+  const [feeRate, setFeeRate] = useState(0);
   const [phase, setPhase] = useState<Phase>('idle');
-  const [quote, setQuote] = useState<HighRollersQuote | null>(null);
-  const [order, setOrder] = useState<HighRollersOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [copied, setCopied] = useState<'addr' | 'amount' | null>(null);
-  const [now, setNow] = useState(Date.now());
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [paying, setPaying] = useState(false);
-  const [payError, setPayError] = useState<string | null>(null);
-  const [payTxid, setPayTxid] = useState<string | null>(null);
+  const [doneItems, setDoneItems] = useState<HighRollersMintedItem[]>([]);
+  const [paymentTxid, setPaymentTxid] = useState<string | null>(null);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [musicOn, setMusicOn] = useState(false);
 
@@ -75,7 +55,7 @@ export const HighRollersPage: React.FC = () => {
       audio.pause();
       setMusicOn(false);
     } else {
-      audio.volume = 0.16; // dezent
+      audio.volume = 0.16;
       audio.play().then(() => setMusicOn(true)).catch(() => setMusicOn(false));
     }
   }, [musicOn]);
@@ -83,9 +63,9 @@ export const HighRollersPage: React.FC = () => {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.16; // dezent
+    audio.volume = 0.16;
     audio.loop = true;
-    audio.play().then(() => setMusicOn(true)).catch(() => { /* autoplay blocked */ });
+    audio.play().then(() => setMusicOn(true)).catch(() => {});
     const startOnFirstGesture = () => {
       if (audio.paused) {
         audio.play().then(() => setMusicOn(true)).catch(() => {});
@@ -107,8 +87,6 @@ export const HighRollersPage: React.FC = () => {
 
   const active = status?.active === true;
   const walletConnected = walletState?.connected === true;
-  // UniSat connected in Taproot mode: paying from here can destroy inscriptions.
-  // Block minting until the user switches to the payment (Native SegWit) address.
   const unisatTaprootMode =
     walletConnected &&
     walletState.walletType === 'unisat' &&
@@ -125,138 +103,130 @@ export const HighRollersPage: React.FC = () => {
     return () => clearInterval(t);
   }, [refreshStatus]);
 
-  // 1s tick for the countdown.
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Keep the selected quantity within the allowed / available range.
   useEffect(() => {
     if (!status) return;
-    const maxAllowed = Math.max(1, Math.min(status.maxPerTx ?? 5, status.available ?? 5));
+    const maxAllowed = Math.max(1, Math.min(status.maxPerTx ?? HIGH_ROLLERS_MAX_PER_TX, status.available ?? HIGH_ROLLERS_MAX_PER_TX));
     setQuantity((q) => Math.min(Math.max(1, q), maxAllowed));
   }, [status]);
 
-  // Prefill taproot from a connected wallet (convenience only — payment can come
-  // from anywhere; this address is only where the inscription is delivered).
-  useEffect(() => {
-    if (taproot) return;
-    const addr = getOrdinalAddress(walletState?.accounts || []);
-    if (addr && addr.startsWith('bc1p')) setTaproot(addr);
-  }, [walletState, taproot]);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  const reset = useCallback(() => {
+    setError(null);
+    setDoneItems([]);
+    setPaymentTxid(null);
+    setPhase('idle');
   }, []);
 
-  useEffect(() => () => stopPolling(), [stopPolling]);
-
-  // Build the payment QR whenever a quote arrives.
-  useEffect(() => {
-    if (!quote) { setQrDataUrl(''); return; }
-    const uri = `bitcoin:${quote.paymentAddress}?amount=${satsToBtc(quote.amountSats)}`;
-    QRCode.toDataURL(uri, { width: 240, margin: 1, color: { dark: '#0a0a0a', light: '#f5e6c8' } })
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(''));
-  }, [quote]);
-
-  const pollOrder = useCallback((orderId: string) => {
-    stopPolling();
-    const tick = async () => {
-      try {
-        const o = await fetchHighRollersOrder(orderId);
-        setOrder(o);
-        if (o.status === 'paid' || o.status === 'minting') setPhase('minting');
-        if (o.status === 'minted') {
-          setPhase('done');
-          stopPolling();
-          refreshStatus();
-        }
-        if (o.status === 'expired' || o.status === 'failed') {
-          setPhase('error');
-          setError(o.error || (o.status === 'expired' ? 'Order expired — please start again.' : 'Mint failed — please try again.'));
-          stopPolling();
-        }
-      } catch { /* keep polling */ }
-    };
-    tick();
-    pollRef.current = setInterval(tick, 7000);
-  }, [refreshStatus, stopPolling]);
-
-  // Opens the connected wallet to send the exact quote amount to the payment
-  // address. The backend detects the payment in the mempool regardless — this
-  // just triggers the familiar wallet popup instead of manual copy/paste.
-  const payWithWallet = useCallback(async (q: HighRollersQuote) => {
-    setPayError(null);
-    setPayTxid(null);
-    const wt = walletState?.walletType;
-    if (!wt) {
-      setPayError('No wallet connected — you can still pay manually to the address below.');
-      return;
-    }
-    const amountBtc = q.amountSats / 100_000_000;
-    setPaying(true);
-    try {
-      let txid: string | undefined;
-      if (wt === 'unisat') txid = await sendBitcoinViaUnisat(q.paymentAddress, amountBtc);
-      else if (wt === 'okx') txid = await sendBitcoinViaOKX(q.paymentAddress, amountBtc);
-      else txid = await sendBitcoinViaXverse(q.paymentAddress, amountBtc);
-      if (txid) setPayTxid(txid);
-    } catch (e: any) {
-      setPayError(e?.message || 'Payment was cancelled or failed. You can still pay manually to the address below.');
-    } finally {
-      setPaying(false);
-    }
-  }, [walletState]);
-
-  const handleGetQuote = useCallback(async () => {
+  const handleMint = useCallback(async () => {
     setError(null);
-    // If no wallet is connected, open the connect modal first (familiar flow).
     if (!walletConnected) {
       setShowWalletConnect(true);
       return;
     }
-    const addr = taproot.trim();
-    if (!isTaprootAddress(addr)) {
-      setError('Please enter a valid taproot address (bc1p…) — this is where your High Roller will be delivered.');
+    if (unisatTaprootMode) {
+      setError('Switch UniSat to your payment address (Native SegWit), then reconnect.');
       return;
     }
-    setPhase('quoting');
+
+    const { address: userAddress, error: taprootError } = await resolveReceiveAddress(walletState);
+    if (taprootError || !userAddress) {
+      setPhase('error');
+      setError(taprootError || 'Could not resolve a taproot receive address (bc1p…).');
+      return;
+    }
+
+    setPhase('minting');
     try {
-      const q = await requestHighRollersQuote(addr, quantity, feeRate);
-      setQuote(q);
-      setOrder(null);
-      setPhase('awaiting_payment');
-      pollOrder(q.orderId);
-      // Immediately open the wallet popup to pay.
-      void payWithWallet(q);
+      // Fresh minted list right before pick (avoid obvious collisions).
+      let mintedIds = minted.map((m) => m.item_id);
+      try {
+        const fresh = await fetchHighRollersMinted();
+        mintedIds = fresh.map((m) => m.item_id);
+        setMinted(fresh);
+      } catch { /* use cached */ }
+
+      const effFee = feeRate > 0 ? feeRate : 2;
+      const { paymentTxid: txid, items } = await mintHighRollersBatch(
+        userAddress,
+        effFee,
+        walletState.walletType || 'unisat',
+        quantity,
+        mintedIds,
+      );
+      setPaymentTxid(txid || null);
+      setDoneItems(items);
+
+      for (const r of items) {
+        try {
+          await confirmHighRollersMint({
+            itemId: r.item.itemId,
+            inscriptionId: r.inscriptionId,
+            ownerAddress: userAddress,
+            name: r.item.name,
+            orderId: r.orderId || null,
+            paymentTxid: txid || null,
+          });
+        } catch (e) {
+          console.warn('[HighRollers] confirm-mint failed:', e);
+        }
+
+        try {
+          await logMinting({
+            walletAddress: userAddress,
+            packId: 'high-rollers',
+            packName: 'High Rollers',
+            cards: [{
+              id: `high-rollers-${r.item.itemId}`,
+              name: r.item.name,
+              inscriptionId: r.inscriptionId,
+              rarity: 'common',
+            }],
+            inscriptionIds: [r.inscriptionId],
+            inscriptionId: r.inscriptionId,
+            txids: r.txid ? [r.txid] : [],
+            paymentTxid: txid,
+            orderId: r.orderId,
+            originalPendingInscriptionId: String(r.inscriptionId || '').startsWith('pending-')
+              ? r.inscriptionId
+              : undefined,
+          });
+        } catch { /* backup log */ }
+
+        try {
+          await addMintPoints(userAddress, {
+            collection: 'High Rollers',
+            itemName: r.item.name,
+            inscriptionId: r.inscriptionId,
+            txid: r.txid || null,
+            source: 'high-rollers-mint',
+          });
+        } catch { /* points optional */ }
+      }
+
+      setPhase('done');
+      refreshStatus();
     } catch (e: any) {
       setPhase('error');
-      setError(e?.message || 'Could not create an order.');
+      setError(e?.message || 'Mint failed.');
     }
-  }, [taproot, quantity, feeRate, pollOrder, walletConnected, payWithWallet]);
+  }, [
+    walletConnected,
+    unisatTaprootMode,
+    resolveReceiveAddress,
+    walletState,
+    minted,
+    feeRate,
+    quantity,
+    refreshStatus,
+  ]);
 
-  const reset = useCallback(() => {
-    stopPolling();
-    setQuote(null);
-    setOrder(null);
-    setError(null);
-    setPayError(null);
-    setPayTxid(null);
-    setPaying(false);
-    setPhase('idle');
-  }, [stopPolling]);
-
-  const copy = useCallback((text: string, which: 'addr' | 'amount') => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(which);
-      setTimeout(() => setCopied(null), 1500);
-    }).catch(() => {});
-  }, []);
-
-  const secondsLeft = quote?.expiresAt ? Math.max(0, Math.floor((new Date(quote.expiresAt).getTime() - now) / 1000)) : 0;
-  const mmss = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const maxAllowed = Math.max(1, Math.min(status?.maxPerTx ?? HIGH_ROLLERS_MAX_PER_TX, status?.available ?? HIGH_ROLLERS_MAX_PER_TX));
+  const margin = highRollersVolumeMargin(quantity);
+  const full = HIGH_ROLLERS_PRICE_SATS * quantity;
+  const saved = full - margin;
+  const effFee = feeRate > 0 ? feeRate : 2;
+  const estNetworkFee = effFee * (150 + quantity * 3600);
+  const estFeesAll = 546 * quantity + estNetworkFee + 1000;
+  const estTotal = margin + estFeesAll;
 
   return (
     <div
@@ -270,7 +240,6 @@ export const HighRollersPage: React.FC = () => {
         backgroundAttachment: 'fixed, fixed, fixed',
       }}
     >
-      {/* top bar */}
       <div className="flex items-center justify-between px-4 py-4 sm:px-8">
         <button
           onClick={() => navigate('/')}
@@ -281,7 +250,6 @@ export const HighRollersPage: React.FC = () => {
         <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#e8b64b]/70">On Bitcoin</span>
       </div>
 
-      {/* hero */}
       <header className="mx-auto max-w-5xl px-4 pb-6 pt-2 text-center sm:px-8">
         <img
           src={highRollersImageUrl(HERO_ITEM)}
@@ -292,12 +260,10 @@ export const HighRollersPage: React.FC = () => {
           HIGH ROLLERS
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#f5e6c8]/70 sm:text-base">
-          A limited set of {status?.total ?? 225} high rollers, inscribed on-chain and
-          linked to a single parent inscription — verifiable, provenance-backed Bitcoin ordinals.
+          A limited set of {status?.total ?? 225} high rollers, inscribed on-chain as Bitcoin ordinals.
           Pay in BTC, receive your High Roller straight to your taproot wallet.
         </p>
 
-        {/* supply + price */}
         <div className="mx-auto mt-6 flex max-w-md items-center justify-center gap-6 text-sm">
           <div className="rounded-xl border border-[#e8b64b]/25 bg-black/30 px-5 py-3">
             <div className="text-[10px] uppercase tracking-widest text-[#e8b64b]/60">Minted</div>
@@ -305,245 +271,141 @@ export const HighRollersPage: React.FC = () => {
           </div>
           <div className="rounded-xl border border-[#e8b64b]/25 bg-black/30 px-5 py-3">
             <div className="text-[10px] uppercase tracking-widest text-[#e8b64b]/60">Price</div>
-            <div className="text-xl font-bold text-[#f7e3a8]">{status?.priceSats ? `${status.priceSats.toLocaleString()} sats` : '5,000 sats'}<span className="text-xs text-[#f5e6c8]/50"> + fees</span></div>
+            <div className="text-xl font-bold text-[#f7e3a8]">
+              {(status?.priceSats ?? HIGH_ROLLERS_PRICE_SATS).toLocaleString()} sats
+              <span className="text-xs text-[#f5e6c8]/50"> + fees</span>
+            </div>
           </div>
         </div>
         <p className="mx-auto mt-4 max-w-xl text-[11px] leading-relaxed text-[#f5e6c8]/45">
-          {(status?.priceSats ?? 5000).toLocaleString()} sats mint + on-chain inscription &amp; network fees
-          (typically ≈ <span className="text-[#e8b64b]/80">5,000–10,000 sats</span>, varies with the current mempool),
-          so most mints land around <span className="text-[#e8b64b]/80">≈ 10,000–15,000 sats</span> total.
-          The exact amount is always shown before you pay — no hidden costs.
+          {(status?.priceSats ?? HIGH_ROLLERS_PRICE_SATS).toLocaleString()} sats mint + on-chain inscription &amp; network fees.
+          The exact amount is always confirmed in your wallet before you pay.
         </p>
         <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed text-[#e8b64b]/70">
-          Bulk deal: the more you mint, the cheaper each gets — 2 = −5%, 3 = −10%, 4 = −15%, and
-          <strong className="text-[#f7e3a8]"> mint 5 → one is free (−20%)</strong>. Inscription/network fees still apply per item.
+          Bulk deal: 2 = −5%, 3 = −10%, 4 = −15%, and
+          <strong className="text-[#f7e3a8]"> mint 5 → one is free (−20%)</strong>. Inscription fees still apply per item.
         </p>
       </header>
 
-      {/* mint panel */}
       <main className="mx-auto max-w-2xl px-4 pb-20 sm:px-8">
         <section className="rounded-2xl border border-[#e8b64b]/25 bg-gradient-to-b from-[#151009] to-[#0d0a06] p-6 shadow-[0_20px_60px_-25px_rgba(0,0,0,0.9)] sm:p-8">
           {!active && (
             <div className="rounded-xl border border-[#e8b64b]/30 bg-[#e8b64b]/5 p-5 text-center">
               <div className="text-lg font-bold text-[#f7e3a8]">Coming soon</div>
-              <p className="mt-1 text-sm text-[#f5e6c8]/60">The High Rollers mint is not live yet. Check back shortly.</p>
+              <p className="mt-1 text-sm text-[#f5e6c8]/60">The High Rollers mint is not live yet.</p>
             </div>
           )}
 
-          {active && (phase === 'idle' || phase === 'quoting' || phase === 'error') && (
+          {active && (phase === 'idle' || phase === 'error') && (
             <>
               <div className="mb-4"><UnisatTaprootModeWarning /></div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-[#e8b64b]/70">
-                Your taproot address (bc1p…)
-              </label>
-              <input
-                value={taproot}
-                onChange={(e) => setTaproot(e.target.value)}
-                placeholder="bc1p…"
-                spellCheck={false}
-                className="w-full rounded-xl border border-[#e8b64b]/30 bg-black/40 px-4 py-3 font-mono text-sm text-[#f5e6c8] outline-none transition focus:border-[#e8b64b]"
-              />
-              <p className="mt-2 text-[11px] leading-relaxed text-[#f5e6c8]/45">
-                This is where your High Roller inscription is delivered. Connect your wallet to pay in one click —
-                your <span className="text-[#e8b64b]/80">Taproot</span> address is filled in automatically.
-              </p>
 
-              {(() => {
-                const maxAllowed = Math.max(1, Math.min(status?.maxPerTx ?? 5, status?.available ?? 5));
-                if (maxAllowed <= 1) return null;
-                return (
-                  <div className="mt-5">
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-[#e8b64b]/70">
-                      Quantity
-                    </label>
-                    <div className="flex gap-2">
-                      {Array.from({ length: maxAllowed }, (_, i) => i + 1).map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setQuantity(n)}
-                          className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition ${
-                            quantity === n
-                              ? 'border-[#e8b64b] bg-[#e8b64b]/20 text-[#f7e3a8]'
-                              : 'border-[#e8b64b]/25 bg-black/30 text-[#f5e6c8]/60 hover:border-[#e8b64b]/60'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-[#f5e6c8]/45">
-                      Mint up to {maxAllowed} at once — all inscribed in one transaction (cheaper on fees) and sent to your Taproot address.
-                      Volume discount on the mint price: <span className="text-[#e8b64b]/80">2 = −5%, 3 = −10%, 4 = −15%, mint 5 → one free (−20%)</span>.
-                    </p>
+              {maxAllowed > 1 && (
+                <div className="mb-5">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-[#e8b64b]/70">
+                    Quantity
+                  </label>
+                  <div className="flex gap-2">
+                    {Array.from({ length: maxAllowed }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setQuantity(n)}
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition ${
+                          quantity === n
+                            ? 'border-[#e8b64b] bg-[#e8b64b]/20 text-[#f7e3a8]'
+                            : 'border-[#e8b64b]/25 bg-black/30 text-[#f5e6c8]/60 hover:border-[#e8b64b]/60'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
                   </div>
-                );
-              })()}
+                </div>
+              )}
 
-              <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent={GOLD} disabled={phase === 'quoting'} />
+              <MintFeeRateSelector value={feeRate} onChange={setFeeRate} accent={GOLD} disabled={false} />
 
-              {(() => {
-                const base = status?.priceSats ?? 5000;
-                const margin = discountedMargin(base, quantity);
-                const full = base * quantity;
-                const saved = full - margin;
-                // Upfront fee estimate. AVIF content enters the witness (~¼ vsize);
-                // ~150 vB shared tx overhead + ~3600 vB per item. Postage 546 + 1000 buffer per item-set (matches backend CFG).
-                const effFee = feeRate > 0 ? feeRate : 2;
-                const estNetworkFee = effFee * (150 + quantity * 3600);
-                const estFeesAll = 546 * quantity + estNetworkFee + 1000;
-                const estTotal = margin + estFeesAll;
-                return (
-                  <div className="mt-5 rounded-xl border border-[#e8b64b]/25 bg-black/30 px-4 py-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#f5e6c8]/70">Mint price{quantity > 1 ? ` (${quantity})` : ''}</span>
-                      <span className="font-bold text-[#f7e3a8]">
-                        {saved > 0 && <span className="mr-2 text-[#f5e6c8]/40 line-through">{full.toLocaleString()}</span>}
-                        {margin.toLocaleString()} sats
-                      </span>
-                    </div>
-                    {saved > 0 && (
-                      <div className="text-right text-[11px] font-semibold text-green-400/90">You save {saved.toLocaleString()} sats</div>
-                    )}
-                    <div className="mt-1.5 flex items-center justify-between text-[13px] text-[#f5e6c8]/60">
-                      <span>Est. inscription + network fees ({effFee} sat/vB)</span>
-                      <span>≈ {estFeesAll.toLocaleString()} sats</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#e8b64b]/20 pt-2 text-base font-black text-[#f7e3a8]">
-                      <span>≈ Total</span>
-                      <span>{estTotal.toLocaleString()} sats</span>
-                    </div>
-                    <div className="mt-1 text-[11px] leading-relaxed text-[#f5e6c8]/45">
-                      Estimate based on the current fee rate — the exact amount is confirmed before you pay (usually a little lower).
-                    </div>
-                  </div>
-                );
-              })()}
+              <div className="mt-5 rounded-xl border border-[#e8b64b]/25 bg-black/30 px-4 py-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[#f5e6c8]/70">Mint price{quantity > 1 ? ` (${quantity})` : ''}</span>
+                  <span className="font-bold text-[#f7e3a8]">
+                    {saved > 0 && <span className="mr-2 text-[#f5e6c8]/40 line-through">{full.toLocaleString()}</span>}
+                    {margin.toLocaleString()} sats
+                  </span>
+                </div>
+                {saved > 0 && (
+                  <div className="text-right text-[11px] font-semibold text-green-400/90">You save {saved.toLocaleString()} sats</div>
+                )}
+                <div className="mt-1.5 flex items-center justify-between text-[13px] text-[#f5e6c8]/60">
+                  <span>Est. inscription + network fees ({effFee} sat/vB)</span>
+                  <span>≈ {estFeesAll.toLocaleString()} sats</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-[#e8b64b]/20 pt-2 text-base font-black text-[#f7e3a8]">
+                  <span>≈ Total</span>
+                  <span>{estTotal.toLocaleString()} sats</span>
+                </div>
+                <div className="mt-1 text-[11px] leading-relaxed text-[#f5e6c8]/45">
+                  Estimate based on the current fee rate — the exact amount is confirmed in your wallet before you pay.
+                </div>
+              </div>
 
-              {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+              {error && (
+                <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300 whitespace-pre-wrap">
+                  {error}
+                </div>
+              )}
+
               <button
-                onClick={handleGetQuote}
-                disabled={phase === 'quoting' || (status !== null && status.available <= 0) || unisatTaprootMode}
+                onClick={handleMint}
+                disabled={(status !== null && status.available <= 0) || unisatTaprootMode}
                 className="mt-5 w-full rounded-xl bg-gradient-to-r from-[#f7e3a8] via-[#e8b64b] to-[#c9902f] py-3.5 text-base font-black uppercase tracking-widest text-[#1a1206] shadow-[0_10px_30px_-10px_rgba(232,182,75,0.6)] transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {phase === 'quoting'
-                  ? 'Preparing…'
-                  : (status && status.available <= 0)
-                    ? 'Sold out'
-                    : unisatTaprootMode
-                      ? 'Switch UniSat to payment address'
-                      : walletConnected
-                        ? (quantity > 1 ? `Mint ${quantity} High Rollers` : 'Mint a High Roller')
-                        : 'Connect wallet to mint'}
+                {(status && status.available <= 0)
+                  ? 'Sold out'
+                  : unisatTaprootMode
+                    ? 'Switch UniSat to payment address'
+                    : walletConnected
+                      ? (quantity > 1 ? `Mint ${quantity} High Rollers` : 'Mint a High Roller')
+                      : 'Connect wallet to mint'}
               </button>
               {!walletConnected && (
-                <p className="mt-3 cursor-pointer text-center text-[11px] text-[#f5e6c8]/45 hover:text-[#e8b64b]" onClick={() => setShowWalletConnect(true)}>
+                <p
+                  className="mt-3 cursor-pointer text-center text-[11px] text-[#f5e6c8]/45 hover:text-[#e8b64b]"
+                  onClick={() => setShowWalletConnect(true)}
+                >
                   Connect your wallet to mint
                 </p>
               )}
             </>
           )}
 
-          {active && quote && (phase === 'awaiting_payment' || phase === 'minting') && (
-            <div className="text-center">
-              {phase === 'awaiting_payment' && (
-                <>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-[#e8b64b]/70">Send exactly</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-3xl font-black text-[#f7e3a8]">{quote.amountSats.toLocaleString()}</span>
-                    <span className="text-sm text-[#f5e6c8]/60">sats</span>
-                    <button onClick={() => copy(String(quote.amountSats), 'amount')} className="ml-1 rounded border border-[#e8b64b]/30 px-2 py-0.5 text-[10px] uppercase text-[#e8b64b]">{copied === 'amount' ? 'copied' : 'copy'}</button>
-                  </div>
-                  <div className="mt-1 text-[11px] text-[#f5e6c8]/45">≈ {satsToBtc(quote.amountSats)} BTC · expires in {mmss}</div>
-
-                  {quote.breakdown && (
-                    <div className="mx-auto mt-4 max-w-xs rounded-lg border border-[#e8b64b]/20 bg-black/30 px-4 py-3 text-left text-[11px] text-[#f5e6c8]/60">
-                      <div className="mb-1 text-[10px] uppercase tracking-widest text-[#e8b64b]/60">Breakdown</div>
-                      <div className="flex justify-between"><span>Mint</span><span>{quote.breakdown.priceSats.toLocaleString()} sats</span></div>
-                      <div className="flex justify-between"><span>Inscription fee{quote.feeRate ? ` (${quote.feeRate} sat/vB)` : ''}</span><span>{quote.breakdown.feeSats.toLocaleString()} sats</span></div>
-                      <div className="flex justify-between"><span>Postage</span><span>{quote.breakdown.postageSats.toLocaleString()} sats</span></div>
-                      <div className="flex justify-between"><span>Fee buffer</span><span>{quote.breakdown.bufferSats.toLocaleString()} sats</span></div>
-                      <div className="mt-1 flex justify-between border-t border-[#e8b64b]/15 pt-1 font-bold text-[#f7e3a8]"><span>Total</span><span>{quote.amountSats.toLocaleString()} sats</span></div>
-                    </div>
-                  )}
-
-                  {unisatTaprootMode && <div className="mt-4 text-left"><UnisatTaprootModeWarning /></div>}
-
-                  {walletConnected && (
-                    <button
-                      onClick={() => payWithWallet(quote)}
-                      disabled={paying || unisatTaprootMode}
-                      className="mx-auto mt-4 flex w-full max-w-xs items-center justify-center rounded-xl bg-gradient-to-r from-[#f7e3a8] via-[#e8b64b] to-[#c9902f] py-3 text-sm font-black uppercase tracking-widest text-[#1a1206] shadow-[0_10px_30px_-10px_rgba(232,182,75,0.6)] transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {unisatTaprootMode ? 'Switch UniSat to payment address' : paying ? 'Opening wallet…' : payTxid ? 'Payment sent ✓' : 'Pay with wallet'}
-                    </button>
-                  )}
-                  {payTxid && (
-                    <a
-                      href={`https://mempool.space/tx/${payTxid}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-block break-all text-[11px] text-[#e8b64b]/80 underline hover:text-[#e8b64b]"
-                    >
-                      View tx: {payTxid.slice(0, 12)}…{payTxid.slice(-8)}
-                    </a>
-                  )}
-                  {payError && (
-                    <div className="mx-auto mt-3 max-w-md rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">{payError}</div>
-                  )}
-
-                  <div className="my-4 text-[11px] uppercase tracking-widest text-[#f5e6c8]/35">— or scan / send manually —</div>
-
-                  {qrDataUrl && <img src={qrDataUrl} alt="payment QR" className="mx-auto my-3 rounded-xl border border-[#e8b64b]/30" />}
-
-                  <div className="mx-auto max-w-md rounded-xl border border-[#e8b64b]/25 bg-black/40 p-3">
-                    <div className="text-[10px] uppercase tracking-widest text-[#e8b64b]/60">Payment address</div>
-                    <div className="mt-1 break-all font-mono text-xs text-[#f5e6c8]/90">{quote.paymentAddress}</div>
-                    <button onClick={() => copy(quote.paymentAddress, 'addr')} className="mt-2 rounded border border-[#e8b64b]/30 px-3 py-1 text-[10px] uppercase text-[#e8b64b]">{copied === 'addr' ? 'copied' : 'copy address'}</button>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#f5e6c8]/60">
-                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[#e8b64b]" />
-                    Waiting for your payment…
-                  </div>
-                  <p className="mt-2 text-[11px] text-[#f5e6c8]/40">
-                    {quote.quantity && quote.quantity > 1
-                      ? <>Reserved: <span className="text-[#e8b64b]/80">{quote.quantity} items</span>. As soon as your payment hits the mempool, all are inscribed in one batch and sent automatically.</>
-                      : <>Reserved item: <span className="text-[#e8b64b]/80">{quote.name}</span>. As soon as your payment hits the mempool, your High Roller is inscribed and sent automatically.</>}
-                  </p>
-                </>
-              )}
-
-              {phase === 'minting' && (
-                <div className="py-6">
-                  <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-[#e8b64b]/30 border-t-[#e8b64b]" />
-                  <div className="text-lg font-bold text-[#f7e3a8]">Payment received — inscribing…</div>
-                  <p className="mt-1 text-sm text-[#f5e6c8]/60">Your High Roller is being minted and sent to your taproot address. This can take a moment.</p>
-                </div>
-              )}
-
-              <button onClick={reset} className="mt-5 text-[11px] uppercase tracking-widest text-[#f5e6c8]/40 underline hover:text-[#f5e6c8]/70">Cancel</button>
+          {active && phase === 'minting' && (
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-[#e8b64b]/30 border-t-[#e8b64b]" />
+              <div className="text-lg font-bold text-[#f7e3a8]">Preparing inscription…</div>
+              <p className="mt-1 text-sm text-[#f5e6c8]/60">Confirm the payment in your wallet when prompted.</p>
             </div>
           )}
 
-          {phase === 'done' && order?.inscriptionId && (
+          {phase === 'done' && doneItems.length > 0 && (
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#e8b64b]/15 text-3xl">🎰</div>
               <div className="text-xl font-black text-[#f7e3a8]">You're in the club!</div>
-              {order.items && order.items.length > 1 ? (
+              {doneItems.length > 1 ? (
                 <>
-                  <p className="mt-1 text-sm text-[#f5e6c8]/60">Your {order.items.length} High Rollers were inscribed and sent to your wallet.</p>
+                  <p className="mt-1 text-sm text-[#f5e6c8]/60">Your {doneItems.length} High Rollers were inscribed.</p>
                   <div className="mx-auto my-4 grid max-w-md grid-cols-3 gap-3 sm:grid-cols-5">
-                    {order.items.map((it) => (
+                    {doneItems.map((it) => (
                       <a
-                        key={it.itemId}
+                        key={it.item.itemId}
                         href={it.inscriptionId ? `https://ordinals.com/inscription/${it.inscriptionId}` : undefined}
                         target="_blank"
                         rel="noreferrer"
                         className="group overflow-hidden rounded-xl border border-[#e8b64b]/30 bg-black/30 transition hover:border-[#e8b64b]/60"
                       >
-                        <img src={highRollersImageUrl(it.itemId)} alt={it.name || it.itemId} className="aspect-square w-full object-cover transition group-hover:scale-105" />
-                        <div className="truncate px-1.5 py-1 text-[9px] text-[#f5e6c8]/60">{it.name || it.itemId}</div>
+                        <img src={highRollersImageUrl(it.item.itemId)} alt={it.item.name} className="aspect-square w-full object-cover transition group-hover:scale-105" />
+                        <div className="truncate px-1.5 py-1 text-[9px] text-[#f5e6c8]/60">{it.item.name}</div>
                       </a>
                     ))}
                   </div>
@@ -551,25 +413,43 @@ export const HighRollersPage: React.FC = () => {
               ) : (
                 <>
                   <p className="mt-1 text-sm text-[#f5e6c8]/60">Your High Roller was inscribed and sent to your wallet.</p>
-                  <img src={highRollersImageUrl(order.itemId)} alt={order.itemId} className="mx-auto my-4 h-40 w-40 rounded-xl border border-[#e8b64b]/40 object-cover" />
+                  <img
+                    src={highRollersImageUrl(doneItems[0].item.itemId)}
+                    alt={doneItems[0].item.name}
+                    className="mx-auto my-4 h-40 w-40 rounded-xl border border-[#e8b64b]/40 object-cover"
+                  />
                   <a
-                    href={`https://ordinals.com/inscription/${order.inscriptionId}`}
+                    href={`https://ordinals.com/inscription/${doneItems[0].inscriptionId}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-block break-all rounded-lg border border-[#e8b64b]/40 px-4 py-2 font-mono text-xs text-[#e8b64b] transition hover:bg-[#e8b64b]/10"
                   >
-                    {order.inscriptionId}
+                    {doneItems[0].inscriptionId}
                   </a>
                 </>
               )}
+              {paymentTxid && (
+                <a
+                  href={`https://mempool.space/tx/${paymentTxid}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-block break-all text-[11px] text-[#e8b64b]/80 underline hover:text-[#e8b64b]"
+                >
+                  Payment tx: {paymentTxid.slice(0, 12)}…{paymentTxid.slice(-8)}
+                </a>
+              )}
               <div>
-                <button onClick={reset} className="mt-5 rounded-xl bg-gradient-to-r from-[#f7e3a8] to-[#c9902f] px-6 py-2.5 text-sm font-black uppercase tracking-widest text-[#1a1206]">Mint another</button>
+                <button
+                  onClick={reset}
+                  className="mt-5 rounded-xl bg-gradient-to-r from-[#f7e3a8] to-[#c9902f] px-6 py-2.5 text-sm font-black uppercase tracking-widest text-[#1a1206]"
+                >
+                  Mint another
+                </button>
               </div>
             </div>
           )}
         </section>
 
-        {/* recent mints */}
         {minted.length > 0 && (
           <section className="mt-10">
             <h2 className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.3em] text-[#e8b64b]/70">Recent Mints</h2>
@@ -603,7 +483,6 @@ export const HighRollersPage: React.FC = () => {
         </div>
       )}
 
-      {/* ambient music (dezent, per button) */}
       <audio ref={audioRef} src={HR_MUSIC} loop preload="none" />
       <button
         onClick={toggleMusic}
@@ -618,11 +497,6 @@ export const HighRollersPage: React.FC = () => {
           <>
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
             <span className="hidden sm:inline">Music On</span>
-            <span className="flex h-3 items-end gap-0.5">
-              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '60%' }} />
-              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '100%', animationDelay: '0.15s' }} />
-              <span className="w-0.5 animate-pulse bg-[#f7e3a8]" style={{ height: '40%', animationDelay: '0.3s' }} />
-            </span>
           </>
         ) : (
           <>
