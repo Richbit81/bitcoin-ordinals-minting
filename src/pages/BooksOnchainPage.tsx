@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'reincarnation-pascal',
+    name: 'Reincarnation: A Study in Human Evolution',
+    inscriptionId: '3ad39681c64497da086107bb23a84a058a408a577f7a80dd703075ffab52cd89i0',
+    author: 'Théophile Pascal',
+    priceInSats: 5000,
+    description:
+      'Reincarnation: A Study in Human Evolution by Théophile Pascal is a classic theosophical inquiry into rebirth, karma, and the progressive development of the human soul. Drawing on Eastern and Western sources, Pascal presents reincarnation as a coherent explanation of inequality, memory, genius, and moral growth across lifetimes.\n\nClear, systematic, and earnest, the work maps how consciousness evolves through successive embodiments toward greater wisdom and responsibility.\n\nA foundational study of reincarnation and human evolution—now preserved forever on-chain.',
+  },
+  {
     id: 'twenty-thousand-leagues',
     name: 'Twenty Thousand Leagues under the Sea',
     inscriptionId: '796dc74b825828401c4c170f2b1ba1466c3d2e7485502b059a3308cdc4da1618i0',
