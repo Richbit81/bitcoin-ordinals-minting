@@ -57,6 +57,14 @@
   },
   "rewrites": [
     {
+      "source": "/hood",
+      "destination": "https://web-production-52a23.up.railway.app/hood"
+    },
+    {
+      "source": "/hood/(.*)",
+      "destination": "https://web-production-52a23.up.railway.app/hood/$1"
+    },
+    {
       "source": "/ord-proxy/(.*)",
       "destination": "https://ordinals.com/$1"
     },

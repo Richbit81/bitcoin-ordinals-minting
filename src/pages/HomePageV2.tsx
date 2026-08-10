@@ -379,6 +379,14 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    // Served from its own container and forwarded by /hood in vercel.json, so
+    // this has to leave the single-page app instead of routing inside it.
+    label: 'Robinhood',
+    items: [
+      { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
+    ],
+  },
+  {
     label: 'Point Shop',
     items: [
       { label: 'Point Shop', route: '/point-shop', img: '/pointshop.png' },
