@@ -373,12 +373,6 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'OpenSea',
-    items: [
-      { label: 'OpenSea Collections', route: '/opensea', img: '/images/opensea-freakheadz.png' },
-    ],
-  },
-  {
     // Own Railway deploy; /arena in vercel.json redirects there, so this has
     // to leave the single-page app instead of routing inside it.
     label: 'Arena',
@@ -392,11 +386,13 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    // Served from its own container and forwarded by /hood in vercel.json, so
-    // this has to leave the single-page app instead of routing inside it.
+    // Hood Market is served from its own container and forwarded by /hood in
+    // vercel.json, so that entry has to leave the single-page app. OpenSea
+    // Collections stays an in-app route under the same menu to save nav space.
     label: 'Robinhood',
     items: [
       { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
+      { label: 'OpenSea Collections', route: '/opensea', img: '/images/opensea-freakheadz.png' },
     ],
   },
   {
