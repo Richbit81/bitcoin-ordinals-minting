@@ -381,8 +381,9 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'OpenSea Collections', route: '/opensea', img: '/images/opensea-freakheadz.png' },
       {
         label: 'Burn Studio',
-        route: '/freakheadzburn',
+        route: 'https://www.richart.app/freakheadzburn',
         img: '/images/opensea-freakheadzburn.gif',
+        external: true,
       },
       {
         label: 'Droidz Arena',
