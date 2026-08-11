@@ -23,26 +23,6 @@
       "source": "/catwar/(.*)",
       "destination": "https://catwar-game.vercel.app/$1",
       "permanent": false
-    },
-    {
-      "source": "/arena",
-      "destination": "https://droidz-arena-production.up.railway.app",
-      "permanent": false
-    },
-    {
-      "source": "/arena/(.*)",
-      "destination": "https://droidz-arena-production.up.railway.app/$1",
-      "permanent": false
-    },
-    {
-      "source": "/droidzarena",
-      "destination": "https://droidz-arena-production.up.railway.app",
-      "permanent": false
-    },
-    {
-      "source": "/droidzarena/(.*)",
-      "destination": "https://droidz-arena-production.up.railway.app/$1",
-      "permanent": false
     }
   ],
   "headers": [
@@ -83,6 +63,22 @@
     {
       "source": "/hood/(.*)",
       "destination": "https://web-production-52a23.up.railway.app/hood/$1"
+    },
+    {
+      "source": "/arena",
+      "destination": "https://droidz-arena-production.up.railway.app/arena"
+    },
+    {
+      "source": "/arena/(.*)",
+      "destination": "https://droidz-arena-production.up.railway.app/arena/$1"
+    },
+    {
+      "source": "/droidzarena",
+      "destination": "https://droidz-arena-production.up.railway.app/arena"
+    },
+    {
+      "source": "/droidzarena/(.*)",
+      "destination": "https://droidz-arena-production.up.railway.app/arena/$1"
     },
     {
       "source": "/ord-proxy/(.*)",
