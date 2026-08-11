@@ -379,6 +379,19 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    // Own Railway deploy; /arena in vercel.json redirects there, so this has
+    // to leave the single-page app instead of routing inside it.
+    label: 'Arena',
+    items: [
+      {
+        label: 'Droidz Arena',
+        route: '/arena',
+        img: 'https://droidz-images.pages.dev/1.png',
+        external: true,
+      },
+    ],
+  },
+  {
     // Served from its own container and forwarded by /hood in vercel.json, so
     // this has to leave the single-page app instead of routing inside it.
     label: 'Robinhood',

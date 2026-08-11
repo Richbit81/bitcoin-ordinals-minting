@@ -23,6 +23,16 @@
       "source": "/catwar/(.*)",
       "destination": "https://catwar-game.vercel.app/$1",
       "permanent": false
+    },
+    {
+      "source": "/arena",
+      "destination": "https://droidz-arena-production.up.railway.app",
+      "permanent": false
+    },
+    {
+      "source": "/arena/(.*)",
+      "destination": "https://droidz-arena-production.up.railway.app/$1",
+      "permanent": false
     }
   ],
   "headers": [
