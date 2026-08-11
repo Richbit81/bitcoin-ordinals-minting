@@ -33,6 +33,16 @@
       "source": "/arena/(.*)",
       "destination": "https://droidz-arena-production.up.railway.app/$1",
       "permanent": false
+    },
+    {
+      "source": "/droidzarena",
+      "destination": "https://droidz-arena-production.up.railway.app",
+      "permanent": false
+    },
+    {
+      "source": "/droidzarena/(.*)",
+      "destination": "https://droidz-arena-production.up.railway.app/$1",
+      "permanent": false
     }
   ],
   "headers": [
