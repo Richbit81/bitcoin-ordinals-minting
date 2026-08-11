@@ -380,6 +380,11 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
       { label: 'OpenSea Collections', route: '/opensea', img: '/images/opensea-freakheadz.png' },
       {
+        label: 'Burn Studio',
+        route: '/freakheadzburn',
+        img: '/images/opensea-freakheadzburn.gif',
+      },
+      {
         label: 'Droidz Arena',
         route: '/arena',
         img: 'https://droidz-images.pages.dev/1.png',
