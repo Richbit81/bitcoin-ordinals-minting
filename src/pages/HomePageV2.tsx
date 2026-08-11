@@ -373,8 +373,8 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    // Hood Market and Arena leave the SPA (vercel.json redirects). OpenSea
-    // Collections stays in-app. Grouped under one menu to save nav space.
+    // Hood Market and Arena are proxied via vercel.json rewrites (URL stays
+    // on richart.app). OpenSea Collections stays in-app.
     label: 'Robinhood',
     items: [
       { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
