@@ -81,6 +81,14 @@
       "destination": "https://droidz-arena-production.up.railway.app/arena/$1"
     },
     {
+      "source": "/frkz",
+      "destination": "https://frkz-claim-production.up.railway.app/frkz"
+    },
+    {
+      "source": "/frkz/(.*)",
+      "destination": "https://frkz-claim-production.up.railway.app/frkz/$1"
+    },
+    {
       "source": "/ord-proxy/(.*)",
       "destination": "https://ordinals.com/$1"
     },

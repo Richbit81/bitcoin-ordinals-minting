@@ -23,6 +23,15 @@ const OPENSEA_COLLECTIONS: OpenSeaCollection[] = [
     description: 'Burn one Twin → claim Apex. Instant reveal.',
   },
   {
+    name: 'Claim FRKZ',
+    cover: '/images/opensea-freakheadz.png',
+    url: '/frkz',
+    pixelated: true,
+    external: false,
+    cta: 'Claim FRKZ',
+    description: '3,000 FRKZ per FreakHeadz. Apex holders get 10×.',
+  },
+  {
     name: 'FreakHeadz',
     cover: '/images/opensea-freakheadz.png',
     url: 'https://opensea.io/collection/freakheadz',
