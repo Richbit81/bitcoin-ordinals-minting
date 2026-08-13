@@ -447,7 +447,7 @@ const HOOD_SPOTLIGHT = [
     external: true,
     tag: 'FEATURED',
     tagColor: 'bg-orange-500',
-    mintLive: true,
+    mintLive: false,
   },
   {
     name: 'FreakHeadz Claim',
@@ -458,7 +458,7 @@ const HOOD_SPOTLIGHT = [
     external: true,
     tag: 'LIVE',
     tagColor: 'bg-green-500',
-    mintLive: true,
+    mintLive: false,
   },
   {
     name: 'Droidz Arena',
@@ -469,13 +469,39 @@ const HOOD_SPOTLIGHT = [
     external: true,
     tag: 'GAME',
     tagColor: 'bg-orange-500',
-    mintLive: true,
+    mintLive: false,
   },
+];
+
+/** Sixth Hood Spotlight card rotates on each page load. */
+const HOOD_SPOTLIGHT_SIXTH = [
   {
     name: 'Slums in the Hood',
     desc: 'Street stories from the hood.',
     src: '/images/opensea-slums.png',
     route: 'https://opensea.io/collection/slums-in-the-hood',
+    isHtml: false,
+    external: true,
+    tag: 'COLLECTION',
+    tagColor: 'bg-purple-600',
+    mintLive: false,
+  },
+  {
+    name: 'Onchain Droidz 3D',
+    desc: 'The Onchain Droidz 3D collection on Robinhood Chain.',
+    src: 'https://droidz-images.pages.dev/20.png',
+    route: 'https://opensea.io/de-DE/collection/onchain-droidz-3d',
+    isHtml: false,
+    external: true,
+    tag: 'COLLECTION',
+    tagColor: 'bg-purple-600',
+    mintLive: false,
+  },
+  {
+    name: 'SplitVerse Panda',
+    desc: 'Unique pandas blurring reality and imagination. Live on OpenSea.',
+    src: '/images/splitverse-panda.webp',
+    route: 'https://opensea.io/collection/splitverse-panda',
     isHtml: false,
     external: true,
     tag: 'COLLECTION',
@@ -731,6 +757,11 @@ export const HomePageV2: React.FC = () => {
     const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
     return filtered[Math.floor(Math.random() * filtered.length)];
   }, []);
+
+  const hoodSixthSlot = useMemo(
+    () => HOOD_SPOTLIGHT_SIXTH[Math.floor(Math.random() * HOOD_SPOTLIGHT_SIXTH.length)],
+    [],
+  );
 
   return (
     <>
@@ -1022,7 +1053,7 @@ export const HomePageV2: React.FC = () => {
             ))}
           </div>
           <div className="mt-4 flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:overflow-visible scrollbar-hide">
-            {HOOD_SPOTLIGHT.map((item) => (
+            {[...HOOD_SPOTLIGHT, hoodSixthSlot].map((item) => (
               <div
                 key={item.name}
                 onClick={() => {
@@ -1050,17 +1081,7 @@ export const HomePageV2: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
                 </div>
                 <div className="px-4 py-3 flex-1 flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
-                    {item.mintLive && (
-                      <span
-                        className="px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wider text-green-300 bg-green-500/20 border border-green-400/40 rounded-full animate-pulse"
-                        style={{ boxShadow: '0 0 8px rgba(74,222,128,0.4), 0 0 16px rgba(74,222,128,0.2)' }}
-                      >
-                        Mint Live
-                      </span>
-                    )}
-                  </div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
                   <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">{item.desc}</p>
                 </div>
               </div>
