@@ -418,7 +418,7 @@ const HOOD_SPOTLIGHT = [
   {
     name: 'FreakHeadz',
     desc: '3,333 pixel heads on Robinhood Chain.',
-    src: '/images/opensea-freakheadz.png',
+    src: '/images/freakheadz-spotlight.png',
     route: 'https://opensea.io/collection/freakheadz',
     isHtml: false,
     external: true,
