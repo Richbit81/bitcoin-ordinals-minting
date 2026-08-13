@@ -413,6 +413,77 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
+/** Second Spotlight row — Hood / Robinhood picks. First row stays untouched. */
+const HOOD_SPOTLIGHT = [
+  {
+    name: 'FreakHeadz',
+    desc: '3,333 pixel heads on Robinhood Chain.',
+    src: '/images/opensea-freakheadz.png',
+    route: 'https://opensea.io/collection/freakheadz',
+    isHtml: false,
+    external: true,
+    pixelated: true,
+    tag: 'COLLECTION',
+    tagColor: 'bg-purple-600',
+    mintLive: false,
+  },
+  {
+    name: 'FreakHeadz Apex',
+    desc: 'Apex from a Twin burn — 10× FRKZ. Live on OpenSea.',
+    src: 'https://freakheadz-apex-images.pages.dev/26.png',
+    route: 'https://opensea.io/collection/freakheadz-apex',
+    isHtml: false,
+    external: true,
+    tag: 'COLLECTION',
+    tagColor: 'bg-purple-600',
+    mintLive: false,
+  },
+  {
+    name: 'FreakHeadz Burn',
+    desc: 'Burn one Twin → claim Apex. Instant reveal.',
+    src: '/images/opensea-freakheadzburn.gif',
+    route: '/freakheadzburn',
+    isHtml: false,
+    external: true,
+    tag: 'FEATURED',
+    tagColor: 'bg-orange-500',
+    mintLive: true,
+  },
+  {
+    name: 'FreakHeadz Claim',
+    desc: '3,000 FRKZ per FreakHeadz. Apex holders get 10×.',
+    src: '/images/frkz-coin.png',
+    route: '/frkz',
+    isHtml: false,
+    external: true,
+    tag: 'LIVE',
+    tagColor: 'bg-green-500',
+    mintLive: true,
+  },
+  {
+    name: 'Droidz Arena',
+    desc: 'Turn-based 3D tactics and live Grid shooter for Onchain Droidz.',
+    src: 'https://droidz-images.pages.dev/1.png',
+    route: '/arena',
+    isHtml: false,
+    external: true,
+    tag: 'GAME',
+    tagColor: 'bg-orange-500',
+    mintLive: true,
+  },
+  {
+    name: 'Slums in the Hood',
+    desc: 'Street stories from the hood.',
+    src: '/images/opensea-slums.png',
+    route: 'https://opensea.io/collection/slums-in-the-hood',
+    isHtml: false,
+    external: true,
+    tag: 'COLLECTION',
+    tagColor: 'bg-purple-600',
+    mintLive: false,
+  },
+];
+
 const ALL_NEWS = [
   { name: 'SCANMODE', img: 'https://ordinals.com/content/fb6c2e54a61b392ad5699091e68a2d2bfac7af4fe5b2505a25011a7ae4b92be7i0', route: '/marketplace?collection=scanmode' },
   { name: 'Bitcoin Gazette', img: 'https://thebitcoingazette.com/fav.png', link: 'https://thebitcoingazette.com/' },
@@ -930,6 +1001,51 @@ export const HomePageV2: React.FC = () => {
                     ) : (
                       <img src={item.src} alt={item.name} className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                     )}
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
+                </div>
+                <div className="px-4 py-3 flex-1 flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white group-hover:text-red-400 transition-colors">{item.name}</h3>
+                    {item.mintLive && (
+                      <span
+                        className="px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wider text-green-300 bg-green-500/20 border border-green-400/40 rounded-full animate-pulse"
+                        style={{ boxShadow: '0 0 8px rgba(74,222,128,0.4), 0 0 16px rgba(74,222,128,0.2)' }}
+                      >
+                        Mint Live
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:overflow-visible scrollbar-hide">
+            {HOOD_SPOTLIGHT.map((item) => (
+              <div
+                key={item.name}
+                onClick={() => {
+                  if (item.external) {
+                    window.open(item.route, '_blank', 'noopener,noreferrer');
+                  } else {
+                    navigate(item.route);
+                  }
+                }}
+                className="group cursor-pointer rounded-2xl border border-white/10 bg-black hover:bg-white/[0.04] hover:border-white/20 transition-all duration-300 overflow-hidden flex flex-col min-w-[75vw] sm:min-w-0"
+              >
+                <div className="aspect-square relative overflow-hidden bg-black p-3">
+                  <span className={`absolute top-2.5 right-2.5 z-20 ${item.tagColor} px-2 py-0.5 text-[9px] font-extrabold text-white rounded-full shadow-lg`}>
+                    {item.tag}
+                  </span>
+                  <div className="relative w-full h-full rounded-xl overflow-hidden border border-white/10">
+                    <img
+                      src={item.src}
+                      alt={item.name}
+                      className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      style={item.pixelated ? { imageRendering: 'pixelated' } : undefined}
+                    />
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none" />
                 </div>
