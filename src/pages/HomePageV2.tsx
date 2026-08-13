@@ -388,7 +388,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
       {
         label: 'Claim FRKZ',
         route: '/frkz',
-        img: '/images/opensea-freakheadz.png',
+        img: '/images/frkz-coin.png',
         external: true,
       },
       {

@@ -24,9 +24,8 @@ const OPENSEA_COLLECTIONS: OpenSeaCollection[] = [
   },
   {
     name: 'Claim FRKZ',
-    cover: '/images/opensea-freakheadz.png',
+    cover: '/images/frkz-coin.png',
     url: '/frkz',
-    pixelated: true,
     external: false,
     cta: 'Claim FRKZ',
     description: '3,000 FRKZ per FreakHeadz. Apex holders get 10×.',
