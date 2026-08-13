@@ -467,7 +467,7 @@ const HOOD_SPOTLIGHT = [
     route: '/arena',
     isHtml: false,
     external: true,
-    tag: 'GAME',
+    tag: 'GAME & STAKING',
     tagColor: 'bg-orange-500',
     mintLive: false,
   },
