@@ -13,7 +13,9 @@ export default defineConfig({
       strict: false
     },
     proxy: {
-      '/api': 'http://localhost:3003'
+      '/api': 'http://localhost:3003',
+      '/content': 'http://localhost:3003',
+      '/preview': 'http://localhost:3003',
     }
   },
   resolve: {

@@ -7,6 +7,7 @@ import { AdminRoomManager } from '../components/chat/AdminRoomManager';
 import { usePinkChatAuth } from '../contexts/PinkChatAuthContext';
 import { FloatingPuppetsLayer } from '../components/FloatingPuppetsLayer';
 import { PinkPuppetsSlot2Section } from '../components/PinkPuppetsSlot2Section';
+import { PinkSlot2PrizePreview } from '../components/PinkSlot2PrizePreview';
 
 const PINKPUPPETS_MUSIC = '/audio/pinkpuppets.mp3';
 
@@ -62,12 +63,9 @@ const SafeTweet: React.FC<SafeTweetProps> = ({ id }) => (
   </SafeTweetBoundary>
 );
 
-const SLOT_PRIZES_POSTER = '/images/pinkpuppets-slot-prizes-poster.png';
-
 export const PinkPuppetsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, token } = usePinkChatAuth();
-  const [posterOpen, setPosterOpen] = React.useState(false);
   const [tweetIds, setTweetIds] = React.useState<string[]>(FALLBACK_TWEETS);
 
   React.useEffect(() => {
@@ -88,20 +86,6 @@ export const PinkPuppetsPage: React.FC = () => {
       cancelled = true;
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!posterOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPosterOpen(false);
-    };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [posterOpen]);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [musicOn, setMusicOn] = React.useState(false);
@@ -221,25 +205,9 @@ export const PinkPuppetsPage: React.FC = () => {
           {/* Main layout: 3 equal columns, fixed height so chat matches */}
           <div className="grid gap-3 grid-cols-1 md:grid-cols-3 md:h-[calc(100vh-300px)]">
 
-            {/* Col 1: Slot prizes poster (always visible) */}
+            {/* Col 1: Live prize preview (replaces static poster) */}
             <div className="min-w-0 md:h-full md:overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setPosterOpen(true)}
-                className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-pink-300/70 bg-black/35 p-3 text-left transition hover:border-pink-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/80"
-                aria-label="Open slot prizes poster fullscreen"
-              >
-                <img
-                  src={SLOT_PRIZES_POSTER}
-                  alt="New prizes added — Pink Puppets slot prize poster"
-                  className="w-full flex-1 rounded-lg object-contain min-h-0 transition group-hover:opacity-95"
-                  loading="eager"
-                />
-                <div className="mt-2 text-center">
-                  <p className="text-sm font-bold text-pink-100 group-hover:text-white">New prizes added!</p>
-                  <p className="text-[11px] text-pink-200/75 mt-0.5">Tap to enlarge · 39 ordinals in the slot</p>
-                </div>
-              </button>
+              <PinkSlot2PrizePreview />
             </div>
 
             {/* Col 2: Latest Posts */}
@@ -272,31 +240,6 @@ export const PinkPuppetsPage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {posterOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Slot prizes poster"
-          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 p-3 sm:p-6"
-          onClick={() => setPosterOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={() => setPosterOpen(false)}
-            className="absolute right-3 top-3 z-10 rounded-full border border-pink-300/50 bg-black/60 px-3 py-1.5 text-xs font-semibold text-pink-100 hover:bg-black/80 sm:right-5 sm:top-5"
-            aria-label="Close poster"
-          >
-            Close ✕
-          </button>
-          <img
-            src={SLOT_PRIZES_POSTER}
-            alt="New prizes added — Pink Puppets slot prize poster (full size)"
-            className="max-h-[min(96vh,1400px)] max-w-full object-contain shadow-2xl shadow-pink-950/40"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
     </div>
   );
 };

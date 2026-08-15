@@ -157,6 +157,9 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
   const [claimBusy, setClaimBusy] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimDone, setClaimDone] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeMessage, setCodeMessage] = useState<string | null>(null);
 
   const ordinalAddr = getOrdinalAddress(walletState.accounts || []);
   const connected = walletState.connected && !!ordinalAddr;
@@ -297,6 +300,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
       requestAnimationFrame(() => sendSpinToIframe(pres.targets, prizeImage(prize, result.previewUrl), result.spinId, pres.embedPrize));
       await loadStatus();
       await loadPool();
+      window.dispatchEvent(new Event('slot2-pool-updated'));
     } catch (e: any) {
       setSpinError(e?.message || 'Spin failed');
     } finally {
@@ -372,6 +376,37 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
     setClaimTaproot(suggestedTaproot());
     setClaimError(null);
     setClaimDone(false);
+  };
+
+  const redeemCode = async () => {
+    if (!connected || !ordinalAddr) {
+      setConnectHint(true);
+      return;
+    }
+    const code = codeInput.trim();
+    if (!code) {
+      setCodeMessage('Enter a code first.');
+      return;
+    }
+    setCodeBusy(true);
+    setCodeMessage(null);
+    setSpinError(null);
+    try {
+      const r = await fetch(slot2ApiUrl('/api/pinkpuppets/slot2/redeem'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: ordinalAddr, code }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.message || data?.error || 'Code could not be redeemed');
+      setCodeInput('');
+      setCodeMessage(data?.message || `+${data?.spins ?? 3} extra spins added`);
+      await loadStatus();
+    } catch (e: any) {
+      setCodeMessage(e?.message || 'Code could not be redeemed');
+    } finally {
+      setCodeBusy(false);
+    }
   };
 
   const submitClaim = async () => {
@@ -487,6 +522,36 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         </div>
       )}
 
+      {connected && (
+        <form
+          className="flex flex-col gap-2 rounded-xl border border-pink-400/20 bg-black/30 px-3 py-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void redeemCode();
+          }}
+        >
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-pink-300/70">Bonus code</label>
+          <div className="flex gap-2">
+            <input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+              placeholder="PP-XXXX-XXXX"
+              autoComplete="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 rounded-lg border border-pink-400/30 bg-black/60 px-3 py-2 font-mono text-xs tracking-wider text-white placeholder:text-pink-200/30"
+            />
+            <button
+              type="submit"
+              disabled={codeBusy || !codeInput.trim()}
+              className="shrink-0 rounded-lg border-2 border-black bg-pink-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50"
+            >
+              {codeBusy ? '…' : 'Redeem'}
+            </button>
+          </div>
+          {codeMessage && <p className="text-[11px] text-amber-100/90">{codeMessage}</p>}
+        </form>
+      )}
+
       {spinError && <p className="text-xs text-red-300">{spinError}</p>}
 
       <p className="text-[11px] leading-relaxed text-pink-200/55">
@@ -496,9 +561,9 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         <strong className="text-pink-100"> High Rollers </strong>or<strong className="text-pink-100"> Spikes </strong>you mint
         <strong className="text-pink-100"> from now on</strong> (no limit, free mints count too — earlier mints don&apos;t count).
         Win a spot on the<strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
-        whitelist (<strong className="text-pink-100">10 spots each</strong>), bonus spins, the one-and-only
+        whitelist (<strong className="text-pink-100">{pool ? `${pool.titans.total} / ${pool.lilcats.total} spots` : '20 spots each'}</strong>), bonus spins, the one-and-only
         <strong className="text-green-200"> Pink Puppet grand prize</strong>, or one of
-        <strong className="text-fuchsia-200"> 39 extra inscription prizes</strong>
+        <strong className="text-fuchsia-200"> {pool?.inscriptions?.total ?? 54} extra inscription prizes</strong>
         {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
         {' '}— winners receive the inscription within 24 hours (one per wallet from this pool). Whitelist / grand-prize winners enter a Taproot address (bc1p…) to receive those prizes.
       </p>
@@ -628,7 +693,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                   <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.85)]" />
                   <span>
                     Whitelist spot for <strong className="text-amber-200">Blockchain Titans</strong> or <strong className="text-cyan-200">Lil Cats</strong> —{' '}
-                    <strong className="text-pink-100">10 spots each</strong>
+                    <strong className="text-pink-100">{pool ? `${pool.titans.total} spots each` : '20 spots each'}</strong>
                     {pool ? <span className="text-pink-200/55"> ({pool.titans.remaining} + {pool.lilcats.remaining} left)</span> : null}.
                   </span>
                 </li>
@@ -639,7 +704,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 <li className="flex items-start gap-2.5">
                   <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.85)]" />
                   <span>
-                    Win one of <strong className="text-pink-100">39 inscription prizes</strong>
+                    Win one of <strong className="text-pink-100">{pool?.inscriptions?.total ?? 54} inscription prizes</strong>
                     {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
                     {' '}— image shown on win; <strong className="text-pink-100">arrives within 48 hours</strong>. One prize per wallet from this pool.
                   </span>
