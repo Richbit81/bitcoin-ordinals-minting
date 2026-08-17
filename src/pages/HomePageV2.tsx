@@ -476,15 +476,15 @@ const HOOD_SPOTLIGHT = [
 /** Sixth Hood Spotlight card rotates on each page load. */
 const HOOD_SPOTLIGHT_SIXTH = [
   {
-    name: 'Slums in the Hood',
-    desc: 'Street stories from the hood.',
-    src: '/images/opensea-slums.png',
-    route: 'https://opensea.io/collection/slums-in-the-hood',
+    name: 'Conspiracy Narrative',
+    desc: 'Mint live on OpenSea.',
+    src: '/images/opensea-conspiracy-narrative.gif',
+    route: 'https://opensea.io/collection/conspiracy-narrative',
     isHtml: false,
     external: true,
-    tag: 'COLLECTION',
-    tagColor: 'bg-purple-600',
-    mintLive: false,
+    tag: 'MINT',
+    tagColor: 'bg-green-500',
+    mintLive: true,
   },
   {
     name: 'Onchain Droidz 3D',
