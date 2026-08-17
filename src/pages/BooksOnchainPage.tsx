@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'dream-psychology',
+    name: 'Dream Psychology: Psychoanalysis for Beginners',
+    inscriptionId: '242f5f501757d23a67574e58163a12c41ee003e3f8a0f35b98e2914f56b461d3i0',
+    author: 'Sigmund Freud',
+    priceInSats: 5000,
+    description:
+      'Dream Psychology: Psychoanalysis for Beginners by Sigmund Freud is a clear introduction to Freudian dream interpretation and the foundations of psychoanalysis. Across nine chapters it explains how dreams disguise wishes, how dream analysis works, and how the unconscious relates to waking life.\n\nFrom dream mechanisms and censorship to sex in dreams, wish-fulfillment, and the primary and secondary processes, Freud opens the door to reading the night mind with clinical precision.\n\nA classic gateway to psychoanalysis—now preserved forever on-chain.',
+  },
+  {
     id: 'reincarnation-pascal',
     name: 'Reincarnation: A Study in Human Evolution',
     inscriptionId: '3ad39681c64497da086107bb23a84a058a408a577f7a80dd703075ffab52cd89i0',
