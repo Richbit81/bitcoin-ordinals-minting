@@ -676,14 +676,14 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
       {
-        name: 'Slot Machine',
-        desc: 'Spin the Pink Puppets slot machine — try your luck on richart.app.',
-        src: '/pinkpuppets-slot/index.html?embed=1',
-        route: '/pinkpuppets',
-        isHtml: true,
-        tag: 'GAME',
+        name: 'Spin & Win',
+        desc: 'Pull the lever — win inscription prizes, whitelists & the Pink Puppet grand prize.',
+        src: '/pink-slot2-prize.avif',
+        route: '/pinkpuppets#pink-slot2',
+        isHtml: false,
+        tag: 'SPIN & WIN',
         tagColor: 'bg-pink-500',
-        mintLive: false,
+        mintLive: true,
       },
       {
         name: 'SIGNAL',
@@ -728,7 +728,7 @@ export const HomePageV2: React.FC = () => {
       },
     ];
     const filtered = VEGAS_MODE
-      ? pool.filter((p) => p.name !== 'Pink Puppets' && p.name !== 'Slot Machine')
+      ? pool.filter((p) => p.name !== 'Pink Puppets' && p.name !== 'Spin & Win')
       : pool;
     return filtered[Math.floor(Math.random() * filtered.length)];
   }, []);
