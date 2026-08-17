@@ -330,50 +330,6 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Generative Art',
-    items: [
-      { label: 'Autonomous Cultural Systems', route: '/acs', img: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', isHtml: true },
-    ],
-  },
-  {
-    label: 'Marketplace',
-    items: [
-      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
-      { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
-    ],
-  },
-  {
-    label: 'Friends Marketplace',
-    items: [
-      { label: 'Eito Bitto', route: '/EitoBitto', img: '/eito-bitto-logo.png' },
-      { label: 'Ordinal Oddities', route: '/ordinaloddities', img: '/images/ordinal-oddities-preview.webp' },
-      { label: 'Pink Puppets', route: '/pinkpuppets/marketplace', img: '/images/pinkpuppets-banner.png' },
-      { label: 'The Box', route: '/thebox', img: '/images/Box.png' },
-    ],
-  },
-  {
-    label: 'Tech & Games',
-    items: [
-      { label: 'All Items', route: '/tech-games', img: '/images/techgames-logo.gif' },
-      { label: 'Games', route: '/tech-games?filter=game', img: '/images/nav-games.png' },
-      { label: 'Music', route: '/tech-games?filter=music', img: '/images/nav-music.png' },
-      { label: 'Tools', route: '/tech-games?filter=tool', img: '/images/nav-tools.png' },
-    ],
-  },
-  {
-    label: 'Books',
-    items: [
-      { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
-      { label: 'Audiobooks', route: '/audiobooks', img: `https://ordinals.com/content/1eb4cf686bc4163bf2c5a4cba592bf70ca17e489a025c0ccf7be3c80b22333b0i0`, isHtml: true },
-    ],
-  },
-  {
-    label: 'Orddropz',
-    items: [
-      { label: 'Orddropz Collections', route: '/orddropz', img: '/images/orddropz-ordheadz.png' },
-    ],
-  },
-  {
     // Hood Market and Arena are proxied via vercel.json rewrites (URL stays
     // on richart.app). OpenSea Collections stays in-app.
     label: 'Robinhood',
@@ -398,6 +354,50 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
         img: 'https://droidz-images.pages.dev/1.png',
         external: true,
       },
+    ],
+  },
+  {
+    label: 'Books',
+    items: [
+      { label: 'Books Onchain', route: '/books-onchain', img: '/images/marketplace-symbol.png' },
+      { label: 'Audiobooks', route: '/audiobooks', img: `https://ordinals.com/content/1eb4cf686bc4163bf2c5a4cba592bf70ca17e489a025c0ccf7be3c80b22333b0i0`, isHtml: true },
+    ],
+  },
+  {
+    label: 'Marketplace',
+    items: [
+      { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
+      { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
+    ],
+  },
+  {
+    label: 'Friends Marketplace',
+    items: [
+      { label: 'Eito Bitto', route: '/EitoBitto', img: '/eito-bitto-logo.png' },
+      { label: 'Ordinal Oddities', route: '/ordinaloddities', img: '/images/ordinal-oddities-preview.webp' },
+      { label: 'Pink Puppets', route: '/pinkpuppets/marketplace', img: '/images/pinkpuppets-banner.png' },
+      { label: 'The Box', route: '/thebox', img: '/images/Box.png' },
+    ],
+  },
+  {
+    label: 'Generative Art',
+    items: [
+      { label: 'Autonomous Cultural Systems', route: '/acs', img: 'https://ordinals.com/content/1e0d7855a006004929a5dba2428696bafe1e771a6a71b3a1fb0b0d66e7f5301ci0', isHtml: true },
+    ],
+  },
+  {
+    label: 'Tech & Games',
+    items: [
+      { label: 'All Items', route: '/tech-games', img: '/images/techgames-logo.gif' },
+      { label: 'Games', route: '/tech-games?filter=game', img: '/images/nav-games.png' },
+      { label: 'Music', route: '/tech-games?filter=music', img: '/images/nav-music.png' },
+      { label: 'Tools', route: '/tech-games?filter=tool', img: '/images/nav-tools.png' },
+    ],
+  },
+  {
+    label: 'Orddropz',
+    items: [
+      { label: 'Orddropz Collections', route: '/orddropz', img: '/images/orddropz-ordheadz.png' },
     ],
   },
 ];
@@ -781,7 +781,7 @@ export const HomePageV2: React.FC = () => {
               {NAV_MENUS.map((menu) => (
                 <React.Fragment key={menu.label}>
                   <DropdownMenu menu={menu} navigate={navigate} />
-                  {menu.label === 'Friends Marketplace' && (
+                  {menu.label === 'Orddropz' && (
                     <button
                       onClick={() => navigate('/inscribe')}
                       className="px-4 py-2 text-sm font-semibold transition-colors rounded-lg text-gray-200 hover:text-white hover:bg-white/10"
@@ -838,7 +838,7 @@ export const HomePageV2: React.FC = () => {
                 {NAV_MENUS.map((menu) => (
                   <React.Fragment key={menu.label}>
                     <MobileMenuSection menu={menu} navigate={(path) => { navigate(path); setMobileMenuOpen(false); }} />
-                    {menu.label === 'Friends Marketplace' && (
+                    {menu.label === 'Orddropz' && (
                       <button
                         onClick={() => { navigate('/inscribe'); setMobileMenuOpen(false); }}
                         className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-200 hover:bg-white/5 transition-colors"
