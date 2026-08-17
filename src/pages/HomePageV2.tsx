@@ -676,6 +676,16 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
       {
+        name: 'Slot Machine',
+        desc: 'Spin the Pink Puppets slot machine — try your luck on richart.app.',
+        src: '/pinkpuppets-slot/index.html?embed=1',
+        route: '/pinkpuppets',
+        isHtml: true,
+        tag: 'GAME',
+        tagColor: 'bg-pink-500',
+        mintLive: false,
+      },
+      {
         name: 'SIGNAL',
         desc: 'Generative geometric art system. Bauhaus meets cyberpunk — every mint is a unique on-chain composition.',
         src: 'https://ordinals.com/content/71244045fd22cb25c4c657d5c09c902f248a2c655ab25a81954675caf6af3572i0',
@@ -717,7 +727,9 @@ export const HomePageV2: React.FC = () => {
         mintLive: false,
       },
     ];
-    const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
+    const filtered = VEGAS_MODE
+      ? pool.filter((p) => p.name !== 'Pink Puppets' && p.name !== 'Slot Machine')
+      : pool;
     return filtered[Math.floor(Math.random() * filtered.length)];
   }, []);
 
