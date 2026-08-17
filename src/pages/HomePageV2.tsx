@@ -339,6 +339,7 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
     label: 'Marketplace',
     items: [
       { label: 'RichArt Marketplace', route: '/marketplace', img: '/images/books-onchain.png' },
+      { label: 'Hood Market', route: '/hood', img: '/images/opensea-freakheadz.png', external: true },
     ],
   },
   {
@@ -397,18 +398,6 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
         img: 'https://droidz-images.pages.dev/1.png',
         external: true,
       },
-    ],
-  },
-  {
-    label: 'Point Shop',
-    items: [
-      { label: 'Point Shop', route: '/point-shop', img: '/pointshop.png' },
-    ],
-  },
-  {
-    label: 'CATTACK',
-    items: [
-      { label: 'CATTACK', route: '/cattack', img: '/images/cattack-card.png' },
     ],
   },
 ];
