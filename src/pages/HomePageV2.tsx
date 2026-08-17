@@ -405,6 +405,17 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
 /** Second Spotlight row — Hood / Robinhood picks. First row stays untouched. */
 const HOOD_SPOTLIGHT = [
   {
+    name: 'Conspiracy Narrative',
+    desc: 'Mint live on OpenSea.',
+    src: '/images/opensea-conspiracy-narrative.gif',
+    route: 'https://opensea.io/collection/conspiracy-narrative',
+    isHtml: false,
+    external: true,
+    tag: 'MINT',
+    tagColor: 'bg-green-500',
+    mintLive: true,
+  },
+  {
     name: 'FreakHeadz',
     desc: '3,333 pixel heads on Robinhood Chain.',
     src: '/images/freakheadz-spotlight.png',
@@ -458,43 +469,6 @@ const HOOD_SPOTLIGHT = [
     external: true,
     tag: 'GAME & STAKING',
     tagColor: 'bg-orange-500',
-    mintLive: false,
-  },
-];
-
-/** Sixth Hood Spotlight card rotates on each page load. */
-const HOOD_SPOTLIGHT_SIXTH = [
-  {
-    name: 'Conspiracy Narrative',
-    desc: 'Mint live on OpenSea.',
-    src: '/images/opensea-conspiracy-narrative.gif',
-    route: 'https://opensea.io/collection/conspiracy-narrative',
-    isHtml: false,
-    external: true,
-    tag: 'MINT',
-    tagColor: 'bg-green-500',
-    mintLive: true,
-  },
-  {
-    name: 'Onchain Droidz 3D',
-    desc: 'The Onchain Droidz 3D collection on Robinhood Chain.',
-    src: 'https://droidz-images.pages.dev/20.png',
-    route: 'https://opensea.io/de-DE/collection/onchain-droidz-3d',
-    isHtml: false,
-    external: true,
-    tag: 'COLLECTION',
-    tagColor: 'bg-purple-600',
-    mintLive: false,
-  },
-  {
-    name: 'SplitVerse Panda',
-    desc: 'Unique pandas blurring reality and imagination. Live on OpenSea.',
-    src: '/images/splitverse-panda.webp',
-    route: 'https://opensea.io/collection/splitverse-panda',
-    isHtml: false,
-    external: true,
-    tag: 'COLLECTION',
-    tagColor: 'bg-purple-600',
     mintLive: false,
   },
 ];
@@ -746,11 +720,6 @@ export const HomePageV2: React.FC = () => {
     const filtered = VEGAS_MODE ? pool.filter((p) => p.name !== 'Pink Puppets') : pool;
     return filtered[Math.floor(Math.random() * filtered.length)];
   }, []);
-
-  const hoodSixthSlot = useMemo(
-    () => HOOD_SPOTLIGHT_SIXTH[Math.floor(Math.random() * HOOD_SPOTLIGHT_SIXTH.length)],
-    [],
-  );
 
   return (
     <>
@@ -1042,7 +1011,7 @@ export const HomePageV2: React.FC = () => {
             ))}
           </div>
           <div className="mt-4 flex gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:overflow-visible scrollbar-hide">
-            {[...HOOD_SPOTLIGHT, hoodSixthSlot].map((item) => (
+            {HOOD_SPOTLIGHT.map((item) => (
               <div
                 key={item.name}
                 onClick={() => {
