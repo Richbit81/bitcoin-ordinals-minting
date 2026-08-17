@@ -730,7 +730,14 @@ export const HomePageV2: React.FC = () => {
     const filtered = VEGAS_MODE
       ? pool.filter((p) => p.name !== 'Pink Puppets' && p.name !== 'Spin & Win')
       : pool;
-    return filtered[Math.floor(Math.random() * filtered.length)];
+    // Spin & Win 3:1 vs. dem Rest des Pools (~75% der Page-Loads).
+    const spinWin = filtered.find((p) => p.name === 'Spin & Win');
+    const others = filtered.filter((p) => p.name !== 'Spin & Win');
+    if (spinWin && others.length > 0 && Math.random() < 0.75) {
+      return spinWin;
+    }
+    const pickFrom = others.length > 0 ? others : filtered;
+    return pickFrom[Math.floor(Math.random() * pickFrom.length)];
   }, []);
 
   return (
