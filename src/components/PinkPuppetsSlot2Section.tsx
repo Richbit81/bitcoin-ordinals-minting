@@ -563,7 +563,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
         Win a spot on the<strong className="text-amber-200"> Blockchain Titans </strong>or<strong className="text-cyan-200"> Lil Cats </strong>
         whitelist (<strong className="text-pink-100">{pool ? `${pool.titans.total} / ${pool.lilcats.total} spots` : '20 spots each'}</strong>), bonus spins, the one-and-only
         <strong className="text-green-200"> Pink Puppet grand prize</strong>, or one of
-        <strong className="text-fuchsia-200"> {pool?.inscriptions?.total ?? 54} extra inscription prizes</strong>
+        <strong className="text-fuchsia-200"> {pool?.inscriptions?.total ?? 79} extra inscription prizes</strong>
         {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
         {' '}— winners receive the inscription within 24 hours (one per wallet from this pool). Whitelist / grand-prize winners enter a Taproot address (bc1p…) to receive those prizes.
       </p>
@@ -704,7 +704,7 @@ export const PinkPuppetsSlot2Section: React.FC = () => {
                 <li className="flex items-start gap-2.5">
                   <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.85)]" />
                   <span>
-                    Win one of <strong className="text-pink-100">{pool?.inscriptions?.total ?? 54} inscription prizes</strong>
+                    Win one of <strong className="text-pink-100">{pool?.inscriptions?.total ?? 79} inscription prizes</strong>
                     {pool?.inscriptions ? <span className="text-pink-200/55"> ({pool.inscriptions.remaining} left · max {pool.inscriptions.dailyCap}/day)</span> : null}
                     {' '}— image shown on win; <strong className="text-pink-100">arrives within 48 hours</strong>. One prize per wallet from this pool.
                   </span>
