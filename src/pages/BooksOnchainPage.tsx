@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'last-and-first-men',
+    name: 'Last and First Men',
+    inscriptionId: '25efb76442e2402661aded4d3827382663a4b098215272b87ec95b66efd7d2d2i0',
+    author: 'Olaf Stapledon',
+    priceInSats: 5000,
+    description:
+      'Last and First Men by Olaf Stapledon is a visionary history of humanity across two billion years. Written as a message from the distant future, it traces the rise and fall of eighteen successive human species—from the First Men of our own era through wars, migrations, Martian contact, and cosmic exile to the Last Men on Neptune.\n\nBold in scope and sober in tone, Stapledon imagines evolution, culture, and civilisation on a scale rarely attempted in fiction.\n\nA landmark of speculative literature—now preserved forever on-chain.',
+  },
+  {
     id: 'dream-psychology',
     name: 'Dream Psychology: Psychoanalysis for Beginners',
     inscriptionId: '242f5f501757d23a67574e58163a12c41ee003e3f8a0f35b98e2914f56b461d3i0',
