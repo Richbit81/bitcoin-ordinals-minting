@@ -406,14 +406,14 @@ const NAV_MENUS: { label: string; items: NavItem[] }[] = [
 const HOOD_SPOTLIGHT = [
   {
     name: 'Conspiracy Narrative',
-    desc: 'Mint live on OpenSea.',
+    desc: 'Lot Shift. Holder archive. Click to enter the field.',
     src: '/images/opensea-conspiracy-narrative.gif',
-    route: 'https://opensea.io/collection/conspiracy-narrative',
+    route: 'https://conspiracy.richart.app/',
     isHtml: false,
     external: true,
-    tag: 'MINT',
+    tag: 'PLAY',
     tagColor: 'bg-green-500',
-    mintLive: true,
+    mintLive: false,
   },
   {
     name: 'FreakHeadz',
