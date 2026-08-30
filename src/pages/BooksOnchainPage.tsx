@@ -12,6 +12,15 @@ import { useUnisatTaproot } from '../hooks/useUnisatTaproot';
 
 const BOOK_ITEMS = [
   {
+    id: 'metamorphosis',
+    name: 'Metamorphosis',
+    inscriptionId: 'eb7443eb726a51cb7a31daac95a3ded86e81132af3dd1a937d87f0b3d4a7887ci0',
+    author: 'Franz Kafka',
+    priceInSats: 5000,
+    description:
+      'Metamorphosis by Franz Kafka is one of the most famous stories of modern literature. Travelling salesman Gregor Samsa wakes one morning transformed into a monstrous vermin, and what follows is not horror but the quiet, unbearable logic of a family adjusting to the impossible.\n\nAcross three chapters Kafka turns the absurd into something painfully ordinary—duty, shame, isolation, and the price of being useless to those who depend on you.\n\nA masterpiece of unease—now preserved forever on-chain.',
+  },
+  {
     id: 'last-and-first-men',
     name: 'Last and First Men',
     inscriptionId: '25efb76442e2402661aded4d3827382663a4b098215272b87ec95b66efd7d2d2i0',
